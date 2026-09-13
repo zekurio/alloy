@@ -6,7 +6,7 @@ use alloy_capture_library::protocol::CaptureHttpServer;
 use alloy_capture_library::store::{CaptureLibrary, CaptureLibraryConfig};
 use alloy_capture_library::types::{
     CaptureGame, CaptureKind, CaptureRecord, CaptureSource, CommitImport, ExportRequest,
-    ExportSegment, MetaPatch, PostProcess, TrimUpdate,
+    ExportSegment, GameGuess, MetaPatch, PostProcess, TrimUpdate,
 };
 use alloy_capture_library::{download::DownloadManager, types::DownloadRequest};
 use axum::Router;
@@ -59,6 +59,60 @@ fn capture(filename: &str, kind: CaptureKind) -> CaptureRecord {
         post_process: None,
         created_at: "2026-01-01T00:00:00Z".to_string(),
     }
+}
+
+#[tokio::test]
+async fn recorder_game_guesses_survive_manifest_round_trips() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let folder = temp.path().join("captures/Clips/Test Game");
+    fs::create_dir_all(&folder).await.unwrap();
+    for name in ["first.mp4", "second.mp4"] {
+        let media = folder.join(name);
+        fs::write(&media, b"not a real mp4").await.unwrap();
+        let mut record = capture(media.to_str().unwrap(), CaptureKind::Replay);
+        // The recorder reports confidence in percent, like the host models.
+        record.game.as_mut().unwrap().guess = Some(GameGuess {
+            source: "discord-detectable".to_string(),
+            source_id: Some("700136079562375258".to_string()),
+            name: "Test Game".to_string(),
+            aliases: Vec::new(),
+            executable: Some("game.exe".to_string()),
+            path: None,
+            window_title: None,
+            window_class: None,
+            icon_url: None,
+            confidence: 96,
+            match_kind: "executable".to_string(),
+        });
+        library.remember_capture(&record).unwrap();
+    }
+
+    let manifest = library.read_manifest();
+    assert_eq!(manifest.captures.len(), 2);
+    assert!(
+        manifest
+            .captures
+            .values()
+            .all(|entry| entry.game_guess.as_ref().map(|guess| guess.confidence) == Some(96))
+    );
+
+    // One invalid entry must not reset the other entries.
+    let path = temp.path().join("user-data/recording-library.json");
+    let mut json: serde_json::Value =
+        serde_json::from_slice(&fs::read(&path).await.unwrap()).unwrap();
+    let key = json["captures"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .next()
+        .unwrap()
+        .clone();
+    json["captures"][&key]["gameGuess"]["confidence"] = serde_json::json!(250);
+    fs::write(&path, serde_json::to_vec(&json).unwrap()).await.unwrap();
+    let manifest = library.read_manifest();
+    assert_eq!(manifest.captures.len(), 1);
+    assert!(!manifest.captures.contains_key(&key));
 }
 
 #[tokio::test]

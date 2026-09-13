@@ -2,13 +2,20 @@ import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { useNavigate, useSearch } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
 import { alloyDesktop } from "@/lib/desktop"
+import {
+  libraryMedia,
+  librarySort,
+  librarySource,
+  type LibrarySearch,
+  parseLibrarySearch,
+} from "@/lib/library-search"
 
 import {
   enrichLibraryItem,
@@ -26,6 +33,15 @@ export type CurrentLibraryEntry =
   | { type: "local"; id: string }
   | { type: "cloud"; id: string }
 
+/**
+ * The library grid's filters, carried into the editor routes through the URL
+ * so prev/next and "back" mirror the grid the item was opened from.
+ */
+export function useLibrarySearch(): LibrarySearch {
+  const search = useSearch({ strict: false })
+  return useMemo(() => parseLibrarySearch(search), [search])
+}
+
 export function useLibraryEntryNavigation(current: CurrentLibraryEntry) {
   const desktop = alloyDesktop()
   const { snapshot, error, refreshing, refresh } = useLibrarySnapshot(desktop)
@@ -33,21 +49,27 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry) {
   const { data: session } = useSession()
   const uploadedQuery = useUserClipsQuery(session?.user?.username ?? "")
   const uploaded = useMemo(() => uploadedQuery.data ?? [], [uploadedQuery.data])
+  const search = useLibrarySearch()
+  const media = libraryMedia(search)
+  const sort = librarySort(search)
+  // Mirrors the library page: without the desktop API there are no local
+  // captures, so a stray ?source= must not empty the list.
+  const source = desktop ? librarySource(search) : "all"
 
-  const entries = useMemo(
-    () =>
-      buildLibraryEntries({
-        snapshot,
-        gamesByName,
-        uploaded,
-        active: null,
-        // Editor navigation roams the whole library, unfiltered by media type.
-        media: "all",
-        source: "all",
-        query: "",
-      }).filter(isNavigableEntry),
-    [snapshot, gamesByName, uploaded],
-  )
+  const entries = useMemo(() => {
+    // Editor navigation walks the same filtered, ordered list as the grid the
+    // item was opened from, so it never crosses into a hidden media kind.
+    const filtered = buildLibraryEntries({
+      snapshot,
+      gamesByName,
+      uploaded,
+      active: null,
+      media,
+      source,
+      query: "",
+    }).filter(isNavigableEntry)
+    return sort === "oldest" ? filtered.toReversed() : filtered
+  }, [snapshot, gamesByName, uploaded, media, source, sort])
   const index = entries.findIndex((entry) =>
     entryMatchesCurrent(entry, current),
   )
@@ -127,12 +149,14 @@ function entryMatchesCurrent(
 export function useNavigateToLibraryEntry() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const search = useLibrarySearch()
   return useCallback(
     (entry: NavigableLibraryEntry, replace = true) => {
       if (entry.type === "local") {
         void navigate({
           to: "/library/$captureId",
           params: { captureId: entry.item.id },
+          search,
           replace,
         })
       } else if (entry.type === "cloud") {
@@ -140,11 +164,12 @@ export function useNavigateToLibraryEntry() {
         void navigate({
           to: "/library/clips/$clipId",
           params: { clipId: entry.row.id },
+          search,
           replace,
         })
       }
     },
-    [navigate, queryClient],
+    [navigate, queryClient, search],
   )
 }
 

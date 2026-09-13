@@ -236,6 +236,16 @@ impl DesktopRuntime {
     }
 
     async fn finalize_once(&self, capture: RecordingCapture) -> Result<(), String> {
+        if !Path::new(&capture.filename).is_file() {
+            // The raw file was deleted or moved. Retrying on every start would
+            // fail forever, so drop it from the recorder's recovery queue.
+            let removed = self.recorder.remove_capture(&capture.id).await.map_err(error)?;
+            return Err(format!(
+                "Capture file is missing{}: {}",
+                if removed { " and was dropped" } else { "" },
+                capture.filename
+            ));
+        }
         let library = self.library_for_capture(&capture).await?;
         let mut record: CaptureRecord =
             serde_json::from_value(to_value(&capture)?).map_err(error)?;
@@ -317,6 +327,7 @@ impl DesktopRuntime {
     }
 
     async fn report_error(&self, cause: String) {
+        eprintln!("[alloy-desktop] recording error: {cause}");
         self.emit(
             json!({ "type": "error", "error": cause, "status": self.recorder.get_status().await }),
         );

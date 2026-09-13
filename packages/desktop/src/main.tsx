@@ -11,7 +11,6 @@ import { Input } from "@alloy/ui/components/input"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { initTheme } from "@alloy/ui/lib/theme"
 import { invoke } from "@tauri-apps/api/core"
-import { Globe2Icon, LockKeyholeIcon } from "lucide-react"
 import { StrictMode, useEffect, useRef, useState, type FormEvent } from "react"
 import { createRoot } from "react-dom/client"
 
@@ -22,7 +21,7 @@ type ConnectionState = "idle" | "connecting" | "cancelling"
 function connectionError(cause: unknown): string {
   if (cause instanceof Error && cause.message.trim()) return cause.message
   const parsed = DesktopTauriErrorSchema.safeParse(cause)
-  return parsed.success ? parsed.data : t("Could not reach server.")
+  return parsed.success ? t(parsed.data) : t("Could not reach server.")
 }
 
 function ConnectScreen() {
@@ -124,102 +123,72 @@ function ConnectScreen() {
   }
 
   return (
-    <main className="bg-background text-foreground relative flex min-h-dvh items-center justify-center overflow-hidden px-5 py-10 sm:px-8">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,color-mix(in_oklab,var(--border)_36%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_oklab,var(--border)_36%,transparent)_1px,transparent_1px)] [background-size:32px_32px] opacity-40"
-      />
-      <div
-        aria-hidden="true"
-        className="bg-accent/10 pointer-events-none absolute -top-32 left-1/2 size-96 -translate-x-1/2 rounded-full blur-3xl"
-      />
+    <main className="bg-background text-foreground relative flex h-dvh w-full flex-col">
+      <header className="absolute top-8 left-6 z-10 flex items-center sm:left-10">
+        <AlloyLogo size={36} showText />
+      </header>
 
-      <section className="relative w-full max-w-[440px]">
-        <header className="mb-7 flex items-center justify-between px-1">
-          <AlloyLogo showText size={32} />
-          <span className="text-foreground-faint font-mono text-[11px] tracking-[0.08em]">
-            {t("DESKTOP")}
-          </span>
-        </header>
-
-        <div className="border-border bg-surface/95 rounded-2xl border p-6 shadow-[0_24px_80px_color-mix(in_oklab,var(--background)_60%,transparent)] backdrop-blur sm:p-8">
-          <div className="mb-7 space-y-2">
-            <div className="bg-accent/12 text-accent inline-flex items-center gap-2 rounded-full px-2.5 py-1 font-mono text-[11px] font-medium tracking-[0.04em]">
-              <span className="bg-accent size-1.5 rounded-full" />
-              {t("Server connection")}
-            </div>
-            <h1 className="text-foreground text-2xl font-semibold tracking-[-0.025em] sm:text-[28px]">
+      <div className="flex h-full w-full items-center justify-center px-6 py-24 sm:px-10">
+        <form
+          onSubmit={connect}
+          className="flex w-full max-w-sm flex-col gap-3 text-left"
+        >
+          <div className="mb-5 space-y-1.5">
+            <h1 className="text-foreground text-2xl font-semibold">
               {t("Connect to Alloy")}
             </h1>
-            <p className="text-foreground-muted max-w-[34ch] text-sm leading-6">
-              {t(
-                "Enter your server URL. If sign-in is needed, Alloy opens your browser.",
-              )}
+            <p className="text-foreground-muted text-sm">
+              {t("Enter your server URL to authenticate the desktop app.")}
             </p>
           </div>
 
-          <form onSubmit={connect} className="space-y-4">
-            <div className="space-y-2">
-              <label
-                htmlFor="server-url"
-                className="text-foreground text-sm font-medium"
-              >
-                {t("Server URL")}
-              </label>
-              <div className="relative">
-                <Globe2Icon
-                  aria-hidden="true"
-                  className="text-foreground-faint pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2"
-                />
-                <Input
-                  id="server-url"
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
-                  placeholder="https://alloy.example.com"
-                  autoComplete="url"
-                  disabled={pending}
-                  required
-                  className="h-11 pl-10 font-mono text-sm"
-                />
-              </div>
-              <p className="text-foreground-faint flex items-start gap-1.5 text-xs leading-5">
-                <LockKeyholeIcon
-                  aria-hidden="true"
-                  className="mt-0.5 size-3.5 shrink-0"
-                />
-                {t("Use HTTPS. HTTP works for localhost only.")}
-              </p>
-            </div>
+          <Input
+            type="text"
+            inputMode="url"
+            autoComplete="url"
+            placeholder="alloy.example.com"
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+            disabled={pending}
+            required
+            aria-label={t("Server URL")}
+          />
 
+          {state === "connecting" ? (
+            <p className="text-foreground-muted text-sm">
+              {t(
+                "A browser window may open to sign in. Return here once you're done.",
+              )}
+            </p>
+          ) : null}
+
+          <Button
+            type="submit"
+            className="mt-2 w-full justify-center"
+            disabled={pending || !url.trim()}
+          >
+            {pending ? <Spinner /> : null}
+            {state === "connecting"
+              ? t("Connecting...")
+              : state === "cancelling"
+                ? t("Cancelling...")
+                : t("Connect")}
+          </Button>
+
+          {state === "connecting" ? (
             <Button
-              type="submit"
-              size="lg"
-              className="h-11 w-full"
-              disabled={pending}
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mx-auto"
+              onClick={() => void cancel()}
             >
-              {pending ? <Spinner /> : null}
-              {state === "connecting"
-                ? t("Connecting...")
-                : state === "cancelling"
-                  ? t("Cancelling...")
-                  : t("Connect")}
+              {t("Cancel")}
             </Button>
-
-            {state === "connecting" ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="mx-auto block"
-                onClick={() => void cancel()}
-              >
-                {t("Cancel")}
-              </Button>
-            ) : null}
-          </form>
+          ) : null}
 
           {servers.length > 0 ? (
-            <div className="border-border mt-5 space-y-2 border-t pt-4">
+            <div className="mt-4 space-y-1">
               <p className="text-foreground-muted text-xs font-medium">
                 {t("Saved servers")}
               </p>
@@ -255,22 +224,18 @@ function ConnectScreen() {
             </div>
           ) : null}
 
-          <div className="min-h-6 pt-4" aria-live="polite">
+          <div className="min-h-5" aria-live="polite">
             {notice ? (
               <p className="text-foreground-muted text-sm">{notice}</p>
             ) : null}
             {error ? (
-              <p role="alert" className="text-danger text-sm leading-5">
+              <p role="alert" className="text-danger text-sm">
                 {error}
               </p>
             ) : null}
           </div>
-        </div>
-
-        <p className="text-foreground-faint mt-5 text-center text-xs">
-          {t("Your server keeps your clips and account data.")}
-        </p>
-      </section>
+        </form>
+      </div>
     </main>
   )
 }

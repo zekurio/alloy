@@ -1,6 +1,9 @@
 import { z } from "zod"
 
-import type { AlloyDesktopRecordingApi } from "./desktop-api"
+import type {
+  AlloyDesktopRecordingApi,
+  DesktopSavedServer,
+} from "./desktop-api"
 import type { AlloyDesktopAutostartApi } from "./desktop-autostart"
 import type { AlloyDesktopUpdatesApi } from "./desktop-update"
 
@@ -10,7 +13,7 @@ export const TAURI_DESKTOP_BRIDGE_CONTRACT_IDS = Object.freeze([
   TAURI_DESKTOP_BRIDGE_CONTRACT_1,
 ] as const)
 
-/** Only the local connection screen receives this result. */
+/** Returned by the local connection screen and the in-app server switch. */
 export const DesktopTauriConnectResultSchema = z.object({
   serverUrl: z.url(),
 })
@@ -33,6 +36,18 @@ export const DesktopTauriSavedServersSchema = z
   )
   .max(8)
 
+/**
+ * Server management from inside the selected server's web app. Every call
+ * rejects with a user-facing message on failure. A successful `connect`
+ * replaces the calling window with the new server's window.
+ */
+export interface AlloyTauriDesktopServerApi {
+  connect(url: string): Promise<DesktopTauriConnectResult>
+  getServers(): Promise<DesktopSavedServer[]>
+  getCurrentServer(): Promise<string>
+  forgetServer(url: string): Promise<DesktopSavedServer[]>
+}
+
 /** Native operations granted to the selected server's web app. */
 export interface AlloyTauriDesktop {
   bridgeContract: typeof TAURI_DESKTOP_BRIDGE_CONTRACT_1
@@ -43,6 +58,7 @@ export interface AlloyTauriDesktop {
   openConnect(): Promise<void>
   openSettings(): Promise<void>
   reloadApp(): Promise<void>
+  servers: AlloyTauriDesktopServerApi
   recording: AlloyDesktopRecordingApi
   updates: AlloyDesktopUpdatesApi
   autostart: AlloyDesktopAutostartApi

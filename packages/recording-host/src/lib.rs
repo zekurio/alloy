@@ -51,7 +51,8 @@ const DISCORD_CACHE_TTL_SECONDS: i64 = 24 * 60 * 60;
 const DISCORD_REFRESH_INTERVAL: Duration = Duration::from_secs(60 * 60);
 const DISCORD_FETCH_TIMEOUT: Duration = Duration::from_secs(15);
 const DISCORD_CONNECT_TIMEOUT: Duration = Duration::from_secs(8);
-const DISCORD_MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
+// The detectable-applications payload is ~13 MB as of 2026 and keeps growing.
+const DISCORD_MAX_BODY_BYTES: usize = 64 * 1024 * 1024;
 const DISCORD_MAX_ROWS: usize = 100_000;
 
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]

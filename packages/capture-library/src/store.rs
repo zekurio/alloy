@@ -737,14 +737,19 @@ fn read_manifest_file(path: &Path) -> CaptureManifest {
     if bytes.len() > MAX_MANIFEST_BYTES {
         return CaptureManifest::default();
     }
-    let Ok(manifest) = serde_json::from_slice::<CaptureManifest>(&bytes) else {
+    let Ok(mut manifest) = serde_json::from_slice::<CaptureManifest>(&bytes) else {
         return CaptureManifest::default();
     };
-    if manifest.version != MANIFEST_VERSION || !validate_manifest(&manifest) {
-        CaptureManifest::default()
-    } else {
-        manifest
+    if manifest.version != MANIFEST_VERSION || manifest.captures.len() > MAX_MANIFEST_ENTRIES {
+        return CaptureManifest::default();
     }
+    // Drop entries that fail validation individually. Resetting the whole
+    // manifest would discard titles, trims, and upload links of every other
+    // capture because of one bad record.
+    manifest
+        .captures
+        .retain(|key, entry| validate_manifest_entry(key, entry));
+    manifest
 }
 
 fn manifest_lock_for(path: &Path) -> Arc<Mutex<()>> {
@@ -760,35 +765,30 @@ fn manifest_lock_for(path: &Path) -> Arc<Mutex<()>> {
         .clone()
 }
 
-fn validate_manifest(manifest: &CaptureManifest) -> bool {
-    if manifest.captures.len() > MAX_MANIFEST_ENTRIES {
-        return false;
-    }
-    manifest.captures.iter().all(|(key, entry)| {
-        key.len() <= 32_768
-            && is_capture_id(&entry.id)
-            && !entry.filename.contains('\0')
-            && entry.filename.len() <= 32_768
-            && !entry.title.is_empty()
-            && entry.title.len() <= MAX_TITLE_LENGTH
-            && entry.mentions.len() <= MAX_MENTIONS
-            && entry
-                .mentions
-                .iter()
-                .all(|mention| mention.id.len() <= 128 && mention.username.len() <= 256)
-            && entry
-                .game_guess
-                .as_ref()
-                .is_none_or(|value| validate_game_guess(value).is_ok())
-            && entry
-                .description
-                .as_deref()
-                .is_none_or(|value| value.len() <= MAX_DESCRIPTION_LENGTH)
-            && entry
-                .tags
-                .as_deref()
-                .is_none_or(|value| value.len() <= MAX_TAGS_LENGTH)
-    })
+fn validate_manifest_entry(key: &str, entry: &ManifestEntry) -> bool {
+    key.len() <= 32_768
+        && is_capture_id(&entry.id)
+        && !entry.filename.contains('\0')
+        && entry.filename.len() <= 32_768
+        && !entry.title.is_empty()
+        && entry.title.len() <= MAX_TITLE_LENGTH
+        && entry.mentions.len() <= MAX_MENTIONS
+        && entry
+            .mentions
+            .iter()
+            .all(|mention| mention.id.len() <= 128 && mention.username.len() <= 256)
+        && entry
+            .game_guess
+            .as_ref()
+            .is_none_or(|value| validate_game_guess(value).is_ok())
+        && entry
+            .description
+            .as_deref()
+            .is_none_or(|value| value.len() <= MAX_DESCRIPTION_LENGTH)
+        && entry
+            .tags
+            .as_deref()
+            .is_none_or(|value| value.len() <= MAX_TAGS_LENGTH)
 }
 
 fn write_manifest_file(path: &Path, manifest: &CaptureManifest) -> Result<()> {
@@ -905,6 +905,12 @@ fn add_item(
         .unwrap_or_else(now_rfc3339);
     let (trim_start_ms, trim_end_ms) =
         trim_for_entry(entry, entry.and_then(|value| value.duration_ms));
+    // The recorder files game captures under a folder named after the game,
+    // so a capture without a manifest entry still gets a real name instead of
+    // a placeholder that disagrees with its group.
+    let game_name = entry
+        .and_then(|value| value.game_name.clone())
+        .or_else(|| (source == CaptureSource::Game).then(|| group_label.clone()));
     output.push(LibraryItem {
         id: id.clone(),
         title: entry.map(|value| value.title.clone()).unwrap_or_else(|| {
@@ -928,9 +934,7 @@ fn add_item(
         source,
         group_key: group_label.to_ascii_lowercase(),
         group_label,
-        game_name: entry
-            .and_then(|value| value.game_name.clone())
-            .or_else(|| (source == CaptureSource::Game).then(|| "Unknown game".to_string())),
+        game_name,
         game_icon_url: entry.and_then(|value| value.game_icon_url.clone()),
         game_guess: entry.and_then(|value| value.game_guess.clone()),
         size_bytes: entry
@@ -1106,8 +1110,7 @@ fn validate_game_guess(value: &crate::types::GameGuess) -> Result<()> {
         || value.aliases.len() > 100
         || value.aliases.iter().any(|alias| alias.len() > 256)
         || value.match_kind.len() > 128
-        || !value.confidence.is_finite()
-        || !(0.0..=1.0).contains(&value.confidence)
+        || value.confidence > 100
     {
         return Err(LibraryError::InvalidMetadata("invalid game guess".into()));
     }

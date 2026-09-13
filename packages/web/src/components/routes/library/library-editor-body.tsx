@@ -67,6 +67,7 @@ import {
   LibraryEntryNavButton,
   type NavigableLibraryEntry,
   useLibraryEditorShortcuts,
+  useLibrarySearch,
 } from "./library-entry-navigation"
 import { LocalFileLocation } from "./library-file-location"
 import {
@@ -125,6 +126,7 @@ function LocalEditorBody({
   const isImage = item.kind === "screenshot"
   const [screenshotEdit, setScreenshotEdit] = useState(DEFAULT_SCREENSHOT_EDIT)
   const navigate = useNavigate()
+  const librarySearch = useLibrarySearch()
   const { publishClip } = useUploadActions()
   const { queue } = useUploadQueue()
 
@@ -305,6 +307,7 @@ function LocalEditorBody({
         await navigate({
           to: "/library/$captureId",
           params: { captureId: result.id },
+          search: librarySearch,
           replace: true,
         })
       }
@@ -355,6 +358,7 @@ function LocalEditorBody({
 
       await navigate({
         to: "/library",
+        search: librarySearch,
         replace: true,
       })
     }, t("Couldn't prepare clip"))
@@ -369,7 +373,7 @@ function LocalEditorBody({
         )
       }
       setLinkToCopy(null)
-      await navigate({ to: "/library", replace: true })
+      await navigate({ to: "/library", search: librarySearch, replace: true })
     }, t("Couldn't copy the clip link"))
   }
 
@@ -490,7 +494,7 @@ function LocalEditorBody({
               type="button"
               variant="ghost"
               disabled={deleting || publishing || saving}
-              render={<Link to="/library" />}
+              render={<Link to="/library" search={librarySearch} />}
             >
               {awaitingLinkCopy ? t("Done") : t("Cancel")}
             </Button>

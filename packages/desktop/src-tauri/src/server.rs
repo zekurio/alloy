@@ -107,15 +107,15 @@ pub fn server_origin(input: &str) -> Result<Url, String> {
     if input.is_empty() || input.contains('\\') {
         return Err("Enter an Alloy server URL.".into());
     }
-    let mut url = Url::parse(if input.contains("://") { input } else { "" })
+    let explicit_scheme = input.contains("://");
+    let mut url = Url::parse(if explicit_scheme { input } else { "" })
         .or_else(|_| Url::parse(&format!("https://{input}")))
         .map_err(|_| "Enter a valid server URL.")?;
-    let loopback = match url.host() {
-        Some(Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
-        Some(Host::Ipv4(ip)) => ip.is_loopback(),
-        Some(Host::Ipv6(ip)) => ip.is_loopback(),
-        None => false,
-    };
+    let loopback = is_loopback(&url);
+    // A bare "localhost:5173" is a local dev server, which never speaks TLS.
+    if !explicit_scheme && loopback {
+        url.set_scheme("http").map_err(|_| "Enter a valid server URL.")?;
+    }
     if !url.username().is_empty()
         || url.password().is_some()
         || !(url.scheme() == "https" || url.scheme() == "http" && loopback)
@@ -130,6 +130,15 @@ pub fn server_origin(input: &str) -> Result<Url, String> {
     url.set_query(None);
     url.set_fragment(None);
     Ok(url)
+}
+
+fn is_loopback(url: &Url) -> bool {
+    match url.host() {
+        Some(Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
+        Some(Host::Ipv4(ip)) => ip.is_loopback(),
+        Some(Host::Ipv6(ip)) => ip.is_loopback(),
+        None => false,
+    }
 }
 
 #[derive(Deserialize)]
@@ -190,6 +199,26 @@ mod tests {
         ] {
             assert!(server_origin(input).is_ok(), "{input}");
         }
+    }
+
+    #[test]
+    fn defaults_bare_hosts_to_https_and_bare_loopback_to_http() {
+        assert_eq!(
+            server_origin("alloy.example").unwrap().as_str(),
+            "https://alloy.example/"
+        );
+        assert_eq!(
+            server_origin("localhost:5173").unwrap().as_str(),
+            "http://localhost:5173/"
+        );
+        assert_eq!(
+            server_origin("127.0.0.1:5173").unwrap().as_str(),
+            "http://127.0.0.1:5173/"
+        );
+        assert_eq!(
+            server_origin("https://localhost:5173").unwrap().as_str(),
+            "https://localhost:5173/"
+        );
     }
 
     #[test]

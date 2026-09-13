@@ -40,7 +40,8 @@ pub struct GameGuess {
     pub window_title: Option<String>,
     pub window_class: Option<String>,
     pub icon_url: Option<String>,
-    pub confidence: f64,
+    /// Detector confidence in percent (0-100), matching the recorder protocol.
+    pub confidence: u8,
     pub match_kind: String,
 }
 

@@ -11,13 +11,9 @@ export type LibrarySearch = {
   media?: Exclude<MediaFilter, "video">
 }
 
-interface LibrarySearchInput {
-  sort?: unknown
-  source?: unknown
-  media?: unknown
-}
-
-export function parseLibrarySearch(search: LibrarySearchInput): LibrarySearch {
+export function parseLibrarySearch(
+  search: Record<string, unknown>,
+): LibrarySearch {
   const parsed: LibrarySearch = {}
   // The defaults (newest first, all sources, clips only) stay out of the URL.
   if (search.sort === "oldest") parsed.sort = "oldest"
@@ -27,6 +23,23 @@ export function parseLibrarySearch(search: LibrarySearchInput): LibrarySearch {
   const media = MEDIA_FILTERS.find((value) => value === search.media)
   if (media && media !== "video") parsed.media = media
   return parsed
+}
+
+/** The URL form of a filter set, with the defaults left out. */
+export function toLibrarySearch({
+  sort,
+  source,
+  media,
+}: {
+  sort: LibrarySort
+  source: LibrarySource
+  media: MediaFilter
+}): LibrarySearch {
+  const search: LibrarySearch = {}
+  if (sort !== "recent") search.sort = sort
+  if (source !== "all") search.source = source
+  if (media !== "video") search.media = media
+  return search
 }
 
 export function librarySort(search: LibrarySearch): LibrarySort {

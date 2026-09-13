@@ -19,6 +19,7 @@ import { EditorBody } from "./library-editor-body"
 import { BackToLibraryButton } from "./library-editor-shared"
 import {
   useLibraryEntryNavigation,
+  useLibrarySearch,
   useNavigateToLibraryEntry,
 } from "./library-entry-navigation"
 
@@ -81,6 +82,7 @@ function LibraryEditorContent({
 }) {
   const navigate = useNavigate()
   const navigateToEntry = useNavigateToLibraryEntry()
+  const librarySearch = useLibrarySearch()
   const navigation = useLibraryEntryNavigation({ type: "local", id: captureId })
   const { snapshot, error, refreshing, prevEntry, nextEntry } = navigation
   const [deleting, setDeleting] = useState(false)
@@ -114,7 +116,7 @@ function LibraryEditorContent({
       if (fallback) {
         navigateToEntry(fallback)
       } else {
-        void navigate({ to: "/library", replace: true })
+        void navigate({ to: "/library", search: librarySearch, replace: true })
       }
     } catch (cause) {
       setDeleteError(errorMessage(cause, t("Couldn't delete capture")))

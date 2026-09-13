@@ -76,15 +76,45 @@
     call("recording.saveLibraryCaptureThumbnail", id, Array.from(data))
   recording.onEvent = (listener) => subscribe("alloy:recording", listener)
 
+  // The window is frameless. Honor the web app's `app-region` CSS the way a
+  // native title bar would: the nearest ancestor that sets drag or no-drag
+  // wins, a press on a drag region moves the window, and a double click
+  // toggles maximize.
+  function appRegion(target) {
+    for (let node = target; node instanceof Element; node = node.parentElement) {
+      const style = getComputedStyle(node)
+      const region =
+        style.getPropertyValue("app-region") ||
+        style.getPropertyValue("-webkit-app-region")
+      if (region === "drag" || region === "no-drag") return region
+    }
+    return "none"
+  }
+  document.addEventListener("mousedown", (event) => {
+    if (event.button !== 0 || appRegion(event.target) !== "drag") return
+    event.preventDefault()
+    if (event.detail >= 2) {
+      void shell("toggleMaximizeWindow").catch(() => {})
+    } else {
+      void shell("startDragging").catch(() => {})
+    }
+  })
+
   window.alloyTauriDesktop = Object.freeze({
     bridgeContract: 1,
-    titlebarOverlay: false,
+    titlebarOverlay: true,
     minimizeWindow: () => shell("minimizeWindow"),
     toggleMaximizeWindow: () => shell("toggleMaximizeWindow"),
     closeWindow: () => shell("closeWindow"),
     openConnect: () => shell("openConnect"),
     openSettings: () => shell("openSettings"),
     reloadApp: () => shell("reloadApp"),
+    servers: Object.freeze({
+      connect: (url) => call("servers.connect", url),
+      getServers: () => call("servers.getServers"),
+      getCurrentServer: () => call("servers.getCurrentServer"),
+      forgetServer: (url) => call("servers.forgetServer", url),
+    }),
     recording: Object.freeze(recording),
     updates: Object.freeze({
       getState: () => call("updates.getState"),

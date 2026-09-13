@@ -207,6 +207,7 @@ export const DE_MESSAGES = {
   "Add manual include": "Manuellen Eintrag hinzufügen",
   "Add passkey": "Passkey hinzufügen",
   "Add server": "Server hinzufügen",
+  "Server address": "Serveradresse",
   "Add the clip details before it enters your library.":
     "Füge die Clip-Details hinzu, bevor er in deine Bibliothek kommt.",
   "Add tier": "Stufe hinzufügen",
@@ -292,6 +293,16 @@ export const DE_MESSAGES = {
     "Aufnahmen und Clips erscheinen hier.",
   Change: "Ändern",
   "Check for updates": "Nach Updates suchen",
+  "Last checked {time}. Alloy checks again every few hours.":
+    "Zuletzt geprüft {time}. Alloy prüft alle paar Stunden erneut.",
+  "Alloy checks for updates in the background every few hours.":
+    "Alloy sucht alle paar Stunden im Hintergrund nach Updates.",
+  "Alloy was updated": "Alloy wurde aktualisiert",
+  "This server now runs a newer version of Alloy. Reload to use it.":
+    "Dieser Server läuft jetzt mit einer neueren Version von Alloy. Lade neu, um sie zu verwenden.",
+  Reload: "Neu laden",
+  "Automatic updates are unavailable in this build.":
+    "Automatische Updates sind in dieser Version nicht verfügbar.",
   "Checking...": "Wird geprüft...",
   "Checking for updates": "Suche nach Updates",
   "Alloy could not start the update installer.":
@@ -306,6 +317,12 @@ export const DE_MESSAGES = {
     "Mit einem anderen Alloy-Server verbinden?",
   Continue: "Fortfahren",
   "Forget Alloy server?": "Alloy-Server vergessen?",
+  "Forget this Alloy server?": "Diesen Alloy-Server entfernen?",
+  "Saved login data for {serverUrl} will be removed from this device.":
+    "Gespeicherte Anmeldedaten für {serverUrl} werden von diesem Gerät entfernt.",
+  "Forgetting...": "Wird entfernt...",
+  "Alloy will leave the current server and connect to {serverUrl}.":
+    "Alloy verlässt den aktuellen Server und verbindet sich mit {serverUrl}.",
   "Download clip": "Clip herunterladen",
   "Download clip to this computer?": "Clip auf diesen Computer herunterladen?",
   "Recording and hotkey behavior may change.":
@@ -323,6 +340,96 @@ export const DE_MESSAGES = {
   "Passkeys and linked accounts stay tied to your server's web address.":
     "Passkeys und verknüpfte Konten bleiben an die Webadresse deines Servers gebunden.",
   "Server switch cancelled.": "Serverwechsel abgebrochen.",
+  "Switch server": "Server wechseln",
+  "Saved servers": "Gespeicherte Server",
+  Forget: "Entfernen",
+  "Cancelling...": "Wird abgebrochen...",
+  "Saved login data removed from this device.":
+    "Gespeicherte Anmeldedaten wurden von diesem Gerät entfernt.",
+  "Open the connection screen to sign in with your browser.":
+    "Öffne den Verbindungsbildschirm, um dich im Browser anzumelden.",
+  "Restart the Alloy agent?": "Alloy-Agent neu starten?",
+  "Active recording and replay buffering will stop while the capture component restarts.":
+    "Aktive Aufnahmen und der Replay-Puffer werden beendet, während die Aufnahmekomponente neu startet.",
+  "Restart agent": "Agent neu starten",
+  "Remove the local copy?": "Lokale Kopie entfernen?",
+  "The file will be moved to your system trash. The server clip will remain available.":
+    "Die Datei wird in den Papierkorb deines Systems verschoben. Der Clip auf dem Server bleibt verfügbar.",
+  "Fix the invalid settings before saving.":
+    "Korrigiere die ungültigen Einstellungen vor dem Speichern.",
+  "The generated login backdrop.": "Der generierte Login-Hintergrund.",
+  // Errors reported by the native desktop host.
+  "The server returned an invalid Alloy response.":
+    "Der Server hat eine ungültige Alloy-Antwort gesendet.",
+  "This server does not support Alloy desktop HTTP contract 1.":
+    "Dieser Server unterstützt den Alloy-Desktop-HTTP-Vertrag 1 nicht.",
+  "Finish server setup in your browser, then connect again.":
+    "Schließe die Servereinrichtung im Browser ab und verbinde dich dann erneut.",
+  "This server does not support desktop login.":
+    "Dieser Server unterstützt keine Desktop-Anmeldung.",
+  "Could not reach the Alloy server.":
+    "Der Alloy-Server konnte nicht erreicht werden.",
+  "The server response is too large.": "Die Serverantwort ist zu groß.",
+  "Could not read the server response.":
+    "Die Serverantwort konnte nicht gelesen werden.",
+  "Enter an Alloy server URL.": "Gib eine Alloy-Server-URL ein.",
+  "Enter a valid server URL.": "Gib eine gültige Server-URL ein.",
+  "Invalid server URL.": "Ungültige Server-URL.",
+  "Use HTTPS. HTTP is allowed only for loopback development.":
+    "Verwende HTTPS. HTTP ist nur für lokale Entwicklung erlaubt.",
+  "Enter the server origin without a path.":
+    "Gib die Serveradresse ohne Pfad ein.",
+  "Could not start the login callback listener.":
+    "Der Empfänger für die Anmeldung konnte nicht gestartet werden.",
+  "Could not receive the login callback.":
+    "Die Rückmeldung der Anmeldung konnte nicht empfangen werden.",
+  "Sign-in timed out. Connect again to retry.":
+    "Zeitüberschreitung bei der Anmeldung. Verbinde dich erneut, um es noch einmal zu versuchen.",
+  "Could not exchange the login code.":
+    "Der Anmeldecode konnte nicht eingelöst werden.",
+  "The server rejected the login code.":
+    "Der Server hat den Anmeldecode abgelehnt.",
+  "The server returned invalid login credentials.":
+    "Der Server hat ungültige Anmeldedaten gesendet.",
+  "The server returned an invalid session token.":
+    "Der Server hat ein ungültiges Sitzungstoken gesendet.",
+  "The server returned an invalid session expiry.":
+    "Der Server hat ein ungültiges Sitzungsablaufdatum gesendet.",
+  "The login session has expired. Connect again.":
+    "Die Anmeldesitzung ist abgelaufen. Verbinde dich erneut.",
+  "No saved Alloy session was found.":
+    "Es wurde keine gespeicherte Alloy-Sitzung gefunden.",
+  "Could not read the saved Alloy session.":
+    "Die gespeicherte Alloy-Sitzung konnte nicht gelesen werden.",
+  "A server connection is already in progress.":
+    "Es wird bereits eine Serververbindung hergestellt.",
+  "Sign-in was cancelled.": "Die Anmeldung wurde abgebrochen.",
+  "Could not open the sign-in page in your browser.":
+    "Die Anmeldeseite konnte nicht im Browser geöffnet werden.",
+  "Switch to another server before forgetting this one.":
+    "Wechsle zu einem anderen Server, bevor du diesen entfernst.",
+  "Could not save server settings.":
+    "Die Servereinstellungen konnten nicht gespeichert werden.",
+  "Could not open Alloy settings.":
+    "Die Alloy-Einstellungen konnten nicht geöffnet werden.",
+  "Could not open the Alloy server window.":
+    "Das Alloy-Serverfenster konnte nicht geöffnet werden.",
+  "Could not load the Alloy server window.":
+    "Das Alloy-Serverfenster konnte nicht geladen werden.",
+  "Could not clear the Alloy server profile.":
+    "Das Alloy-Serverprofil konnte nicht geleert werden.",
+  "Desktop services are not ready.": "Die Desktop-Dienste sind noch nicht bereit.",
+  "Desktop runtime is not ready.": "Die Desktop-Laufzeit ist noch nicht bereit.",
+  "Autostart is unavailable in this build.":
+    "Autostart ist in dieser Version nicht verfügbar.",
+  "Updater state is unavailable.": "Der Update-Status ist nicht verfügbar.",
+  "The recorder did not stop cleanly.":
+    "Die Aufnahme wurde nicht sauber beendet.",
+  "The capture path is outside the configured output folders.":
+    "Der Aufnahmepfad liegt außerhalb der konfigurierten Ausgabeordner.",
+  "Select a sound from the notification sounds folder.":
+    "Wähle einen Sound aus dem Ordner für Benachrichtigungssounds aus.",
+  "Unknown notification sound.": "Unbekannter Benachrichtigungssound.",
   "This changes whether Alloy starts when you sign in.":
     "Dadurch wird geändert, ob Alloy bei der Anmeldung gestartet wird.",
   Choose: "Auswählen",

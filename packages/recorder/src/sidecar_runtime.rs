@@ -504,7 +504,16 @@ fn is_reserved_windows_name(value: &str) -> bool {
 }
 
 fn command_output(command: &str, args: &[&str]) -> Option<String> {
-    let output = Command::new(command).args(args).output().ok()?;
+    let mut process = Command::new(command);
+    process.args(args);
+    // The agent runs without a console; a plain spawn would pop one up for
+    // helpers such as powershell.exe.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        process.creation_flags(0x0800_0000);
+    }
+    let output = process.output().ok()?;
     if !output.status.success() {
         return None;
     }

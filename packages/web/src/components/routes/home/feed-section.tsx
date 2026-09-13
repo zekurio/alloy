@@ -138,6 +138,21 @@ function FeedSectionBody({
   )
 }
 
+/**
+ * True once the feed has loaded and holds no rows. Shares the cache entry
+ * with FeedSection, so callers can hide filter chrome over an empty feed.
+ */
+export function useIsFeedEmpty(filter: FeedFilter, sort: ClipFeedSort) {
+  const { data, isPlaceholderData } = useFeedInfiniteQuery(filter, sort, {
+    limit: FEED_PAGE_LIMIT,
+  })
+  return (
+    data !== undefined &&
+    !isPlaceholderData &&
+    data.pages.every((page) => page.items.length === 0)
+  )
+}
+
 function useFeedSectionState(filter: FeedFilter, sort: ClipFeedSort) {
   const feedId = `${feedFilterId(filter)}:${sort}`
   const {

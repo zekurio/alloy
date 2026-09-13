@@ -14,6 +14,10 @@ use crate::paths::{extension, now_rfc3339};
 use crate::store::{CaptureLibrary, ensure_media_in_output, ensure_media_location};
 use crate::types::{ExportRequest, LibraryExport, PostProcess, VideoMeta};
 
+/// Windows process creation flag that suppresses a console window for the child.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
 const MEDIA_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 const MAX_TOOL_OUTPUT: usize = 2 * 1024 * 1024;
@@ -382,6 +386,11 @@ async fn run_tool(path: &Path, args: &[&str], limit: Duration) -> Result<ToolOut
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    // Media tools are console programs; without this flag a GUI-subsystem
+    // parent such as the packaged desktop app gets a console window flashed
+    // on screen for every ffmpeg/ffprobe run.
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
     let mut child = command.spawn().map_err(|error| {
         LibraryError::MediaTool(format!("could not start {}: {error}", path.display()))
     })?;

@@ -235,12 +235,21 @@ async fn read_callback(
     let request = String::from_utf8(bytes).map_err(|_| "Invalid login callback encoding.")?;
     let code = callback_code(&request, host, state);
     let (status, body) = if code.is_some() {
-        ("200 OK", "You can close this page and return to Alloy.")
+        (
+            "200 OK",
+            callback_page("Signed in", "You can close this page and return to Alloy."),
+        )
     } else {
-        ("400 Bad Request", "Invalid login callback.")
+        (
+            "400 Bad Request",
+            callback_page(
+                "Sign-in failed",
+                "This login link is invalid or was already used. Return to Alloy and connect again.",
+            ),
+        )
     };
     let response = format!(
-        "HTTP/1.1 {status}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\n\r\n{body}",
+        "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: default-src 'none'; style-src 'unsafe-inline'\r\nX-Content-Type-Options: nosniff\r\n\r\n{body}",
         body.len()
     );
     stream
@@ -248,6 +257,36 @@ async fn read_callback(
         .await
         .map_err(|_| "Could not reply to the login callback.")?;
     Ok(code)
+}
+
+/// A self-contained page in the desktop theme. The browser tab has no access
+/// to the app, so it only needs inline styles and static text.
+fn callback_page(title: &str, message: &str) -> String {
+    format!(
+        concat!(
+            "<!doctype html>",
+            "<html lang=\"en\"><head><meta charset=\"utf-8\">",
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+            "<meta name=\"color-scheme\" content=\"dark\">",
+            "<title>{title} - Alloy</title>",
+            "<style>",
+            "html,body{{height:100%;margin:0}}",
+            "body{{display:flex;flex-direction:column;background:oklch(0.11 0 0);color:oklch(0.98 0 0);",
+            "font:16px/1.5 \"DM Sans\",ui-sans-serif,system-ui,-apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;",
+            "-webkit-font-smoothing:antialiased}}",
+            "header{{padding:32px 40px;font:700 22px/1 \"IBM Plex Mono\",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}}",
+            "main{{flex:1;display:flex;align-items:center;justify-content:center;padding:0 24px 96px}}",
+            "section{{width:100%;max-width:24rem}}",
+            "h1{{margin:0 0 8px;font-size:24px;font-weight:600;letter-spacing:-0.02em}}",
+            "p{{margin:0;font-size:14px;color:oklch(0.79 0 0)}}",
+            "</style></head><body>",
+            "<header>alloy</header>",
+            "<main><section><h1>{title}</h1><p>{message}</p></section></main>",
+            "</body></html>",
+        ),
+        title = title,
+        message = message,
+    )
 }
 
 fn callback_code(request: &str, host: &str, state: &str) -> Option<String> {
@@ -298,7 +337,7 @@ fn callback_code(request: &str, host: &str, state: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{callback_code, session_cookie};
+    use super::{callback_code, callback_page, session_cookie};
 
     #[test]
     fn callback_accepts_only_one_matching_state_and_code() {
@@ -327,6 +366,17 @@ mod tests {
         );
         assert!(callback_code(duplicate, "127.0.0.1:1234", "expected").is_none());
     }
+
+    #[test]
+    fn callback_page_is_self_contained_html() {
+        let page = callback_page("Signed in", "You can close this page and return to Alloy.");
+        assert!(page.starts_with("<!doctype html>"));
+        assert!(page.contains("<title>Signed in - Alloy</title>"));
+        assert!(page.contains("You can close this page and return to Alloy."));
+        assert!(!page.contains("<script"));
+        assert!(!page.contains("src="));
+    }
+
 
     #[test]
     fn session_cookie_has_native_only_cookie_attributes() {

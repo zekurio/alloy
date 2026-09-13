@@ -8,6 +8,7 @@ const IDLE_STATE: DesktopUpdateState = {
   status: "idle",
   currentVersion: null,
   version: null,
+  lastCheckedAt: null,
 }
 
 let snapshot: DesktopUpdateState = IDLE_STATE
@@ -46,7 +47,8 @@ function applyState(state: DesktopUpdateState): void {
     snapshot.status === state.status &&
     snapshot.supported === state.supported &&
     snapshot.currentVersion === state.currentVersion &&
-    snapshot.version === state.version
+    snapshot.version === state.version &&
+    snapshot.lastCheckedAt === state.lastCheckedAt
   ) {
     return
   }

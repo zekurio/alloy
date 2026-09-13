@@ -252,6 +252,8 @@ pub struct DesktopUpdateState {
     pub current_version: Option<String>,
     pub version: Option<String>,
     pub supported: bool,
+    /// RFC 3339 time of the last completed update check, background or manual.
+    pub last_checked_at: Option<String>,
 }
 
 struct UpdateRuntime {
@@ -285,6 +287,7 @@ impl DesktopServices {
                     current_version,
                     version: None,
                     supported,
+                    last_checked_at: None,
                 },
                 pending: None,
                 downloaded: None,
@@ -331,17 +334,33 @@ impl DesktopServices {
         self.update_events.subscribe()
     }
 
+    /// Whether this build can check for updates at all. Background checks
+    /// skip themselves entirely when this is false.
+    pub fn updates_supported(&self) -> bool {
+        updater_supported()
+    }
+
+    /// Checks the release feed. A check runs from `Idle` or `Available`, so a
+    /// later release replaces a pending update the user has not downloaded
+    /// yet. While `Available`, the status stays put during the check so the
+    /// "update available" UI does not flicker on every background poll.
     pub async fn check_for_updates(&self) -> Result<DesktopUpdateState, String> {
         self.require_updater()?;
         {
             let mut updates = self.lock_updates()?;
-            if updates.check_in_flight || !matches!(updates.state.status, DesktopUpdateStatus::Idle)
+            if updates.check_in_flight
+                || !matches!(
+                    updates.state.status,
+                    DesktopUpdateStatus::Idle | DesktopUpdateStatus::Available
+                )
             {
                 return Ok(updates.state.clone());
             }
             updates.check_in_flight = true;
-            updates.state.status = DesktopUpdateStatus::Checking;
-            self.publish_locked(&updates);
+            if matches!(updates.state.status, DesktopUpdateStatus::Idle) {
+                updates.state.status = DesktopUpdateStatus::Checking;
+                self.publish_locked(&updates);
+            }
         }
 
         let updater = match self.updater() {
@@ -349,8 +368,7 @@ impl DesktopServices {
             Err(error) => {
                 let mut updates = self.lock_updates()?;
                 updates.check_in_flight = false;
-                updates.state.status = DesktopUpdateStatus::Idle;
-                self.publish_locked(&updates);
+                self.finish_check_locked(&mut updates);
                 return Err(error);
             }
         };
@@ -360,10 +378,13 @@ impl DesktopServices {
         match result {
             Ok(Some(update)) => {
                 let version = update.version.clone();
-                updates.pending = Some(update);
-                updates.downloaded = None;
+                if updates.state.version.as_deref() != Some(version.as_str()) {
+                    updates.pending = Some(update);
+                    updates.downloaded = None;
+                }
                 updates.state.status = DesktopUpdateStatus::Available;
                 updates.state.version = Some(version);
+                updates.state.last_checked_at = Some(now_rfc3339());
                 self.publish_locked(&updates);
                 Ok(updates.state.clone())
             }
@@ -372,15 +393,24 @@ impl DesktopServices {
                 updates.downloaded = None;
                 updates.state.status = DesktopUpdateStatus::Idle;
                 updates.state.version = None;
+                updates.state.last_checked_at = Some(now_rfc3339());
                 self.publish_locked(&updates);
                 Ok(updates.state.clone())
             }
             Err(error) => {
-                updates.state.status = DesktopUpdateStatus::Idle;
-                updates.state.version = None;
-                self.publish_locked(&updates);
+                self.finish_check_locked(&mut updates);
                 Err(error.to_string())
             }
+        }
+    }
+
+    /// Leaves a failed check where it started: `Checking` returns to `Idle`,
+    /// and a still-pending update stays `Available`.
+    fn finish_check_locked(&self, updates: &mut UpdateRuntime) {
+        if matches!(updates.state.status, DesktopUpdateStatus::Checking) {
+            updates.state.status = DesktopUpdateStatus::Idle;
+            updates.state.version = None;
+            self.publish_locked(updates);
         }
     }
 
@@ -581,6 +611,7 @@ fn unsupported_update_state(current_version: String) -> DesktopUpdateState {
         current_version: Some(current_version),
         version: None,
         supported: false,
+        last_checked_at: None,
     }
 }
 

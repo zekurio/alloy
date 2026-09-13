@@ -4,9 +4,12 @@ mod runtime;
 #[path = "services.rs"]
 mod services;
 
-use std::sync::{
-    Arc, Mutex, OnceLock, RwLock,
-    atomic::{AtomicBool, AtomicU64, Ordering},
+use std::{
+    sync::{
+        Arc, Mutex, OnceLock, RwLock,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+    time::Duration,
 };
 
 use alloy_desktop::{
@@ -89,6 +92,7 @@ struct ConnectedServer {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum DesktopShellOperation {
+    StartDragging,
     MinimizeWindow,
     ToggleMaximizeWindow,
     CloseWindow,
@@ -136,6 +140,20 @@ async fn connect_server(
     url: String,
 ) -> Result<ConnectedServer, String> {
     require_connect_window(&window)?;
+    let connected = connect_to_server(&app, host.inner(), &url).await?;
+    window
+        .hide()
+        .map_err(|_| "Could not hide the connect window.")?;
+    Ok(connected)
+}
+
+/// Validate, sign in if needed, and open the server window. Both the bundled
+/// connect screen and the in-app server settings switch servers through here.
+async fn connect_to_server(
+    app: &AppHandle,
+    host: &Arc<Host>,
+    url: &str,
+) -> Result<ConnectedServer, String> {
     let _guard = host
         .connecting
         .try_lock()
@@ -148,27 +166,27 @@ async fn connect_server(
 
     let mut prepare_cancelled = cancelled.clone();
     let server = match tokio::select! {
-        result = prepare_server(&url) => result,
+        result = prepare_server(url) => result,
         _ = prepare_cancelled.changed() => Err("Sign-in was cancelled.".into()),
     } {
         Ok(server) => server,
         Err(error) => {
-            clear_cancel(host.inner());
+            clear_cancel(host);
             return Err(error);
         }
     };
-    let runtime = match host.inner().runtime() {
+    let runtime = match host.runtime() {
         Ok(runtime) => runtime.clone(),
         Err(error) => {
-            clear_cancel(host.inner());
+            clear_cancel(host);
             return Err(error);
         }
     };
     let generation = {
         let _selection = runtime.selection_lock.lock().await;
         install_remote(
-            &app,
-            host.inner(),
+            app,
+            host,
             &runtime,
             server.clone(),
             None,
@@ -180,7 +198,7 @@ async fn connect_server(
         Ok(generation) => generation,
         Err(error) => {
             if error != NO_SAVED_SESSION {
-                clear_cancel(host.inner());
+                clear_cancel(host);
                 return Err(error);
             }
 
@@ -191,18 +209,18 @@ async fn connect_server(
             } {
                 Ok(tokens) => tokens,
                 Err(error) => {
-                    clear_cancel(host.inner());
+                    clear_cancel(host);
                     return Err(error);
                 }
             };
             if let Err(error) = ensure_not_cancelled(&cancelled) {
-                clear_cancel(host.inner());
+                clear_cancel(host);
                 return Err(error);
             }
             let _selection = runtime.selection_lock.lock().await;
             match install_remote(
-                &app,
-                host.inner(),
+                app,
+                host,
                 &runtime,
                 server.clone(),
                 Some(&login),
@@ -212,7 +230,7 @@ async fn connect_server(
             {
                 Ok(generation) => generation,
                 Err(error) => {
-                    clear_cancel(host.inner());
+                    clear_cancel(host);
                     return Err(error);
                 }
             }
@@ -220,8 +238,8 @@ async fn connect_server(
     };
 
     if let Err(error) = ensure_not_cancelled(&cancelled) {
-        abandon_remote(&app, host.inner(), &runtime, generation).await;
-        clear_cancel(host.inner());
+        abandon_remote(app, host, &runtime, generation).await;
+        clear_cancel(host);
         return Err(error);
     }
 
@@ -230,13 +248,10 @@ async fn connect_server(
         alloy_desktop::server::HTTP_CONTRACT_1,
         alloy_desktop::server::TAURI_BRIDGE_CONTRACT_1,
     ) {
-        clear_cancel(host.inner());
+        clear_cancel(host);
         return Err(error);
     }
-    clear_cancel(host.inner());
-    window
-        .hide()
-        .map_err(|_| "Could not hide the connect window.")?;
+    clear_cancel(host);
 
     Ok(ConnectedServer {
         server_url: server.origin.origin().ascii_serialization(),
@@ -280,11 +295,18 @@ async fn forget_server(
     url: String,
 ) -> Result<Vec<DesktopSavedServer>, String> {
     require_connect_window(&window)?;
-    let _connecting = host.inner().connecting.lock().await;
-    let origin = Server::new(&url)?.origin;
-    let runtime = host.inner().runtime()?.clone();
+    forget_saved_server(&app, host.inner(), &url).await
+}
+
+async fn forget_saved_server(
+    app: &AppHandle,
+    host: &Arc<Host>,
+    url: &str,
+) -> Result<Vec<DesktopSavedServer>, String> {
+    let _connecting = host.connecting.lock().await;
+    let origin = Server::new(url)?.origin;
+    let runtime = host.runtime()?.clone();
     let active = host
-        .inner()
         .remote
         .read()
         .map_err(|_| "Server window state is unavailable.")?
@@ -299,29 +321,44 @@ async fn forget_server(
             .clear_all_browsing_data()
             .map_err(|_| "Could not clear the Alloy server profile.")?;
         runtime.select_server(None).await?;
-        clear_remote(host.inner(), generation);
+        clear_remote(host, generation);
         let _ = remote_window.destroy();
     } else {
-        clear_inactive_remote_profile(&app, &origin, host.inner())?;
+        clear_inactive_remote_profile(app, &origin, host)?;
     }
-    host.inner()
-        .services()?
+    host.services()?
         .forget_server(origin.origin().ascii_serialization().as_str())
 }
 
 #[tauri::command]
 async fn desktop_api(
+    app: AppHandle,
     window: WebviewWindow,
     host: State<'_, Arc<Host>>,
     operation: String,
     args: Vec<Value>,
 ) -> Result<Value, String> {
-    require_remote_window(&window, host.inner())?;
+    let (_, origin) = require_remote_window(&window, host.inner())?;
     let runtime = host.inner().runtime()?.clone();
     let services = host.inner().services()?.clone();
     let result = match operation.as_str() {
         operation if operation.starts_with("recording.") => {
             runtime.invoke(&window, operation, &args).await
+        }
+        "servers.getServers" => runtime_value(services.get_servers()),
+        "servers.getCurrentServer" => runtime_value(origin.origin().ascii_serialization()),
+        "servers.forgetServer" => {
+            let url: String = runtime_arg(&args, 0)?;
+            if is_same_origin(&Server::new(&url)?.origin, &origin) {
+                return Err("Switch to another server before forgetting this one.".into());
+            }
+            runtime_value(forget_saved_server(&app, host.inner(), &url).await?)
+        }
+        "servers.connect" => {
+            let url: String = runtime_arg(&args, 0)?;
+            // A successful switch replaces the calling window, so return
+            // without re-checking it.
+            return runtime_value(connect_to_server(&app, host.inner(), &url).await?);
         }
         "updates.getState" => runtime_value(services.get_update_state()),
         "updates.checkForUpdates" => runtime_value(services.check_for_updates().await?),
@@ -382,6 +419,9 @@ async fn desktop_shell(
 ) -> Result<(), String> {
     let (generation, origin) = require_remote_window(&window, host.inner())?;
     match operation {
+        DesktopShellOperation::StartDragging => window
+            .start_dragging()
+            .map_err(|_| "Could not move the server window.".into()),
         DesktopShellOperation::MinimizeWindow => window
             .minimize()
             .map_err(|_| "Could not minimize the server window.".into()),
@@ -419,6 +459,11 @@ async fn desktop_shell(
             {
                 clear_session_cookies(&window, &origin)?;
             }
+            // Switching servers returns to the connect screen. The server
+            // window stays alive so closing the connect screen restores it.
+            window
+                .hide()
+                .map_err(|_| "Could not hide the server window.")?;
             show_connect(&app)
         }
         DesktopShellOperation::OpenSettings => open_settings(&window),
@@ -460,8 +505,16 @@ async fn install_remote(
         .inner_size(1280.0, 800.0)
         .min_inner_size(800.0, 600.0)
         .visible(false)
+        // The web app renders its own title bar and window controls.
+        .decorations(false)
         .incognito(false)
         .initialization_script(bridge_initialization_script(&origin));
+    // Overlay scrollbars keep the layout stable, as the Electron shell did.
+    // Setting extra arguments replaces Tauri's defaults, so restate them.
+    #[cfg(target_os = "windows")]
+    let builder = builder.additional_browser_args(
+        "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --enable-features=OverlayScrollbar",
+    );
     #[cfg(not(target_os = "macos"))]
     let builder = builder.data_directory(remote_profile_path(app, &origin)?);
     #[cfg(target_os = "macos")]
@@ -769,20 +822,32 @@ fn show_connect(app: &AppHandle) -> Result<(), String> {
         .map_err(|_| "Could not focus the connect window.".to_string())
 }
 
-fn show_active(app: &AppHandle, host: &Host) -> Result<(), String> {
+/// Show the active server window, if any, and hide the connect screen.
+fn show_remote(app: &AppHandle, host: &Host) -> Result<bool, String> {
     let remote = host
         .remote
         .read()
         .map_err(|_| "Server window state is unavailable.")?
         .as_ref()
         .map(|session| session.window.clone());
-    if let Some(window) = remote {
-        window
-            .show()
-            .map_err(|_| "Could not show the Alloy server window.")?;
-        Ok(window
-            .set_focus()
-            .map_err(|_| "Could not focus the Alloy server window.")?)
+    let Some(window) = remote else {
+        return Ok(false);
+    };
+    window
+        .show()
+        .map_err(|_| "Could not show the Alloy server window.")?;
+    window
+        .set_focus()
+        .map_err(|_| "Could not focus the Alloy server window.")?;
+    if let Some(connect) = app.get_webview_window(CONNECT_WINDOW_LABEL) {
+        let _ = connect.hide();
+    }
+    Ok(true)
+}
+
+fn show_active(app: &AppHandle, host: &Host) -> Result<(), String> {
+    if show_remote(app, host)? {
+        Ok(())
     } else {
         show_connect(app)
     }
@@ -894,6 +959,32 @@ fn spawn_update_events(
     });
 }
 
+/// How long the shell waits after launch before its first release check, so
+/// restoring the saved server and starting the recorder are not competing with
+/// it.
+const UPDATE_CHECK_STARTUP_DELAY: Duration = Duration::from_secs(45);
+/// How often the shell re-checks the release feed while it keeps running.
+const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
+
+/// Polls the release feed in the background. Results land in the shared
+/// update state, so the web app picks them up through `alloy:updates` or on
+/// its next `updates.getState` call, even if no server window was open when
+/// the release appeared. Failures are logged and retried at the next tick.
+fn spawn_update_checks(services: Arc<DesktopServices>) {
+    if !services.updates_supported() {
+        return;
+    }
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(UPDATE_CHECK_STARTUP_DELAY).await;
+        loop {
+            if let Err(error) = services.check_for_updates().await {
+                eprintln!("Background update check failed: {error}");
+            }
+            tokio::time::sleep(UPDATE_CHECK_INTERVAL).await;
+        }
+    });
+}
+
 fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
     let app = app.clone();
     let host = Arc::clone(host);
@@ -905,12 +996,16 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
             .and_then(|services| services.get_current_server())
         {
             Some(url) => url,
-            None => return,
+            None => {
+                let _ = show_connect(&app);
+                return;
+            }
         };
         let server = match prepare_server(&url).await {
             Ok(server) => server,
             Err(error) => {
                 eprintln!("Could not restore the saved Alloy server: {error}");
+                let _ = show_connect(&app);
                 return;
             }
         };
@@ -918,6 +1013,7 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
             Ok(runtime) => runtime.clone(),
             Err(error) => {
                 eprintln!("Could not restore the saved Alloy server: {error}");
+                let _ = show_connect(&app);
                 return;
             }
         };
@@ -929,8 +1025,12 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
                     let _ = connect.hide();
                 }
             }
-            Err(error) if error == NO_SAVED_SESSION => {}
-            Err(error) => eprintln!("Could not restore the saved Alloy server: {error}"),
+            Err(error) => {
+                if error != NO_SAVED_SESSION {
+                    eprintln!("Could not restore the saved Alloy server: {error}");
+                }
+                let _ = show_connect(&app);
+            }
         }
     });
 }
@@ -990,6 +1090,9 @@ fn main() {
                 runtime.start().await;
             });
 
+            // With a saved server the app restores its window directly and
+            // only falls back to the connect screen if that fails.
+            let restoring = services.get_current_server().is_some();
             let window = WebviewWindowBuilder::new(
                 app,
                 CONNECT_WINDOW_LABEL,
@@ -998,17 +1101,23 @@ fn main() {
             .title("Alloy")
             .inner_size(1280.0, 800.0)
             .min_inner_size(800.0, 600.0)
+            .visible(!restoring)
             .on_navigation(is_local_app_url)
             .on_new_window(|_, _| NewWindowResponse::Deny)
             .build()?;
             let event_host = Arc::clone(&setup_host);
             let event_window = window.clone();
+            let event_app = app.handle().clone();
             window.on_window_event(move |event| {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     let _ = send_cancel(&event_host);
                     if !event_host.quitting.load(Ordering::Acquire) {
                         api.prevent_close();
-                        let _ = event_window.hide();
+                        // Closing the connect screen returns to the server
+                        // that was open before a server switch, if any.
+                        if !matches!(show_remote(&event_app, &event_host), Ok(true)) {
+                            let _ = event_window.hide();
+                        }
                     }
                 }
             });
@@ -1018,6 +1127,7 @@ fn main() {
                 &setup_host,
                 services.subscribe_update_state(),
             );
+            spawn_update_checks(services.clone());
             spawn_restore_saved_server(app.handle(), &setup_host);
             Ok(())
         })

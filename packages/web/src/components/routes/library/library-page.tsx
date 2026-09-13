@@ -36,7 +36,11 @@ import type { QueueItem } from "@/components/upload/upload-queue-types"
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
 import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
-import type { LibrarySort, LibrarySource } from "@/lib/library-search"
+import {
+  type LibrarySort,
+  type LibrarySource,
+  toLibrarySearch,
+} from "@/lib/library-search"
 
 import {
   buildLibraryGroups,
@@ -100,16 +104,20 @@ function LibraryContent({
   const { deferredQuery } = useAppSearch()
   const [groupKey, setGroupKey] = useState<string | null>(null)
   const { queue } = useUploadQueue()
+  // Without the desktop native API there are no local captures and the source
+  // dropdown is hidden, so a stray ?source= in the URL must not blank the
+  // library.
+  const effectiveSource = desktop ? source : "all"
   const model = useLibraryContentModel({
     desktop,
     media,
-    // Without the desktop native API there are no local captures and the source
-    // dropdown is hidden, so a stray ?source= in the URL must not blank the
-    // library.
-    source: desktop ? source : "all",
+    source: effectiveSource,
     query: deferredQuery,
     groupKey,
   })
+  // The defaults stay out of the URL; the editors get the same filters so
+  // prev/next and "back" mirror this grid.
+  const search = toLibrarySearch({ sort, source: effectiveSource, media })
   // Entries arrive newest-first from the model; "oldest" is its mirror.
   const orderedEntries = useMemo(
     () => (sort === "oldest" ? model.entries.toReversed() : model.entries),
@@ -147,12 +155,11 @@ function LibraryContent({
             onChange={(next) => {
               void navigate({
                 to: "/library",
-                search: {
-                  // The defaults stay out of the URL.
-                  media: next === "video" ? undefined : next,
-                  sort: sort === "recent" ? undefined : sort,
-                  source: !desktop || source === "all" ? undefined : source,
-                },
+                search: toLibrarySearch({
+                  sort,
+                  source: effectiveSource,
+                  media: next,
+                }),
               })
             }}
           />
@@ -163,12 +170,7 @@ function LibraryContent({
               renderOptionLink={(opt, active) => (
                 <Link
                   to="/library"
-                  search={{
-                    // The default source stays out of the URL.
-                    source: opt.key === "all" ? undefined : opt.key,
-                    sort: sort === "recent" ? undefined : sort,
-                    media: media === "video" ? undefined : media,
-                  }}
+                  search={toLibrarySearch({ sort, source: opt.key, media })}
                   data-active={active ? "true" : undefined}
                 />
               )}
@@ -180,12 +182,11 @@ function LibraryContent({
             renderOptionLink={(opt, active) => (
               <Link
                 to="/library"
-                search={{
-                  // The default sort stays out of the URL.
-                  sort: opt.key === "recent" ? undefined : opt.key,
-                  source: source === "all" ? undefined : source,
-                  media: media === "video" ? undefined : media,
-                }}
+                search={toLibrarySearch({
+                  sort: opt.key,
+                  source: effectiveSource,
+                  media,
+                })}
                 data-active={active ? "true" : undefined}
               />
             )}
@@ -206,6 +207,7 @@ function LibraryContent({
               void navigate({
                 to: "/library/$captureId",
                 params: { captureId: item.id },
+                search,
               })
             }}
             onOpenCloud={(row) => {
@@ -213,6 +215,7 @@ function LibraryContent({
               void navigate({
                 to: "/library/clips/$clipId",
                 params: { clipId: row.id },
+                search,
               })
             }}
             onCloudIntent={warmCloudClip}
