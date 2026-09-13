@@ -179,7 +179,6 @@ impl Session {
 
         #[cfg(windows)]
         {
-            use std::os::windows::process::CommandExt;
             command.creation_flags(0x0800_0000);
         }
 

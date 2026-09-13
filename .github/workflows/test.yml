@@ -89,7 +89,7 @@ jobs:
 
       - name: check browser artifact
         run: |
-          grep -R -q "alloyDesktop" packages/web/dist
+          grep -R -q "alloyTauriDesktop" packages/web/dist
 
       - name: build desktop connection screen
         run: corepack pnpm --filter @alloy/desktop-tauri build:renderer

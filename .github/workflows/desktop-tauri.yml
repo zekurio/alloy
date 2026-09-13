@@ -100,3 +100,11 @@ jobs:
 
       - name: build unsigned installer
         run: pnpm tauri:dist:win:installer
+
+      - name: upload test installer
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: alloy-tauri-windows-x64-${{ github.sha }}
+          path: packages/desktop-tauri/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          if-no-files-found: error
+          retention-days: 14
