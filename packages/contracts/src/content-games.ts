@@ -102,7 +102,7 @@ export interface ProfileGameRow extends GameListRow {
 }
 
 export interface GameDetail extends GameRow {
-  /** Ready, public clips attributed to this game by enabled users. */
+  /** Ready, public posts (clips + screenshots) attributed to this game by enabled users. */
   clipCount: number
 }
 

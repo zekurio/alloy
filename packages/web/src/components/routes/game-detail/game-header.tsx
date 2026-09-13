@@ -93,7 +93,7 @@ function GameHeroBanner({ game }: { game: GameDetail }) {
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-white/75">
             <HeroStat
               value={game.clipCount}
-              label={tp(game.clipCount, "clip", "clips")}
+              label={tp(game.clipCount, "post", "posts")}
             />
             {year !== null ? (
               <>
