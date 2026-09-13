@@ -215,7 +215,12 @@ fn display_metadata_moves_capture_to_game_folder() {
     .unwrap();
     library.update_metadata(patch).unwrap();
     let item = library.find_item(&id).unwrap();
-    assert!(item.filename.contains("Screenshots/Moved Game/"));
+    // Windows paths use backslashes; compare on a normalized form.
+    assert!(
+        item.filename
+            .replace('\\', "/")
+            .contains("Screenshots/Moved Game/")
+    );
     assert!(Path::new(&item.filename).is_file());
     assert!(!source.exists());
 }

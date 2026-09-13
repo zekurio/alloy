@@ -343,8 +343,8 @@ jobs:
           make_latest: true
           files: |
             release-assets/*.exe
-            release-assets/*.blockmap
-            release-assets/latest.yml
+            release-assets/*.sig
+            release-assets/latest.json
             release-assets/checksums.txt
           fail_on_unmatched_files: true
 
