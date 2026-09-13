@@ -10,7 +10,7 @@ on:
       - dev
     paths:
       - "packages/**"
-      - "!packages/desktop-tauri/**"
+      - "!packages/desktop/**"
       - "!packages/recorder/**"
       - "!packages/recording-host/**"
       - "!packages/capture-library/**"

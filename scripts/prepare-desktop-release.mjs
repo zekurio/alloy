@@ -8,8 +8,8 @@ if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
   throw new Error("Pass the release version as X.Y.Z.")
 }
 const source =
-  "packages/desktop-tauri/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
-const output = "packages/desktop-tauri/release"
+  "packages/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
+const output = "packages/desktop/release"
 const installers = (await readdir(source)).filter((name) =>
   name.endsWith(".exe"),
 )

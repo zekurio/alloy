@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use alloy_desktop_tauri::{login::BrowserLogin, server::Server};
+use alloy_desktop::{login::BrowserLogin, server::Server};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};

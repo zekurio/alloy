@@ -13,7 +13,7 @@ boundaries, especially desktop-to-server HTTP and desktop-to-recorder IPC.
 
 | Path                                                | Purpose                                                  |
 | --------------------------------------------------- | -------------------------------------------------------- |
-| `packages/desktop-tauri`                            | Tauri shell, local connection screen, and native bridge  |
+| `packages/desktop`                                  | Tauri shell, local connection screen, and native bridge  |
 | `packages/recording-host`                           | Rust recorder process control and settings               |
 | `packages/capture-library`                          | Rust local library, file streaming, and media processing |
 | `packages/recorder`                                 | Windows Rust recorder built on OBS                       |
@@ -57,9 +57,9 @@ over separate tests for each branch.
 
 The recorder and the Tauri desktop host build only on Windows. Check Rust
 changes in `packages/recorder`, `packages/recording-host`,
-`packages/capture-library`, and `packages/desktop-tauri/src-tauri` with
+`packages/capture-library`, and `packages/desktop/src-tauri` with
 `cargo fmt --check` and `cargo clippy --all-targets --locked -- -D warnings`
-(`pnpm --filter @alloy/desktop-tauri check:native` covers the host crate).
+(`pnpm --filter @alloy/desktop check:native` covers the host crate).
 
 For changes under `nix/` or to `flake.nix`, run `nix flake check`. Run
 `nix build .#alloy` only when the change warrants a full build.

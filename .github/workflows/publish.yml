@@ -144,10 +144,10 @@ jobs:
             if [[ "$version" != "$current" ]]; then
               node scripts/update-release-package-versions.mjs "$version"
               git add package.json \
-                packages/desktop-tauri/package.json \
-                packages/desktop-tauri/src-tauri/tauri.conf.json \
-                packages/desktop-tauri/src-tauri/Cargo.toml \
-                packages/desktop-tauri/src-tauri/Cargo.lock \
+                packages/desktop/package.json \
+                packages/desktop/src-tauri/tauri.conf.json \
+                packages/desktop/src-tauri/Cargo.toml \
+                packages/desktop/src-tauri/Cargo.lock \
                 packages/recorder/package.json \
                 packages/recorder/Cargo.toml \
                 packages/recorder/Cargo.lock
@@ -200,7 +200,7 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: |
-            packages/desktop-tauri/src-tauri
+            packages/desktop/src-tauri
             packages/recording-host
             packages/capture-library
             packages/recorder
@@ -210,7 +210,7 @@ jobs:
         with:
           path: |
             packages/recorder/dist/obs-runtime
-            packages/desktop-tauri/.cache/ffmpeg
+            packages/desktop/.cache/ffmpeg
           key: windows-native-obs-32.1.2-ffmpeg-8.1.2-v1
 
       - name: stage obs runtime
@@ -228,7 +228,7 @@ jobs:
           if (!$env:ALLOY_UPDATER_PUBLIC_KEY -or !$env:TAURI_SIGNING_PRIVATE_KEY) {
             throw "Configure the Tauri update signing key and public key before a release."
           }
-          corepack pnpm --filter @alloy/desktop-tauri dist:win:installer:signed
+          corepack pnpm --filter @alloy/desktop dist:win:installer:signed
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: prepare desktop release assets
@@ -239,9 +239,9 @@ jobs:
         with:
           name: desktop-release-assets
           path: |
-            packages/desktop-tauri/release/*.exe
-            packages/desktop-tauri/release/*.sig
-            packages/desktop-tauri/release/latest.json
+            packages/desktop/release/*.exe
+            packages/desktop/release/*.sig
+            packages/desktop/release/latest.json
           if-no-files-found: error
 
   image:

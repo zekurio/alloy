@@ -8,17 +8,17 @@ const version = process.argv[2]
 
 const releasePackageFiles = [
   "package.json",
-  "packages/desktop-tauri/package.json",
-  "packages/desktop-tauri/src-tauri/tauri.conf.json",
+  "packages/desktop/package.json",
+  "packages/desktop/src-tauri/tauri.conf.json",
   "packages/recorder/package.json",
 ]
 const cargoPackageFiles = [
   "packages/recorder/Cargo.toml",
-  "packages/desktop-tauri/src-tauri/Cargo.toml",
+  "packages/desktop/src-tauri/Cargo.toml",
 ]
 const cargoLockPackageFiles = [
   ["packages/recorder/Cargo.lock", "alloy-agent"],
-  ["packages/desktop-tauri/src-tauri/Cargo.lock", "alloy-desktop-tauri"],
+  ["packages/desktop/src-tauri/Cargo.lock", "alloy-desktop"],
 ]
 
 if (!version || process.argv.length > 3) {

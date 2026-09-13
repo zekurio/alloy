@@ -7,7 +7,7 @@ import { defineConfig } from "vite-plus"
 const workspaceRoot = fileURLToPath(new URL("../..", import.meta.url))
 
 export default defineConfig({
-  cacheDir: "../../node_modules/.vite/desktop-tauri",
+  cacheDir: "../../node_modules/.vite/desktop",
   clearScreen: false,
   publicDir: "../../public",
   resolve: {

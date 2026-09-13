@@ -9,7 +9,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
-use alloy_desktop_tauri::{
+use alloy_desktop::{
     login::{BrowserLogin, SessionTokens},
     policy::{
         CONNECT_WINDOW_LABEL, SERVER_WINDOW_PREFIX, bridge_initialization_script, is_local_app_url,
@@ -227,8 +227,8 @@ async fn connect_server(
 
     if let Err(error) = host.services()?.remember_server(
         server.origin.origin().ascii_serialization().as_str(),
-        alloy_desktop_tauri::server::HTTP_CONTRACT_1,
-        alloy_desktop_tauri::server::TAURI_BRIDGE_CONTRACT_1,
+        alloy_desktop::server::HTTP_CONTRACT_1,
+        alloy_desktop::server::TAURI_BRIDGE_CONTRACT_1,
     ) {
         clear_cancel(host.inner());
         return Err(error);
@@ -949,7 +949,7 @@ fn handle_run_event(app: &AppHandle, event: RunEvent, host: &Arc<Host>) {
 fn main() {
     let host = Arc::new(Host::default());
     let setup_host = Arc::clone(&host);
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if let Some(host) = app.try_state::<Arc<Host>>() {
                 let _ = show_active(app, host.inner());
@@ -1021,7 +1021,22 @@ fn main() {
             spawn_restore_saved_server(app.handle(), &setup_host);
             Ok(())
         })
-        .build(tauri::generate_context!())
-        .expect("Could not build Alloy")
-        .run(move |app, event| handle_run_event(app, event, &host));
+        .build(tauri::generate_context!());
+    let app = match app {
+        Ok(app) => app,
+        // Release builds have no console, so a panic here would look like
+        // the app silently doing nothing.
+        Err(error) => fail_startup(&error.to_string()),
+    };
+    app.run(move |app, event| handle_run_event(app, event, &host));
+}
+
+fn fail_startup(message: &str) -> ! {
+    eprintln!("Could not start Alloy: {message}");
+    rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Error)
+        .set_title("Alloy could not start")
+        .set_description(message)
+        .show();
+    std::process::exit(1)
 }

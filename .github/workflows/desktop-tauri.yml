@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [dev]
     paths:
-      - "packages/desktop-tauri/**"
+      - "packages/desktop/**"
       - "packages/contracts/**"
       - "packages/recording-host/**"
       - "packages/capture-library/**"
@@ -51,7 +51,7 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: |
-            packages/desktop-tauri/src-tauri
+            packages/desktop/src-tauri
             packages/recording-host
             packages/capture-library
             packages/recorder
@@ -60,32 +60,32 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: build connection screen
-        run: pnpm --filter @alloy/desktop-tauri build:renderer
+        run: pnpm --filter @alloy/desktop build:renderer
 
       - name: cache native runtimes
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: |
             packages/recorder/dist/obs-runtime
-            packages/desktop-tauri/.cache/ffmpeg
+            packages/desktop/.cache/ffmpeg
           key: windows-native-obs-32.1.2-ffmpeg-8.1.2-v1
 
       - name: stage obs runtime
         run: pnpm --filter @alloy/recorder obs:install --version 32.1.2
 
       - name: stage recorder and media tools
-        run: node packages/desktop-tauri/scripts/prepare-native.mjs --release
+        run: node packages/desktop/scripts/prepare-native.mjs --release
 
       - name: check native host
-        run: pnpm --filter @alloy/desktop-tauri check:native
+        run: pnpm --filter @alloy/desktop check:native
 
       - name: test connection and login
-        run: pnpm --filter @alloy/desktop-tauri test:native
+        run: pnpm --filter @alloy/desktop test:native
 
       - name: check and test recording services
         shell: pwsh
         run: |
-          $env:PATH = "${{ github.workspace }}/packages/desktop-tauri/resources/ffmpeg;$env:PATH"
+          $env:PATH = "${{ github.workspace }}/packages/desktop/resources/ffmpeg;$env:PATH"
           cargo fmt --manifest-path packages/recording-host/Cargo.toml --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo clippy --manifest-path packages/recording-host/Cargo.toml --all-targets --locked -- -D warnings
@@ -106,6 +106,6 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: alloy-tauri-windows-x64-${{ github.sha }}
-          path: packages/desktop-tauri/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          path: packages/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           if-no-files-found: error
           retention-days: 14

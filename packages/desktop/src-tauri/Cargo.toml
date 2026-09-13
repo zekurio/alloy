@@ -1,5 +1,5 @@
 [package]
-name = "alloy-desktop-tauri"
+name = "alloy-desktop"
 version = "0.0.1"
 edition = "2024"
 publish = false
@@ -52,6 +52,6 @@ tokio = { version = "1", features = [
 url = "2"
 
 [[bin]]
-name = "alloy-desktop-tauri"
+name = "alloy-desktop"
 path = "src/main.rs"
 required-features = ["shell"]

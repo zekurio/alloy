@@ -48,10 +48,10 @@ newest release tag. The publish workflow is the only thing that bumps it.
 These release version files are stamped together and must always match:
 
 - `package.json`
-- `packages/desktop-tauri/package.json`
-- `packages/desktop-tauri/src-tauri/tauri.conf.json`
-- `packages/desktop-tauri/src-tauri/Cargo.toml`
-- `packages/desktop-tauri/src-tauri/Cargo.lock`
+- `packages/desktop/package.json`
+- `packages/desktop/src-tauri/tauri.conf.json`
+- `packages/desktop/src-tauri/Cargo.toml`
+- `packages/desktop/src-tauri/Cargo.lock`
 - `packages/recorder/package.json`
 - `packages/recorder/Cargo.toml`
 - `packages/recorder/Cargo.lock`
@@ -65,7 +65,7 @@ update requires a valid Tauri signature. Configure the repository variable
 installer. The public key is compiled into the app. Keep the private key out of
 the repository.
 
-Use `pnpm exec tauri signer generate` from `packages/desktop-tauri` to create a
+Use `pnpm exec tauri signer generate` from `packages/desktop` to create a
 key pair. Store the private key securely. A different key will not update an
 installed build unless that build already trusts the new key.
 

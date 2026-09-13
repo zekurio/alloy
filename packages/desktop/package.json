@@ -1,5 +1,5 @@
 {
-  "name": "@alloy/desktop-tauri",
+  "name": "@alloy/desktop",
   "version": "0.0.1",
   "private": true,
   "description": "Alloy desktop app",

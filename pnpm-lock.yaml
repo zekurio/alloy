@@ -109,7 +109,7 @@ importers:
         specifier: 0.31.10
         version: 0.31.10
 
-  packages/desktop-tauri:
+  packages/desktop:
     dependencies:
       '@alloy/contracts':
         specifier: workspace:*

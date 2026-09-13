@@ -19,7 +19,7 @@ use tauri::Manager;
 use tokio::sync::broadcast;
 use url::Url;
 
-use alloy_desktop_tauri::server::server_origin;
+use alloy_desktop::server::server_origin;
 
 use tauri_plugin_updater::UpdaterExt;
 

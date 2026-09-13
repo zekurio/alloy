@@ -11,9 +11,9 @@ test("desktop release metadata points to the exact signed installer", async () =
   const root = await mkdtemp(join(tmpdir(), "alloy-release-"))
   const source = join(
     root,
-    "packages/desktop-tauri/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis",
+    "packages/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis",
   )
-  const output = join(root, "packages/desktop-tauri/release")
+  const output = join(root, "packages/desktop/release")
   const script = fileURLToPath(
     new URL("./prepare-desktop-release.mjs", import.meta.url),
   )

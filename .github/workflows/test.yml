@@ -92,7 +92,7 @@ jobs:
           grep -R -q "alloyTauriDesktop" packages/web/dist
 
       - name: build desktop connection screen
-        run: corepack pnpm --filter @alloy/desktop-tauri build:renderer
+        run: corepack pnpm --filter @alloy/desktop build:renderer
 
       - name: check desktop connection artifact
-        run: test -f packages/desktop-tauri/dist/index.html
+        run: test -f packages/desktop/dist/index.html

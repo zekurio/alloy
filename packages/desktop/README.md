@@ -55,8 +55,8 @@ release builds. Rebuild or restart Tauri after changing that screen.
 ```sh
 pnpm tauri:build
 pnpm tauri:dist:win:installer
-pnpm --filter @alloy/desktop-tauri check:native
-pnpm --filter @alloy/desktop-tauri test:native
+pnpm --filter @alloy/desktop check:native
+pnpm --filter @alloy/desktop test:native
 pnpm verify
 ```
 
