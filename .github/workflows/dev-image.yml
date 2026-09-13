@@ -12,6 +12,8 @@ on:
       - "packages/**"
       - "!packages/desktop-tauri/**"
       - "!packages/recorder/**"
+      - "!packages/recording-host/**"
+      - "!packages/capture-library/**"
       - "nix/**"
       - "flake.nix"
       - "flake.lock"

@@ -10,6 +10,7 @@ on:
       - "packages/capture-library/**"
       - "packages/recorder/**"
       - "packages/ui/**"
+      - "packages/i18n/**"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/desktop-tauri.yml"

@@ -201,6 +201,8 @@ jobs:
         with:
           workspaces: |
             packages/desktop-tauri/src-tauri
+            packages/recording-host
+            packages/capture-library
             packages/recorder
 
       - name: cache native runtimes

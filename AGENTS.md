@@ -55,9 +55,11 @@ text, schema layout, private helper composition, or framework behavior. Test
 constants only at released contract boundaries. Prefer one boundary-level test
 over separate tests for each branch.
 
-The recorder builds only on Windows. From `packages/recorder`, check Rust
-changes with `cargo fmt --check` and
-`cargo clippy --all-targets --locked -- -D warnings`.
+The recorder and the Tauri desktop host build only on Windows. Check Rust
+changes in `packages/recorder`, `packages/recording-host`,
+`packages/capture-library`, and `packages/desktop-tauri/src-tauri` with
+`cargo fmt --check` and `cargo clippy --all-targets --locked -- -D warnings`
+(`pnpm --filter @alloy/desktop-tauri check:native` covers the host crate).
 
 For changes under `nix/` or to `flake.nix`, run `nix flake check`. Run
 `nix build .#alloy` only when the change warrants a full build.

@@ -17,8 +17,6 @@
     "tauri:dev": "pnpm --filter @alloy/desktop-tauri dev",
     "tauri:build": "pnpm --filter @alloy/desktop-tauri build:app",
     "tauri:dist:win:installer": "pnpm --filter @alloy/desktop-tauri dist:win:installer",
-    "desktop:dist:win": "pnpm --filter @alloy/desktop-tauri build:app",
-    "desktop:dist:win:installer": "pnpm --filter @alloy/desktop-tauri dist:win:installer",
     "start": "pnpm --filter @alloy/server start",
     "start:prod": "pnpm --filter @alloy/server start",
     "db:generate": "pnpm --filter @alloy/db db:generate",

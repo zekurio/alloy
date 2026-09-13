@@ -69,9 +69,8 @@ Use `pnpm exec tauri signer generate` from `packages/desktop-tauri` to create a
 key pair. Store the private key securely. A different key will not update an
 installed build unless that build already trusts the new key.
 
-Electron update metadata is no longer produced. Install the first Tauri build
-manually. Test a signed update on Windows before using the release workflow
-for distribution.
+Test a signed update on Windows before using the release workflow for
+distribution.
 
 ## Recovery
 
