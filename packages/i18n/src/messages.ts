@@ -418,8 +418,10 @@ export const DE_MESSAGES = {
     "Das Alloy-Serverfenster konnte nicht geladen werden.",
   "Could not clear the Alloy server profile.":
     "Das Alloy-Serverprofil konnte nicht geleert werden.",
-  "Desktop services are not ready.": "Die Desktop-Dienste sind noch nicht bereit.",
-  "Desktop runtime is not ready.": "Die Desktop-Laufzeit ist noch nicht bereit.",
+  "Desktop services are not ready.":
+    "Die Desktop-Dienste sind noch nicht bereit.",
+  "Desktop runtime is not ready.":
+    "Die Desktop-Laufzeit ist noch nicht bereit.",
   "Autostart is unavailable in this build.":
     "Autostart ist in dieser Version nicht verfügbar.",
   "Updater state is unavailable.": "Der Update-Status ist nicht verfügbar.",

@@ -81,7 +81,11 @@
   // wins, a press on a drag region moves the window, and a double click
   // toggles maximize.
   function appRegion(target) {
-    for (let node = target; node instanceof Element; node = node.parentElement) {
+    for (
+      let node = target;
+      node instanceof Element;
+      node = node.parentElement
+    ) {
       const style = getComputedStyle(node)
       const region =
         style.getPropertyValue("app-region") ||
