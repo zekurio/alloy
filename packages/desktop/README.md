@@ -30,8 +30,8 @@ origin. The local connection window has separate permissions. Each remote
 window has a unique label. Navigation cannot move a native-enabled window to
 another server.
 
-Recorder control moves into `packages/recording-host`. Capture storage and
-background media work move into `packages/capture-library`. FFmpeg handles
+Recorder control lives in the `recording_host` module. Capture storage and
+background media work live in the `capture_library` module. FFmpeg handles
 native media work. A local file server streams captures and exports with range
 support. It does not forward server API requests.
 

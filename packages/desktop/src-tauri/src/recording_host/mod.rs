@@ -8,37 +8,37 @@ use std::{
     path::{Path, PathBuf},
     process::Stdio,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Weak,
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use fs2::{available_space, total_space};
 use models::*;
-use serde::{de::DeserializeOwned, Serialize};
-use serde_json::{json, Value};
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+use serde::{Serialize, de::DeserializeOwned};
+use serde_json::{Value, json};
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use tokio::{
     io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader},
     process::{Child, ChildStdin, Command},
-    sync::{broadcast, oneshot, Mutex, Notify, RwLock},
+    sync::{Mutex, Notify, RwLock, broadcast, oneshot},
     time::{sleep, timeout},
 };
 
 pub use models::{
-    CaptureManifest, EventEnvelope, PlayNotificationSoundRequest, RecorderHostOptions,
-    RecordingActionResult, RecordingAllowedGame, RecordingAudioApplicationSelection,
-    RecordingAudioDevice, RecordingAudioDeviceKind, RecordingAudioDeviceSelection,
-    RecordingAudioLevel, RecordingAudioLevelTarget, RecordingAudioMode, RecordingBackendState,
-    RecordingBitrate, RecordingBufferStorage, RecordingCapture, RecordingCaptureKind,
-    RecordingCaptureMode, RecordingCapturePostProcess, RecordingCaptureSource, RecordingCodec,
-    RecordingDisplay, RecordingEncoder, RecordingEvent, RecordingGame, RecordingGameGuess,
-    RecordingGameGuessMatchKind, RecordingGameGuessSource, RecordingGameProcess, RecordingHotkeys,
-    RecordingMode, RecordingNotificationSoundSettings, RecordingNotificationSounds,
-    RecordingQualityProfile, RecordingQualitySettings, RecordingResolution, RecordingRunState,
-    RecordingSettings, RecordingStatus, RecordingStorageInfo, RecordingTelemetry,
-    SaveReplayClipRequest, SidecarVersion, AGENT_METHODS, AGENT_NAME, AGENT_PROTOCOL_VERSION,
+    AGENT_METHODS, AGENT_NAME, AGENT_PROTOCOL_VERSION, CaptureManifest, EventEnvelope,
+    PlayNotificationSoundRequest, RecorderHostOptions, RecordingActionResult, RecordingAllowedGame,
+    RecordingAudioApplicationSelection, RecordingAudioDevice, RecordingAudioDeviceKind,
+    RecordingAudioDeviceSelection, RecordingAudioLevel, RecordingAudioLevelTarget,
+    RecordingAudioMode, RecordingBackendState, RecordingBitrate, RecordingBufferStorage,
+    RecordingCapture, RecordingCaptureKind, RecordingCaptureMode, RecordingCapturePostProcess,
+    RecordingCaptureSource, RecordingCodec, RecordingDisplay, RecordingEncoder, RecordingEvent,
+    RecordingGame, RecordingGameGuess, RecordingGameGuessMatchKind, RecordingGameGuessSource,
+    RecordingGameProcess, RecordingHotkeys, RecordingMode, RecordingNotificationSoundSettings,
+    RecordingNotificationSounds, RecordingQualityProfile, RecordingQualitySettings,
+    RecordingResolution, RecordingRunState, RecordingSettings, RecordingStatus,
+    RecordingStorageInfo, RecordingTelemetry, SaveReplayClipRequest, SidecarVersion,
 };
 
 const SETTINGS_FILE: &str = "recording-settings.json";
@@ -728,14 +728,14 @@ impl RecorderHost {
         manifest
             .captures
             .retain(|pending| !captures_match(pending, &capture));
-        if manifest.captures.len() != before {
-            if let Err(error) = write_json_atomic(
+        if manifest.captures.len() != before
+            && let Err(error) = write_json_atomic(
                 &self.inner.options.state_dir.join(CAPTURES_FILE),
                 &*manifest,
-            ) {
-                *manifest = original;
-                return Err(error);
-            }
+            )
+        {
+            *manifest = original;
+            return Err(error);
         }
         drop(manifest);
 
@@ -861,20 +861,20 @@ async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHost
     if inner.shutdown.load(Ordering::Acquire) {
         return Err(RecorderHostError::Shutdown);
     }
-    if let Some(session) = inner.session.lock().await.clone() {
-        if session.is_alive() {
-            return Ok(session);
-        }
+    if let Some(session) = inner.session.lock().await.clone()
+        && session.is_alive()
+    {
+        return Ok(session);
     }
 
     let _start = inner.start_lock.lock().await;
     if inner.shutdown.load(Ordering::Acquire) {
         return Err(RecorderHostError::Shutdown);
     }
-    if let Some(session) = inner.session.lock().await.clone() {
-        if session.is_alive() {
-            return Ok(session);
-        }
+    if let Some(session) = inner.session.lock().await.clone()
+        && session.is_alive()
+    {
+        return Ok(session);
     }
 
     start_discord_detection_refresh(inner);
@@ -1176,10 +1176,10 @@ async fn heartbeat(
         if let Some(inner) = inner.upgrade() {
             if let Some(status) = response.status {
                 apply_status_inner(&inner, status).await;
-            } else if let Some(result) = response.result {
-                if let Ok(status) = serde_json::from_value::<RecordingStatus>(result) {
-                    apply_status_inner(&inner, status).await;
-                }
+            } else if let Some(result) = response.result
+                && let Ok(status) = serde_json::from_value::<RecordingStatus>(result)
+            {
+                apply_status_inner(&inner, status).await;
             }
         }
     }
@@ -1554,12 +1554,10 @@ fn start_discord_detection_refresh(inner: &Arc<Inner>) {
             let Some(inner) = weak.upgrade() else {
                 return;
             };
-            if !inner.shutdown.load(Ordering::Acquire) {
-                if let Err(error) = refresh_discord_detection_cache(&path).await {
-                    eprintln!(
-                        "[alloy-recording-host] failed to refresh Discord detections: {error}"
-                    );
-                }
+            if !inner.shutdown.load(Ordering::Acquire)
+                && let Err(error) = refresh_discord_detection_cache(&path).await
+            {
+                eprintln!("[alloy-recording-host] failed to refresh Discord detections: {error}");
             }
             sleep(DISCORD_REFRESH_INTERVAL).await;
         }

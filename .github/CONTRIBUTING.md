@@ -52,7 +52,8 @@ Never use npm, yarn, or Bun in this repo.
 
 ## Code Style
 
-Vite+ runs oxfmt and oxlint (not Prettier/ESLint); TypeScript is strict ESM.
+Formatting is oxfmt and linting is oxlint (not Prettier/ESLint); TypeScript is
+strict ESM.
 Don't hand-format. Run the root commands:
 
 ```bash

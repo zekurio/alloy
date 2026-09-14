@@ -46,35 +46,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "alloy-capture-library"
-version = "0.1.0"
-dependencies = [
- "axum",
- "base64 0.22.1",
- "futures-util",
- "http",
- "reqwest",
- "rustls",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "thiserror 2.0.20",
- "time",
- "tokio",
- "tokio-util",
- "trash",
- "url",
- "uuid",
-]
-
-[[package]]
 name = "alloy-desktop"
 version = "0.0.1"
 dependencies = [
- "alloy-capture-library",
- "alloy-recording-host",
+ "axum",
  "base64 0.22.1",
+ "fs2",
+ "futures-util",
+ "http",
  "open",
  "rand 0.9.5",
  "reqwest",
@@ -88,22 +67,14 @@ dependencies = [
  "tauri-plugin-autostart",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
+ "tempfile",
+ "thiserror 2.0.20",
  "time",
  "tokio",
+ "tokio-util",
+ "trash",
  "url",
-]
-
-[[package]]
-name = "alloy-recording-host"
-version = "0.0.1"
-dependencies = [
- "fs2",
- "reqwest",
- "rustls",
- "serde",
- "serde_json",
- "time",
- "tokio",
+ "uuid",
 ]
 
 [[package]]

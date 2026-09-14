@@ -2,11 +2,11 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
 
-use alloy_capture_library::{
+use alloy_desktop::capture_library::{
     CaptureHttpServer, CaptureLibrary, CaptureLibraryConfig, CaptureRecord,
     download::DownloadManager, media,
 };
-use alloy_recording_host::{
+use alloy_desktop::recording_host::{
     PlayNotificationSoundRequest, RecorderHost, RecorderHostOptions, RecordingCapture,
     RecordingCaptureKind, RecordingEvent, RecordingSettings, SaveReplayClipRequest,
 };
@@ -613,7 +613,7 @@ impl DesktopRuntime {
 
 fn set_item_urls(
     library: &LibraryRuntime,
-    item: &mut alloy_capture_library::LibraryItem,
+    item: &mut alloy_desktop::capture_library::LibraryItem,
 ) -> Result<(), String> {
     item.media_url = library.files.media_url(&item.id).map_err(error)?;
     item.thumbnail_url = Some(library.files.thumbnail_url(&item.id).map_err(error)?);

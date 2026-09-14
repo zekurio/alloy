@@ -12,10 +12,10 @@ use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 use url::Url;
 
-use crate::error::{LibraryError, Result};
-use crate::paths::{extension_for_content_type, safe_component, unique_path};
-use crate::store::CaptureLibrary;
-use crate::types::{DownloadRequest, DownloadState, DownloadStatus};
+use crate::capture_library::error::{LibraryError, Result};
+use crate::capture_library::paths::{extension_for_content_type, safe_component, unique_path};
+use crate::capture_library::store::CaptureLibrary;
+use crate::capture_library::types::{DownloadRequest, DownloadState, DownloadStatus};
 
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(200);
 const DOWNLOAD_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -145,7 +145,7 @@ impl DownloadManager {
             total_bytes: request.size_bytes,
             error: None,
             library_item_id: None,
-            started_at: crate::paths::now_rfc3339(),
+            started_at: crate::capture_library::paths::now_rfc3339(),
         };
         let token = CancellationToken::new();
         jobs.insert(

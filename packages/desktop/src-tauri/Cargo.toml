@@ -11,8 +11,6 @@ shell = [
   "dep:tauri-build",
   "dep:open",
   "dep:rfd",
-  "dep:alloy-recording-host",
-  "dep:alloy-capture-library",
   "dep:tauri-plugin-updater",
   "dep:tauri-plugin-autostart",
   "dep:tauri-plugin-single-instance",
@@ -24,31 +22,42 @@ tauri-build = { version = "2", optional = true, features = [] }
 rustls = { workspace = true }
 
 [dependencies]
-alloy-recording-host = { path = "../../recording-host", optional = true }
-alloy-capture-library = { path = "../../capture-library", optional = true }
-rfd = { version = "0.16", optional = true }
-tauri-plugin-updater = { version = "2", optional = true }
-tauri-plugin-autostart = { version = "2", optional = true }
-tauri-plugin-single-instance = { version = "2", optional = true }
+axum = "0.8"
 base64 = { workspace = true }
+fs2 = "0.4"
+futures-util = "0.3"
+http = "1"
 open = { version = "5", optional = true }
 rand = "0.9"
-reqwest = { workspace = true, features = ["json"] }
+reqwest = { workspace = true, features = ["json", "stream"] }
+rfd = { version = "0.16", optional = true }
 rustls = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 tauri = { version = "2", optional = true, features = ["tray-icon"] }
+tauri-plugin-autostart = { version = "2", optional = true }
+tauri-plugin-single-instance = { version = "2", optional = true }
+tauri-plugin-updater = { version = "2", optional = true }
+thiserror = "2"
 time = { workspace = true }
 tokio = { workspace = true, features = [
+  "fs",
   "io-util",
   "macros",
   "net",
+  "process",
   "rt-multi-thread",
   "sync",
   "time",
 ] }
+tokio-util = { version = "0.7", features = ["io", "rt"] }
+trash = "5"
 url = { workspace = true }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "3"
 
 [[bin]]
 name = "alloy-desktop"

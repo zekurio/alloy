@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import { runInNewContext } from "node:vm"
 
 import type { AlloyTauriDesktop } from "@alloy/contracts/desktop-tauri"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 const source = readFileSync(
   new URL("../src-tauri/src/bridge.js", import.meta.url),

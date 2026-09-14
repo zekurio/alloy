@@ -73,9 +73,11 @@ Without Nix: install Node 24 and pnpm 11, provide a PostgreSQL database, copy
 `.env.example` to `.env`, then `pnpm install && pnpm dev`. `pnpm dev:all` adds
 the desktop shell; the recorder builds only on Windows.
 
-[Vite+](https://viteplus.dev/) handles formatting, linting, and test discovery
-from the root [`vite.config.ts`](vite.config.ts). The repository scripts use the
-pinned local Vite+ version:
+Formatting, linting, and tests run through the pinned local
+[oxfmt](https://oxc.rs/docs/guide/usage/formatter.html),
+[oxlint](https://oxc.rs/docs/guide/usage/linter.html), and
+[Vitest](https://vitest.dev/) versions, configured in `.oxfmtrc.json`,
+`.oxlintrc.json`, and `vitest.config.ts` at the repo root:
 
 ```bash
 pnpm fmt                         # format the repository

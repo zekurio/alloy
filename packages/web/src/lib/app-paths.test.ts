@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 
 import { clipShareUrl } from "@alloy/contracts"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import { absoluteClipHref } from "./app-paths"
 

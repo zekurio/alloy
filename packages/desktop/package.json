@@ -8,7 +8,7 @@
     "dev": "node scripts/prepare-native.mjs && tauri dev",
     "build:app": "node scripts/prepare-native.mjs --release && tauri build --no-bundle",
     "dist:win:installer": "node scripts/prepare-native.mjs --release && tauri build --target x86_64-pc-windows-msvc --bundles nsis",
-    "build:renderer": "vp build",
+    "build:renderer": "vite build",
     "typecheck": "tsc --noEmit",
     "check:native": "cargo fmt --package alloy-desktop --check && cargo clippy --package alloy-desktop --all-targets --locked -- -D warnings",
     "test:native": "cargo test --package alloy-desktop --all-targets --locked",

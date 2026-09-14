@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 
 import { TAURI_DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/contracts/desktop-tauri"
-import { afterEach, test } from "vite-plus/test"
+import { afterEach, test } from "vitest"
 
 import {
   alloyDesktop,

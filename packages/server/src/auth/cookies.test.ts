@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 
 import { Hono } from "hono"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import {
   setAccountReactivationCookie,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 
 import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-worker"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import {
   storageDeletionRetryAt,

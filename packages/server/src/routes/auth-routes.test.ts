@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 
 import { Hono } from "hono"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 test("passkey routes retain request validation, session gates, CSRF and sign-up throttling", async () => {
   process.env.NODE_ENV = "production"

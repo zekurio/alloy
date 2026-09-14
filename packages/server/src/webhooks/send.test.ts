@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { once } from "node:events"
 import { createServer } from "node:http"
 
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import { sendWebhook } from "./send"
 

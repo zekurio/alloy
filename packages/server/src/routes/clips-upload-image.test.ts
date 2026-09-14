@@ -8,7 +8,7 @@ import { authSession, user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
 import { eq } from "drizzle-orm"
 import sharp from "sharp"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 test.skipIf(!process.env.ALLOY_TEST_DATABASE_URL)(
   "image edits replace media on the same post and reject stale or unauthorized saves",

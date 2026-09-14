@@ -2,8 +2,8 @@ packages:
   - "packages/*"
 
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@0.3.0
-  vite-plus: 0.3.0
+  vite: 8.3.0
+  vitest: 4.1.11
 
 allowBuilds:
   esbuild: true
@@ -28,8 +28,4 @@ overrides:
   tar: 7.5.21
   undici: 7.29.0
   vite: "catalog:"
-  vitest: 4.1.11
-
-peerDependencyRules:
-  allowAny:
-    - vite
+  vitest: "catalog:"

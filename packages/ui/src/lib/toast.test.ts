@@ -1,6 +1,6 @@
 import { getRuntimeLocale, setRuntimeLocale } from "@alloy/i18n"
 import { toast as sonner } from "sonner"
-import { expect, test, vi } from "vite-plus/test"
+import { expect, test, vi } from "vitest"
 
 import { toast } from "./toast"
 

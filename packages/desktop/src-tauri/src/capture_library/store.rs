@@ -10,13 +10,13 @@ use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::error::{LibraryError, Result};
-use crate::media::probe_file_for_library;
-use crate::paths::{
+use crate::capture_library::error::{LibraryError, Result};
+use crate::capture_library::media::probe_file_for_library;
+use crate::capture_library::paths::{
     capture_id, ensure_within, extension, is_image, is_media, manifest_key, now_rfc3339,
     safe_component, safe_file_stem, title_for_capture, unique_path,
 };
-use crate::types::{
+use crate::capture_library::types::{
     CaptureKind, CaptureManifest, CaptureRecord, CaptureSource, CommitImport, FilesImportResult,
     ImportFailure, LibraryGroup, LibraryItem, LibrarySnapshot, ManifestEntry, MetaPatch,
     StagedImport, TrimUpdate,
@@ -573,7 +573,7 @@ impl CaptureLibrary {
     /// type and a path below the configured output folder.
     pub fn register_download(
         &self,
-        request: &crate::types::DownloadRequest,
+        request: &crate::capture_library::types::DownloadRequest,
         path: &Path,
         content_type: &str,
         size_bytes: u64,
@@ -1103,7 +1103,7 @@ fn validate_meta_patch(patch: &MetaPatch) -> Result<()> {
     Ok(())
 }
 
-fn validate_game_guess(value: &crate::types::GameGuess) -> Result<()> {
+fn validate_game_guess(value: &crate::capture_library::types::GameGuess) -> Result<()> {
     if value.source.len() > 128
         || value.name.trim().is_empty()
         || value.name.len() > 256
@@ -1265,7 +1265,9 @@ fn is_safe_server_id(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
-fn validate_download_request(request: &crate::types::DownloadRequest) -> Result<()> {
+fn validate_download_request(
+    request: &crate::capture_library::types::DownloadRequest,
+) -> Result<()> {
     if request.clip_id.is_empty()
         || request.clip_id.len() > 128
         || !request

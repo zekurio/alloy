@@ -5,7 +5,7 @@ import type { FeedPage } from "@alloy/contracts"
 import { authSession, user } from "@alloy/db/auth-schema"
 import { clip, clipView, game } from "@alloy/db/schema"
 import { eq, inArray } from "drizzle-orm"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 // Run against a migrated, disposable PostgreSQL database.
 test.skipIf(!process.env.ALLOY_TEST_DATABASE_URL)(

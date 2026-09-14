@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto"
 import { authSession, user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
 import { eq, inArray } from "drizzle-orm"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 // Point ALLOY_TEST_DATABASE_URL at a migrated, disposable PostgreSQL database.
 test.skipIf(!process.env.ALLOY_TEST_DATABASE_URL)(

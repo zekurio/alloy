@@ -3,12 +3,7 @@
 # compiled dependencies across the desktop host, its services, and the recorder.
 [workspace]
 resolver = "3"
-members = [
-  "packages/capture-library",
-  "packages/desktop/src-tauri",
-  "packages/recorder",
-  "packages/recording-host",
-]
+members = ["packages/desktop/src-tauri", "packages/recorder"]
 
 # Shared versions keep a single copy of each dependency in the graph. Members
 # reference these with `workspace = true` and add only their own features.

@@ -1,14 +1,14 @@
 use std::path::Path;
 use std::process::Command;
 
-use alloy_capture_library::media::{export, generate_thumbnail, probe_file};
-use alloy_capture_library::protocol::CaptureHttpServer;
-use alloy_capture_library::store::{CaptureLibrary, CaptureLibraryConfig};
-use alloy_capture_library::types::{
+use alloy_desktop::capture_library::media::{export, generate_thumbnail, probe_file};
+use alloy_desktop::capture_library::protocol::CaptureHttpServer;
+use alloy_desktop::capture_library::store::{CaptureLibrary, CaptureLibraryConfig};
+use alloy_desktop::capture_library::types::{
     CaptureGame, CaptureKind, CaptureRecord, CaptureSource, CommitImport, ExportRequest,
     ExportSegment, GameGuess, MetaPatch, PostProcess, TrimUpdate,
 };
-use alloy_capture_library::{download::DownloadManager, types::DownloadRequest};
+use alloy_desktop::capture_library::{download::DownloadManager, types::DownloadRequest};
 use axum::Router;
 use axum::body::Body;
 use axum::http::{HeaderMap, StatusCode};
@@ -422,7 +422,7 @@ async fn download_manager_uses_native_server_and_cookie_state() {
         .unwrap();
     assert_eq!(
         initial.status,
-        alloy_capture_library::DownloadStatus::Downloading
+        alloy_desktop::capture_library::DownloadStatus::Downloading
     );
     let mut completed = None;
     for _ in 0..200 {
@@ -430,7 +430,7 @@ async fn download_manager_uses_native_server_and_cookie_state() {
             state.clip_id == "clip-123"
                 && matches!(
                     state.status,
-                    alloy_capture_library::DownloadStatus::Completed
+                    alloy_desktop::capture_library::DownloadStatus::Completed
                 )
         }) {
             completed = Some(state);
@@ -528,7 +528,7 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
             media.to_string_lossy().into_owned(),
         ],
     });
-    alloy_capture_library::media::finalize_capture_record(&library, &mut joined)
+    alloy_desktop::capture_library::media::finalize_capture_record(&library, &mut joined)
         .await
         .unwrap();
     assert!(joined.post_process.is_none());
@@ -537,7 +537,7 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     assert!(media.is_file());
 
     joined.post_process = Some(PostProcess::TrimTail { keep_ms: 500 });
-    alloy_capture_library::media::finalize_capture_record(&library, &mut joined)
+    alloy_desktop::capture_library::media::finalize_capture_record(&library, &mut joined)
         .await
         .unwrap();
     assert!(joined.post_process.is_none());
@@ -562,7 +562,7 @@ async fn shutdown_media_cancels_future_tool_work() {
         .expect_err("cancelled media should fail");
     assert!(matches!(
         error,
-        alloy_capture_library::LibraryError::MediaCancelled
+        alloy_desktop::capture_library::LibraryError::MediaCancelled
     ));
     library.shutdown_media().await;
     assert!(source.is_file());

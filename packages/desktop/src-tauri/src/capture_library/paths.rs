@@ -3,7 +3,7 @@ use std::path::{Component, Path, PathBuf};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use sha2::{Digest, Sha256};
 
-use crate::error::{LibraryError, Result};
+use crate::capture_library::error::{LibraryError, Result};
 
 pub const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mkv", "mov", "webm"];
 pub const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp"];

@@ -6,8 +6,6 @@ on:
     paths:
       - "packages/desktop/**"
       - "packages/contracts/**"
-      - "packages/recording-host/**"
-      - "packages/capture-library/**"
       - "packages/recorder/**"
       - "packages/ui/**"
       - "packages/i18n/**"

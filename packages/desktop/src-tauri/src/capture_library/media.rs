@@ -9,10 +9,12 @@ use tokio::process::Command;
 use tokio::time::timeout;
 use uuid::Uuid;
 
-use crate::error::{LibraryError, Result};
-use crate::paths::{extension, now_rfc3339};
-use crate::store::{CaptureLibrary, ensure_media_in_output, ensure_media_location};
-use crate::types::{ExportRequest, LibraryExport, PostProcess, VideoMeta};
+use crate::capture_library::error::{LibraryError, Result};
+use crate::capture_library::paths::{extension, now_rfc3339};
+use crate::capture_library::store::{
+    CaptureLibrary, ensure_media_in_output, ensure_media_location,
+};
+use crate::capture_library::types::{ExportRequest, LibraryExport, PostProcess, VideoMeta};
 
 /// Windows process creation flag that suppresses a console window for the child.
 #[cfg(windows)]
@@ -160,7 +162,7 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
         "export:{}:{}:{}:{}",
         item.filename, item.modified_at, segment.start_ms, segment.end_ms
     );
-    let export_id = crate::paths::capture_id(export_key.as_str());
+    let export_id = crate::capture_library::paths::capture_id(export_key.as_str());
     let output = library.export_path(&export_id)?;
     tokio::fs::create_dir_all(output.parent().ok_or(LibraryError::InvalidPath)?).await?;
     let mut start_offset_ms = 0;
@@ -538,9 +540,9 @@ async fn remove_segments_except(paths: &[String], keep: &Path) {
 }
 
 fn sanitize_segment(
-    segment: Option<&crate::types::ExportSegment>,
+    segment: Option<&crate::capture_library::types::ExportSegment>,
     duration_ms: u64,
-) -> Result<crate::types::ExportSegment> {
+) -> Result<crate::capture_library::types::ExportSegment> {
     let Some(segment) = segment else {
         return Err(LibraryError::InvalidExport("selection is empty".into()));
     };
@@ -549,7 +551,7 @@ fn sanitize_segment(
     if end_ms.saturating_sub(start_ms) < MIN_EXPORT_SEGMENT_MS {
         return Err(LibraryError::InvalidExport("selection is too short".into()));
     }
-    Ok(crate::types::ExportSegment { start_ms, end_ms })
+    Ok(crate::capture_library::types::ExportSegment { start_ms, end_ms })
 }
 
 fn format_seconds(value: u64) -> String {
@@ -567,7 +569,7 @@ fn temporary_media_path(output: &Path) -> PathBuf {
 
 fn export_file_name(
     source: &str,
-    segment: crate::types::ExportSegment,
+    segment: crate::capture_library::types::ExportSegment,
     full_source: bool,
 ) -> String {
     let path = Path::new(source);
@@ -588,7 +590,7 @@ fn export_file_name(
 
 pub async fn finalize_capture_record(
     library: &CaptureLibrary,
-    capture: &mut crate::types::CaptureRecord,
+    capture: &mut crate::capture_library::types::CaptureRecord,
 ) -> Result<()> {
     let Some(post_process) = capture.post_process.clone() else {
         return Ok(());
@@ -619,7 +621,7 @@ pub async fn generate_thumbnail(
     source: &Path,
 ) -> Result<PathBuf> {
     let source = ensure_media_in_output(library.output_folder(), source)?;
-    if !source.is_file() || !crate::paths::is_video(&source) {
+    if !source.is_file() || !crate::capture_library::paths::is_video(&source) {
         return Err(LibraryError::UnsupportedMedia);
     }
     let folder = library.thumbnail_path(id)?;

@@ -15,10 +15,10 @@ use tokio_util::io::ReaderStream;
 use url::Url;
 use uuid::Uuid;
 
-use crate::error::{LibraryError, Result};
-use crate::media::generate_thumbnail;
-use crate::paths::{content_type, extension, is_media};
-use crate::store::CaptureLibrary;
+use crate::capture_library::error::{LibraryError, Result};
+use crate::capture_library::media::generate_thumbnail;
+use crate::capture_library::paths::{content_type, extension, is_media};
+use crate::capture_library::store::CaptureLibrary;
 
 const TOKEN_QUERY: &str = "token";
 const MAX_ID_LENGTH: usize = 64;
@@ -265,7 +265,7 @@ async fn thumbnail_file(library: &CaptureLibrary, id: &str) -> Result<PathBuf> {
     }
     let item = library.find_item(id).ok_or(LibraryError::CaptureNotFound)?;
     let source = PathBuf::from(&item.filename).canonicalize()?;
-    if item.kind == crate::types::CaptureKind::Screenshot {
+    if item.kind == crate::capture_library::types::CaptureKind::Screenshot {
         return Ok(source);
     }
     generate_thumbnail(library, id, &source).await

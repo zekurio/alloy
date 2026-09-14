@@ -5,7 +5,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 test("desktop release metadata points to the exact signed installer", async () => {
   const root = await mkdtemp(join(tmpdir(), "alloy-release-"))

@@ -29,7 +29,6 @@ packages/recorder/release/
 .nitro
 .tanstack
 .vite
-.vite-plus
 .vinxi
 
 # Debug

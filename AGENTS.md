@@ -11,19 +11,17 @@ boundaries, especially desktop-to-server HTTP and desktop-to-recorder IPC.
 
 ## Repository map
 
-| Path                                                | Purpose                                                  |
-| --------------------------------------------------- | -------------------------------------------------------- |
-| `packages/desktop`                                  | Tauri shell, local connection screen, and native bridge  |
-| `packages/recording-host`                           | Rust recorder process control and settings               |
-| `packages/capture-library`                          | Rust local library, file streaming, and media processing |
-| `packages/recorder`                                 | Windows Rust recorder built on OBS                       |
-| `packages/server`                                   | Hono API, uploads, jobs, and media processing            |
-| `packages/web`                                      | React web app and file-based routes                      |
-| `packages/contracts`                                | Shared schemas, types, and desktop contracts             |
-| `packages/api`                                      | Typed API client                                         |
-| `packages/db`                                       | Drizzle schema and database workflows                    |
-| `packages/ui`                                       | Shared React components and styles                       |
-| `packages/env`, `packages/i18n`, `packages/logging` | Shared infrastructure                                    |
+| Path                                                | Purpose                                                             |
+| --------------------------------------------------- | ------------------------------------------------------------------- |
+| `packages/desktop`                                  | Tauri shell, connection screen, recorder control, and local library |
+| `packages/recorder`                                 | Windows Rust recorder built on OBS                                  |
+| `packages/server`                                   | Hono API, uploads, jobs, and media processing                       |
+| `packages/web`                                      | React web app and file-based routes                                 |
+| `packages/contracts`                                | Shared schemas, types, and desktop contracts                        |
+| `packages/api`                                      | Typed API client                                                    |
+| `packages/db`                                       | Drizzle schema and database workflows                               |
+| `packages/ui`                                       | Shared React components and styles                                  |
+| `packages/env`, `packages/i18n`, `packages/logging` | Shared infrastructure                                               |
 
 Read the relevant package README and nearby code before changing a subsystem.
 Do not overwrite unrelated working-tree changes.
@@ -46,20 +44,20 @@ pnpm test packages/server/src/path/to/file.test.ts
 pnpm verify       # formatting check, lint, and typecheck
 ```
 
-Run `pnpm verify` before completing a code change. Vite+ owns test discovery,
-formatting, and linting through the root `vite.config.ts`; the repo also uses
-strict ESM TypeScript and `tsc --noEmit`.
+Run `pnpm verify` before completing a code change. Vitest owns test discovery
+(root `vitest.config.ts`), oxfmt formatting (`.oxfmtrc.json`), and oxlint
+linting (`.oxlintrc.json`); the repo also uses strict ESM TypeScript and
+`tsc --noEmit`.
 
 Add tests only for observable, regression-prone behavior. Do not assert raw SQL
 text, schema layout, private helper composition, or framework behavior. Test
 constants only at released contract boundaries. Prefer one boundary-level test
 over separate tests for each branch.
 
-The recorder and the Tauri desktop host build only on Windows. All Rust crates
-(`packages/recorder`, `packages/recording-host`, `packages/capture-library`,
-and `packages/desktop/src-tauri`) are members of the root Cargo workspace and
-share `Cargo.lock` and `target/`. Check Rust changes from the repo root with
-`cargo fmt --all --check` and
+The recorder and the Tauri desktop host build only on Windows. Both Rust
+crates (`packages/recorder` and `packages/desktop/src-tauri`) are members of
+the root Cargo workspace and share `Cargo.lock` and `target/`. Check Rust
+changes from the repo root with `cargo fmt --all --check` and
 `cargo clippy --workspace --all-targets --locked -- -D warnings`
 (`pnpm --filter @alloy/desktop check:native` covers only the host crate).
 
@@ -96,7 +94,8 @@ change in place when desktop and server are updated together. Once independent
 deployments exist, version breaking changes and define a support window.
 
 Keep OBS in the recorder process. Sidecar protocol changes must update both
-`packages/recording-host` and `packages/recorder/src/sidecar_types.rs`.
+`packages/desktop/src-tauri/src/recording_host` and
+`packages/recorder/src/sidecar_types.rs`.
 
 Put cross-package types and constants in `packages/contracts`. Use Zod when a
 value crosses a runtime boundary; use plain TypeScript types otherwise.

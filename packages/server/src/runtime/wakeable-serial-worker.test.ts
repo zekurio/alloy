@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import { webhookFailurePlan } from "../webhooks/delivery-policy"
 import { WakeableSerialWorker } from "./wakeable-serial-worker"

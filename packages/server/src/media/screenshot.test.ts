@@ -1,6 +1,6 @@
 import { SCREENSHOT_MAX_BYTES } from "@alloy/contracts"
 import sharp from "sharp"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import { InitiateBody } from "../routes/clips-helpers"
 import { prepareScreenshot } from "./screenshot"

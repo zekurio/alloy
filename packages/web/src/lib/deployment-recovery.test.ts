@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import {
   WEB_BUILD_FOCUS_CHECK_MIN_GAP_MS,

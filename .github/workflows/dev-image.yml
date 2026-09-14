@@ -12,8 +12,6 @@ on:
       - "packages/**"
       - "!packages/desktop/**"
       - "!packages/recorder/**"
-      - "!packages/recording-host/**"
-      - "!packages/capture-library/**"
       - "nix/**"
       - "flake.nix"
       - "flake.lock"

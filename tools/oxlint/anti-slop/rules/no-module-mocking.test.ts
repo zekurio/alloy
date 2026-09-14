@@ -25,10 +25,6 @@ tester.run("anti-slop/no-module-mocking", noModuleMockingRule, {
       errors: [error],
     },
     {
-      code: "import { vi } from 'vite-plus/test'; vi.mock('./user-store');",
-      errors: [error],
-    },
-    {
       code: "import { vi as testApi } from 'vitest'; testApi.mock('./user-store');",
       errors: [error],
     },
