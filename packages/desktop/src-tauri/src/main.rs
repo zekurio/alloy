@@ -29,8 +29,9 @@ use tauri::{
     AppHandle, Emitter, Manager, RunEvent, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
     WindowEvent,
     menu::{Menu, MenuItem},
-    tray::{TrayIconBuilder, TrayIconEvent},
-    webview::{Cookie, NewWindowResponse},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    webview::{Cookie, NewWindowResponse, PageLoadEvent},
+    window::Color,
 };
 use tokio::sync::watch;
 use url::Url;
@@ -38,6 +39,16 @@ use url::Url;
 const DESKTOP_SHELL_PERMISSION: &str = "allow-desktop-shell";
 const DESKTOP_API_PERMISSION: &str = "allow-desktop-api";
 const NO_SAVED_SESSION: &str = "No saved Alloy session was found.";
+/// Painted behind every webview until the page renders, so windows never
+/// flash white while the app loads. Matches the dark app background
+/// (`--background`, `oklch(0.11 0 0)`).
+const WINDOW_BACKGROUND: Color = Color(0x04, 0x04, 0x04, 0xff);
+/// If the connect screen never reports that it rendered, show it anyway so a
+/// broken bundle does not look like the app silently doing nothing.
+const CONNECT_SHOW_FALLBACK: Duration = Duration::from_secs(3);
+/// How long a server window stays hidden waiting for its page to load before
+/// it is shown anyway, so a slow server still surfaces the window.
+const REMOTE_SHOW_FALLBACK: Duration = Duration::from_secs(3);
 
 struct Host {
     connecting: tokio::sync::Mutex<()>,
@@ -47,6 +58,12 @@ struct Host {
     services: OnceLock<Arc<DesktopServices>>,
     runtime: OnceLock<Arc<DesktopRuntime>>,
     quitting: AtomicBool,
+    /// Set while a freshly created connect screen waits to be shown. It stays
+    /// hidden until its page has rendered to avoid a blank window.
+    connect_pending: AtomicBool,
+    /// Set while the connect window is being created, so concurrent requests
+    /// to show it do not race to build a second one.
+    connect_creating: AtomicBool,
 }
 
 struct RemoteSession {
@@ -65,6 +82,8 @@ impl Default for Host {
             services: OnceLock::new(),
             runtime: OnceLock::new(),
             quitting: AtomicBool::new(false),
+            connect_pending: AtomicBool::new(false),
+            connect_creating: AtomicBool::new(false),
         }
     }
 }
@@ -141,9 +160,9 @@ async fn connect_server(
 ) -> Result<ConnectedServer, String> {
     require_connect_window(&window)?;
     let connected = connect_to_server(&app, host.inner(), &url).await?;
-    window
-        .hide()
-        .map_err(|_| "Could not hide the connect window.")?;
+    // The connect screen is destroyed rather than hidden: its WebView keeps a
+    // whole browser process tree alive, and it is cheap to recreate later.
+    let _ = window.destroy();
     Ok(connected)
 }
 
@@ -184,15 +203,7 @@ async fn connect_to_server(
     };
     let generation = {
         let _selection = runtime.selection_lock.lock().await;
-        install_remote(
-            app,
-            host,
-            &runtime,
-            server.clone(),
-            None,
-            &cancelled,
-        )
-        .await
+        install_remote(app, host, &runtime, server.clone(), None, &cancelled).await
     };
     let generation = match generation {
         Ok(generation) => generation,
@@ -269,6 +280,25 @@ async fn browser_login(server: &Server) -> Result<SessionTokens, String> {
     open::that(login.authorize_url.as_str())
         .map_err(|_| "Could not open the sign-in page in your browser.")?;
     login.finish(server).await
+}
+
+/// The connect screen calls this once it has painted, so the window is only
+/// shown with content in it. Restoring a saved server keeps it hidden.
+#[tauri::command]
+fn connect_ready(
+    app: AppHandle,
+    window: WebviewWindow,
+    host: State<'_, Arc<Host>>,
+) -> Result<(), String> {
+    require_connect_window(&window)?;
+    show_pending_connect(&app, host.inner());
+    Ok(())
+}
+
+fn show_pending_connect(app: &AppHandle, host: &Arc<Host>) {
+    if host.connect_pending.swap(false, Ordering::AcqRel) {
+        let _ = show_connect(app, host);
+    }
 }
 
 #[tauri::command]
@@ -417,7 +447,7 @@ async fn desktop_shell(
     host: State<'_, Arc<Host>>,
     operation: DesktopShellOperation,
 ) -> Result<(), String> {
-    let (generation, origin) = require_remote_window(&window, host.inner())?;
+    let (_, origin) = require_remote_window(&window, host.inner())?;
     match operation {
         DesktopShellOperation::StartDragging => window
             .start_dragging()
@@ -439,17 +469,11 @@ async fn desktop_shell(
                     .map_err(|_| "Could not maximize the server window.".into())
             }
         }
-        DesktopShellOperation::CloseWindow => {
-            let runtime = host.inner().runtime()?.clone();
-            let _selection = runtime.selection_lock.lock().await;
-            require_remote_window(&window, host.inner())?;
-            runtime.select_server(None).await?;
-            clear_remote(host.inner(), generation);
-            window
-                .close()
-                .map_err(|_| "Could not close the server window.".to_string())?;
-            show_connect(&app)
-        }
+        // Closing the server window keeps the session, recorder, and media
+        // work alive in the tray. Quit from the tray menu ends the app.
+        DesktopShellOperation::CloseWindow => window
+            .hide()
+            .map_err(|_| "Could not hide the server window.".into()),
         DesktopShellOperation::OpenConnect => {
             if window
                 .url()
@@ -464,7 +488,7 @@ async fn desktop_shell(
             window
                 .hide()
                 .map_err(|_| "Could not hide the server window.")?;
-            show_connect(&app)
+            show_connect(&app, host.inner())
         }
         DesktopShellOperation::OpenSettings => open_settings(&window),
         DesktopShellOperation::ReloadApp => window
@@ -496,6 +520,8 @@ async fn install_remote(
 
     let origin = server.origin.clone();
     let navigation_origin = origin.clone();
+    let load_origin = origin.clone();
+    let (loaded_sender, mut loaded) = watch::channel(false);
     let event_host = Arc::clone(host);
     let event_app = app.clone();
     let event_runtime = Arc::clone(runtime);
@@ -505,6 +531,7 @@ async fn install_remote(
         .inner_size(1280.0, 800.0)
         .min_inner_size(800.0, 600.0)
         .visible(false)
+        .background_color(WINDOW_BACKGROUND)
         // The web app renders its own title bar and window controls.
         .decorations(false)
         .incognito(false)
@@ -524,17 +551,30 @@ async fn install_remote(
             url.as_str() == "about:blank" || is_same_origin(url, &navigation_origin)
         })
         .on_new_window(|_, _| NewWindowResponse::Deny)
+        .on_page_load(move |_, payload| {
+            if payload.event() == PageLoadEvent::Finished
+                && is_same_origin(payload.url(), &load_origin)
+            {
+                loaded_sender.send_replace(true);
+            }
+        })
         .build()
         .map_err(|_| "Could not open the Alloy server window.")?;
+    let event_window = window.clone();
     window.on_window_event(move |event| match event {
-        WindowEvent::CloseRequested { .. } | WindowEvent::Destroyed
-            if clear_remote(&event_host, generation) =>
-        {
+        // Alt+F4 and the like behave like the title bar close button: hide
+        // to the tray and keep the server selected.
+        WindowEvent::CloseRequested { api, .. } if !event_host.quitting.load(Ordering::Acquire) => {
+            api.prevent_close();
+            let _ = event_window.hide();
+        }
+        WindowEvent::Destroyed if clear_remote(&event_host, generation) => {
             let app = event_app.clone();
+            let host = Arc::clone(&event_host);
             let runtime = Arc::clone(&event_runtime);
             tauri::async_runtime::spawn(async move {
                 let _ = runtime.select_server(None).await;
-                let _ = show_connect(&app);
+                let _ = show_connect(&app, &host);
             });
         }
         _ => {}
@@ -612,6 +652,21 @@ async fn install_remote(
         let _ = window.destroy();
         return Err(error);
     }
+    // Stay hidden until the page has loaded, so the web app's boot splash is
+    // the first thing on screen rather than an empty frameless window.
+    let mut cancel_wait = cancelled.clone();
+    tokio::select! {
+        _ = loaded.wait_for(|done| *done) => {}
+        // The restore flow drops its cancel sender, which is not a cancel.
+        Ok(_) = cancel_wait.wait_for(|cancel| *cancel) => {}
+        () = tokio::time::sleep(REMOTE_SHOW_FALLBACK) => {}
+    }
+    if let Err(error) = ensure_not_cancelled(cancelled) {
+        restore_remote(host, generation, previous);
+        let _ = runtime.select_server(previous_origin).await;
+        let _ = window.destroy();
+        return Err(error);
+    }
     let shown = window
         .show()
         .map_err(|_| "Could not show the Alloy server window.".to_string())
@@ -640,7 +695,7 @@ async fn install_remote(
 
 async fn abandon_remote(
     app: &AppHandle,
-    host: &Host,
+    host: &Arc<Host>,
     runtime: &Arc<DesktopRuntime>,
     generation: u64,
 ) {
@@ -659,7 +714,7 @@ async fn abandon_remote(
     if let Some(window) = window {
         let _ = window.destroy();
     }
-    let _ = show_connect(app);
+    let _ = show_connect(app, host);
 }
 
 fn has_session_cookie(cookies: &[Cookie<'static>]) -> bool {
@@ -810,20 +865,79 @@ fn ensure_not_cancelled(cancelled: &watch::Receiver<bool>) -> Result<(), String>
     }
 }
 
-fn show_connect(app: &AppHandle) -> Result<(), String> {
-    let window = app
-        .get_webview_window(CONNECT_WINDOW_LABEL)
-        .ok_or_else(|| "The connect window is unavailable.".to_string())?;
-    window
-        .show()
-        .map_err(|_| "Could not show the connect window.")?;
-    window
-        .set_focus()
-        .map_err(|_| "Could not focus the connect window.".to_string())
+/// Show the connect screen, creating it when it does not exist. The window
+/// only lives while it is needed: a WebView in its own profile costs a full
+/// browser process tree, so it is destroyed once a server window takes over.
+fn show_connect(app: &AppHandle, host: &Arc<Host>) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(CONNECT_WINDOW_LABEL) {
+        // A freshly created window is shown by `connect_ready` once painted.
+        if host.connect_pending.load(Ordering::Acquire) {
+            return Ok(());
+        }
+        window
+            .show()
+            .map_err(|_| "Could not show the connect window.")?;
+        return window
+            .set_focus()
+            .map_err(|_| "Could not focus the connect window.".to_string());
+    }
+    if host
+        .connect_creating
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        // Another caller is building it; that window will be shown once
+        // it reports it has rendered.
+        return Ok(());
+    }
+    host.connect_pending.store(true, Ordering::Release);
+    let created = create_connect_window(app, host);
+    host.connect_creating.store(false, Ordering::Release);
+    if let Err(error) = created {
+        host.connect_pending.store(false, Ordering::Release);
+        return Err(error);
+    }
+    let fallback_app = app.clone();
+    let fallback_host = Arc::clone(host);
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(CONNECT_SHOW_FALLBACK).await;
+        show_pending_connect(&fallback_app, &fallback_host);
+    });
+    Ok(())
 }
 
-/// Show the active server window, if any, and hide the connect screen.
-fn show_remote(app: &AppHandle, host: &Host) -> Result<bool, String> {
+fn create_connect_window(app: &AppHandle, host: &Arc<Host>) -> Result<(), String> {
+    let window = WebviewWindowBuilder::new(
+        app,
+        CONNECT_WINDOW_LABEL,
+        WebviewUrl::App("index.html".into()),
+    )
+    .title("Alloy")
+    .inner_size(1280.0, 800.0)
+    .min_inner_size(800.0, 600.0)
+    .visible(false)
+    .background_color(WINDOW_BACKGROUND)
+    .on_navigation(is_local_app_url)
+    .on_new_window(|_, _| NewWindowResponse::Deny)
+    .build()
+    .map_err(|_| "Could not open the connect window.")?;
+    let event_host = Arc::clone(host);
+    window.on_window_event(move |event| {
+        if let WindowEvent::CloseRequested { .. } = event {
+            let _ = send_cancel(&event_host);
+            // Closing the connect screen returns to the server that was open
+            // before a server switch, if any. Without one the app stays in
+            // the tray; the window itself is destroyed either way.
+            if !event_host.quitting.load(Ordering::Acquire) {
+                let _ = focus_remote(&event_host);
+            }
+        }
+    });
+    Ok(())
+}
+
+/// Show and focus the active server window, if any.
+fn focus_remote(host: &Host) -> Result<bool, String> {
     let remote = host
         .remote
         .read()
@@ -839,21 +953,33 @@ fn show_remote(app: &AppHandle, host: &Host) -> Result<bool, String> {
     window
         .set_focus()
         .map_err(|_| "Could not focus the Alloy server window.")?;
-    if let Some(connect) = app.get_webview_window(CONNECT_WINDOW_LABEL) {
-        let _ = connect.hide();
-    }
     Ok(true)
 }
 
-fn show_active(app: &AppHandle, host: &Host) -> Result<(), String> {
-    if show_remote(app, host)? {
-        Ok(())
-    } else {
-        show_connect(app)
+/// Show the active server window, if any, and drop the connect screen.
+fn show_remote(app: &AppHandle, host: &Arc<Host>) -> Result<bool, String> {
+    if !focus_remote(host)? {
+        return Ok(false);
+    }
+    destroy_connect(app);
+    Ok(true)
+}
+
+fn destroy_connect(app: &AppHandle) {
+    if let Some(connect) = app.get_webview_window(CONNECT_WINDOW_LABEL) {
+        let _ = connect.destroy();
     }
 }
 
-fn show_settings(app: &AppHandle, host: &Host) -> Result<(), String> {
+fn show_active(app: &AppHandle, host: &Arc<Host>) -> Result<(), String> {
+    if show_remote(app, host)? {
+        Ok(())
+    } else {
+        show_connect(app, host)
+    }
+}
+
+fn show_settings(app: &AppHandle, host: &Arc<Host>) -> Result<(), String> {
     let remote = host
         .remote
         .read()
@@ -861,7 +987,7 @@ fn show_settings(app: &AppHandle, host: &Host) -> Result<(), String> {
         .as_ref()
         .map(|session| session.window.clone());
     let Some(window) = remote else {
-        return show_connect(app);
+        return show_connect(app, host);
     };
     window
         .show()
@@ -905,6 +1031,10 @@ fn setup_tray(app: &AppHandle, host: &Arc<Host>) -> Result<(), String> {
     let mut tray = TrayIconBuilder::new()
         .menu(&menu)
         .tooltip("Alloy")
+        // Left click shows the app, right click shows the menu. With the
+        // default, a left click popped the menu and then immediately closed
+        // it when the window took focus.
+        .show_menu_on_left_click(false)
         .on_menu_event(move |app, event| match event.id().as_ref() {
             "show" => {
                 let _ = show_active(app, &menu_host);
@@ -916,10 +1046,18 @@ fn setup_tray(app: &AppHandle, host: &Arc<Host>) -> Result<(), String> {
             _ => {}
         })
         .on_tray_icon_event(move |tray, event| {
-            if matches!(
+            let left_click = matches!(
                 event,
-                TrayIconEvent::Click { .. } | TrayIconEvent::DoubleClick { .. }
-            ) {
+                TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    ..
+                } | TrayIconEvent::DoubleClick {
+                    button: MouseButton::Left,
+                    ..
+                }
+            );
+            if left_click {
                 let _ = show_active(tray.app_handle(), &click_host);
             }
         });
@@ -962,9 +1100,11 @@ fn spawn_update_events(
 /// How long the shell waits after launch before its first release check, so
 /// restoring the saved server and starting the recorder are not competing with
 /// it.
-const UPDATE_CHECK_STARTUP_DELAY: Duration = Duration::from_secs(45);
+const UPDATE_CHECK_STARTUP_DELAY: Duration = Duration::from_secs(5 * 60);
 /// How often the shell re-checks the release feed while it keeps running.
-const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
+/// Releases ship a few times a week at most, so an hourly poll keeps every
+/// install quiet without a noticeable delay before an update is offered.
+const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
 
 /// Polls the release feed in the background. Results land in the shared
 /// update state, so the web app picks them up through `alloy:updates` or on
@@ -997,7 +1137,7 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
         {
             Some(url) => url,
             None => {
-                let _ = show_connect(&app);
+                let _ = show_connect(&app, &host);
                 return;
             }
         };
@@ -1005,7 +1145,7 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
             Ok(server) => server,
             Err(error) => {
                 eprintln!("Could not restore the saved Alloy server: {error}");
-                let _ = show_connect(&app);
+                let _ = show_connect(&app, &host);
                 return;
             }
         };
@@ -1013,23 +1153,21 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
             Ok(runtime) => runtime.clone(),
             Err(error) => {
                 eprintln!("Could not restore the saved Alloy server: {error}");
-                let _ = show_connect(&app);
+                let _ = show_connect(&app, &host);
                 return;
             }
         };
         let (_, cancelled) = watch::channel(false);
         let _selection = runtime.selection_lock.lock().await;
         match install_remote(&app, &host, &runtime, server, None, &cancelled).await {
-            Ok(_) => {
-                if let Some(connect) = app.get_webview_window(CONNECT_WINDOW_LABEL) {
-                    let _ = connect.hide();
-                }
-            }
+            // The connect screen only exists here if it was opened from the
+            // tray while the server was still being restored.
+            Ok(_) => destroy_connect(&app),
             Err(error) => {
                 if error != NO_SAVED_SESSION {
                     eprintln!("Could not restore the saved Alloy server: {error}");
                 }
-                let _ = show_connect(&app);
+                let _ = show_connect(&app, &host);
             }
         }
     });
@@ -1043,7 +1181,13 @@ fn handle_run_event(app: &AppHandle, event: RunEvent, host: &Arc<Host>) {
         return;
     }
     api.prevent_exit();
-    request_quit(app, host);
+    // Closing the last window (the connect screen with no server selected)
+    // keeps capture and media work alive in the tray, like closing the
+    // server window does. Quit from the tray menu ends the app. macOS routes
+    // Cmd+Q through this event too, so it keeps quitting there.
+    if cfg!(target_os = "macos") {
+        request_quit(app, host);
+    }
 }
 
 fn main() {
@@ -1064,6 +1208,7 @@ fn main() {
         .manage(host.clone())
         .invoke_handler(tauri::generate_handler![
             connect_server,
+            connect_ready,
             cancel_connect,
             saved_servers,
             forget_server,
@@ -1091,36 +1236,11 @@ fn main() {
             });
 
             // With a saved server the app restores its window directly and
-            // only falls back to the connect screen if that fails.
-            let restoring = services.get_current_server().is_some();
-            let window = WebviewWindowBuilder::new(
-                app,
-                CONNECT_WINDOW_LABEL,
-                WebviewUrl::App("index.html".into()),
-            )
-            .title("Alloy")
-            .inner_size(1280.0, 800.0)
-            .min_inner_size(800.0, 600.0)
-            .visible(!restoring)
-            .on_navigation(is_local_app_url)
-            .on_new_window(|_, _| NewWindowResponse::Deny)
-            .build()?;
-            let event_host = Arc::clone(&setup_host);
-            let event_window = window.clone();
-            let event_app = app.handle().clone();
-            window.on_window_event(move |event| {
-                if let WindowEvent::CloseRequested { api, .. } = event {
-                    let _ = send_cancel(&event_host);
-                    if !event_host.quitting.load(Ordering::Acquire) {
-                        api.prevent_close();
-                        // Closing the connect screen returns to the server
-                        // that was open before a server switch, if any.
-                        if !matches!(show_remote(&event_app, &event_host), Ok(true)) {
-                            let _ = event_window.hide();
-                        }
-                    }
-                }
-            });
+            // only opens the connect screen if that fails. Otherwise the
+            // connect screen is created now and shown once it has rendered.
+            if services.get_current_server().is_none() {
+                show_connect(app.handle(), &setup_host).map_err(std::io::Error::other)?;
+            }
             setup_tray(app.handle(), &setup_host).map_err(std::io::Error::other)?;
             spawn_update_events(
                 app.handle().clone(),

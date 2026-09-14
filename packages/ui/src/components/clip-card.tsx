@@ -224,11 +224,23 @@ function ClipCard({
           {showAttributionRow ? (
             <div className="flex min-w-0 items-center gap-2 text-xs">
               {author ? (
-                <AuthorLabel
-                  author={author}
-                  href={authorHref}
-                  renderLink={renderAuthorLink}
-                />
+                <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                  <ClipCardAvatar
+                    author={author}
+                    authorImage={authorImage}
+                    authorAvatarBg={authorAvatarBg}
+                    authorAvatarFg={authorAvatarFg}
+                    href={authorHref}
+                    renderLink={renderAuthorLink}
+                    size="sm"
+                    className="flex size-5 shrink-0"
+                  />
+                  <AuthorLabel
+                    author={author}
+                    href={authorHref}
+                    renderLink={renderAuthorLink}
+                  />
+                </span>
               ) : null}
               {author && game ? (
                 <span aria-hidden="true" className="text-white/50">

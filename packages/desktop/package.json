@@ -10,8 +10,8 @@
     "dist:win:installer": "node scripts/prepare-native.mjs --release && tauri build --target x86_64-pc-windows-msvc --bundles nsis",
     "build:renderer": "vp build",
     "typecheck": "tsc --noEmit",
-    "check:native": "cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings",
-    "test:native": "cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked",
+    "check:native": "cargo fmt --package alloy-desktop --check && cargo clippy --package alloy-desktop --all-targets --locked -- -D warnings",
+    "test:native": "cargo test --package alloy-desktop --all-targets --locked",
     "dist:win:installer:signed": "pnpm dist:win:installer --config src-tauri/tauri.signed.conf.json"
   },
   "dependencies": {

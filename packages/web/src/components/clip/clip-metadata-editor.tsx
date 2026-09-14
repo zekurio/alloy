@@ -24,6 +24,11 @@ const INLINE_PICKER_INPUT_CLASS = cn(
   "[&_[data-slot=input-group-control]]:text-sm",
   "[&_[data-slot=input-group-control]]:leading-4",
   "[&_[data-slot=input-group-control]]:font-semibold",
+  // Center the input's line box with flex like the display chip's text span.
+  // A stretched (h-full) native input centers text by font ascent/descent,
+  // which Chromium rounds differently from the chip's line-box centering,
+  // so the game name jumps a pixel when the picker opens.
+  "[&_[data-slot=input-group-control]]:h-auto",
   "[&_[data-slot=input-group-control]]:pl-2!",
   "[&_[data-slot=input-group-control]]:placeholder:font-semibold",
   "[&_[data-slot=input-group-control]]:placeholder:text-foreground-muted",

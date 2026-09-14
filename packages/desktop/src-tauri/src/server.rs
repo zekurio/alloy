@@ -17,6 +17,7 @@ pub struct Server {
 impl Server {
     pub fn new(input: &str) -> Result<Self, String> {
         let origin = server_origin(input)?;
+        install_crypto_provider();
         let client = Client::builder()
             .redirect(Policy::none())
             .connect_timeout(Duration::from_secs(8))
@@ -81,6 +82,14 @@ impl Server {
 
 /// Read a response without allowing an untrusted server to allocate an
 /// unbounded buffer. Login and capability probes use this helper.
+/// reqwest 0.13 builds rustls without a crypto provider; select ring once per
+/// process. A second install returns an error, which is fine to ignore.
+pub fn install_crypto_provider() {
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
+}
+
 pub async fn read_body(mut response: reqwest::Response, limit: usize) -> Result<Vec<u8>, String> {
     if response
         .content_length()
@@ -114,7 +123,8 @@ pub fn server_origin(input: &str) -> Result<Url, String> {
     let loopback = is_loopback(&url);
     // A bare "localhost:5173" is a local dev server, which never speaks TLS.
     if !explicit_scheme && loopback {
-        url.set_scheme("http").map_err(|_| "Enter a valid server URL.")?;
+        url.set_scheme("http")
+            .map_err(|_| "Enter a valid server URL.")?;
     }
     if !url.username().is_empty()
         || url.password().is_some()

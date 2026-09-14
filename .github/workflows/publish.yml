@@ -144,13 +144,12 @@ jobs:
             if [[ "$version" != "$current" ]]; then
               node scripts/update-release-package-versions.mjs "$version"
               git add package.json \
+                Cargo.lock \
                 packages/desktop/package.json \
                 packages/desktop/src-tauri/tauri.conf.json \
                 packages/desktop/src-tauri/Cargo.toml \
-                packages/desktop/src-tauri/Cargo.lock \
                 packages/recorder/package.json \
-                packages/recorder/Cargo.toml \
-                packages/recorder/Cargo.lock
+                packages/recorder/Cargo.toml
               git commit -m "chore: release $tag"
             fi
 
@@ -199,11 +198,7 @@ jobs:
       - name: cache cargo artifacts
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: |
-            packages/desktop/src-tauri
-            packages/recording-host
-            packages/capture-library
-            packages/recorder
+          workspaces: .
 
       - name: cache native runtimes
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5

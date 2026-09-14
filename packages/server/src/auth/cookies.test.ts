@@ -15,6 +15,7 @@ test("production authentication cookies are Secure", async () => {
   process.env.PUBLIC_SERVER_URL = "https://alloy.example"
   process.env.ALLOY_VIEWER_COOKIE_SECRET = "v".repeat(32)
   process.env.ALLOY_UPLOAD_HMAC_SECRET = "u".repeat(32)
+  process.env.ALLOY_STEAMGRIDDB_API_KEY = "steamgriddb-key"
 
   const app = new Hono().get("/", (c) => {
     setSessionCookies(c, {

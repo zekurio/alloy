@@ -35,11 +35,11 @@ export function DesktopUpdateSettings() {
     !updateState.supported || phase !== "idle" || updateState.status !== "idle"
   const lastChecked =
     updateState.supported && updateState.lastCheckedAt
-      ? t("Last checked {time}. Alloy checks again every few hours.", {
+      ? t("Last checked {time}. Alloy checks again in the background.", {
           time: formatRelativeTime(updateState.lastCheckedAt),
         })
       : updateState.supported
-        ? t("Alloy checks for updates in the background every few hours.")
+        ? t("Alloy checks for updates in the background.")
         : null
 
   async function restartToInstall() {

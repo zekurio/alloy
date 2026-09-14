@@ -239,7 +239,11 @@ impl DesktopRuntime {
         if !Path::new(&capture.filename).is_file() {
             // The raw file was deleted or moved. Retrying on every start would
             // fail forever, so drop it from the recorder's recovery queue.
-            let removed = self.recorder.remove_capture(&capture.id).await.map_err(error)?;
+            let removed = self
+                .recorder
+                .remove_capture(&capture.id)
+                .await
+                .map_err(error)?;
             return Err(format!(
                 "Capture file is missing{}: {}",
                 if removed { " and was dropped" } else { "" },

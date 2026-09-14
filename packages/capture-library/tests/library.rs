@@ -91,10 +91,11 @@ async fn recorder_game_guesses_survive_manifest_round_trips() {
     let manifest = library.read_manifest();
     assert_eq!(manifest.captures.len(), 2);
     assert!(
-        manifest
-            .captures
-            .values()
-            .all(|entry| entry.game_guess.as_ref().map(|guess| guess.confidence) == Some(96))
+        manifest.captures.values().all(|entry| entry
+            .game_guess
+            .as_ref()
+            .map(|guess| guess.confidence)
+            == Some(96))
     );
 
     // One invalid entry must not reset the other entries.
@@ -109,7 +110,9 @@ async fn recorder_game_guesses_survive_manifest_round_trips() {
         .unwrap()
         .clone();
     json["captures"][&key]["gameGuess"]["confidence"] = serde_json::json!(250);
-    fs::write(&path, serde_json::to_vec(&json).unwrap()).await.unwrap();
+    fs::write(&path, serde_json::to_vec(&json).unwrap())
+        .await
+        .unwrap();
     let manifest = library.read_manifest();
     assert_eq!(manifest.captures.len(), 1);
     assert!(!manifest.captures.contains_key(&key));

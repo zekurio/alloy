@@ -48,13 +48,12 @@ newest release tag. The publish workflow is the only thing that bumps it.
 These release version files are stamped together and must always match:
 
 - `package.json`
+- `Cargo.lock` (the `alloy-desktop` and `alloy-agent` entries)
 - `packages/desktop/package.json`
 - `packages/desktop/src-tauri/tauri.conf.json`
 - `packages/desktop/src-tauri/Cargo.toml`
-- `packages/desktop/src-tauri/Cargo.lock`
 - `packages/recorder/package.json`
 - `packages/recorder/Cargo.toml`
-- `packages/recorder/Cargo.lock`
 
 ## Desktop Auto-Update
 

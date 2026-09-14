@@ -5,6 +5,7 @@
   "windows": ["connect"],
   "permissions": [
     "allow-connect-server",
+    "allow-connect-ready",
     "allow-cancel-connect",
     "allow-saved-servers",
     "allow-forget-server"

@@ -17,8 +17,8 @@ const cargoPackageFiles = [
   "packages/desktop/src-tauri/Cargo.toml",
 ]
 const cargoLockPackageFiles = [
-  ["packages/recorder/Cargo.lock", "alloy-agent"],
-  ["packages/desktop/src-tauri/Cargo.lock", "alloy-desktop"],
+  ["Cargo.lock", "alloy-agent"],
+  ["Cargo.lock", "alloy-desktop"],
 ]
 
 if (!version || process.argv.length > 3) {

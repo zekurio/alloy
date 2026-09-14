@@ -9,12 +9,7 @@ import {
   getFirstLogo,
   searchSteamGridDBGames,
 } from "./steamgriddb-client"
-export {
-  getGameById,
-  isConfigured,
-  SteamGridDBError,
-  SteamGridDBNotConfiguredError,
-} from "./steamgriddb-client"
+export { getGameById, SteamGridDBError } from "./steamgriddb-client"
 
 const logger = createLogger("steamgriddb")
 

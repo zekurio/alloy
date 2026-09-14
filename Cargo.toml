@@ -1,0 +1,36 @@
+# One workspace for every Rust crate so they share a dependency graph, a
+# lockfile, and the root `target/` directory. Local rebuilds and CI reuse the
+# compiled dependencies across the desktop host, its services, and the recorder.
+[workspace]
+resolver = "3"
+members = [
+  "packages/capture-library",
+  "packages/desktop/src-tauri",
+  "packages/recorder",
+  "packages/recording-host",
+]
+
+# Shared versions keep a single copy of each dependency in the graph. Members
+# reference these with `workspace = true` and add only their own features.
+[workspace.dependencies]
+base64 = "0.22"
+reqwest = { version = "0.13", default-features = false, features = [
+  "rustls-no-provider",
+] }
+# reqwest 0.13 defaults to aws-lc-rs, a large C build. Keep the pure-Rust ring
+# provider; rustls uses the single compiled-in provider automatically.
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+time = { version = "0.3", features = ["formatting", "parsing"] }
+tokio = "1"
+url = "2"
+
+# Release builds favor small, fast binaries: whole-program LTO with one codegen
+# unit removes unused code across crates, and symbols are stripped. Profiles
+# only apply from the workspace root, so members must not define their own.
+[profile.release]
+codegen-units = 1
+lto = true
+strip = "symbols"

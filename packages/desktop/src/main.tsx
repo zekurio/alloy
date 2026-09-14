@@ -8,10 +8,19 @@ import { initializeClientLocale, t } from "@alloy/i18n"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
 import { Button } from "@alloy/ui/components/button"
 import { Input } from "@alloy/ui/components/input"
+import { Toaster } from "@alloy/ui/components/sonner"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { initTheme } from "@alloy/ui/lib/theme"
+import { toast } from "@alloy/ui/lib/toast"
 import { invoke } from "@tauri-apps/api/core"
-import { StrictMode, useEffect, useRef, useState, type FormEvent } from "react"
+import {
+  StrictMode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react"
 import { createRoot } from "react-dom/client"
 
 import "@alloy/ui/globals.css"
@@ -28,12 +37,17 @@ function ConnectScreen() {
   const attempt = useRef(0)
   const [url, setUrl] = useState("")
   const [state, setState] = useState<ConnectionState>("idle")
-  const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
   const [servers, setServers] = useState<DesktopSavedServer[]>([])
   const [forgetting, setForgetting] = useState(false)
 
   const pending = state !== "idle" || forgetting
+
+  // Toasts replace themselves by id so repeated failures never stack.
+  const showError = useCallback(
+    (cause: unknown) =>
+      toast.error(connectionError(cause), { id: "desktop-connect-error" }),
+    [],
+  )
 
   useEffect(() => {
     let disposed = false
@@ -46,7 +60,7 @@ function ConnectScreen() {
         setServers(saved)
         setUrl((current) => current || saved[0]?.serverUrl || "")
       } catch (cause) {
-        if (!disposed) setError(connectionError(cause))
+        if (!disposed) showError(cause)
       }
     }
     void loadServers()
@@ -55,21 +69,28 @@ function ConnectScreen() {
       disposed = true
       window.removeEventListener("focus", loadServers)
     }
+  }, [showError])
+
+  // The host keeps this window hidden until the screen has painted, so the
+  // first launch never flashes an empty window.
+  useEffect(() => {
+    invoke("connect_ready").catch(() => {})
   }, [])
 
   async function forgetServer(serverUrl: string) {
     if (pending) return
     setForgetting(true)
-    setError(null)
     try {
       const saved = DesktopTauriSavedServersSchema.parse(
         await invoke<unknown>("forget_server", { url: serverUrl }),
       )
       setServers(saved)
       setUrl((current) => (current === serverUrl ? "" : current))
-      setNotice(t("Saved login data removed from this device."))
+      toast.success(t("Saved login data removed from this device."), {
+        id: "desktop-connect-notice",
+      })
     } catch (cause) {
-      setError(connectionError(cause))
+      showError(cause)
     } finally {
       setForgetting(false)
     }
@@ -82,8 +103,6 @@ function ConnectScreen() {
     const serverUrl = url.trim()
     if (!serverUrl) return
 
-    setError(null)
-    setNotice(null)
     setState("connecting")
     const currentAttempt = ++attempt.current
 
@@ -99,11 +118,10 @@ function ConnectScreen() {
       // for the next server switch when the host shows it again.
       setState("idle")
       setUrl(result.data.serverUrl)
-      setNotice(null)
     } catch (cause) {
       if (currentAttempt !== attempt.current) return
       setState("idle")
-      setError(connectionError(cause))
+      showError(cause)
     }
   }
 
@@ -114,11 +132,12 @@ function ConnectScreen() {
     try {
       await invoke("cancel_connect")
       setState("idle")
-      setError(null)
-      setNotice(t("Server switch cancelled."))
+      toast.info(t("Server switch cancelled."), {
+        id: "desktop-connect-notice",
+      })
     } catch (cause) {
       setState("idle")
-      setError(connectionError(cause))
+      showError(cause)
     }
   }
 
@@ -223,19 +242,9 @@ function ConnectScreen() {
               ))}
             </div>
           ) : null}
-
-          <div className="min-h-5" aria-live="polite">
-            {notice ? (
-              <p className="text-foreground-muted text-sm">{notice}</p>
-            ) : null}
-            {error ? (
-              <p role="alert" className="text-danger text-sm">
-                {error}
-              </p>
-            ) : null}
-          </div>
         </form>
       </div>
+      <Toaster />
     </main>
   )
 }

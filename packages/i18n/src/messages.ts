@@ -136,7 +136,6 @@ export const DE_MESSAGES = {
   "Reconnecting…": "Verbindung wird wiederhergestellt…",
   SteamGridDB: "SteamGridDB",
   "Square app tile": "Quadratische App-Kachel",
-  "Search custom games…": "Eigene Spiele suchen…",
   "Saved to library": "In der Bibliothek gespeichert",
   "Wide page header": "Breiter Seitenkopf",
   "Vertical box art": "Vertikales Box-Artwork",
@@ -293,10 +292,10 @@ export const DE_MESSAGES = {
     "Aufnahmen und Clips erscheinen hier.",
   Change: "Ändern",
   "Check for updates": "Nach Updates suchen",
-  "Last checked {time}. Alloy checks again every few hours.":
-    "Zuletzt geprüft {time}. Alloy prüft alle paar Stunden erneut.",
-  "Alloy checks for updates in the background every few hours.":
-    "Alloy sucht alle paar Stunden im Hintergrund nach Updates.",
+  "Last checked {time}. Alloy checks again in the background.":
+    "Zuletzt geprüft {time}. Alloy prüft im Hintergrund erneut.",
+  "Alloy checks for updates in the background.":
+    "Alloy sucht im Hintergrund nach Updates.",
   "Alloy was updated": "Alloy wurde aktualisiert",
   "This server now runs a newer version of Alloy. Reload to use it.":
     "Dieser Server läuft jetzt mit einer neueren Version von Alloy. Lade neu, um sie zu verwenden.",
@@ -1132,7 +1131,6 @@ export const DE_MESSAGES = {
   Server: "Server",
   "Server URL": "Server-URL",
   Servers: "Server",
-  "SteamGridDB is not configured": "SteamGridDB ist nicht konfiguriert",
   Settings: "Einstellungen",
   "Settings sections": "Einstellungsabschnitte",
   "Set up your profile": "Richte dein Profil ein",

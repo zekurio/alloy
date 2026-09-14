@@ -79,7 +79,7 @@ export function createWebBuildCheckScheduler(
   check: () => void,
   now: () => number = Date.now,
   isOnline: () => boolean = () => navigator.onLine !== false,
-): { tick(): void; resume(): void } {
+) {
   let lastCheckedAt = now()
   const run = () => {
     if (!isOnline()) return

@@ -377,7 +377,6 @@ mod tests {
         assert!(!page.contains("src="));
     }
 
-
     #[test]
     fn session_cookie_has_native_only_cookie_attributes() {
         let expires = (time::OffsetDateTime::now_utc() + time::Duration::hours(1))

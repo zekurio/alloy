@@ -29,6 +29,7 @@ test("serves server info publicly when browse auth is enabled", async () => {
   delete process.env.ALLOY_TRANSCODE_THREADS
   process.env.ALLOY_VIEWER_COOKIE_SECRET = "v".repeat(32)
   process.env.ALLOY_UPLOAD_HMAC_SECRET = "u".repeat(32)
+  process.env.ALLOY_STEAMGRIDDB_API_KEY = "steamgriddb-key"
   process.env.ALLOY_REQUIRE_AUTH_TO_BROWSE = "true"
 
   try {

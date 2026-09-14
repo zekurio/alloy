@@ -6,12 +6,16 @@ on:
       - dev
     paths:
       - "packages/recorder/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
       - ".github/workflows/recorder.yml"
   push:
     branches:
       - dev
     paths:
       - "packages/recorder/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
       - ".github/workflows/recorder.yml"
   schedule:
     - cron: "23 4 * * 1"
@@ -40,7 +44,6 @@ jobs:
         uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          working-directory: packages/recorder
 
   checks:
     name: cargo checks
@@ -48,10 +51,6 @@ jobs:
     # Windows job there since code did not change.
     if: github.event_name != 'schedule'
     runs-on: windows-latest
-
-    defaults:
-      run:
-        working-directory: packages/recorder
 
     steps:
       - name: checkout repository
@@ -66,10 +65,10 @@ jobs:
       - name: cache cargo artifacts
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: packages/recorder
+          workspaces: .
 
       - name: check formatting
-        run: cargo fmt --check
+        run: cargo fmt --package alloy-agent --check
 
       - name: run clippy
-        run: cargo clippy --all-targets --locked -- -D warnings
+        run: cargo clippy --package alloy-agent --all-targets --locked -- -D warnings

@@ -4,7 +4,6 @@ import type {
   GameNameLookupResponse,
   GameRow,
   SteamGridDBSearchResult,
-  SteamGridDBStatus,
 } from "@alloy/api"
 import type { MediaFilter } from "@alloy/contracts"
 import {
@@ -20,8 +19,6 @@ import { api } from "./api"
 
 export const gameKeys = {
   all: ["games"] as const,
-  /** Boolean `steamgriddbConfigured` — mount check for game search controls. */
-  status: () => [...gameKeys.all, "status"] as const,
   /** steamgriddb autocomplete proxy — branches per normalised query string. */
   search: (query: string) => [...gameKeys.all, "search", query] as const,
   /** `/games` landscape grid. One global cache entry. */
@@ -34,17 +31,6 @@ export const gameKeys = {
   /** Top creators chip rail on `/games/:gameId`. */
   creators: (gameId: string) =>
     [...gameKeys.detailScope(gameId), "creators"] as const,
-}
-
-export function useSteamGridDBStatusQuery(): UseQueryResult<SteamGridDBStatus> {
-  return useQuery({
-    queryKey: gameKeys.status(),
-    queryFn: () => api.games.fetchSteamGridDBStatus(),
-    // Config can be changed by another browser session. Keep this cheap probe
-    // fresh when the game picker mounts instead of requiring a page reload.
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  })
 }
 
 export function useSearchGamesQuery(

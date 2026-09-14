@@ -14,8 +14,8 @@ chrono = { version = "0.4", default-features = false, features = [
 ] }
 libloading = "0.9"
 rodio = "0.22.2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
@@ -34,8 +34,3 @@ windows-sys = { version = "0.61", features = [
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
 ] }
-
-[profile.release]
-strip = "symbols"
-lto = "thin"
-codegen-units = 1

@@ -10,6 +10,7 @@ test("passkey routes retain request validation, session gates, CSRF and sign-up 
   process.env.TRUSTED_ORIGINS = "https://alloy.example"
   process.env.ALLOY_VIEWER_COOKIE_SECRET = "v".repeat(32)
   process.env.ALLOY_UPLOAD_HMAC_SECRET = "u".repeat(32)
+  process.env.ALLOY_STEAMGRIDDB_API_KEY = "steamgriddb-key"
   const { authRoute } = await import("./auth")
   const app = new Hono().route("/api/auth", authRoute)
   const post = (path: string, origin = "https://alloy.example") =>

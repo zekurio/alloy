@@ -41,8 +41,17 @@ struct DownloadJob {
     cancel: CancellationToken,
 }
 
+/// reqwest 0.13 builds rustls without a crypto provider; select ring once per
+/// process. A second install returns an error, which is fine to ignore.
+fn install_crypto_provider() {
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
+}
+
 impl DownloadManager {
     pub fn new(library: CaptureLibrary) -> Result<Self> {
+        install_crypto_provider();
         let client = Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .build()

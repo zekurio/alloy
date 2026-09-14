@@ -44,11 +44,13 @@ Then import and configure the module:
 }
 ```
 
-The environment file needs two signing secrets:
+The environment file needs two signing secrets and a SteamGridDB API key,
+which powers game search, artwork, and canonical game names:
 
 ```sh
 ALLOY_VIEWER_COOKIE_SECRET=replace-with-a-long-random-secret
 ALLOY_UPLOAD_HMAC_SECRET=replace-with-a-long-random-secret
+ALLOY_STEAMGRIDDB_API_KEY=replace-with-your-steamgriddb-api-key
 ```
 
 The module supplies PostgreSQL and filesystem storage defaults; see

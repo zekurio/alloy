@@ -21,6 +21,7 @@ custom-protocol = ["tauri/custom-protocol"]
 
 [build-dependencies]
 tauri-build = { version = "2", optional = true, features = [] }
+rustls = { workspace = true }
 
 [dependencies]
 alloy-recording-host = { path = "../../recording-host", optional = true }
@@ -29,19 +30,17 @@ rfd = { version = "0.16", optional = true }
 tauri-plugin-updater = { version = "2", optional = true }
 tauri-plugin-autostart = { version = "2", optional = true }
 tauri-plugin-single-instance = { version = "2", optional = true }
-base64 = "0.22"
+base64 = { workspace = true }
 open = { version = "5", optional = true }
 rand = "0.9"
-reqwest = { version = "0.12", default-features = false, features = [
-  "rustls-tls",
-  "json",
-] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-sha2 = "0.10"
+reqwest = { workspace = true, features = ["json"] }
+rustls = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
 tauri = { version = "2", optional = true, features = ["tray-icon"] }
-time = { version = "0.3", features = ["formatting", "parsing"] }
-tokio = { version = "1", features = [
+time = { workspace = true }
+tokio = { workspace = true, features = [
   "io-util",
   "macros",
   "net",
@@ -49,7 +48,7 @@ tokio = { version = "1", features = [
   "sync",
   "time",
 ] }
-url = "2"
+url = { workspace = true }
 
 [[bin]]
 name = "alloy-desktop"

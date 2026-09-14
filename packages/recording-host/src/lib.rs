@@ -1571,6 +1571,11 @@ async fn refresh_discord_detection_cache(path: &Path) -> Result<(), String> {
         return Ok(());
     }
 
+    // reqwest 0.13 builds rustls without a crypto provider; select ring once
+    // per process. A second install returns an error, which is fine to ignore.
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
     let client = reqwest::Client::builder()
         .timeout(DISCORD_FETCH_TIMEOUT)
         .connect_timeout(DISCORD_CONNECT_TIMEOUT)

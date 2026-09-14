@@ -26,13 +26,6 @@ export class SteamGridDBError extends Error {
   }
 }
 
-export class SteamGridDBNotConfiguredError extends SteamGridDBError {
-  constructor() {
-    super("SteamGridDB API key is not configured.", null)
-    this.name = "SteamGridDBNotConfiguredError"
-  }
-}
-
 const SteamGridDbEnvelope = {
   success: t.boolean(),
   errors: t.array(t.string()).optional(),
@@ -72,11 +65,7 @@ const AssetSchema = t.object({
 })
 
 function getApiKey(): string {
-  const key = secretStore.get("steamgriddbApiKey")
-  if (!key || key.length === 0) {
-    throw new SteamGridDBNotConfiguredError()
-  }
-  return key
+  return secretStore.get("steamgriddbApiKey")
 }
 
 async function sgdbFetch<DataSchema extends TSchema>(
@@ -208,8 +197,4 @@ export async function getFirstIcon(
     t.array(AssetSchema),
   )
   return data?.[0] ?? null
-}
-
-export function isConfigured(): boolean {
-  return secretStore.get("steamgriddbApiKey").length > 0
 }

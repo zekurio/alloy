@@ -45,8 +45,10 @@ if (cargo.error) {
 }
 if (cargo.status !== 0) process.exit(cargo.status ?? 1)
 
+// The recorder is a member of the root Cargo workspace, so its artifacts land
+// in the workspace target directory unless CARGO_TARGET_DIR overrides it.
 const targetRoot = resolve(
-  process.env.CARGO_TARGET_DIR ?? join(recorderDir, "target"),
+  process.env.CARGO_TARGET_DIR ?? join(recorderDir, "../../target"),
 )
 const profileDir = release ? "release" : "debug"
 const buildDir = targetTriple

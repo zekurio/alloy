@@ -15,6 +15,7 @@ node_modules
 
 # Build Outputs
 dist
+target/
 build
 out
 .output
@@ -22,13 +23,9 @@ image-stream
 packages/desktop/release/
 packages/desktop/.cache/
 packages/desktop/resources/
-packages/recording-host/target/
-packages/capture-library/target/
-packages/desktop/src-tauri/target/
 packages/desktop/src-tauri/gen/
 packages/recorder/dist/
 packages/recorder/release/
-packages/recorder/target/
 .nitro
 .tanstack
 .vite

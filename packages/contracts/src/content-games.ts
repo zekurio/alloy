@@ -148,7 +148,3 @@ export interface GameNameLookupResult {
 export interface GameNameLookupResponse {
   results: GameNameLookupResult[]
 }
-
-export interface SteamGridDBStatus {
-  steamgriddbConfigured: boolean
-}

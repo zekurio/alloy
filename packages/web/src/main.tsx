@@ -19,8 +19,21 @@ installDeploymentRecovery()
 initializeClientLocale()
 initTheme()
 
+const router = getRouter()
+
+// index.html paints a boot splash until the app can show something real.
+// Waiting for the first rendered route keeps it up through auth checks and
+// loaders, so the shell never appears empty and then pops in.
+const stopSplashWatch = router.subscribe("onRendered", () => {
+  stopSplashWatch()
+  const splash = document.getElementById("boot-splash")
+  if (!splash) return
+  splash.dataset.done = ""
+  window.setTimeout(() => splash.remove(), 300)
+})
+
 createRoot(root).render(
   <StrictMode>
-    <RouterProvider router={getRouter()} />
+    <RouterProvider router={router} />
   </StrictMode>,
 )

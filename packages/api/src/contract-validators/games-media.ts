@@ -19,7 +19,6 @@ import {
   type GameNameLookupResponse,
   type GameRow,
   type SteamGridDBSearchResult,
-  type SteamGridDBStatus,
 } from "@alloy/contracts"
 
 import type { ApiJsonInput } from "../json-value"
@@ -119,18 +118,6 @@ export function validateGameNameLookupResponse(
 
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as GameNameLookupResponse
-}
-
-export function validateSteamGridDBStatus(
-  value: ApiJsonInput,
-): SteamGridDBStatus {
-  const status = objectRecord(value, "SteamGridDB status")
-  validateBoolean(
-    status.steamgriddbConfigured,
-    "Invalid SteamGridDB status response: steamgriddbConfigured must be boolean",
-  )
-  // SAFETY: The checks above validate every field in the asserted response contract.
-  return value as SteamGridDBStatus
 }
 
 function validateSteamGridDBSearchResult(

@@ -8,7 +8,16 @@ const REQUIRED_ENV = {
   DATABASE_URL: "postgres://localhost/alloy-test",
   ALLOY_VIEWER_COOKIE_SECRET: "v".repeat(32),
   ALLOY_UPLOAD_HMAC_SECRET: "u".repeat(32),
+  ALLOY_STEAMGRIDDB_API_KEY: "steamgriddb-key",
 }
+
+test("a missing SteamGridDB API key is a configuration error", () => {
+  const { ALLOY_STEAMGRIDDB_API_KEY: _key, ...withoutKey } = REQUIRED_ENV
+  assert.throws(
+    () => parseServerEnv(withoutKey),
+    /ALLOY_STEAMGRIDDB_API_KEY is required/,
+  )
+})
 
 test("production rejects a remote HTTP public server URL", () => {
   assert.throws(
