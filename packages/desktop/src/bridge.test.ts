@@ -57,7 +57,9 @@ function loadBridge(origin = "https://alloy.example", childFrame = false) {
     __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener() {} },
   }
   window.top = childFrame ? {} : window
-  runInNewContext(source, { window })
+  // The bridge registers a titlebar drag listener at load; the sandbox only
+  // needs the registration to succeed.
+  runInNewContext(source, { window, document: { addEventListener() {} } })
   return { window, calls, callbacks, completeListen }
 }
 
