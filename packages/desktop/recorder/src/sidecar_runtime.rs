@@ -433,76 +433,6 @@ fn file_slug(value: &str) -> String {
         .join("-")
 }
 
-fn file_component(value: &str, fallback: &str) -> String {
-    let mut component = String::new();
-    let mut previous_was_separator = false;
-
-    for ch in value.trim().chars() {
-        let replacement = if ch.is_control()
-            || matches!(ch, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*')
-        {
-            '-'
-        } else {
-            ch
-        };
-
-        if replacement == '-' || replacement.is_whitespace() {
-            if !previous_was_separator && !component.is_empty() {
-                component.push(if replacement.is_whitespace() {
-                    ' '
-                } else {
-                    '-'
-                });
-                previous_was_separator = true;
-            }
-            continue;
-        }
-
-        component.push(replacement);
-        previous_was_separator = false;
-    }
-
-    let component = component.trim_matches([' ', '.', '-']).to_string();
-    if component.is_empty() || is_reserved_windows_name(&component) {
-        fallback.to_string()
-    } else {
-        component
-    }
-}
-
-fn is_reserved_windows_name(value: &str) -> bool {
-    let base = value
-        .split('.')
-        .next()
-        .unwrap_or(value)
-        .to_ascii_uppercase();
-    matches!(
-        base.as_str(),
-        "CON"
-            | "PRN"
-            | "AUX"
-            | "NUL"
-            | "COM1"
-            | "COM2"
-            | "COM3"
-            | "COM4"
-            | "COM5"
-            | "COM6"
-            | "COM7"
-            | "COM8"
-            | "COM9"
-            | "LPT1"
-            | "LPT2"
-            | "LPT3"
-            | "LPT4"
-            | "LPT5"
-            | "LPT6"
-            | "LPT7"
-            | "LPT8"
-            | "LPT9"
-    )
-}
-
 fn command_output(command: &str, args: &[&str]) -> Option<String> {
     let mut process = Command::new(command);
     process.args(args);
@@ -590,7 +520,8 @@ fn request_expired(request: &Request, now_unix_ms: u128) -> bool {
             .is_some_and(|deadline| now_unix_ms >= u128::from(deadline))
 }
 
-fn main() {
+/// Runs the agent: hotkey hook, watchdog, stdin request loop.
+pub fn run() {
     sidecar_hotkeys::start();
     let (tx, rx) = mpsc::channel::<Request>();
     let status = Arc::new(Mutex::new(Recorder::default().status()));

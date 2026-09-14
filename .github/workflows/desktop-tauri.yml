@@ -6,7 +6,6 @@ on:
     paths:
       - "packages/desktop/**"
       - "packages/contracts/**"
-      - "packages/recorder/**"
       - "packages/ui/**"
       - "packages/i18n/**"
       - "Cargo.toml"
@@ -14,6 +13,8 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/desktop-tauri.yml"
+  schedule:
+    - cron: "23 4 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -24,7 +25,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  audit:
+    name: cargo dependency audit
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: audit dependencies
+        uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   windows:
+    name: build and check windows desktop
+    # The weekly cron exists for the rustsec audit; skip the 2x-billed
+    # Windows job there since code did not change.
+    if: github.event_name != 'schedule'
     runs-on: windows-latest
     steps:
       - name: checkout repository
@@ -62,12 +83,12 @@ jobs:
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: |
-            packages/recorder/dist/obs-runtime
+            packages/desktop/resources/obs-runtime
             packages/desktop/.cache/ffmpeg
-          key: windows-native-obs-32.1.2-ffmpeg-8.1.2-v1
+          key: windows-native-obs-32.1.2-ffmpeg-8.1.2-v2
 
       - name: stage obs runtime
-        run: pnpm --filter @alloy/recorder obs:install --version 32.1.2
+        run: pnpm --filter @alloy/desktop obs:install --version 32.1.2
 
       - name: stage recorder and media tools
         run: node packages/desktop/scripts/prepare-native.mjs --release

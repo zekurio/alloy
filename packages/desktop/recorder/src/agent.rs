@@ -1,5 +1,9 @@
-#[cfg(not(windows))]
-compile_error!("alloy-agent is currently Windows-only.");
+//! The Windows-only agent: libobs bindings, capture pipeline, and the stdio
+//! request loop.
+//!
+//! The sources below are textually included rather than declared as modules so
+//! they keep sharing one flat namespace; splitting them into real modules is a
+//! separate change from making the crate a library.
 
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -24,9 +28,14 @@ use libloading::{Library, Symbol};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-const SIDE_CAR_NAME: &str = "alloy-agent";
-const RECORDER_PROTOCOL_VERSION: u32 = 1;
-const CONTENT_TYPE_MP4: &str = "video/mp4";
+use crate::names::file_component;
+use crate::protocol::{CONTENT_TYPE_MP4, RECORDER_PROTOCOL_VERSION, SIDE_CAR_NAME};
+use crate::settings::{
+    default_audio_device_selections, default_audio_devices, resolve_audio_device_selection,
+    validate_and_dedupe_audio_selections,
+};
+use crate::types::*;
+
 const DISK_REPLAY_PREFIX: &str = "alloy-replay-buffer-";
 const MEMORY_REPLAY_PREFIX: &str = "alloy-replay-";
 const DISK_REPLAY_SEGMENT_SECONDS: u32 = 15;
@@ -66,9 +75,12 @@ type ProcHandler = c_void;
 type SignalHandler = c_void;
 type SignalCallback = unsafe extern "C" fn(*mut c_void, *mut CallData);
 
+#[path = "sidecar_hotkeys.rs"]
 mod sidecar_hotkeys;
+#[path = "sidecar_watchdog.rs"]
 mod sidecar_watchdog;
-mod sidecar_windows_com;
+#[path = "sidecar_windows_com.rs"]
+pub(crate) mod sidecar_windows_com;
 
 include!("sidecar_types.rs");
 include!("sidecar_game_detection.rs");

@@ -49,6 +49,7 @@ dependencies = [
 name = "alloy-desktop"
 version = "0.0.1"
 dependencies = [
+ "alloy-agent",
  "axum",
  "base64 0.22.1",
  "fs2",

@@ -35,7 +35,7 @@ pnpm dev
 
 `pnpm dev` pushes the Drizzle schema and starts the API server plus the Vite
 web app. `pnpm dev:all` also starts the Tauri desktop shell. The recorder
-sidecar (`packages/recorder`) is Rust and only builds on Windows.
+sidecar (`packages/desktop/recorder`) is Rust and only builds on Windows.
 
 Never use npm, yarn, or Bun in this repo.
 

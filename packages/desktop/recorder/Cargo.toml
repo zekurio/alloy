@@ -4,6 +4,17 @@ version = "0.0.1"
 edition = "2021"
 publish = false
 
+# The crate is both a library the desktop host links against and the sidecar
+# binary the host spawns. The binary keeps the `alloy-agent` name the host looks
+# for on disk; the library is `alloy_recorder`.
+[lib]
+name = "alloy_recorder"
+path = "src/lib.rs"
+
+[[bin]]
+name = "alloy-agent"
+path = "src/main.rs"
+
 [build-dependencies]
 winresource = "0.1.31"
 

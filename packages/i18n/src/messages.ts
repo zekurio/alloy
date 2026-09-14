@@ -1041,8 +1041,6 @@ export const DE_MESSAGES = {
   recently: "kürzlich",
   "Mix selected playback devices and microphones, or application audio streams.":
     "Mische ausgewählte Wiedergabegeräte und Mikrofone oder Audiostreams von Apps.",
-  "Alloy's native agent is not built yet. Run pnpm --filter @alloy/recorder build.":
-    "Alloys nativer Agent ist noch nicht gebaut. Führe pnpm --filter @alloy/recorder build aus.",
   "Recording is unavailable because the capture component is missing. Try reinstalling Alloy.":
     "Die Aufnahme ist nicht verfügbar, weil die Aufnahmekomponente fehlt. Versuch, Alloy neu zu installieren.",
   "Recording library scan failed.":

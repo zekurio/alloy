@@ -10,10 +10,9 @@ const releasePackageFiles = [
   "package.json",
   "packages/desktop/package.json",
   "packages/desktop/src-tauri/tauri.conf.json",
-  "packages/recorder/package.json",
 ]
 const cargoPackageFiles = [
-  "packages/recorder/Cargo.toml",
+  "packages/desktop/recorder/Cargo.toml",
   "packages/desktop/src-tauri/Cargo.toml",
 ]
 const cargoLockPackageFiles = [

@@ -24,8 +24,6 @@ packages/desktop/release/
 packages/desktop/.cache/
 packages/desktop/resources/
 packages/desktop/src-tauri/gen/
-packages/recorder/dist/
-packages/recorder/release/
 .nitro
 .tanstack
 .vite

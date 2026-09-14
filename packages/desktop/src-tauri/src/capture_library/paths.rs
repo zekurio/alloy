@@ -1,5 +1,6 @@
 use std::path::{Component, Path, PathBuf};
 
+use alloy_recorder::{names::file_component, protocol::CONTENT_TYPE_MP4};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use sha2::{Digest, Sha256};
 
@@ -31,7 +32,7 @@ pub fn content_type(path: &Path) -> &'static str {
         Some("png") => "image/png",
         Some("jpg" | "jpeg") => "image/jpeg",
         Some("webp") => "image/webp",
-        Some("mp4") => "video/mp4",
+        Some("mp4") => CONTENT_TYPE_MP4,
         Some("mov") => "video/quicktime",
         Some("mkv") => "video/x-matroska",
         Some("webm") => "video/webm",
@@ -44,7 +45,7 @@ pub(crate) fn extension_for_content_type(value: &str) -> Option<&'static str> {
         "image/png" => Some("png"),
         "image/jpeg" => Some("jpg"),
         "image/webp" => Some("webp"),
-        "video/mp4" => Some("mp4"),
+        CONTENT_TYPE_MP4 => Some("mp4"),
         "video/quicktime" => Some("mov"),
         "video/x-matroska" => Some("mkv"),
         "video/webm" => Some("webm"),
@@ -93,35 +94,14 @@ pub fn ensure_within(root: &Path, candidate: &Path) -> Result<PathBuf> {
     Ok(candidate)
 }
 
+/// Sanitizes one path component exactly the way the recorder does, so a clip
+/// the host downloads or imports lands in the same game folder the recorder
+/// would have recorded it into.
 pub(crate) fn safe_component(value: Option<&str>, fallback: &str) -> String {
-    let mut result = String::new();
-    let mut separator = false;
-    for character in value.unwrap_or_default().trim().chars() {
-        let unsafe_character = character.is_control()
-            || matches!(
-                character,
-                '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'
-            );
-        if unsafe_character || character.is_whitespace() {
-            if !separator && !result.is_empty() {
-                result.push(if unsafe_character { '-' } else { ' ' });
-                separator = true;
-            }
-            continue;
-        }
-        result.push(character);
-        separator = false;
-    }
-    while matches!(result.chars().last(), Some(' ' | '.' | '-')) {
-        result.pop();
-    }
-    if result.is_empty() || is_reserved_windows_name(&result) {
-        fallback.to_string()
-    } else {
-        result
-    }
+    file_component(value.unwrap_or_default(), fallback)
 }
 
+/// [`safe_component`] capped at 128 characters, for use as a file stem.
 pub(crate) fn safe_file_stem(value: Option<&str>, fallback: &str) -> String {
     let component = safe_component(value, fallback);
     component.chars().take(128).collect()
@@ -151,19 +131,6 @@ fn normalize_path(path: &Path) -> PathBuf {
     result
 }
 
-fn is_reserved_windows_name(value: &str) -> bool {
-    let base = value
-        .split('.')
-        .next()
-        .unwrap_or_default()
-        .to_ascii_uppercase();
-    matches!(base.as_str(), "CON" | "PRN" | "AUX" | "NUL")
-        || (base.len() == 4
-            && (base.starts_with("COM") || base.starts_with("LPT"))
-            && base.as_bytes()[3].is_ascii_digit()
-            && base.as_bytes()[3] != b'0')
-}
-
 pub fn title_for_capture(created_at: &str) -> String {
     let parsed =
         time::OffsetDateTime::parse(created_at, &time::format_description::well_known::Rfc3339);
@@ -182,4 +149,30 @@ pub fn now_rfc3339() -> String {
     time::OffsetDateTime::now_utc()
         .format(&time::format_description::well_known::Rfc3339)
         .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{safe_component, safe_file_stem};
+
+    #[test]
+    fn matches_the_recorder_sanitizer() {
+        // The recorder trims separators from both ends and collapses runs, so
+        // the host lands in the same folder for the same game title.
+        assert_eq!(
+            safe_component(Some("-Half-Life: Alyx "), "x"),
+            "Half-Life-Alyx"
+        );
+        assert_eq!(safe_component(Some(".hidden"), "x"), "hidden");
+        assert_eq!(safe_component(Some("  "), "Uncategorized"), "Uncategorized");
+        assert_eq!(safe_component(None, "Uncategorized"), "Uncategorized");
+        assert_eq!(safe_component(Some("COM1"), "clip"), "clip");
+        assert_eq!(safe_component(Some("nul.mp4"), "clip"), "clip");
+    }
+
+    #[test]
+    fn file_stem_is_capped_at_128_characters() {
+        let long = "a".repeat(200);
+        assert_eq!(safe_file_stem(Some(&long), "import").chars().count(), 128);
+    }
 }

@@ -15,7 +15,7 @@ import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 
 import {
-  distDir,
+  cacheDir,
   normalizeObsRuntimeDir,
   obsResourcesDir,
   pruneObsRuntime,
@@ -51,7 +51,7 @@ if (!asset) {
 }
 
 const sha256 = releaseAssetSha256(release, asset)
-const workDir = join(distDir, "obs-runtime-download")
+const workDir = join(cacheDir, "obs-runtime-download")
 const zipPath = join(workDir, asset.name)
 const extractDir = join(workDir, "extract")
 

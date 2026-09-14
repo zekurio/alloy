@@ -1,5 +1,5 @@
 mod windows_detector {
-    use crate::sidecar_windows_com::{
+    use crate::agent::sidecar_windows_com::{
         active_audio_endpoint_devices, com_vtbl, create_mm_device_enumerator, endpoint_id,
         initialize_com, query_interface, release_com, string_from_cotaskmem_pwstr, succeeded,
         uninitialize_com, ComPtr, IMMDeviceEnumeratorVtbl, IMMDeviceVtbl,

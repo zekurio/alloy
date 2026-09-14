@@ -1,36 +1,8 @@
-use crate::sidecar_windows_com::{
+use crate::agent::sidecar_windows_com::{
     active_audio_endpoint_devices, create_mm_device_enumerator, default_endpoint_id,
     endpoint_friendly_name, endpoint_id, initialize_com, uninitialize_com, ComPtr,
 };
 use windows_sys::Win32::Media::Audio::{eCapture, eCommunications, eConsole, eRender};
-
-fn default_audio_devices() -> Vec<RecordingAudioDevice> {
-    vec![
-        RecordingAudioDevice {
-            id: "default".to_string(),
-            label: "Default output".to_string(),
-            kind: RecordingAudioDeviceKind::Output,
-        },
-        RecordingAudioDevice {
-            id: "default".to_string(),
-            label: "Default microphone".to_string(),
-            kind: RecordingAudioDeviceKind::Input,
-        },
-    ]
-}
-
-fn default_audio_device_selections() -> Vec<RecordingAudioDeviceSelection> {
-    default_audio_devices()
-        .into_iter()
-        .map(|device| RecordingAudioDeviceSelection {
-            enabled: device.kind == RecordingAudioDeviceKind::Output,
-            volume: 100,
-            id: device.id,
-            label: device.label,
-            kind: device.kind,
-        })
-        .collect()
-}
 
 fn dedupe_audio_devices(devices: Vec<RecordingAudioDevice>) -> Vec<RecordingAudioDevice> {
     let mut seen = HashSet::new();

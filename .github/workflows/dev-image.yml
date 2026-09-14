@@ -2,8 +2,8 @@ name: dev image
 
 run-name: "dev image ${{ github.sha }}"
 
-# Only rebuild when inputs of the server image change; desktop, recorder,
-# and docs-only merges do not affect it.
+# Only rebuild when inputs of the server image change; desktop (including the
+# recorder crate) and docs-only merges do not affect it.
 on:
   push:
     branches:
@@ -11,7 +11,6 @@ on:
     paths:
       - "packages/**"
       - "!packages/desktop/**"
-      - "!packages/recorder/**"
       - "nix/**"
       - "flake.nix"
       - "flake.lock"

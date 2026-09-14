@@ -6,6 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/prepare-native.mjs && tauri dev",
+    "obs:install": "node scripts/install-obs-runtime.mjs",
+    "build:recorder": "node scripts/build-agent.mjs",
+    "build:recorder:release": "node scripts/build-agent.mjs --release --require-obs-runtime",
     "build:app": "node scripts/prepare-native.mjs --release && tauri build --no-bundle",
     "dist:win:installer": "node scripts/prepare-native.mjs --release && tauri build --target x86_64-pc-windows-msvc --bundles nsis",
     "build:renderer": "vite build",

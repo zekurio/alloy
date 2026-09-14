@@ -11,10 +11,12 @@ import {
 import { basename, dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-export const recorderDir = fileURLToPath(new URL("../", import.meta.url))
-export const distDir = join(recorderDir, "dist")
-export const agentResourcesDir = join(distDir, "agent")
-export const obsResourcesDir = join(distDir, "obs-runtime")
+export const packageDir = fileURLToPath(new URL("../", import.meta.url))
+export const workspaceDir = resolve(packageDir, "../..")
+export const cacheDir = join(packageDir, ".cache")
+export const resourcesDir = join(packageDir, "resources")
+export const agentResourcesDir = join(resourcesDir, "agent")
+export const obsResourcesDir = join(resourcesDir, "obs-runtime")
 
 const obsHelperExecutables = [
   "obs-ffmpeg-mux.exe",

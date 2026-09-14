@@ -9,13 +9,13 @@ import {
   normalizeObsRuntimeDir,
   obsResourcesDir,
   pruneObsRuntime,
-  recorderDir,
+  workspaceDir,
   agentResourcesDir,
   stageObsHelpers,
   stageObsRuntime,
 } from "./obs-runtime.mjs"
 
-const manifestPath = join(recorderDir, "Cargo.toml")
+const manifestPath = join(workspaceDir, "Cargo.toml")
 const binaryName = "alloy-agent.exe"
 const requireObsRuntime =
   process.argv.includes("--require-obs-runtime") ||
@@ -34,7 +34,15 @@ if (process.platform !== "win32" && !requireObsRuntime && !targetTriple) {
 
 const obsRuntimeSource = resolveObsRuntimeSource()
 
-const cargoArgs = ["build", "--manifest-path", manifestPath]
+const cargoArgs = [
+  "build",
+  "--manifest-path",
+  manifestPath,
+  "--package",
+  "alloy-agent",
+  "--bin",
+  "alloy-agent",
+]
 if (release) cargoArgs.push("--release")
 if (targetTriple) cargoArgs.push("--target", targetTriple)
 
@@ -48,7 +56,7 @@ if (cargo.status !== 0) process.exit(cargo.status ?? 1)
 // The recorder is a member of the root Cargo workspace, so its artifacts land
 // in the workspace target directory unless CARGO_TARGET_DIR overrides it.
 const targetRoot = resolve(
-  process.env.CARGO_TARGET_DIR ?? join(recorderDir, "../../target"),
+  process.env.CARGO_TARGET_DIR ?? join(workspaceDir, "target"),
 )
 const profileDir = release ? "release" : "debug"
 const buildDir = targetTriple

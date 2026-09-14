@@ -52,8 +52,7 @@ These release version files are stamped together and must always match:
 - `packages/desktop/package.json`
 - `packages/desktop/src-tauri/tauri.conf.json`
 - `packages/desktop/src-tauri/Cargo.toml`
-- `packages/recorder/package.json`
-- `packages/recorder/Cargo.toml`
+- `packages/desktop/recorder/Cargo.toml`
 
 ## Desktop Auto-Update
 

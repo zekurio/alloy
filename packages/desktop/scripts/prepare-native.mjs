@@ -34,7 +34,7 @@ const release = process.argv.includes("--release")
 const recorder = spawnSync(
   process.execPath,
   [
-    resolve(packageDir, "../recorder/scripts/build.mjs"),
+    resolve(packageDir, "scripts/build-agent.mjs"),
     ...(release ? ["--release", "--require-obs-runtime"] : []),
   ],
   { stdio: "inherit" },

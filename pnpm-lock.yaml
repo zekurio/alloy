@@ -169,8 +169,6 @@ importers:
 
   packages/logging: {}
 
-  packages/recorder: {}
-
   packages/server:
     dependencies:
       '@alloy/contracts':

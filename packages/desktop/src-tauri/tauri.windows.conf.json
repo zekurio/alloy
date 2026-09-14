@@ -2,8 +2,8 @@
   "$schema": "https://schema.tauri.app/config/2",
   "bundle": {
     "resources": {
-      "../../recorder/dist/agent/": "agent/",
-      "../../recorder/dist/obs-runtime/": "obs-runtime/",
+      "../resources/agent/": "agent/",
+      "../resources/obs-runtime/": "obs-runtime/",
       "../resources/ffmpeg/": "ffmpeg/"
     }
   }

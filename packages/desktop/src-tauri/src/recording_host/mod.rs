@@ -27,7 +27,7 @@ use tokio::{
 };
 
 pub use models::{
-    AGENT_METHODS, AGENT_NAME, AGENT_PROTOCOL_VERSION, CaptureManifest, EventEnvelope,
+    AGENT_NAME, AGENT_PROTOCOL_VERSION, CaptureManifest, EventEnvelope,
     PlayNotificationSoundRequest, RecorderHostOptions, RecordingActionResult, RecordingAllowedGame,
     RecordingAudioApplicationSelection, RecordingAudioDevice, RecordingAudioDeviceKind,
     RecordingAudioDeviceSelection, RecordingAudioLevel, RecordingAudioLevelTarget,
@@ -40,7 +40,6 @@ pub use models::{
     RecordingResolution, RecordingRunState, RecordingSettings, RecordingStatus,
     RecordingStorageInfo, RecordingTelemetry, SaveReplayClipRequest, SidecarVersion,
 };
-
 const SETTINGS_FILE: &str = "recording-settings.json";
 const CAPTURES_FILE: &str = "recording-captures.json";
 const CAPTURE_EXTENSIONS: &[&str] = &["mp4", "mkv", "mov", "webm", "png", "jpg", "jpeg", "webp"];
@@ -430,7 +429,7 @@ impl RecorderHost {
                 }
             });
         let (events, _) = broadcast::channel(256);
-        let status = RecordingStatus::unavailable(&settings, None);
+        let status = unavailable_status(&settings, None);
         Ok(Self {
             inner: Arc::new(Inner {
                 options,
@@ -1073,7 +1072,7 @@ async fn handle_line(inner: &Arc<Inner>, session: &Arc<Session>, line: &str) {
 }
 
 async fn handle_event(inner: &Arc<Inner>, event: RecordingEvent) {
-    if let Some(capture) = event.capture() {
+    if let Some(capture) = event_capture(&event) {
         if !begin_capture_event(inner, capture).await {
             return;
         }
@@ -1083,7 +1082,7 @@ async fn handle_event(inner: &Arc<Inner>, event: RecordingEvent) {
             return;
         }
     }
-    if let Some(status) = event.status() {
+    if let Some(status) = event_status(&event) {
         apply_status_inner(inner, status.clone()).await;
     }
     let _ = inner.events.send(event);
@@ -1344,10 +1343,10 @@ fn validate_settings(settings: &RecordingSettings) -> Result<(), RecorderHostErr
         }
     }
     for (name, bitrate) in [
-        ("bitrate", settings.bitrate.as_str()),
+        ("bitrate", settings.bitrate.0.as_str()),
         (
             "customQuality.bitrate",
-            settings.custom_quality.bitrate.as_str(),
+            settings.custom_quality.bitrate.0.as_str(),
         ),
     ] {
         if bitrate != "auto"
@@ -1827,6 +1826,7 @@ fn now_unix_millis() -> u64 {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+    use alloy_recorder::protocol::CONTENT_TYPE_MP4;
     use std::{fs, os::unix::fs::PermissionsExt};
 
     fn temporary_folder(name: &str) -> PathBuf {
@@ -1869,7 +1869,7 @@ mod tests {
         RecordingCapture {
             id: id.into(),
             filename: filename.into(),
-            content_type: "video/mp4".into(),
+            content_type: CONTENT_TYPE_MP4.into(),
             size_bytes: Some(100),
             duration_ms: Some(2_000),
             width: Some(1920),
@@ -1888,7 +1888,7 @@ mod tests {
         let state_dir = folder.join("state");
         let output_dir = folder.join("captures");
         let agent = folder.join("fake-agent.sh");
-        let mut status = RecordingStatus::unavailable(&RecordingSettings::default(), None);
+        let mut status = unavailable_status(&RecordingSettings::default(), None);
         status.backend = RecordingBackendState::Ready;
         status.message = None;
         fake_agent(&agent, &status);
@@ -1936,7 +1936,7 @@ mod tests {
         let folder = temporary_folder("timeout");
         let state_dir = folder.join("state");
         let agent = folder.join("fake-hanging-agent.sh");
-        let mut status = RecordingStatus::unavailable(&RecordingSettings::default(), None);
+        let mut status = unavailable_status(&RecordingSettings::default(), None);
         status.backend = RecordingBackendState::Ready;
         status.message = None;
         fake_hanging_agent(&agent, &status);
@@ -2064,7 +2064,10 @@ mod tests {
         ))
         .expect("host");
         let settings = RecordingSettings {
-            replay_buffer_seconds: 14,
+            recorder: RecorderSettings {
+                replay_buffer_seconds: 14,
+                ..RecorderSettings::default()
+            },
             ..RecordingSettings::default()
         };
         let runtime = tokio::runtime::Builder::new_current_thread()

@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 
+use alloy_recorder::protocol::CONTENT_TYPE_MP4;
 use serde::Deserialize;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::Command;
@@ -205,7 +206,7 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
         id: export_id.clone(),
         media_url: format!("alloy-capture://export/{export_id}"),
         file_name: export_file_name(&item.file_name, segment, full_source),
-        content_type: "video/mp4".to_string(),
+        content_type: CONTENT_TYPE_MP4.to_string(),
         size_bytes,
         duration_ms: total_ms,
         width: item.width,

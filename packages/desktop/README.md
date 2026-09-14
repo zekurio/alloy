@@ -1,7 +1,8 @@
 # Alloy desktop
 
-This package replaces the Electron host with Tauri.
-The Rust OBS recorder remains a separate process in `packages/recorder`.
+This package replaces the Electron host with Tauri. It holds both Rust crates:
+`src-tauri/` is the Tauri host and `recorder/` is the OBS capture agent library
+plus its `alloy-agent` binary, which still runs as a separate process.
 
 ## Design
 

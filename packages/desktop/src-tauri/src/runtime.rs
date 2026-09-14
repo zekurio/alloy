@@ -43,17 +43,20 @@ impl DesktopRuntime {
         let output = app.path().video_dir().map_err(error)?.join("Alloy");
         let resources = app.path().resource_dir().map_err(error)?;
         let package = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-        let recorder_root = if cfg!(debug_assertions) {
-            package.join("../recorder/dist")
+        // Debug builds read the agent, the OBS runtime and the media tools from
+        // the staging folder the build scripts fill; bundles read them from the
+        // packaged resource directory.
+        let native_root = if cfg!(debug_assertions) {
+            package.join("resources")
         } else {
-            resources.clone()
+            resources
         };
         let executable = std::env::var_os("ALLOY_RECORDER_PATH")
             .map(PathBuf::from)
-            .unwrap_or_else(|| recorder_root.join("agent/alloy-agent.exe"));
+            .unwrap_or_else(|| native_root.join("agent/alloy-agent.exe"));
         let obs = std::env::var_os("ALLOY_OBS_RUNTIME_DIR")
             .map(PathBuf::from)
-            .unwrap_or_else(|| recorder_root.join("obs-runtime"));
+            .unwrap_or_else(|| native_root.join("obs-runtime"));
         let recorder = RecorderHost::new(
             RecorderHostOptions::new(executable, &data)
                 .output_folder(&output)
@@ -68,17 +71,12 @@ impl DesktopRuntime {
         } else {
             PathBuf::from(&settings.output_folder)
         };
-        let media_root = if cfg!(debug_assertions) {
-            package.join("resources")
-        } else {
-            resources
-        };
         let media_tool = |name: &str| {
             std::env::var_os(format!("ALLOY_{}", name.to_uppercase()))
                 .map(PathBuf::from)
                 .unwrap_or_else(|| {
                     if cfg!(windows) {
-                        media_root.join("ffmpeg").join(format!("{name}.exe"))
+                        native_root.join("ffmpeg").join(format!("{name}.exe"))
                     } else {
                         PathBuf::from(name)
                     }

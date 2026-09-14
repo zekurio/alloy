@@ -11,17 +11,16 @@ boundaries, especially desktop-to-server HTTP and desktop-to-recorder IPC.
 
 ## Repository map
 
-| Path                                                | Purpose                                                             |
-| --------------------------------------------------- | ------------------------------------------------------------------- |
-| `packages/desktop`                                  | Tauri shell, connection screen, recorder control, and local library |
-| `packages/recorder`                                 | Windows Rust recorder built on OBS                                  |
-| `packages/server`                                   | Hono API, uploads, jobs, and media processing                       |
-| `packages/web`                                      | React web app and file-based routes                                 |
-| `packages/contracts`                                | Shared schemas, types, and desktop contracts                        |
-| `packages/api`                                      | Typed API client                                                    |
-| `packages/db`                                       | Drizzle schema and database workflows                               |
-| `packages/ui`                                       | Shared React components and styles                                  |
-| `packages/env`, `packages/i18n`, `packages/logging` | Shared infrastructure                                               |
+| Path                                                | Purpose                                                                    |
+| --------------------------------------------------- | -------------------------------------------------------------------------- |
+| `packages/desktop`                                  | `src-tauri/` Tauri host, `recorder/` capture agent lib + `alloy-agent` bin |
+| `packages/server`                                   | Hono API, uploads, jobs, and media processing                              |
+| `packages/web`                                      | React web app and file-based routes                                        |
+| `packages/contracts`                                | Shared schemas, types, and desktop contracts                               |
+| `packages/api`                                      | Typed API client                                                           |
+| `packages/db`                                       | Drizzle schema and database workflows                                      |
+| `packages/ui`                                       | Shared React components and styles                                         |
+| `packages/env`, `packages/i18n`, `packages/logging` | Shared infrastructure                                                      |
 
 Read the relevant package README and nearby code before changing a subsystem.
 Do not overwrite unrelated working-tree changes.
@@ -55,9 +54,9 @@ constants only at released contract boundaries. Prefer one boundary-level test
 over separate tests for each branch.
 
 The recorder and the Tauri desktop host build only on Windows. Both Rust
-crates (`packages/recorder` and `packages/desktop/src-tauri`) are members of
-the root Cargo workspace and share `Cargo.lock` and `target/`. Check Rust
-changes from the repo root with `cargo fmt --all --check` and
+crates (`packages/desktop/recorder` and `packages/desktop/src-tauri`) are
+members of the root Cargo workspace and share `Cargo.lock` and `target/`. Check
+Rust changes from the repo root with `cargo fmt --all --check` and
 `cargo clippy --workspace --all-targets --locked -- -D warnings`
 (`pnpm --filter @alloy/desktop check:native` covers only the host crate).
 
@@ -93,9 +92,10 @@ currently has one operator and no external deployments. HTTP contract 1 can
 change in place when desktop and server are updated together. Once independent
 deployments exist, version breaking changes and define a support window.
 
-Keep OBS in the recorder process. Sidecar protocol changes must update both
-`packages/desktop/src-tauri/src/recording_host` and
-`packages/recorder/src/sidecar_types.rs`.
+Keep OBS in the recorder process. The sidecar wire types live once, in
+`packages/desktop/recorder/src/types.rs` (`alloy_recorder::types`); the host in
+`packages/desktop/src-tauri/src/recording_host` imports them rather than
+mirroring them.
 
 Put cross-package types and constants in `packages/contracts`. Use Zod when a
 value crosses a runtime boundary; use plain TypeScript types otherwise.
