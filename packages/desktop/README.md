@@ -25,6 +25,10 @@ The local connection screen lists saved servers. Forgetting a server removes
 its saved session. Closing the main window keeps capture and media work active
 in the tray. Quit stops the recorder and media processes.
 
+Autostart registers the app with `--autostart`. Started that way it restores the
+saved server and warms up the recorder without showing a window; the tray opens
+it when the user asks.
+
 The native bridge grants operations only to the selected server window and
 origin. The local connection window has separate permissions. Each remote
 window has a unique label. Navigation cannot move a native-enabled window to

@@ -17,7 +17,6 @@ use tauri::AppHandle;
 #[cfg(target_os = "windows")]
 use tauri::Manager;
 use tokio::sync::broadcast;
-use url::Url;
 
 use alloy_desktop::server::server_origin;
 
@@ -27,10 +26,7 @@ const PREFERENCES_FILE: &str = "preferences.json";
 const PREFERENCES_VERSION: u64 = 2;
 const MAX_SAVED_SERVERS: usize = 8;
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
-const UPDATE_ENDPOINT: &str =
-    "https://github.com/zekurio/alloy/releases/latest/download/latest.json";
 const UPDATE_UNSUPPORTED_ERROR: &str = "Automatic updates are unavailable in this build.";
-const UPDATE_PUBLIC_KEY: Option<&str> = option_env!("ALLOY_UPDATER_PUBLIC_KEY");
 
 static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -275,7 +271,7 @@ pub struct DesktopServices {
 
 impl DesktopServices {
     pub fn new(app: AppHandle, state_dir: impl Into<PathBuf>) -> Self {
-        let supported = updater_supported();
+        let supported = updater_supported(&app);
         let current_version = Some(app.package_info().version.to_string());
         let (update_events, _) = broadcast::channel(16);
         Self {
@@ -337,7 +333,7 @@ impl DesktopServices {
     /// Whether this build can check for updates at all. Background checks
     /// skip themselves entirely when this is false.
     pub fn updates_supported(&self) -> bool {
-        updater_supported()
+        updater_supported(&self.app)
     }
 
     /// Checks the release feed. A check runs from `Idle` or `Available`, so a
@@ -375,6 +371,22 @@ impl DesktopServices {
         let result = updater.check().await;
         let mut updates = self.lock_updates()?;
         updates.check_in_flight = false;
+        // A download that started while the check was in flight owns the
+        // pending update, so record only that the check happened and leave
+        // the pending update, its bytes, and the status alone.
+        if updates.download_in_flight
+            || matches!(
+                updates.state.status,
+                DesktopUpdateStatus::Downloading | DesktopUpdateStatus::Downloaded
+            )
+        {
+            if let Err(error) = result {
+                return Err(error.to_string());
+            }
+            updates.state.last_checked_at = Some(now_rfc3339());
+            self.publish_locked(&updates);
+            return Ok(updates.state.clone());
+        }
         match result {
             Ok(Some(update)) => {
                 let version = update.version.clone();
@@ -553,23 +565,17 @@ impl DesktopServices {
         })
     }
 
+    /// The public key and endpoints come from `plugins.updater` in the Tauri
+    /// config, which the release build fills in at bundle time.
     fn updater(&self) -> Result<tauri_plugin_updater::Updater, String> {
-        let public_key = UPDATE_PUBLIC_KEY
-            .filter(|key| !key.trim().is_empty())
-            .ok_or(UPDATE_UNSUPPORTED_ERROR)?;
-        let endpoint = Url::parse(UPDATE_ENDPOINT)
-            .map_err(|_| "The updater endpoint is invalid.".to_string())?;
-        let builder = self
-            .app
-            .updater_builder()
-            .pubkey(public_key)
-            .endpoints(vec![endpoint])
-            .map_err(|error| error.to_string())?;
-        builder.build().map_err(|error| error.to_string())
+        if !has_update_public_key(&self.app) {
+            return Err(UPDATE_UNSUPPORTED_ERROR.into());
+        }
+        self.app.updater().map_err(|error| error.to_string())
     }
 
     fn require_updater(&self) -> Result<(), String> {
-        if updater_supported() && has_update_public_key() {
+        if updater_supported(&self.app) {
             Ok(())
         } else {
             Err(UPDATE_UNSUPPORTED_ERROR.into())
@@ -594,15 +600,38 @@ pub struct DesktopAutostartState {
     pub enabled: bool,
 }
 
-fn updater_supported() -> bool {
+/// The `plugins.updater` section of the Tauri config. Development builds ship
+/// an empty public key, so automatic updates stay off until a release build
+/// merges the real key in.
+#[derive(Debug, Default, Deserialize)]
+struct UpdaterConfig {
+    #[serde(default)]
+    pubkey: String,
+    #[serde(default)]
+    endpoints: Vec<String>,
+}
+
+fn updater_config(app: &AppHandle) -> UpdaterConfig {
+    app.config()
+        .plugins
+        .0
+        .get("updater")
+        .cloned()
+        .and_then(|value| serde_json::from_value(value).ok())
+        .unwrap_or_default()
+}
+
+fn updater_supported(app: &AppHandle) -> bool {
+    let config = updater_config(app);
     !tauri::is_dev()
-        && has_update_public_key()
+        && !config.pubkey.trim().is_empty()
+        && !config.endpoints.is_empty()
         && tauri::utils::platform::bundle_type().is_some()
         && tauri_plugin_updater::target().is_some()
 }
 
-fn has_update_public_key() -> bool {
-    UPDATE_PUBLIC_KEY.is_some_and(|key| !key.trim().is_empty())
+fn has_update_public_key(app: &AppHandle) -> bool {
+    !updater_config(app).pubkey.trim().is_empty()
 }
 
 fn unsupported_update_state(current_version: String) -> DesktopUpdateState {

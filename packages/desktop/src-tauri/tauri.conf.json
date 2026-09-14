@@ -11,7 +11,9 @@
   "plugins": {
     "updater": {
       "pubkey": "",
-      "endpoints": []
+      "endpoints": [
+        "https://github.com/zekurio/alloy/releases/latest/download/latest.json"
+      ]
     }
   },
   "app": {

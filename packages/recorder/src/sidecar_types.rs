@@ -175,7 +175,6 @@ struct RecordingGameGuess {
 #[serde(rename_all = "camelCase")]
 struct RecordingDisplay {
     id: String,
-    electron_id: Option<String>,
     name: String,
     width: u32,
     height: u32,

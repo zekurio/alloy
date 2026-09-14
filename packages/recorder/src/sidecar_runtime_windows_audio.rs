@@ -411,11 +411,7 @@
 
         let executable = executable.unwrap_or_default().to_ascii_lowercase();
         let class_name = class_name.unwrap_or_default().to_ascii_lowercase();
-        let title = title.trim().to_ascii_lowercase();
-        if executable == "alloy.exe"
-            || executable == "alloy-desktop.exe"
-            || (executable == "electron.exe" && title == "alloy")
-        {
+        if executable == "alloy.exe" || executable == "alloy-desktop.exe" {
             return false;
         }
 

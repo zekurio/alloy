@@ -47,6 +47,34 @@ impl SessionTokens {
             )?,
         ])
     }
+
+    /// The values the host is about to inject, so it can recognise its own
+    /// bootstrap cookies in the webview store once the server has set its
+    /// own. Owned, because the cleanup outlives the connect call.
+    pub fn injected_cookies(&self) -> InjectedCookies {
+        InjectedCookies {
+            access_token: self.access_token.clone(),
+            refresh_token: self.refresh_token.clone(),
+        }
+    }
+}
+
+/// Lets the host tell an injected session cookie apart from one the server
+/// set itself. The tokens stay private so they cannot reach a log or a
+/// command result.
+pub struct InjectedCookies {
+    access_token: String,
+    refresh_token: String,
+}
+
+impl InjectedCookies {
+    pub fn is_injected_cookie(&self, name: &str, value: &str) -> bool {
+        match name {
+            "alloy_access" => value == self.access_token,
+            "alloy_refresh" => value == self.refresh_token,
+            _ => false,
+        }
+    }
 }
 
 pub struct BrowserLogin {
@@ -188,6 +216,22 @@ fn validate_expiry(expires: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Builds the `Set-Cookie` header the host injects into the server webview so
+/// the first page load is already signed in.
+///
+/// These cookies only bootstrap that first load. `Domain` is mandatory here —
+/// wry hands `cookie.domain()` straight to
+/// `ICoreWebView2CookieManager::CreateCookie` and WebView2's
+/// `AddOrUpdateCookie` fails without one — while the server's own cookies
+/// (`packages/server/src/auth/cookies.ts`) are host-only, and on a registrable
+/// domain Chromium stores ours as a domain cookie (`.alloy.example`). Two
+/// copies of a name would then be sent for the same request and hono keeps the
+/// first, shadowing a rotated refresh token. So the host asks the loaded page
+/// to refresh once and deletes these injected copies as soon as the webview
+/// holds cookies the server set itself (`replace_injected_cookies` in
+/// `main.rs`). The host is written without a leading dot: adding one would
+/// force a domain cookie even where Chromium stores ours host-only
+/// (`localhost`, bare IPs, non-public-suffix TLDs).
 fn session_cookie(
     name: &str,
     token: &str,
@@ -391,6 +435,9 @@ mod tests {
         )
         .unwrap();
         assert!(cookie.contains("Domain=alloy.example"));
+        // A leading dot would force a subdomain cookie even on hosts where
+        // Chromium otherwise stores the injected cookie host-only.
+        assert!(!cookie.contains("Domain=."));
         assert!(cookie.contains("HttpOnly"));
         assert!(cookie.contains("SameSite=Lax"));
         assert!(cookie.contains("Secure"));

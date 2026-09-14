@@ -16,21 +16,18 @@ export type {
   RecordingLibrarySnapshot,
   RecordingLibraryStagedImport,
 } from "@alloy/contracts"
-export type { AlloyTauriDesktop } from "@alloy/contracts/desktop-tauri"
 export type AlloyDesktop = AlloyTauriDesktop
 
-export function alloyDesktop(): AlloyTauriDesktop | null {
-  return alloyTauriDesktop()
-}
-
 /**
- * Reads the exact bridge installed by the Tauri host. Retired Electron
- * globals do not grant native features to the browser build.
+ * Reads the bridge the desktop host installs on `globalThis`. A bridge is
+ * accepted only when its `bridgeContract` matches the exact contract ID this
+ * build speaks; anything else (a missing, older, or newer bridge) reads as the
+ * plain browser build and returns null.
  */
-export function alloyTauriDesktop(): AlloyTauriDesktop | null {
+export function alloyDesktop(): AlloyDesktop | null {
   // SAFETY: The optional host property is checked by the runtime contract ID
   // before it is returned to web code.
-  const host = globalThis as { alloyTauriDesktop?: AlloyTauriDesktop }
+  const host = globalThis as { alloyTauriDesktop?: AlloyDesktop }
   return host.alloyTauriDesktop?.bridgeContract ===
     TAURI_DESKTOP_BRIDGE_CONTRACT_1
     ? host.alloyTauriDesktop
@@ -39,15 +36,16 @@ export function alloyTauriDesktop(): AlloyTauriDesktop | null {
 
 /** Returns whether the page runs in Alloy Desktop. */
 export function isNativeDesktop(): boolean {
-  return alloyTauriDesktop() !== null
+  return alloyDesktop() !== null
 }
 
 /**
- * Returns the native window controls only when a shell owns an overlay title
- * bar. Tauri currently uses native decorations, so it returns null there.
+ * Returns the bridge's window controls only when the host asked the web app to
+ * draw its own title bar (frameless window with `titlebarOverlay` set);
+ * otherwise null, so callers fall back to the plain browser layout.
  */
 export function alloyWindowChrome(): Pick<
-  AlloyTauriDesktop,
+  AlloyDesktop,
   "titlebarOverlay" | "minimizeWindow" | "toggleMaximizeWindow" | "closeWindow"
 > | null {
   const desktop = alloyDesktop()

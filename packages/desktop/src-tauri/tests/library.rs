@@ -447,6 +447,83 @@ async fn download_manager_uses_native_server_and_cookie_state() {
 }
 
 #[tokio::test]
+async fn concurrent_downloads_with_one_title_keep_separate_files() {
+    let (shutdown, signal) = tokio::sync::oneshot::channel();
+    let body = |clip: &'static str| {
+        get(move || async move {
+            Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "video/mp4")
+                .header("Content-Length", clip.len().to_string())
+                .body(Body::from(clip))
+                .expect("download response")
+        })
+    };
+    let app = Router::new()
+        .route("/api/clips/clip-a/download", body("aaaa"))
+        .route("/api/clips/clip-b/download", body("bbbbbbbb"));
+    let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, app)
+            .with_graceful_shutdown(async {
+                let _ = signal.await;
+            })
+            .await;
+    });
+
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let manager = DownloadManager::new(library.clone()).unwrap();
+    manager
+        .set_selected_server(
+            Url::parse(&format!("http://127.0.0.1:{port}")).unwrap(),
+            None,
+        )
+        .unwrap();
+    for clip_id in ["clip-a", "clip-b"] {
+        manager
+            .start(DownloadRequest {
+                clip_id: clip_id.to_string(),
+                title: "Same title".to_string(),
+                size_bytes: None,
+                duration_ms: None,
+                width: None,
+                height: None,
+                game_name: None,
+            })
+            .unwrap();
+    }
+    for _ in 0..200 {
+        if library.snapshot().unwrap().total_count == 2 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    let snapshot = library.snapshot().unwrap();
+    assert_eq!(snapshot.total_count, 2);
+    let mut sizes = snapshot
+        .items
+        .iter()
+        .map(|item| item.size_bytes)
+        .collect::<Vec<_>>();
+    sizes.sort_unstable();
+    assert_eq!(sizes, vec![4, 8]);
+    let mut names = snapshot
+        .items
+        .iter()
+        .map(|item| item.file_name.clone())
+        .collect::<Vec<_>>();
+    names.sort();
+    names.dedup();
+    assert_eq!(names.len(), 2);
+    manager.cancel_all();
+    let _ = shutdown.send(());
+}
+
+#[tokio::test]
 async fn ffmpeg_exports_and_finalizes_recordings() {
     let temp = TempDir::new().expect("temp dir");
     let ffmpeg = which("ffmpeg");

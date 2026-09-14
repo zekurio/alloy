@@ -204,8 +204,7 @@ impl CaptureLibrary {
     }
 
     pub fn media_path(&self, id: &str) -> Result<PathBuf> {
-        self.find_item(id)
-            .map(|item| PathBuf::from(item.filename))
+        self.find_media_path(id)
             .ok_or(LibraryError::CaptureNotFound)
     }
 
@@ -279,6 +278,70 @@ impl CaptureLibrary {
             .items
             .into_iter()
             .find(|item| item.id == id)
+    }
+
+    /// Resolves a capture id to its file without building a snapshot. The
+    /// loopback media route calls this for every request, including every
+    /// range request while a video seeks, so it must not walk the whole
+    /// library and stat every file the way `find_item` does.
+    pub fn find_media_path(&self, id: &str) -> Option<PathBuf> {
+        if !is_capture_id(id) {
+            return None;
+        }
+        let manifest = self.read_manifest();
+        if let Some(entry) = manifest.captures.values().find(|entry| entry.id == id)
+            && let Some(path) = self.media_in_collection(Path::new(&entry.filename))
+        {
+            return Some(path);
+        }
+        // Captures without a manifest entry derive their id from their path,
+        // so fall back to a walk that only hashes names.
+        for collection in ["Clips", "Screenshots"] {
+            let Ok(root) = self
+                .inner
+                .config
+                .output_folder
+                .join(collection)
+                .canonicalize()
+            else {
+                continue;
+            };
+            let mut found = None;
+            let _ = walk_media_files(&root, &mut |path| {
+                if found.is_some() || capture_id(&path) != id {
+                    return;
+                }
+                // A manifest entry wins over the derived id, so a file whose
+                // entry names a different id is not this capture.
+                let claimed = manifest
+                    .captures
+                    .get(&manifest_key(&path))
+                    .is_some_and(|entry| is_capture_id(&entry.id) && entry.id != id);
+                if !claimed {
+                    found = Some(path);
+                }
+            });
+            if let Some(path) = found.and_then(|path| self.media_in_collection(&path)) {
+                return Some(path);
+            }
+        }
+        None
+    }
+
+    /// Accepts a path only when it is an existing media file below one of the
+    /// scanned collection folders, matching what `snapshot` would report.
+    fn media_in_collection(&self, path: &Path) -> Option<PathBuf> {
+        ["Clips", "Screenshots"].iter().find_map(|collection| {
+            let root = self
+                .inner
+                .config
+                .output_folder
+                .join(collection)
+                .canonicalize()
+                .ok()?;
+            let path = ensure_within(&root, path).ok()?;
+            (is_media(&path) && path.is_file()).then_some(path)
+        })
     }
 
     pub fn remember_capture(&self, capture: &CaptureRecord) -> Result<()> {
@@ -419,8 +482,7 @@ impl CaptureLibrary {
     }
 
     pub fn delete(&self, id: &str) -> Result<()> {
-        let item = self.find_item(id).ok_or(LibraryError::CaptureNotFound)?;
-        let path = ensure_media_in_output(&self.inner.config.output_folder, &item.filename)?;
+        let path = ensure_media_in_output(&self.inner.config.output_folder, self.media_path(id)?)?;
         trash::delete(&path).map_err(|error| LibraryError::Io(io::Error::other(error)))?;
         self.mutate_manifest(|manifest| {
             manifest.captures.remove(&manifest_key(&path));

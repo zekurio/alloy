@@ -169,4 +169,13 @@ async fn browser_login_rejects_wrong_state_then_exchanges_pkce_code() {
     assert!(cookies[0].starts_with("alloy_access=test-access-token;"));
     assert!(cookies[1].starts_with("alloy_refresh=test-refresh-token;"));
     assert!(cookies.iter().all(|cookie| cookie.contains("HttpOnly")));
+
+    // The host deletes its injected cookies once the server has set its own,
+    // so it has to recognise exactly its own values and nothing else.
+    let injected = tokens.injected_cookies();
+    assert!(injected.is_injected_cookie("alloy_access", "test-access-token"));
+    assert!(injected.is_injected_cookie("alloy_refresh", "test-refresh-token"));
+    assert!(!injected.is_injected_cookie("alloy_refresh", "rotated-refresh-token"));
+    assert!(!injected.is_injected_cookie("alloy_access", "test-refresh-token"));
+    assert!(!injected.is_injected_cookie("alloy_is_authenticated", "true"));
 }

@@ -33,8 +33,6 @@ export interface RecordingAudioLevel {
 export interface RecordingDisplay {
   /** OBS monitor ID. */
   id: string
-  /** Legacy field retained by recorder protocol 1. The Tauri host leaves it null. */
-  electronId: string | null
   name: string
   width: number
   height: number

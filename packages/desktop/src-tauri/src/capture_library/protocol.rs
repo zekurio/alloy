@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::capture_library::error::{LibraryError, Result};
 use crate::capture_library::media::generate_thumbnail;
-use crate::capture_library::paths::{content_type, extension, is_media};
+use crate::capture_library::paths::{content_type, extension, is_image, is_media};
 use crate::capture_library::store::CaptureLibrary;
 
 const TOKEN_QUERY: &str = "token";
@@ -175,7 +175,15 @@ async fn handle_request(
     }
 
     let path = match kind.as_str() {
-        "media" => state.library.media_path(&id),
+        // Resolving an id reads the manifest and may touch the file system, so
+        // keep it off the async worker.
+        "media" => {
+            let library = state.library.clone();
+            let id = id.clone();
+            tokio::task::spawn_blocking(move || library.media_path(&id))
+                .await
+                .unwrap_or(Err(LibraryError::CaptureNotFound))
+        }
         "export" => state
             .library
             .export_path(&id)
@@ -263,9 +271,8 @@ async fn thumbnail_file(library: &CaptureLibrary, id: &str) -> Result<PathBuf> {
             return Ok(path);
         }
     }
-    let item = library.find_item(id).ok_or(LibraryError::CaptureNotFound)?;
-    let source = PathBuf::from(&item.filename).canonicalize()?;
-    if item.kind == crate::capture_library::types::CaptureKind::Screenshot {
+    let source = library.media_path(id)?.canonicalize()?;
+    if is_image(&source) {
         return Ok(source);
     }
     generate_thumbnail(library, id, &source).await

@@ -158,7 +158,6 @@ pub struct RecordingGameGuess {
 #[serde(rename_all = "camelCase")]
 pub struct RecordingDisplay {
     pub id: String,
-    pub electron_id: Option<String>,
     pub name: String,
     pub width: u32,
     pub height: u32,

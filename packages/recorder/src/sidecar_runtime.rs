@@ -595,7 +595,7 @@ fn main() {
     let (tx, rx) = mpsc::channel::<Request>();
     let status = Arc::new(Mutex::new(Recorder::default().status()));
     // Allow normal configure and output shutdown work to finish. If OBS blocks
-    // beyond this deadline, exit so Electron can start a fresh recorder.
+    // beyond this deadline, exit so the desktop host can start a fresh recorder.
     let progress = Arc::new(sidecar_watchdog::RecorderProgress::new(
         Instant::now(),
         Duration::from_secs(90),
@@ -608,7 +608,7 @@ fn main() {
                 "[{SIDE_CAR_NAME}] recorder made no progress for 90 seconds; exiting for recovery"
             );
             // DLL shutdown handlers can wait on the blocked OBS thread too.
-            // SAFETY: This is our own process. Electron owns its restart.
+            // SAFETY: This is our own process. The desktop host owns its restart.
             unsafe {
                 use windows_sys::Win32::System::Threading::{GetCurrentProcess, TerminateProcess};
                 TerminateProcess(GetCurrentProcess(), 1);

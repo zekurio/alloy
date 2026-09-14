@@ -2,7 +2,7 @@ import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 
 import { clientLogger } from "./client-log"
-import { alloyDesktop, alloyTauriDesktop } from "./desktop"
+import { alloyDesktop } from "./desktop"
 
 const RELOADED_ASSET_SIGNATURE_KEY = "alloy.deployment-recovery-target"
 const WEB_BUILD_TOAST_ID = "alloy-web-build-update"
@@ -161,7 +161,7 @@ function showWebBuildUpdateNotice(latestAssetSignature: string): void {
 }
 
 function reloadApp(): void {
-  const desktop = alloyDesktop() ?? alloyTauriDesktop()
+  const desktop = alloyDesktop()
   if (desktop) {
     void desktop.reloadApp().catch(() => window.location.reload())
     return

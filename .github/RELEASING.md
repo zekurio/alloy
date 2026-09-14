@@ -61,8 +61,15 @@ Packaged Tauri builds read `latest.json` from the latest GitHub release. Every
 update requires a valid Tauri signature. Configure the repository variable
 `ALLOY_UPDATER_PUBLIC_KEY` and the secrets `TAURI_SIGNING_PRIVATE_KEY` and
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` before releasing. The private key signs the
-installer. The public key is compiled into the app. Keep the private key out of
-the repository.
+installer. Keep the private key out of the repository.
+
+The update endpoint lives in `plugins.updater` in
+`packages/desktop/src-tauri/tauri.conf.json`, and the checked-in public key is
+empty so development builds have auto-update off. The publish workflow writes
+`ALLOY_UPDATER_PUBLIC_KEY` into a temporary config file and passes it to
+`tauri build` as an extra `--config`, which both signs the update artifacts and
+puts the key in the bundled app. The app reads the key and the endpoint back
+from that config at runtime; nothing is compiled in through the environment.
 
 Use `pnpm exec tauri signer generate` from `packages/desktop` to create a
 key pair. Store the private key securely. A different key will not update an

@@ -13,7 +13,7 @@ use std::{
 };
 
 use alloy_desktop::{
-    login::{BrowserLogin, SessionTokens},
+    login::{BrowserLogin, InjectedCookies, SessionTokens},
     policy::{
         CONNECT_WINDOW_LABEL, SERVER_WINDOW_PREFIX, bridge_initialization_script, is_local_app_url,
         is_same_origin, remote_window_label,
@@ -49,6 +49,10 @@ const CONNECT_SHOW_FALLBACK: Duration = Duration::from_secs(3);
 /// How long a server window stays hidden waiting for its page to load before
 /// it is shown anyway, so a slow server still surfaces the window.
 const REMOTE_SHOW_FALLBACK: Duration = Duration::from_secs(3);
+/// How often, and for how long, the host checks whether the server has
+/// replaced the injected bootstrap cookies with its own.
+const COOKIE_HANDOFF_POLL: Duration = Duration::from_millis(200);
+const COOKIE_HANDOFF_TIMEOUT: Duration = Duration::from_secs(10);
 
 struct Host {
     connecting: tokio::sync::Mutex<()>,
@@ -203,7 +207,7 @@ async fn connect_to_server(
     };
     let generation = {
         let _selection = runtime.selection_lock.lock().await;
-        install_remote(app, host, &runtime, server.clone(), None, &cancelled).await
+        install_remote(app, host, &runtime, server.clone(), None, &cancelled, true).await
     };
     let generation = match generation {
         Ok(generation) => generation,
@@ -236,6 +240,7 @@ async fn connect_to_server(
                 server.clone(),
                 Some(&login),
                 &cancelled,
+                true,
             )
             .await
             {
@@ -505,6 +510,17 @@ fn open_settings(window: &WebviewWindow) -> Result<(), String> {
         .map_err(|_| "Could not open Alloy settings.".to_string())
 }
 
+/// Hands a link the shell will not open itself to the user's browser. Only
+/// `http` and `https` are forwarded, so a page cannot launch another handler.
+fn open_external(url: &Url) {
+    if matches!(url.scheme(), "http" | "https") {
+        let _ = open::that_detached(url.as_str());
+    }
+}
+
+/// `show` is false when the app was started as a login item: the saved server
+/// is restored so the recorder warms up, but its window stays hidden until the
+/// user opens it from the tray.
 async fn install_remote(
     app: &AppHandle,
     host: &Arc<Host>,
@@ -512,6 +528,7 @@ async fn install_remote(
     server: Server,
     tokens: Option<&SessionTokens>,
     cancelled: &watch::Receiver<bool>,
+    show: bool,
 ) -> Result<u64, String> {
     ensure_not_cancelled(cancelled)?;
     let generation = host.next_generation.fetch_add(1, Ordering::Relaxed) + 1;
@@ -536,8 +553,8 @@ async fn install_remote(
         .decorations(false)
         .incognito(false)
         .initialization_script(bridge_initialization_script(&origin));
-    // Overlay scrollbars keep the layout stable, as the Electron shell did.
-    // Setting extra arguments replaces Tauri's defaults, so restate them.
+    // Overlay scrollbars keep the layout stable. Setting extra arguments
+    // replaces Tauri's defaults, so restate them.
     #[cfg(target_os = "windows")]
     let builder = builder.additional_browser_args(
         "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --enable-features=OverlayScrollbar",
@@ -548,9 +565,18 @@ async fn install_remote(
     let builder = builder.data_store_identifier(remote_profile_identifier(&origin));
     let window = builder
         .on_navigation(move |url| {
-            url.as_str() == "about:blank" || is_same_origin(url, &navigation_origin)
+            if url.as_str() == "about:blank" || is_same_origin(url, &navigation_origin) {
+                return true;
+            }
+            // A link that leaves the server belongs in the user's browser
+            // rather than in a window holding the native bridge.
+            open_external(url);
+            false
         })
-        .on_new_window(|_, _| NewWindowResponse::Deny)
+        .on_new_window(|url, _| {
+            open_external(&url);
+            NewWindowResponse::Deny
+        })
         .on_page_load(move |_, payload| {
             if payload.event() == PageLoadEvent::Finished
                 && is_same_origin(payload.url(), &load_origin)
@@ -584,6 +610,7 @@ async fn install_remote(
         let _ = window.destroy();
         return Err(error);
     }
+    let injected = tokens.map(SessionTokens::injected_cookies);
     let cookie_result = (|| {
         if let Some(tokens) = tokens {
             for header in tokens.cookie_headers(&server.origin)? {
@@ -654,12 +681,14 @@ async fn install_remote(
     }
     // Stay hidden until the page has loaded, so the web app's boot splash is
     // the first thing on screen rather than an empty frameless window.
-    let mut cancel_wait = cancelled.clone();
-    tokio::select! {
-        _ = loaded.wait_for(|done| *done) => {}
-        // The restore flow drops its cancel sender, which is not a cancel.
-        Ok(_) = cancel_wait.wait_for(|cancel| *cancel) => {}
-        () = tokio::time::sleep(REMOTE_SHOW_FALLBACK) => {}
+    if show {
+        let mut cancel_wait = cancelled.clone();
+        tokio::select! {
+            _ = loaded.wait_for(|done| *done) => {}
+            // The restore flow drops its cancel sender, which is not a cancel.
+            Ok(_) = cancel_wait.wait_for(|cancel| *cancel) => {}
+            () = tokio::time::sleep(REMOTE_SHOW_FALLBACK) => {}
+        }
     }
     if let Err(error) = ensure_not_cancelled(cancelled) {
         restore_remote(host, generation, previous);
@@ -667,14 +696,18 @@ async fn install_remote(
         let _ = window.destroy();
         return Err(error);
     }
-    let shown = window
-        .show()
-        .map_err(|_| "Could not show the Alloy server window.".to_string())
-        .and_then(|()| {
-            window
-                .set_focus()
-                .map_err(|_| "Could not focus the Alloy server window.".to_string())
-        });
+    let shown = if show {
+        window
+            .show()
+            .map_err(|_| "Could not show the Alloy server window.".to_string())
+            .and_then(|()| {
+                window
+                    .set_focus()
+                    .map_err(|_| "Could not focus the Alloy server window.".to_string())
+            })
+    } else {
+        Ok(())
+    };
     if let Err(error) = shown {
         restore_remote(host, generation, previous);
         let _ = runtime.select_server(previous_origin).await;
@@ -690,7 +723,68 @@ async fn install_remote(
     if let Some(previous) = previous {
         let _ = previous.window.destroy();
     }
+    if let Some(injected) = injected {
+        tauri::async_runtime::spawn(replace_injected_cookies(window, origin, injected, loaded));
+    }
     Ok(generation)
+}
+
+/// Swaps the cookies the host injected for the ones the server sets itself.
+///
+/// The injected pair must carry a `Domain` (see `session_cookie` in
+/// `login.rs`), so on a registrable domain it is stored as a domain cookie
+/// while the server's is host-only. Both would then be sent for every request
+/// and hono keeps the first, so a rotated refresh token would stay shadowed by
+/// the stale injected one until the server revoked the session family. Asking
+/// the signed-in page to refresh once makes the webview receive the server's
+/// own `Set-Cookie`; the injected copies are then deleted, leaving one copy of
+/// each name. Only runs after a fresh sign-in — a restored session never
+/// injected anything.
+async fn replace_injected_cookies(
+    window: WebviewWindow,
+    origin: Url,
+    injected: InjectedCookies,
+    mut loaded: watch::Receiver<bool>,
+) {
+    // An error here means the window is gone, and with it the cookies.
+    if loaded.wait_for(|done| *done).await.is_err() {
+        return;
+    }
+    // Same-origin `fetch` from the page itself, so the browser attaches the
+    // cookies and the `Sec-Fetch-Site: same-origin` the server's CSRF check
+    // wants. The endpoint takes no body and no extra headers.
+    if window
+        .eval("fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' }).catch(() => {})")
+        .is_err()
+    {
+        return;
+    }
+    let deadline = tokio::time::Instant::now() + COOKIE_HANDOFF_TIMEOUT;
+    loop {
+        let Ok(cookies) = window.cookies_for_url(origin.clone()) else {
+            return;
+        };
+        // A refresh cookie the host did not inject is the server's own.
+        if cookies.iter().any(|cookie| {
+            cookie.name() == "alloy_refresh"
+                && !injected.is_injected_cookie(cookie.name(), cookie.value())
+        }) {
+            for cookie in cookies
+                .into_iter()
+                .filter(|cookie| injected.is_injected_cookie(cookie.name(), cookie.value()))
+            {
+                let _ = window.delete_cookie(cookie);
+            }
+            return;
+        }
+        if tokio::time::Instant::now() >= deadline {
+            eprintln!(
+                "Alloy: the server did not replace the injected session cookies. Sign in again if the session drops."
+            );
+            return;
+        }
+        tokio::time::sleep(COOKIE_HANDOFF_POLL).await;
+    }
 }
 
 async fn abandon_remote(
@@ -1125,11 +1219,25 @@ fn spawn_update_checks(services: Arc<DesktopServices>) {
     });
 }
 
+/// Whether the app was started as a login item. The autostart registration
+/// passes `--autostart`, and such a start stays in the tray with no window.
+fn launched_at_login() -> bool {
+    std::env::args().any(|argument| argument == "--autostart")
+}
+
 fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
     let app = app.clone();
     let host = Arc::clone(host);
+    let show = !launched_at_login();
     tauri::async_runtime::spawn(async move {
         let _connecting = host.connecting.lock().await;
+        // A login-item start shows nothing: the tray opens the connect screen
+        // or the restored server window when the user asks for it.
+        let fall_back_to_connect = |app: &AppHandle, host: &Arc<Host>| {
+            if show {
+                let _ = show_connect(app, host);
+            }
+        };
         let url = match host
             .services()
             .ok()
@@ -1137,7 +1245,7 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
         {
             Some(url) => url,
             None => {
-                let _ = show_connect(&app, &host);
+                fall_back_to_connect(&app, &host);
                 return;
             }
         };
@@ -1145,7 +1253,7 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
             Ok(server) => server,
             Err(error) => {
                 eprintln!("Could not restore the saved Alloy server: {error}");
-                let _ = show_connect(&app, &host);
+                fall_back_to_connect(&app, &host);
                 return;
             }
         };
@@ -1153,13 +1261,13 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
             Ok(runtime) => runtime.clone(),
             Err(error) => {
                 eprintln!("Could not restore the saved Alloy server: {error}");
-                let _ = show_connect(&app, &host);
+                fall_back_to_connect(&app, &host);
                 return;
             }
         };
         let (_, cancelled) = watch::channel(false);
         let _selection = runtime.selection_lock.lock().await;
-        match install_remote(&app, &host, &runtime, server, None, &cancelled).await {
+        match install_remote(&app, &host, &runtime, server, None, &cancelled, show).await {
             // The connect screen only exists here if it was opened from the
             // tray while the server was still being restored.
             Ok(_) => destroy_connect(&app),
@@ -1167,7 +1275,7 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
                 if error != NO_SAVED_SESSION {
                     eprintln!("Could not restore the saved Alloy server: {error}");
                 }
-                let _ = show_connect(&app, &host);
+                fall_back_to_connect(&app, &host);
             }
         }
     });
@@ -1203,6 +1311,9 @@ fn main() {
         .plugin(
             tauri_plugin_autostart::Builder::new()
                 .app_name("Alloy")
+                // `launched_at_login` reads this back to keep a login start
+                // in the tray instead of opening a window.
+                .args(["--autostart"])
                 .build(),
         )
         .manage(host.clone())
@@ -1238,7 +1349,8 @@ fn main() {
             // With a saved server the app restores its window directly and
             // only opens the connect screen if that fails. Otherwise the
             // connect screen is created now and shown once it has rendered.
-            if services.get_current_server().is_none() {
+            // A login-item start opens no window at all.
+            if services.get_current_server().is_none() && !launched_at_login() {
                 show_connect(app.handle(), &setup_host).map_err(std::io::Error::other)?;
             }
             setup_tray(app.handle(), &setup_host).map_err(std::io::Error::other)?;

@@ -223,7 +223,13 @@ jobs:
           if (!$env:ALLOY_UPDATER_PUBLIC_KEY -or !$env:TAURI_SIGNING_PRIVATE_KEY) {
             throw "Configure the Tauri update signing key and public key before a release."
           }
-          corepack pnpm --filter @alloy/desktop dist:win:installer:signed
+          # The public key is not checked in. Merge it into the Tauri config so
+          # the CLI can sign the update artifacts and the app trusts them.
+          $updaterConfig = Join-Path $env:RUNNER_TEMP "tauri.updater.conf.json"
+          @{ plugins = @{ updater = @{ pubkey = $env:ALLOY_UPDATER_PUBLIC_KEY } } } |
+            ConvertTo-Json -Depth 5 |
+            Set-Content -Path $updaterConfig -Encoding utf8
+          corepack pnpm --filter @alloy/desktop dist:win:installer:signed --config $updaterConfig
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: prepare desktop release assets

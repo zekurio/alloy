@@ -268,7 +268,6 @@
             let index = context.displays.len() + 1;
             context.displays.push(RecordingDisplay {
                 id,
-                electron_id: None,
                 name: if name.trim().is_empty() {
                     format!("Display {index}")
                 } else {

@@ -13,13 +13,14 @@ use tokio_util::sync::CancellationToken;
 use url::Url;
 
 use crate::capture_library::error::{LibraryError, Result};
-use crate::capture_library::paths::{extension_for_content_type, safe_component, unique_path};
+use crate::capture_library::paths::{extension_for_content_type, safe_component};
 use crate::capture_library::store::CaptureLibrary;
 use crate::capture_library::types::{DownloadRequest, DownloadState, DownloadStatus};
 
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(200);
 const DOWNLOAD_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_TITLE_LENGTH: usize = 256;
+const MAX_NAME_ATTEMPTS: u32 = 10_000;
 
 #[derive(Clone)]
 pub struct DownloadManager {
@@ -282,8 +283,7 @@ impl DownloadManager {
         let root = self.library.output_folder().join(collection).join(group);
         tokio::fs::create_dir_all(&root).await?;
         let base = safe_component(Some(request.title.as_str()), "clip");
-        let destination = unique_path(&root, &base, &extension);
-        let partial = partial_path(&destination);
+        let (destination, partial) = reserve_destination(&root, &base, &extension)?;
         let received = match self
             .write_response(
                 &request.clip_id,
@@ -346,7 +346,12 @@ impl DownloadManager {
         max_bytes: u64,
         cancel: &CancellationToken,
     ) -> Result<u64> {
-        let mut file = tokio::fs::File::create(partial).await?;
+        // The partial file was reserved by `reserve_destination`; opening it
+        // for writing without `create` keeps that reservation meaningful.
+        let mut file = tokio::fs::OpenOptions::new()
+            .write(true)
+            .open(partial)
+            .await?;
         let mut stream = response.bytes_stream();
         let mut received = 0_u64;
         let mut last_emit = Instant::now() - PROGRESS_INTERVAL;
@@ -437,6 +442,35 @@ fn normalize_origin(origin: Url) -> Result<Url> {
         ));
     }
     Ok(origin)
+}
+
+/// Claims a free destination name by creating its `.part` file exclusively.
+/// Two downloads whose titles sanitize to the same name would otherwise pick
+/// the same partial file and overwrite each other's bytes.
+fn reserve_destination(root: &Path, base: &str, extension: &str) -> Result<(PathBuf, PathBuf)> {
+    for counter in 1..=MAX_NAME_ATTEMPTS {
+        let destination = root.join(if counter == 1 {
+            format!("{base}{extension}")
+        } else {
+            format!("{base}-{counter}{extension}")
+        });
+        if destination.exists() {
+            continue;
+        }
+        let partial = partial_path(&destination);
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&partial)
+        {
+            Ok(_) => return Ok((destination, partial)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Err(LibraryError::Download(
+        "could not reserve a file name".into(),
+    ))
 }
 
 fn partial_path(destination: &Path) -> PathBuf {
