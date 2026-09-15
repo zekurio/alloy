@@ -8,7 +8,7 @@ members = ["packages/desktop/src-tauri", "packages/desktop/recorder"]
 # Shared versions keep a single copy of each dependency in the graph. Members
 # reference these with `workspace = true` and add only their own features.
 [workspace.dependencies]
-base64 = "0.22"
+base64 = "0.23"
 reqwest = { version = "0.13", default-features = false, features = [
   "rustls-no-provider",
 ] }
