@@ -10,8 +10,9 @@ import { insertAuthChallengeAndWake } from "./challenge-expiry"
  * One-time codes for the desktop browser-login handshake (RFC 8252 loopback).
  * Reuses the `auth_challenge` table — same shape as OAuth state and WebAuthn
  * challenges: short-lived, single-use, swept by `expires_at`. The desktop app
- * exchanges a code for a fresh session because Electron can't run WebAuthn, so
- * login happens in the user's real browser and hands the session back here.
+ * exchanges a code for a fresh session because the desktop webview can't run
+ * WebAuthn, so login happens in the user's real browser and hands the session
+ * back here.
  */
 const DESKTOP_LINK_PURPOSE = "desktop-link"
 const DESKTOP_LINK_TTL_MS = 2 * 60 * 1000

@@ -45,19 +45,6 @@ export type AdminLimitsConfig = t.infer<typeof AdminLimitsConfigSchema>
 
 export type LimitsConfig = AdminLimitsConfig
 
-/**
- * Integrations as exposed to admins: secret values are reported only as
- * presence flags, never echoed back.
- */
-export const AdminIntegrationsConfigSchema = t.looseObject({
-  steamgriddbApiKeySet: t.boolean(),
-  steamgriddbConfigured: t.boolean(),
-})
-
-export type AdminIntegrationsConfig = t.infer<
-  typeof AdminIntegrationsConfigSchema
->
-
 export const StorageConfigSchema = t.looseObject({
   /**
    * Filesystem root for clip sources and derived clip media. Relative paths
@@ -326,7 +313,6 @@ export const AdminRuntimeConfigSchema = t.looseObject({
   storage: StorageConfigSchema,
   appearance: AppearanceConfigSchema,
   transcoding: TranscodingConfigSchema,
-  integrations: AdminIntegrationsConfigSchema,
   authLocks: AuthConfigLocksSchema,
   authBaseURL: UrlStringSchema,
 })

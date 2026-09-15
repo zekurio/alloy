@@ -2,7 +2,7 @@
 
 Thanks for your interest in improving Alloy. This guide covers the workflow
 for getting a change from idea to merged PR. For a tour of the codebase, see
-the [repository guide in the README](../README.md#repository-guide).
+the repository map in [AGENTS.md](../AGENTS.md).
 
 ## Before You Start
 
@@ -14,8 +14,7 @@ the [repository guide in the README](../README.md#repository-guide).
 
 ## Development Setup
 
-Nix users get the complete toolchain (Node, pnpm, PostgreSQL, ffmpeg, Rust,
-Electron) plus a repo-local Postgres via devenv:
+Nix users get the complete toolchain (Node, pnpm, PostgreSQL, ffmpeg, Rust) plus a repo-local Postgres via devenv:
 
 ```bash
 nix profile install nixpkgs#devenv nixpkgs#direnv
@@ -35,8 +34,8 @@ pnpm dev
 ```
 
 `pnpm dev` pushes the Drizzle schema and starts the API server plus the Vite
-web app. `pnpm dev:all` also starts the Electron desktop shell. The recorder
-sidecar (`packages/recorder`) is Rust and only builds on Windows.
+web app. `pnpm dev:all` also starts the Tauri desktop shell. The recorder
+sidecar (`packages/desktop/recorder`) is Rust and only builds on Windows.
 
 Never use npm, yarn, or Bun in this repo.
 
@@ -53,7 +52,8 @@ Never use npm, yarn, or Bun in this repo.
 
 ## Code Style
 
-Vite+ runs oxfmt and oxlint (not Prettier/ESLint); TypeScript is strict ESM.
+Formatting is oxfmt and linting is oxlint (not Prettier/ESLint); TypeScript is
+strict ESM.
 Don't hand-format. Run the root commands:
 
 ```bash
@@ -69,7 +69,8 @@ pnpm typecheck  # tsc --noEmit across packages
 2. Open the PR against `dev` and fill in the pull request template, including
    how you verified the change.
 3. CI runs formatting, lint, typecheck, a server/web build, and a Nix flake
-   check. Recorder changes additionally run the Rust checks on Windows.
+   check. Desktop changes additionally build the Tauri host, the recorder, and
+   the Windows installer.
 
 Releases are tagged from `dev` by maintainers; see
 [RELEASING.md](RELEASING.md) for the release process.

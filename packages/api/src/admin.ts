@@ -55,7 +55,6 @@ export {
 export type {
   AdminCreateGameInput,
   AdminGameRow,
-  AdminIntegrationsConfig,
   AdminLimitsConfig,
   AdminAuthConfigPatch,
   AdminOAuthProviderInput,

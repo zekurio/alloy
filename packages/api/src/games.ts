@@ -6,7 +6,6 @@ import type {
   GameNameLookupResponse,
   GameRow,
   SteamGridDBSearchResult,
-  SteamGridDBStatus,
 } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
@@ -18,7 +17,6 @@ import {
   validateGameRow,
   validateGameRows,
   validateSteamGridDBSearchResults,
-  validateSteamGridDBStatus,
 } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 import { queryParams } from "./paths"
@@ -32,15 +30,7 @@ export type {
   GameNameLookupResult,
   GameRow,
   SteamGridDBSearchResult,
-  SteamGridDBStatus,
 } from "@alloy/contracts"
-
-async function fetchSteamGridDBStatus(
-  context: ApiContext,
-): Promise<SteamGridDBStatus> {
-  const res = await context.rpc.api.games.status.$get()
-  return readJsonOrThrow(res, validateSteamGridDBStatus)
-}
 
 async function searchGames(
   context: ApiContext,
@@ -119,7 +109,6 @@ async function fetchGameCreators(
 
 export function createGamesApi(context: ApiContext) {
   return {
-    fetchSteamGridDBStatus: () => fetchSteamGridDBStatus(context),
     search: (query: string) => searchGames(context, query),
     localSearch: (query: string) => localSearchGames(context, query),
     resolve: (steamgriddbId: number) => resolveGame(context, steamgriddbId),

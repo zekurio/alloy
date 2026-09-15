@@ -41,10 +41,6 @@ export function urlResponse(c: Context, url: string) {
   return c.json({ url })
 }
 
-export function steamgriddbStatus(c: Context, configured: boolean) {
-  return c.json({ steamgriddbConfigured: configured })
-}
-
 export function success(c: Context) {
   return booleanFlag(c, "success", true)
 }

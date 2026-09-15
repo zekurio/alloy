@@ -37,10 +37,6 @@ export function adminRuntimeConfigResponse(
     ...config,
     oauthProviders: config.oauthProviders.map(toAdminOAuthProvider),
     storage: config.storage,
-    integrations: {
-      steamgriddbApiKeySet: secretStore.get("steamgriddbApiKey").length > 0,
-      steamgriddbConfigured: secretStore.get("steamgriddbApiKey").length > 0,
-    },
     authLocks: authEnvLocks(),
     authBaseURL: env.PUBLIC_SERVER_URL,
   }

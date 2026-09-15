@@ -3,6 +3,11 @@ import { Suspense, lazy } from "react"
 
 import { requireStrictAuthBeforeLoad } from "@/lib/auth-guards"
 import { alloyDesktop } from "@/lib/desktop"
+import {
+  type LibrarySearch,
+  type LibrarySearchInput,
+  parseLibrarySearch,
+} from "@/lib/library-search"
 
 const loadLibraryEditorPage = async () => {
   const module = await import("@/components/routes/library/library-editor-page")
@@ -11,14 +16,21 @@ const loadLibraryEditorPage = async () => {
 
 const LibraryEditorPage = lazy(loadLibraryEditorPage)
 
-interface LibraryEditorSearch {
+type LibraryEditorSearch = LibrarySearch & {
   prompt?: "game"
 }
 
-function parseLibraryEditorSearch(search: {
+interface LibraryEditorSearchInput extends LibrarySearchInput {
   prompt?: unknown
-}): LibraryEditorSearch {
-  return search.prompt === "game" ? { prompt: "game" } : {}
+}
+
+function parseLibraryEditorSearch(
+  search: LibraryEditorSearchInput,
+): LibraryEditorSearch {
+  // The library grid's filters ride along so prev/next and "back" mirror it.
+  const parsed: LibraryEditorSearch = parseLibrarySearch(search)
+  if (search.prompt === "game") parsed.prompt = "game"
+  return parsed
 }
 
 export const Route = createFileRoute("/(app)/_app/library/$captureId")({

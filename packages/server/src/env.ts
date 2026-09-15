@@ -51,6 +51,14 @@ function requiredSecret(source: EnvSource, name: string): string {
   return value
 }
 
+function requiredText(source: EnvSource, name: string): string {
+  const value = envText(source, name)
+  if (!value) {
+    throw new Error(`[server/env] ${name} is required.`)
+  }
+  return value
+}
+
 const ScopeSchema = t.array(t.string().trim().min(1)).optional()
 const AuthParamsSchema = t
   .record(t.string(), t.union([t.string(), t.number(), t.boolean()]))
@@ -197,7 +205,9 @@ export function parseServerEnv(source: EnvSource = process.env) {
     "ALLOY_VIEWER_COOKIE_SECRET",
   )
   const uploadHmacSecret = requiredSecret(source, "ALLOY_UPLOAD_HMAC_SECRET")
-  const steamgriddbApiKey = envText(source, "ALLOY_STEAMGRIDDB_API_KEY") ?? ""
+  // Game search, artwork, and canonical game names all come from SteamGridDB,
+  // so a server without a key would be missing core features.
+  const steamgriddbApiKey = requiredText(source, "ALLOY_STEAMGRIDDB_API_KEY")
   const socialProviders = envText(source, "ALLOY_SOCIALACCOUNT_PROVIDERS")
   const envSocialProviders =
     socialProviders === undefined ? null : parseSocialProviders(socialProviders)

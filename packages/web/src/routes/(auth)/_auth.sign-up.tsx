@@ -2,13 +2,13 @@ import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { SignUpPageInner } from "@/components/routes/sign-up/sign-up-page-inner"
 import { redirectAuthedBeforeLoad } from "@/lib/auth-guards"
-import { alloyDesktop } from "@/lib/desktop"
+import { isNativeDesktop } from "@/lib/desktop"
 import { loadAuthConfig } from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(auth)/_auth/sign-up")({
   beforeLoad: redirectAuthedBeforeLoad,
   loader: async ({ context }) => {
-    if (alloyDesktop()) throw redirect({ to: "/login" })
+    if (isNativeDesktop()) throw redirect({ to: "/login" })
 
     const config = context.authConfig ?? (await loadAuthConfig())
     if (config.adminAccountRequired) {

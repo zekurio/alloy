@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 
 import { AUTH_ERROR_CODES } from "@alloy/contracts"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import { HttpError, readJsonOrThrow } from "./http"
 

@@ -1,18 +1,12 @@
 import assert from "node:assert/strict"
 
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import {
-  DESKTOP_BRIDGE_CONTRACT_1,
-  DESKTOP_BRIDGE_CONTRACT_IDS,
-  DESKTOP_HTTP_CONTRACT_1,
+  TAURI_DESKTOP_BRIDGE_CONTRACT_IDS,
   DESKTOP_HTTP_CONTRACT_IDS,
   ServerInfoSchema,
-  isServerInfo,
-  selectDesktopBridgeContract,
   type ServerInfo,
-  selectDesktopHttpContract,
-  supportsDesktopHttpContract,
 } from "./index"
 import { SERVER_HTTP_CONTRACT_1_FIXTURE } from "./server-http-fixtures"
 
@@ -20,6 +14,9 @@ function fixture(): ServerInfo {
   return {
     ...SERVER_HTTP_CONTRACT_1_FIXTURE,
     httpContracts: [...SERVER_HTTP_CONTRACT_1_FIXTURE.httpContracts],
+    desktopTauriBridgeContracts: [
+      ...SERVER_HTTP_CONTRACT_1_FIXTURE.desktopTauriBridgeContracts,
+    ],
     capabilities: {
       auth: { ...SERVER_HTTP_CONTRACT_1_FIXTURE.capabilities.auth },
       transport: {
@@ -32,45 +29,19 @@ function fixture(): ServerInfo {
 test("accepts the contract-1 server-info response", () => {
   const value = fixture()
 
-  assert.equal(isServerInfo(value), true)
-  assert.equal(selectDesktopHttpContract(value), DESKTOP_HTTP_CONTRACT_1)
-  assert.equal(supportsDesktopHttpContract(value, 1), true)
-  assert.equal(selectDesktopBridgeContract(value), null)
+  assert.equal(ServerInfoSchema.safeParse(value).success, true)
   assert.deepEqual(value.schema, "alloy.server-info")
   assert.deepEqual(value.product, "alloy")
+  assert.deepEqual(value.httpContracts, [1])
+  assert.deepEqual(value.desktopTauriBridgeContracts, [1])
+  assert.deepEqual(DESKTOP_HTTP_CONTRACT_IDS, [1])
+  assert.deepEqual(TAURI_DESKTOP_BRIDGE_CONTRACT_IDS, [1])
 })
 
-test("selects only exact advertised native bridge contract 1", () => {
-  const value = {
-    ...fixture(),
-    desktopBridgeContracts: [DESKTOP_BRIDGE_CONTRACT_1, 27],
-  }
+test("requires the native bridge contract list", () => {
+  const { desktopTauriBridgeContracts: _omitted, ...value } = fixture()
 
-  assert.equal(selectDesktopBridgeContract(value), DESKTOP_BRIDGE_CONTRACT_1)
-  assert.equal(selectDesktopBridgeContract(fixture()), null)
-  assert.equal(
-    selectDesktopBridgeContract({ ...value, desktopBridgeContracts: [2] }),
-    null,
-  )
-  assert.deepEqual(DESKTOP_BRIDGE_CONTRACT_IDS, [1])
-})
-
-test("accepts unknown future contract IDs without selecting them", () => {
-  const value = fixture()
-  value.httpContracts.push(27)
-
-  assert.equal(isServerInfo(value), true)
-  assert.equal(selectDesktopHttpContract(value), DESKTOP_HTTP_CONTRACT_1)
-  assert.equal(supportsDesktopHttpContract(value, 27), false)
-})
-
-test("rejects a valid document that does not advertise contract 1", () => {
-  const value = fixture()
-  value.httpContracts = [2]
-
-  assert.equal(isServerInfo(value), true)
-  assert.equal(selectDesktopHttpContract(value), null)
-  assert.equal(supportsDesktopHttpContract(value, 2), false)
+  assert.equal(ServerInfoSchema.safeParse(value).success, false)
 })
 
 test("rejects a mutation of any known capability version", () => {
@@ -88,13 +59,16 @@ test("rejects a mutation of any known capability version", () => {
 
   for (const value of [desktopAuth, sessionCookies, json, credentialedFetch]) {
     assert.equal(ServerInfoSchema.safeParse(value).success, false)
-    assert.equal(selectDesktopHttpContract(value), null)
   }
 })
 
 test("rejects coercible values at the HTTP boundary", () => {
   const stringContract = { ...fixture(), httpContracts: ["1"] }
   const fractionalContract = { ...fixture(), httpContracts: [1.1] }
+  const stringBridgeContract = {
+    ...fixture(),
+    desktopTauriBridgeContracts: ["1"],
+  }
   const stringCapability = {
     ...fixture(),
     capabilities: {
@@ -107,18 +81,19 @@ test("rejects coercible values at the HTTP boundary", () => {
   for (const value of [
     stringContract,
     fractionalContract,
+    stringBridgeContract,
     stringCapability,
     numericVersion,
   ]) {
     assert.equal(ServerInfoSchema.safeParse(value).success, false)
-    assert.equal(selectDesktopHttpContract(value), null)
   }
 })
 
-test("accepts appended document and capability fields", () => {
+test("accepts appended document and capability fields and unknown contract IDs", () => {
   const value = fixture()
   const futureValue = {
     ...value,
+    httpContracts: [...value.httpContracts, 27],
     futureDocumentField: { version: 9 },
     capabilities: {
       ...value.capabilities,
@@ -132,15 +107,6 @@ test("accepts appended document and capability fields", () => {
       },
     },
   }
-  const parsed = ServerInfoSchema.safeParse(futureValue)
 
-  assert.equal(parsed.success, true)
-  assert.equal(selectDesktopHttpContract(futureValue), DESKTOP_HTTP_CONTRACT_1)
-})
-
-test("does not use the informational app version for compatibility", () => {
-  const value = { ...fixture(), version: "999.999.999" }
-
-  assert.equal(selectDesktopHttpContract(value), DESKTOP_HTTP_CONTRACT_1)
-  assert.deepEqual(DESKTOP_HTTP_CONTRACT_IDS, [1])
+  assert.equal(ServerInfoSchema.safeParse(futureValue).success, true)
 })

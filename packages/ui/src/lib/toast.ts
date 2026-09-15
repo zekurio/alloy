@@ -32,9 +32,11 @@ function withCloseAction(
       ? t(data.description)
       : data?.description,
     id,
+    // A primary action owns the button slot; dismissal uses the native X
+    // so action toasts never show two side-by-side buttons.
     action: action ?? getCloseAction(id),
-    cancel: action ? getCloseAction(id) : undefined,
-    closeButton: false,
+    cancel: undefined,
+    closeButton: action !== undefined,
   }
 }
 

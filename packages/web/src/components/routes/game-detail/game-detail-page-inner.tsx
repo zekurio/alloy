@@ -65,6 +65,10 @@ export function GameDetailPageInner({
   )
 
   const { data: game, error, isPending } = useGameQuery(gameId)
+  // Creators across every media kind: when there are none the game has no
+  // public posts at all, so there's nothing for the toolbar to filter.
+  const { data: allCreators } = useGameCreatorsQuery(gameId, "all")
+  const showToolbar = allCreators?.creators.length !== 0
   return (
     <AppMain className="!px-0 !pt-0">
       <div className="flex w-full flex-col">
@@ -84,36 +88,38 @@ export function GameDetailPageInner({
           <>
             <GameHeader game={game} />
             <div className="flex flex-col px-[var(--app-content-padding)]">
-              <PageToolbar rail={false}>
-                <GameCreatorChips
-                  gameId={gameId}
-                  sort={sort}
-                  creator={creator}
-                />
-                <div className="ml-auto flex shrink-0 items-center gap-2">
-                  <MediaFilterControl
-                    value={media}
-                    onChange={(media) => {
-                      void navigate({
-                        to: "/games/$gameId",
-                        params: { gameId },
-                        search: {
-                          sort: sort === DEFAULT_CLIP_SORT ? undefined : sort,
-                          creator: creator ?? undefined,
-                          media: media === "video" ? undefined : media,
-                        },
-                      })
-                    }}
+              {showToolbar ? (
+                <PageToolbar rail={false}>
+                  <GameCreatorChips
+                    gameId={gameId}
+                    sort={sort}
+                    creator={creator}
                   />
+                  <div className="ml-auto flex shrink-0 items-center gap-2">
+                    <MediaFilterControl
+                      value={media}
+                      onChange={(media) => {
+                        void navigate({
+                          to: "/games/$gameId",
+                          params: { gameId },
+                          search: {
+                            sort: sort === DEFAULT_CLIP_SORT ? undefined : sort,
+                            creator: creator ?? undefined,
+                            media: media === "video" ? undefined : media,
+                          },
+                        })
+                      }}
+                    />
 
-                  <SortDropdown
-                    value={sort}
-                    options={CLIP_SORT_OPTIONS}
-                    contentClassName="w-40"
-                    renderOptionLink={renderOptionLink}
-                  />
-                </div>
-              </PageToolbar>
+                    <SortDropdown
+                      value={sort}
+                      options={CLIP_SORT_OPTIONS}
+                      contentClassName="w-40"
+                      renderOptionLink={renderOptionLink}
+                    />
+                  </div>
+                </PageToolbar>
+              ) : null}
               <FeedSection
                 filter={{
                   kind: "game",

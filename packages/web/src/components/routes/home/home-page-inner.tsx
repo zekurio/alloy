@@ -10,7 +10,7 @@ import { homeFeedFilter, type HomeSearch } from "@/lib/home-search"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 import { FeedChipBar } from "./feed-chip-bar"
-import { FeedSection } from "./feed-section"
+import { FeedSection, useIsFeedEmpty } from "./feed-section"
 
 export function HomePageInner({
   screenshots = false,
@@ -34,6 +34,10 @@ export function HomePageInner({
   const sort: ClipFeedSort = toolbarSearch.sort ?? DEFAULT_CLIP_SORT
 
   const viewerId = session?.user.id
+  // Nothing to narrow or reorder: keep the toolbar only while a game filter
+  // is active, so it can still be cleared.
+  const feedEmpty = useIsFeedEmpty(filter, sort)
+  const showToolbar = !feedEmpty || filter.kind !== "all"
   const sortControl = (
     <SortDropdown
       value={sort}
@@ -55,11 +59,13 @@ export function HomePageInner({
 
   return (
     <AppMainColumn>
-      <PageToolbar pinned rail={false}>
-        <FeedChipBar filter={filter} search={toolbarSearch} to={to} />
-        <div className="shrink-0">{sortControl}</div>
-      </PageToolbar>
-      <AppMainScroll className="!pt-0">
+      {showToolbar ? (
+        <PageToolbar pinned rail={false}>
+          <FeedChipBar filter={filter} search={toolbarSearch} to={to} />
+          <div className="shrink-0">{sortControl}</div>
+        </PageToolbar>
+      ) : null}
+      <AppMainScroll className={showToolbar ? "!pt-0" : undefined}>
         <section className="flex w-full flex-col gap-6">
           <FeedSection filter={filter} sort={sort} viewerId={viewerId} />
         </section>

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 
 import type { QueueClip } from "@alloy/api"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import { serverToQueueItem } from "./upload-queue-mapping"
 

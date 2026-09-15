@@ -18,7 +18,6 @@ import {
   useLocalGameSearchQuery,
   useResolveGameMutation,
   useSearchGamesQuery,
-  useSteamGridDBStatusQuery,
 } from "@/lib/game-queries"
 import { useDebouncedValue } from "@/lib/use-debounced-value"
 
@@ -51,7 +50,6 @@ interface GameComboboxProps {
   placeholder?: string
   allowClear?: boolean
   invalid?: boolean
-  onConfiguredChange?: (configured: boolean | null) => void
   required?: boolean
   side?: "top" | "bottom"
   focusOnMount?: boolean
@@ -71,20 +69,12 @@ export function GameCombobox({
   placeholder = t("Search SteamGridDB…"),
   allowClear = true,
   invalid = false,
-  onConfiguredChange,
   required = false,
   side = "bottom",
   focusOnMount = false,
   className,
   inputClassName,
 }: GameComboboxProps) {
-  const statusQuery = useSteamGridDBStatusQuery()
-  const configured = statusQuery.data?.steamgriddbConfigured ?? null
-
-  useEffect(() => {
-    onConfiguredChange?.(configured)
-  }, [configured, onConfiguredChange])
-
   // Input text is controlled so a picked value can show the game name
   // (via `itemToStringLabel` alone, the input would blank on open).
   const [inputValue, setInputValue] = useState(value?.name ?? "")
@@ -101,11 +91,7 @@ export function GameCombobox({
 
   const localSearchQuery = useLocalGameSearchQuery(debouncedQuery)
 
-  const searchQuery = useSearchGamesQuery(debouncedQuery, {
-    // Only hit steamgriddb when the instance actually has a key configured.
-    // Without this, an unconfigured instance would 503 on every type.
-    enabled: configured === true,
-  })
+  const searchQuery = useSearchGamesQuery(debouncedQuery)
 
   const resolveMutation = useResolveGameMutation()
 
@@ -272,9 +258,7 @@ export function GameCombobox({
     cleared || editingSelectedName ? null : (pendingItem ?? committedValue)
 
   const resolving = resolveMutation.isPending
-  const isDisabled = disabled || resolving || configured === null
-  const effectivePlaceholder =
-    configured === false ? t("Search custom games…") : placeholder
+  const isDisabled = disabled || resolving
 
   return (
     <div ref={anchorRef} className={cn("relative", className)}>
@@ -293,7 +277,7 @@ export function GameCombobox({
         <ComboboxInput
           id={id}
           className={inputClassName}
-          placeholder={effectivePlaceholder}
+          placeholder={placeholder}
           showTrigger={false}
           showClear={allowClear && controlledValue !== null}
           aria-label={t("Game")}
@@ -376,11 +360,9 @@ export function GameCombobox({
                 ? t("Couldn’t load games")
                 : searchQuery.isError
                   ? t("Couldn’t reach SteamGridDB")
-                  : configured === false
-                    ? t("SteamGridDB is not configured")
-                    : debouncedQuery.trim().length === 0
-                      ? t("Start typing to search")
-                      : t("No matches")}
+                  : debouncedQuery.trim().length === 0
+                    ? t("Start typing to search")
+                    : t("No matches")}
             </ComboboxEmpty>
           </ComboboxList>
         </ComboboxContent>

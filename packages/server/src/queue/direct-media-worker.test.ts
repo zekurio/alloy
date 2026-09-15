@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 
 import { TranscodingConfigSchema } from "@alloy/contracts"
 import { encodeFingerprint } from "@alloy/server/media/encode-fingerprint"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import {
   chooseClipMediaAction,

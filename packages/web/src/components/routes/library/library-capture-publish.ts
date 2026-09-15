@@ -18,7 +18,7 @@ import type {
 } from "@/components/upload/upload-flow-context"
 import { prepareWebUploadPayload } from "@/components/upload/web-upload-action"
 import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
-import type { AlloyDesktop } from "@/lib/desktop"
+import type { AlloyTauriDesktop } from "@/lib/desktop"
 
 import type { LibraryItemView } from "./library-data"
 
@@ -26,7 +26,7 @@ const ACCEPTED_EXPORT_TYPES = new Set<AcceptedContentType>(["video/mp4"])
 
 type CapturePublishInput = {
   screenshotEdit?: ScreenshotEdit
-  desktop: AlloyDesktop
+  desktop: AlloyTauriDesktop
   item: LibraryItemView
   trim: { startMs: number; endMs: number }
   /** Whether `trim` is a real sub-range of the source (editor `trimmed`). */

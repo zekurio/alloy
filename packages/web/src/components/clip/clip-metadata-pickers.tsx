@@ -99,7 +99,7 @@ function PickerChipTrigger({
       size="xl"
       disabled={disabled}
       onClick={onClick}
-      className="w-full justify-start"
+      className="flex w-full justify-start"
     >
       {icon}
       <span className="min-w-0 flex-1 truncate text-left">{label}</span>

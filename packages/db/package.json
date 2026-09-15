@@ -24,6 +24,7 @@
     "typebox": "1.3.28"
   },
   "devDependencies": {
+    "@types/pg": "8.23.1",
     "drizzle-kit": "0.31.10"
   }
 }

@@ -4,13 +4,12 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import {
-  DESKTOP_BRIDGE_CONTRACT_IDS,
   SERVER_INFO_PRODUCT,
   SERVER_INFO_SCHEMA,
   ServerInfoSchema,
 } from "@alloy/contracts"
 import { SERVER_HTTP_CONTRACT_1_FIXTURE } from "@alloy/contracts/server-http-fixtures"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 test("serves server info publicly when browse auth is enabled", async () => {
   // Production mode skips the workspace .env file, whose numeric values are
@@ -30,6 +29,7 @@ test("serves server info publicly when browse auth is enabled", async () => {
   delete process.env.ALLOY_TRANSCODE_THREADS
   process.env.ALLOY_VIEWER_COOKIE_SECRET = "v".repeat(32)
   process.env.ALLOY_UPLOAD_HMAC_SECRET = "u".repeat(32)
+  process.env.ALLOY_STEAMGRIDDB_API_KEY = "steamgriddb-key"
   process.env.ALLOY_REQUIRE_AUTH_TO_BROWSE = "true"
 
   try {
@@ -42,13 +42,12 @@ test("serves server info publicly when browse auth is enabled", async () => {
     assert.equal(response.headers.get("Cache-Control"), "private, no-store")
     const csp =
       response.headers.get("Content-Security-Policy-Report-Only") ?? ""
-    assert.match(csp, /alloy-asset:/)
-    assert.match(csp, /alloy-capture:/)
+    assert.ok(csp.includes("http://127.0.0.1:*"))
     const body = ServerInfoSchema.parse(await response.json())
     assert.equal(body.schema, SERVER_INFO_SCHEMA)
     assert.equal(body.product, SERVER_INFO_PRODUCT)
     assert.ok(body.version.length > 0)
-    assert.deepEqual(body.desktopBridgeContracts, DESKTOP_BRIDGE_CONTRACT_IDS)
+    assert.deepEqual(body.desktopTauriBridgeContracts, [1])
     assert.deepEqual(
       {
         schema: body.schema,

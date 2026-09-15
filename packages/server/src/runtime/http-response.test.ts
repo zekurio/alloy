@@ -1,7 +1,7 @@
 import { logger } from "@alloy/logging"
 import { DrizzleQueryError } from "drizzle-orm"
 import { Hono } from "hono"
-import { expect, test, vi } from "vite-plus/test"
+import { expect, test, vi } from "vitest"
 
 import { badRequestFromCause } from "./http-response"
 

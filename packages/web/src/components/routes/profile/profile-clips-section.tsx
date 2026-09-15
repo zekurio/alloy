@@ -83,10 +83,16 @@ export function ProfileClipsSection({
   const visible = query.data
     ? query.data.pages.flatMap((page) => page.items)
     : null
+  // With no posts and no game filter to clear, the toolbar has nothing to do.
+  const showToolbar =
+    gameSlug !== null ||
+    visible === null ||
+    query.isPlaceholderData ||
+    visible.length > 0
 
   return (
     <section>
-      {
+      {showToolbar ? (
         <PageToolbar rail={false} className="-mt-4 sm:-mt-6">
           <ClipsFilterBar
             username={username}
@@ -96,7 +102,7 @@ export function ProfileClipsSection({
             gameOptions={gameOptions}
           />
         </PageToolbar>
-      }
+      ) : null}
       <ClipSectionContent
         rows={visible}
         error={query.error ?? (query.data ? null : error)}

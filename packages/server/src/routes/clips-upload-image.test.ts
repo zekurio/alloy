@@ -8,7 +8,7 @@ import { authSession, user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
 import { eq } from "drizzle-orm"
 import sharp from "sharp"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 test.skipIf(!process.env.ALLOY_TEST_DATABASE_URL)(
   "image edits replace media on the same post and reject stale or unauthorized saves",
@@ -19,6 +19,7 @@ test.skipIf(!process.env.ALLOY_TEST_DATABASE_URL)(
     process.env.PUBLIC_SERVER_URL = "https://alloy.example"
     process.env.ALLOY_VIEWER_COOKIE_SECRET = "v".repeat(32)
     process.env.ALLOY_UPLOAD_HMAC_SECRET = "u".repeat(32)
+    process.env.ALLOY_STEAMGRIDDB_API_KEY = "steamgriddb-key"
     process.env.ALLOY_STORAGE_FS_CLIPS_PATH = join(directory, "clips")
     process.env.ALLOY_STORAGE_FS_THUMBNAILS_PATH = join(directory, "thumbnails")
     process.env.ALLOY_STORAGE_FS_ASSETS_PATH = join(directory, "assets")

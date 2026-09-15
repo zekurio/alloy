@@ -40,6 +40,7 @@ import {
   type NavigableLibraryEntry,
   useLibraryEditorShortcuts,
   useLibraryEntryNavigation,
+  useLibrarySearch,
   useNavigateToLibraryEntry,
 } from "./library-entry-navigation"
 import {
@@ -308,6 +309,7 @@ function useServerBackedClipDelete({
 }) {
   const navigate = useNavigate()
   const navigateToEntry = useNavigateToLibraryEntry()
+  const librarySearch = useLibrarySearch()
   const queryClient = useQueryClient()
   const deleteMutation = useDeleteClipMutation()
   const [open, setOpen] = useState(false)
@@ -326,6 +328,7 @@ function useServerBackedClipDelete({
         await navigate({
           to: "/library/$captureId",
           params: { captureId: keptLocalItem.id },
+          search: librarySearch,
           replace: true,
         })
         removeClipDetailFromCache(queryClient, row.id)
@@ -339,10 +342,13 @@ function useServerBackedClipDelete({
           seedClipDetailInCache(queryClient, fallback.row)
         }
         navigateToEntry(fallback)
-      } else void navigate({ to: "/library", replace: true })
+      } else {
+        void navigate({ to: "/library", search: librarySearch, replace: true })
+      }
     },
     [
       handoffPoster,
+      librarySearch,
       navigate,
       navigateToEntry,
       nextEntry,

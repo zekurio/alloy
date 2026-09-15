@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 
 import type { ServerInfo } from "@alloy/contracts"
 import { SERVER_HTTP_CONTRACT_1_FIXTURE } from "@alloy/contracts/server-http-fixtures"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import type { ApiContext } from "./client"
 import { createServerInfoApi } from "./server-info"

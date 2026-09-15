@@ -104,6 +104,9 @@ TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ALLOY_VIEWER_COOKIE_SECRET=$alloy_viewer_cookie_secret
 ALLOY_UPLOAD_HMAC_SECRET=$alloy_upload_hmac_secret
 
+# Required. Create a key at https://www.steamgriddb.com/profile/preferences/api
+ALLOY_STEAMGRIDDB_API_KEY=
+
 ALLOY_UPLOAD_TTL_SEC=900
 
 ALLOY_STORAGE_FS_CLIPS_PATH=../../data/storage/clips

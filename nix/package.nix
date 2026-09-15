@@ -14,7 +14,7 @@
     inherit lib;
     root = ../.;
   },
-  pnpmDepsHash ? "sha256-lATbCsosZ2Qso2AKMibg3Jvug3/yresR6dMAzMlA24c=",
+  pnpmDepsHash ? "sha256-CECpTfzBoU9YZRATTSFf2LMlWgAq1wSbtxu2s/+GI+Q=",
 }:
 
 let
@@ -68,7 +68,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     # Ship only the runtime closure of the server's external dependencies
     # instead of the whole workspace store (which would include
-    # devDependencies like electron and vite). pnpm deploy cannot do this
+    # devDependencies like vite and tsx). pnpm deploy cannot do this
     # offline in the build sandbox, so the closure is walked directly.
     node scripts/prune-server-node-modules.mjs . "$out/share/alloy/server"
 

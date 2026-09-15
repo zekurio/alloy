@@ -5,7 +5,7 @@ import {
   DEFAULT_THEME_PREFERENCES,
   normalizeThemePreferences,
 } from "@alloy/ui/lib/theme-storage"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 class MemoryStorage implements Storage {
   readonly #values = new Map<string, string>()

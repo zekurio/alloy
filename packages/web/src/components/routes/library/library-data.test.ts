@@ -6,7 +6,7 @@ import type {
   RecordingLibraryItem,
   RecordingLibrarySnapshot,
 } from "@alloy/contracts"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import {
   buildLibraryGroups,

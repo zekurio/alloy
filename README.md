@@ -44,11 +44,13 @@ Then import and configure the module:
 }
 ```
 
-The environment file needs two signing secrets:
+The environment file needs two signing secrets and a SteamGridDB API key,
+which powers game search, artwork, and canonical game names:
 
 ```sh
 ALLOY_VIEWER_COOKIE_SECRET=replace-with-a-long-random-secret
 ALLOY_UPLOAD_HMAC_SECRET=replace-with-a-long-random-secret
+ALLOY_STEAMGRIDDB_API_KEY=replace-with-your-steamgriddb-api-key
 ```
 
 The module supplies PostgreSQL and filesystem storage defaults; see
@@ -58,7 +60,7 @@ options.
 ### Development
 
 With [devenv](https://devenv.sh/) (provides Node, pnpm, PostgreSQL, ffmpeg,
-Rust, and Electron):
+and Rust):
 
 ```bash
 nix profile install nixpkgs#devenv nixpkgs#direnv
@@ -71,9 +73,11 @@ Without Nix: install Node 24 and pnpm 11, provide a PostgreSQL database, copy
 `.env.example` to `.env`, then `pnpm install && pnpm dev`. `pnpm dev:all` adds
 the desktop shell; the recorder builds only on Windows.
 
-[Vite+](https://viteplus.dev/) handles formatting, linting, and test discovery
-from the root [`vite.config.ts`](vite.config.ts). The repository scripts use the
-pinned local Vite+ version:
+Formatting, linting, and tests run through the pinned local
+[oxfmt](https://oxc.rs/docs/guide/usage/formatter.html),
+[oxlint](https://oxc.rs/docs/guide/usage/linter.html), and
+[Vitest](https://vitest.dev/) versions, configured in `.oxfmtrc.json`,
+`.oxlintrc.json`, and `vitest.config.ts` at the repo root:
 
 ```bash
 pnpm fmt                         # format the repository

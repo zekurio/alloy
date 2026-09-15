@@ -12,7 +12,6 @@ import { authClient } from "@/lib/auth-client"
 import { useLoginRedirect } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
 import { usePasskeySupport } from "@/lib/passkey-support"
-import { useDesktopQuery } from "@/lib/use-desktop-query"
 
 import { OAuthSignIn } from "./oauth-sign-in"
 import { PasskeySignIn } from "./passkey-sign-in"
@@ -115,7 +114,7 @@ export function LoginPageInner({
   if (!canRender) return null
 
   if (desktop && !redirectTo) {
-    return <DesktopLoginPage />
+    return <DesktopLoginPage desktop={desktop} />
   }
 
   return (
@@ -136,43 +135,28 @@ export function LoginPageInner({
   )
 }
 
-function DesktopLoginPage() {
-  const desktop = alloyDesktop()
-  const { data: serverUrl, loading } = useDesktopQuery(
-    desktop
-      ? async () => {
-          const currentServer = await desktop.servers.getCurrentServer()
-          return (
-            currentServer ??
-            (await desktop.servers.getServers())?.[0]?.serverUrl ??
-            null
-          )
-        }
-      : null,
-    [desktop],
-  )
-  const loaded = !loading
+function DesktopLoginPage({
+  desktop,
+}: {
+  desktop: NonNullable<ReturnType<typeof alloyDesktop>>
+}) {
   const [pending, setPending] = useState(false)
 
   async function onSignIn() {
-    if (!desktop || pending) return
-    if (!serverUrl) {
-      await desktop.openConnect()
-      return
-    }
-
+    if (pending) return
     setPending(true)
     toast.dismiss(DESKTOP_LOGIN_ERROR_TOAST_ID)
-    const result = await desktop.servers.connect(serverUrl, {
-      forceBrowserLogin: true,
-    })
-    if (!result.ok) {
-      toast.error(result.error, { id: DESKTOP_LOGIN_ERROR_TOAST_ID })
+    try {
+      await desktop.openConnect()
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : t("Could not reach server."),
+        { id: DESKTOP_LOGIN_ERROR_TOAST_ID },
+      )
+    } finally {
       setPending(false)
     }
   }
-
-  const serverLabel = serverUrl ? new URL(serverUrl).host : null
 
   return (
     <>
@@ -181,13 +165,7 @@ function DesktopLoginPage() {
           {t("Signed out")}
         </h2>
         <p className="text-foreground-muted text-sm">
-          {serverLabel
-            ? t("Sign in to {serverLabel} in your browser to continue.", {
-                serverLabel,
-              })
-            : loaded
-              ? t("Choose an Alloy server to sign in.")
-              : t("Loading saved server...")}
+          {t("Open the connection screen to sign in with your browser.")}
         </p>
       </div>
       <Button
@@ -195,13 +173,11 @@ function DesktopLoginPage() {
         variant="secondary"
         size="lg"
         className="w-full gap-3"
-        disabled={!loaded || pending}
+        disabled={pending}
         onClick={onSignIn}
       >
         {pending ? <Spinner /> : <LogInIcon className="size-4" />}
-        <span className="truncate">
-          {serverUrl ? t("Sign in to saved server") : t("Choose server")}
-        </span>
+        {t("Sign in")}
       </Button>
     </>
   )

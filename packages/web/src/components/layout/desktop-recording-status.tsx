@@ -41,7 +41,7 @@ import {
   type RecordingAudioDeviceView,
   toggleAudioDevice,
 } from "@/lib/audio-device-selection"
-import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
+import { alloyDesktop, type AlloyTauriDesktop } from "@/lib/desktop"
 
 import { bottomLeftAppCornerAnchor } from "./corner-anchors"
 import { DisplayPickerDialog } from "./recording-display-picker"
@@ -109,7 +109,7 @@ function RecordingStatusPopover({
 }: {
   indicator: RecordingStatusIndicator
   activeGame: RecordingStatus["activeGameDetail"] | null
-  desktop: AlloyDesktop
+  desktop: AlloyTauriDesktop
   displays: RecordingDisplay[]
   label: string
   settings: RecordingSettings | null
@@ -193,7 +193,7 @@ function RecordingStatusContent({
   onSave,
 }: {
   displays: RecordingDisplay[]
-  desktop: AlloyDesktop
+  desktop: AlloyTauriDesktop
   settings: RecordingSettings | null
   status: RecordingStatus | null
   onOpenDisplayPicker: () => void

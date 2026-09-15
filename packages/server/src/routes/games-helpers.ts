@@ -1,10 +1,7 @@
 import { MEDIA_FILTERS } from "@alloy/contracts"
 import type { GameRow, ProfileGameRow } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
-import {
-  SteamGridDBError,
-  SteamGridDBNotConfiguredError,
-} from "@alloy/server/games/steamgriddb"
+import { SteamGridDBError } from "@alloy/server/games/steamgriddb"
 import { isoDate } from "@alloy/server/runtime/date"
 import { errorMessage } from "@alloy/server/runtime/error-message"
 
@@ -58,9 +55,6 @@ export function steamgriddbErrorResponse(
   | { status: 503; error: string }
   | { status: 502; error: string }
   | { status: 500; error: string } {
-  if (cause instanceof SteamGridDBNotConfiguredError) {
-    return { status: 503, error: cause.message }
-  }
   if (cause instanceof SteamGridDBError) {
     const status =
       cause.status === null ||

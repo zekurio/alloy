@@ -24,6 +24,11 @@ const INLINE_PICKER_INPUT_CLASS = cn(
   "[&_[data-slot=input-group-control]]:text-sm",
   "[&_[data-slot=input-group-control]]:leading-4",
   "[&_[data-slot=input-group-control]]:font-semibold",
+  // Center the input's line box with flex like the display chip's text span.
+  // A stretched (h-full) native input centers text by font ascent/descent,
+  // which Chromium rounds differently from the chip's line-box centering,
+  // so the game name jumps a pixel when the picker opens.
+  "[&_[data-slot=input-group-control]]:h-auto",
   "[&_[data-slot=input-group-control]]:pl-2!",
   "[&_[data-slot=input-group-control]]:placeholder:font-semibold",
   "[&_[data-slot=input-group-control]]:placeholder:text-foreground-muted",
@@ -104,7 +109,10 @@ export function ClipMetadataEditor({
           rows={2}
           placeholder={t("Add a description…")}
           className={cn(
-            "min-h-0 resize-none rounded-none border-0 bg-transparent px-0 py-0 pr-7 text-sm leading-relaxed",
+            // Integer line height: a fractional one (22.75px) pushes the
+            // pickers below onto a half pixel, where Chromium rounds input
+            // text and chip text differently and the label jumps on edit.
+            "min-h-0 resize-none rounded-none border-0 bg-transparent px-0 py-0 pr-7 text-sm leading-6",
             "hover:border-0 hover:bg-transparent focus-visible:border-0 focus-visible:bg-transparent focus-visible:ring-0",
           )}
         />
@@ -226,7 +234,7 @@ function GamePickerChip({
           setEditing(true)
         }}
         className={cn(
-          "w-full max-w-full justify-start",
+          "flex w-full max-w-full justify-start",
           invalid &&
             !value &&
             "border-destructive text-destructive hover:border-destructive hover:text-destructive",

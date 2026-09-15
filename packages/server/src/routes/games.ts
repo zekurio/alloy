@@ -20,14 +20,9 @@ import {
 } from "@alloy/server/games/ref"
 import {
   enrichSearchResultsWithIcons,
-  isConfigured,
   searchGames,
 } from "@alloy/server/games/steamgriddb"
-import {
-  errorResult,
-  steamgriddbStatus,
-  notFound,
-} from "@alloy/server/runtime/http-response"
+import { errorResult, notFound } from "@alloy/server/runtime/http-response"
 import { and, desc, eq, ilike, isNull, type SQL, sql } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 
@@ -99,9 +94,6 @@ async function resolveSteamGridDBGameRefByParam(
 }
 
 export const gamesRoute = new Hono()
-  .get("/status", (c) => {
-    return steamgriddbStatus(c, isConfigured())
-  })
   .get(
     "/search",
     requireSession,

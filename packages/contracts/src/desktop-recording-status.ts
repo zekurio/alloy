@@ -31,10 +31,8 @@ export interface RecordingAudioLevel {
 }
 
 export interface RecordingDisplay {
-  /** OBS monitor id when available, otherwise a stable Electron display id. */
+  /** OBS monitor ID. */
   id: string
-  /** Electron desktopCapturer display id, used for display previews. */
-  electronId: string | null
   name: string
   width: number
   height: number
@@ -131,18 +129,6 @@ export interface RecordingStatus {
   availableAudioApplications: RecordingAudioApplicationSelection[]
   telemetry: RecordingTelemetry | null
   message: string | null
-}
-
-export type RecordingActionResult =
-  | { ok: true; status: RecordingStatus; capture?: RecordingCapture }
-  | { ok: false; error: string; status: RecordingStatus }
-
-export interface RecordingActionRequest {
-  requestedAtUnixMs: number
-}
-
-export interface SaveReplayClipRequest extends RecordingActionRequest {
-  durationSeconds: number
 }
 
 export type RecordingEvent =

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-saved-servers"
+description = "Enables the saved_servers command without any pre-configured scope."
+commands.allow = ["saved_servers"]
+
+[[permission]]
+identifier = "deny-saved-servers"
+description = "Denies the saved_servers command without any pre-configured scope."
+commands.deny = ["saved_servers"]

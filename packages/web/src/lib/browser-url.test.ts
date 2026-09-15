@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 
-import { afterEach, test } from "vite-plus/test"
+import { afterEach, test } from "vitest"
 
 import {
   consumeCurrentQueryParam,

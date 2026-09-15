@@ -6,7 +6,10 @@ import { useCallback, useState } from "react"
 
 import { refreshLibrarySnapshotCache } from "@/components/routes/library/library-data"
 import { normalizeClipTitle } from "@/lib/clip-fields"
-import type { AlloyDesktop, RecordingLibraryStagedImport } from "@/lib/desktop"
+import type {
+  AlloyTauriDesktop,
+  RecordingLibraryStagedImport,
+} from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 
 export interface ImportClipAction {
@@ -21,7 +24,7 @@ export interface ImportClipAction {
 }
 
 export function useImportClipAction(
-  desktop: AlloyDesktop | null,
+  desktop: AlloyTauriDesktop | null,
 ): ImportClipAction {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
