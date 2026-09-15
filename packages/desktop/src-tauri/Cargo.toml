@@ -32,7 +32,7 @@ log = { version = "0.4", features = ["std"] }
 open = { version = "5", optional = true }
 rand = "0.9"
 reqwest = { workspace = true, features = ["json", "stream"] }
-rfd = { version = "0.16", optional = true }
+rfd = { version = "0.17", optional = true }
 rustls = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
