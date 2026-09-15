@@ -1,9 +1,13 @@
-import { DESKTOP_BRIDGE_CONTRACT_1, type AlloyDesktop } from "@alloy/contracts"
+import {
+  TAURI_DESKTOP_BRIDGE_CONTRACT_1,
+  type AlloyTauriDesktop,
+} from "@alloy/contracts/desktop-tauri"
+
+export type { AlloyTauriDesktop } from "@alloy/contracts/desktop-tauri"
 
 // Native and recording-library types live in @alloy/contracts. Re-export them
 // here so web consumers use one import path.
 export type {
-  AlloyDesktop,
   AlloyDesktopRecordingApi,
   DesktopSavedServer,
   RecordingCaptureMention,
@@ -15,14 +19,37 @@ export type {
   RecordingLibraryStagedImport,
 } from "@alloy/contracts"
 
-export function alloyDesktop(): AlloyDesktop | null {
-  // Injected by the desktop preload; unexpressible on `typeof globalThis`.
-  // The exact marker ignores globals from retired, unversioned remote shells.
-  // SAFETY: The optional host property is checked by its runtime contract ID.
-  const host = globalThis as { alloyDesktop?: AlloyDesktop }
-  return host.alloyDesktop?.bridgeContract === DESKTOP_BRIDGE_CONTRACT_1
-    ? host.alloyDesktop
+/**
+ * Reads the bridge the desktop host installs on `globalThis`. A bridge is
+ * accepted only when its `bridgeContract` matches the exact contract ID this
+ * build speaks; anything else (a missing, older, or newer bridge) reads as the
+ * plain browser build and returns null.
+ */
+export function alloyDesktop(): AlloyTauriDesktop | null {
+  // SAFETY: The optional host property is checked by the runtime contract ID
+  // before it is returned to web code.
+  const host = globalThis as { alloyTauriDesktop?: AlloyTauriDesktop }
+  return host.alloyTauriDesktop?.bridgeContract ===
+    TAURI_DESKTOP_BRIDGE_CONTRACT_1
+    ? host.alloyTauriDesktop
     : null
+}
+
+/** Returns whether the page runs inside the Tauri desktop host. */
+export function isNativeDesktop(): boolean {
+  return alloyDesktop() !== null
+}
+
+/**
+ * Returns the bridge's window controls inside the desktop host, whose window
+ * has no native decorations, so the web app draws the title bar and controls.
+ * Returns null in a plain browser, so callers fall back to the browser layout.
+ */
+export function alloyWindowChrome(): Pick<
+  AlloyTauriDesktop,
+  "minimizeWindow" | "toggleMaximizeWindow" | "closeWindow"
+> | null {
+  return alloyDesktop()
 }
 
 /**
@@ -60,24 +87,4 @@ export function onLibraryCapturesChanged(
   window.addEventListener(LIBRARY_CAPTURES_CHANGED_EVENT, handle)
   return () =>
     window.removeEventListener(LIBRARY_CAPTURES_CHANGED_EVENT, handle)
-}
-
-/**
- * Routes a remote image URL through the desktop shell's persistent asset
- * cache (`alloy-asset://`) when running inside Alloy Desktop, so game icons
- * and similar assets load from disk and survive offline servers. Outside the
- * desktop app — or for non-http(s)/already-proxied URLs — the URL is returned
- * unchanged.
- */
-export function desktopCachedAssetUrl(url: string | null): string | null {
-  if (!url || !alloyDesktop()) return url
-  if (!/^https?:\/\//i.test(url)) return url
-  const bytes = new TextEncoder().encode(url)
-  let binary = ""
-  for (const byte of bytes) binary += String.fromCharCode(byte)
-  const encoded = btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "")
-  return `alloy-asset://remote/${encoded}`
 }

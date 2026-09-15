@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import { usableSignInConfig } from "./sign-in-config"
 
@@ -10,6 +10,7 @@ test("enabled OAuth providers count only when their client secret is usable", ()
   process.env.DATABASE_URL = "postgres://localhost/alloy-test"
   process.env.ALLOY_VIEWER_COOKIE_SECRET = "v".repeat(32)
   process.env.ALLOY_UPLOAD_HMAC_SECRET = "u".repeat(32)
+  process.env.ALLOY_STEAMGRIDDB_API_KEY = "steamgriddb-key"
 
   const config = {
     passkeyEnabled: false,

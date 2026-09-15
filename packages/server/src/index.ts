@@ -41,12 +41,6 @@ process.on("unhandledRejection", (reason) => {
 // worker can run any transcodes.
 configureTranscode(env.transcode)
 
-if (!env.steamgriddbApiKey) {
-  logger.warn(
-    "SteamGridDB game search is disabled because ALLOY_STEAMGRIDDB_API_KEY is not configured",
-  )
-}
-
 if (env.NODE_ENV === "production") {
   await migrateDatabase(env.DATABASE_URL)
 }

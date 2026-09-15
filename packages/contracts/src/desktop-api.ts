@@ -1,4 +1,3 @@
-import type { AlloyDesktopAutostartApi } from "./desktop-autostart"
 import type {
   RecordingLibraryCommitStagedImportRequest,
   RecordingLibraryDownload,
@@ -22,28 +21,6 @@ import type {
   RecordingStatus,
   RecordingStorageInfo,
 } from "./desktop-recording-types"
-import type { AlloyDesktopUpdatesApi } from "./desktop-update"
-
-/**
- * Exact contract for the native bridge injected into a server-hosted web app.
- * A breaking bridge change gets a new identifier; contract 1 is immutable.
- */
-export const DESKTOP_BRIDGE_CONTRACT_1 = 1 as const
-export const DESKTOP_BRIDGE_CONTRACT_IDS = Object.freeze([
-  DESKTOP_BRIDGE_CONTRACT_1,
-] as const)
-
-/**
- * Single source of truth for the versioned `window.alloyDesktop` API shared by
- * the server renderer, preload, and main process.
- */
-export type DesktopConnectResult =
-  | { ok: true; serverUrl: string }
-  | { ok: false; error: string }
-
-export interface DesktopConnectOptions {
-  forceBrowserLogin?: boolean
-}
 
 export interface DesktopSavedServer {
   serverUrl: string
@@ -52,16 +29,6 @@ export interface DesktopSavedServer {
   httpContract: number
   /** Last exact native bridge contract advertised by this server's web app. */
   bridgeContract: number
-}
-
-export interface AlloyDesktopServerApi {
-  connect(
-    url: string,
-    options?: DesktopConnectOptions,
-  ): Promise<DesktopConnectResult>
-  getServers(): Promise<DesktopSavedServer[]>
-  getCurrentServer(): Promise<string | null>
-  forgetServer(url: string): Promise<DesktopSavedServer[]>
 }
 
 export interface AlloyDesktopRecordingApi {
@@ -134,27 +101,4 @@ export interface AlloyDesktopRecordingApi {
   previewNotificationSound(
     sound: RecordingNotificationSoundEvent,
   ): Promise<void>
-}
-
-/**
- * The desktop API exposed to a compatible server renderer as
- * `window.alloyDesktop`.
- * Native side effects stay behind explicit IPC handlers; no raw Electron APIs
- * reach the renderer.
- */
-export interface AlloyDesktop {
-  /** Exact native bridge contract implemented by this preload. */
-  bridgeContract: typeof DESKTOP_BRIDGE_CONTRACT_1
-  /** True when the web app header must provide the draggable title bar. */
-  titlebarOverlay: boolean
-  minimizeWindow(): Promise<void>
-  toggleMaximizeWindow(): Promise<void>
-  closeWindow(): Promise<void>
-  openConnect(): Promise<void>
-  openSettings(): Promise<void>
-  reloadApp(): Promise<void>
-  servers: AlloyDesktopServerApi
-  recording: AlloyDesktopRecordingApi
-  updates: AlloyDesktopUpdatesApi
-  autostart: AlloyDesktopAutostartApi
 }

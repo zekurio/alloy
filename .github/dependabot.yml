@@ -13,7 +13,7 @@ updates:
           - patch
 
   - package-ecosystem: cargo
-    directory: /packages/recorder
+    directory: /
     labels:
       - "changelog:other"
     schedule:

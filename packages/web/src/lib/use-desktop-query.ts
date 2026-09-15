@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from "react"
 import type { DependencyList } from "react"
 
 /**
- * Loads a value from a desktop native API (IPC) call on mount and whenever `deps`
+ * Loads a value from a native bridge call on mount and whenever `deps`
  * change, dropping stale results so a fast remount can't clobber fresh state.
- * Desktop IPC lives outside TanStack Query, so this replaces the hand-rolled
+ * Bridge calls live outside TanStack Query, so this replaces the hand-rolled
  * "fetch + cancelled flag" effect each desktop panel used to repeat.
  *
  * Pass `load: null` when the bridge is unavailable (plain web) — the hook stays

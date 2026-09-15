@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 
 import type { UploadTicket } from "@alloy/contracts"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import { uploadTicketForRequestOrigin } from "./staged"
 

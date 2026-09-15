@@ -15,19 +15,17 @@ node_modules
 
 # Build Outputs
 dist
+target/
 build
-out
 .output
 image-stream
-packages/desktop/assets/icon.ico
 packages/desktop/release/
-packages/recorder/dist/
-packages/recorder/release/
-packages/recorder/target/
+packages/desktop/.cache/
+packages/desktop/resources/
+packages/desktop/src-tauri/gen/
 .nitro
 .tanstack
 .vite
-.vite-plus
 .vinxi
 
 # Debug

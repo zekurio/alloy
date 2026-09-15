@@ -29,6 +29,8 @@ import { DesktopUpdateSettings } from "./desktop-update-settings"
 
 type Phase = "idle" | "loading" | "connecting"
 
+type ServerApi = NonNullable<ReturnType<typeof alloyDesktop>>["servers"]
+
 export function DesktopServerSettings() {
   const desktop = alloyDesktop()
   const serverApi = desktop?.servers
@@ -71,19 +73,13 @@ export function DesktopServerSettings() {
       setPhase("connecting")
     })
     try {
-      const result = await activeServerApi.connect(nextUrl)
-      if (!result.ok) {
-        setError(result.error)
-        setConnectingServerUrl(null)
-        setPhase("idle")
-        return
-      }
-
+      // On success the host replaces this window with the new server's
+      // window, so there is nothing left to update here.
+      await activeServerApi.connect(nextUrl)
       setUrl("")
-      setConnectingServerUrl(null)
-      setPhase("idle")
     } catch (cause) {
       setError(errorText(cause, t("Couldn't connect to server.")))
+    } finally {
       setConnectingServerUrl(null)
       setPhase("idle")
     }
@@ -213,9 +209,7 @@ export function DesktopAppPanel() {
 }
 
 function useSavedServers(
-  serverApi:
-    | NonNullable<ReturnType<typeof alloyDesktop>>["servers"]
-    | undefined,
+  serverApi: ServerApi | undefined,
   setError: (value: string | null) => void,
   setPhase: (value: Phase) => void,
 ) {
@@ -265,11 +259,11 @@ function ServerConnectForm({
   url: string
   busy: boolean
   connectingServerUrl: string | null
-  setUrl: (url: string) => void
-  onSubmit: (event: FormEvent) => void
+  setUrl: (value: string) => void
+  onSubmit: (event: FormEvent) => Promise<void>
 }) {
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-1.5">
+    <form onSubmit={onSubmit} className="flex flex-col gap-2">
       <label htmlFor="desktop-server-url" className="text-xs font-medium">
         {t("Server address")}
       </label>
@@ -429,7 +423,7 @@ function SavedServerRow({
 
 function sameOrigin(serverUrl: string, origin: string): boolean {
   try {
-    return new URL(serverUrl).origin === origin
+    return new URL(serverUrl).origin === new URL(origin).origin
   } catch {
     return false
   }

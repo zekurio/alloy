@@ -8,6 +8,7 @@ import { cn } from "@alloy/ui/lib/utils"
 import { DownloadIcon, RefreshCcwIcon, SearchIcon } from "lucide-react"
 import { useState } from "react"
 
+import { formatRelativeTime } from "@/lib/date-format"
 import { useDesktopUpdateState } from "@/lib/desktop-updates"
 
 import { alloyDesktop } from "./desktop-native"
@@ -30,7 +31,18 @@ export function DesktopUpdateSettings() {
   const checkBusy = phase === "checking" || updateState.status === "checking"
   const downloadBusy =
     phase === "downloading" || updateState.status === "downloading"
-  const checkDisabled = phase !== "idle" || updateState.status !== "idle"
+  const checkDisabled =
+    !updateState.supported ||
+    phase !== "idle" ||
+    (updateState.status !== "idle" && updateState.status !== "available")
+  const lastChecked =
+    updateState.supported && updateState.lastCheckedAt
+      ? t("Last checked {time}. Alloy checks again in the background.", {
+          time: formatRelativeTime(updateState.lastCheckedAt),
+        })
+      : updateState.supported
+        ? t("Alloy checks for updates in the background.")
+        : null
 
   async function restartToInstall() {
     setActionMessage(null)
@@ -89,6 +101,14 @@ export function DesktopUpdateSettings() {
       description={
         <>
           {updateVersionSummary(updateState)}
+          {lastChecked ? (
+            <span className="mt-1 block">{lastChecked}</span>
+          ) : null}
+          {!updateState.supported ? (
+            <span className="mt-1 block">
+              {t("Automatic updates are unavailable in this build.")}
+            </span>
+          ) : null}
           {actionMessage ? (
             <span
               role={actionMessage.tone === "error" ? "alert" : "status"}

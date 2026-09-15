@@ -1,0 +1,67 @@
+[package]
+name = "alloy-desktop"
+version = "0.0.1"
+edition = "2024"
+publish = false
+
+[features]
+default = ["shell"]
+shell = [
+  "dep:tauri",
+  "dep:tauri-build",
+  "dep:open",
+  "dep:rfd",
+  "dep:tauri-plugin-updater",
+  "dep:tauri-plugin-autostart",
+  "dep:tauri-plugin-single-instance",
+]
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2", optional = true, features = [] }
+rustls = { workspace = true }
+
+[dependencies]
+alloy-agent = { path = "../recorder" }
+axum = "0.8"
+base64 = { workspace = true }
+fs2 = "0.4"
+futures-util = "0.3"
+http = "1"
+log = { version = "0.4", features = ["std"] }
+open = { version = "5", optional = true }
+rand = "0.9"
+reqwest = { workspace = true, features = ["json", "stream"] }
+rfd = { version = "0.16", optional = true }
+rustls = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+tauri = { version = "2", optional = true, features = ["tray-icon"] }
+tauri-plugin-autostart = { version = "2", optional = true }
+tauri-plugin-single-instance = { version = "2", optional = true }
+tauri-plugin-updater = { version = "2", optional = true }
+thiserror = "2"
+time = { workspace = true }
+tokio = { workspace = true, features = [
+  "fs",
+  "io-util",
+  "macros",
+  "net",
+  "process",
+  "rt-multi-thread",
+  "sync",
+  "time",
+] }
+tokio-util = { version = "0.7", features = ["io", "rt"] }
+trash = "5"
+url = { workspace = true }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "alloy-desktop"
+path = "src/main.rs"
+required-features = ["shell"]

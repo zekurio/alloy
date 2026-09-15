@@ -99,8 +99,8 @@ export async function startClipDownload(row: ClipRow): Promise<void> {
   const accepted = await desktop.recording.downloadClip({
     clipId: row.id,
     title: row.title,
-    // Main derives the selected-server URL and MIME type. Renderer input never
-    // chooses the native download target.
+    // The host derives the download URL and MIME type from the selected server
+    // and the clip ID. Web input never chooses the native download target.
     sizeBytes: row.sourceSizeBytes,
     durationMs: row.durationMs,
     width: row.width,

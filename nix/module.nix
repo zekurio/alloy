@@ -289,8 +289,8 @@ in
       description = ''
         Optional systemd environment file containing secret Alloy environment
         variables such as ALLOY_VIEWER_COOKIE_SECRET,
-        ALLOY_UPLOAD_HMAC_SECRET, DATABASE_URL, PGPASSWORD, and
-        OAuth provider JSON. The file is read by systemd at service start and is
+        ALLOY_UPLOAD_HMAC_SECRET, ALLOY_STEAMGRIDDB_API_KEY, DATABASE_URL,
+        PGPASSWORD, and OAuth provider JSON. The file is read by systemd at service start and is
         not copied into the Nix store.
       '';
     };
@@ -441,6 +441,12 @@ in
           cfg.environmentFile != null
           || hasEnv "ALLOY_UPLOAD_HMAC_SECRET";
         message = "Set ALLOY_UPLOAD_HMAC_SECRET through services.alloy-server.environmentFile or services.alloy-server.environment.";
+      }
+      {
+        assertion =
+          cfg.environmentFile != null
+          || hasEnv "ALLOY_STEAMGRIDDB_API_KEY";
+        message = "Set ALLOY_STEAMGRIDDB_API_KEY through services.alloy-server.environmentFile or services.alloy-server.environment.";
       }
       {
         assertion =

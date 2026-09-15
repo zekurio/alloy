@@ -315,9 +315,20 @@ function evictWaveformCache(): void {
   }
 }
 
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"])
+
+/**
+ * Server clips need the session cookie, including on a loopback dev server
+ * that is the page's own origin. The desktop capture server is a different
+ * loopback origin: it authenticates with a URL token and answers CORS without
+ * `Access-Control-Allow-Credentials`, so a credentialed fetch to it is rejected
+ * by the browser and the waveform never loads.
+ */
 function mediaRequestCredentials(mediaUrl: string): RequestCredentials {
-  const protocol = new URL(mediaUrl, window.location.href).protocol
-  return protocol === "http:" || protocol === "https:" ? "include" : "omit"
+  const url = new URL(mediaUrl, window.location.href)
+  if (url.protocol !== "http:" && url.protocol !== "https:") return "omit"
+  if (url.origin === window.location.origin) return "include"
+  return LOOPBACK_HOSTS.has(url.hostname) ? "omit" : "include"
 }
 
 function sourceDurationSeconds(...durations: Array<number | null>): number {

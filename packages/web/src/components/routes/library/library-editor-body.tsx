@@ -54,7 +54,10 @@ import {
   formatTags,
   parseTagString,
 } from "@/lib/clip-fields"
-import { notifyLibraryCapturesChanged, type AlloyDesktop } from "@/lib/desktop"
+import {
+  notifyLibraryCapturesChanged,
+  type AlloyTauriDesktop,
+} from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 import { useMediaWaveform } from "@/lib/media-waveform"
 import { useActionFeedback } from "@/lib/use-action-feedback"
@@ -67,6 +70,7 @@ import {
   LibraryEntryNavButton,
   type NavigableLibraryEntry,
   useLibraryEditorShortcuts,
+  useLibrarySearch,
 } from "./library-entry-navigation"
 import { LocalFileLocation } from "./library-file-location"
 import {
@@ -91,7 +95,7 @@ import { UploadEditorBody } from "./library-upload-editor-body"
  * right with the post/delete actions pinned to its bottom.
  */
 type LocalEditorBodyProps = {
-  desktop: AlloyDesktop
+  desktop: AlloyTauriDesktop
   item: LibraryItemView
   promptGame: boolean
   prevEntry: NavigableLibraryEntry | null
@@ -125,6 +129,7 @@ function LocalEditorBody({
   const isImage = item.kind === "screenshot"
   const [screenshotEdit, setScreenshotEdit] = useState(DEFAULT_SCREENSHOT_EDIT)
   const navigate = useNavigate()
+  const librarySearch = useLibrarySearch()
   const { publishClip } = useUploadActions()
   const { queue } = useUploadQueue()
 
@@ -305,6 +310,7 @@ function LocalEditorBody({
         await navigate({
           to: "/library/$captureId",
           params: { captureId: result.id },
+          search: librarySearch,
           replace: true,
         })
       }
@@ -355,6 +361,7 @@ function LocalEditorBody({
 
       await navigate({
         to: "/library",
+        search: librarySearch,
         replace: true,
       })
     }, t("Couldn't prepare clip"))
@@ -369,7 +376,7 @@ function LocalEditorBody({
         )
       }
       setLinkToCopy(null)
-      await navigate({ to: "/library", replace: true })
+      await navigate({ to: "/library", search: librarySearch, replace: true })
     }, t("Couldn't copy the clip link"))
   }
 
@@ -490,7 +497,7 @@ function LocalEditorBody({
               type="button"
               variant="ghost"
               disabled={deleting || publishing || saving}
-              render={<Link to="/library" />}
+              render={<Link to="/library" search={librarySearch} />}
             >
               {awaitingLinkCopy ? t("Done") : t("Cancel")}
             </Button>

@@ -1,7 +1,5 @@
 import { cn } from "@alloy/ui/lib/utils"
 
-import { desktopCachedAssetUrl } from "@/lib/desktop"
-
 type GameLogoVariant = "card" | "header"
 
 type GameLogoProps = {
@@ -26,7 +24,7 @@ export function GameLogo({
 }: GameLogoProps) {
   return (
     <img
-      src={desktopCachedAssetUrl(src) ?? src}
+      src={src}
       alt={name}
       className={cn(
         "block w-auto shrink object-contain drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)]",

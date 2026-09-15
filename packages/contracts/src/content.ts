@@ -26,7 +26,6 @@ export type {
   SteamGridDBAsset,
   SteamGridDBGameDetail,
   SteamGridDBSearchResult,
-  SteamGridDBStatus,
   TagGamesResponse,
 } from "./content-games"
 export * from "./content-users"

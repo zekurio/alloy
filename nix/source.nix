@@ -20,12 +20,16 @@ lib.cleanSourceWith {
       || name == ".turbo"
       || name == ".venv"
       || name == "__pycache__"
+      || name == ".cache"
       || name == "build"
       || name == "data"
       || name == "devenv.local.nix"
       || name == "dist"
       || name == "nix"
       || name == "node_modules"
+      || name == "release"
+      || name == "resources"
+      || name == "target"
       || lib.hasSuffix ".pyc" (toString path)
     );
 }

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "resources": {
+      "../resources/agent/": "agent/",
+      "../resources/obs-runtime/": "obs-runtime/",
+      "../resources/ffmpeg/": "ffmpeg/"
+    }
+  }
+}

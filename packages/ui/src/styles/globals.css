@@ -870,7 +870,7 @@
   }
 }
 
-/* Desktop shell (Electron frameless window): turn the app header into a
+/* Desktop shell (frameless window): turn the app header into a
    draggable title bar. Gated by `is-desktop-titlebar` on <html>, set only when
    the desktop marker reports the custom chrome is active — a no-op in the
    browser. */

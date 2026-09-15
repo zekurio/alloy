@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 
 import type { AppType } from "@alloy/server/app"
 import { hc } from "hono/client"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 import { createApiContext } from "./client"
 import { createClipsApi } from "./clips"

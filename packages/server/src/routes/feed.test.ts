@@ -5,7 +5,7 @@ import type { FeedPage } from "@alloy/contracts"
 import { authSession, user } from "@alloy/db/auth-schema"
 import { clip, clipView, game } from "@alloy/db/schema"
 import { eq, inArray } from "drizzle-orm"
-import { test } from "vite-plus/test"
+import { test } from "vitest"
 
 // Run against a migrated, disposable PostgreSQL database.
 test.skipIf(!process.env.ALLOY_TEST_DATABASE_URL)(
@@ -16,6 +16,7 @@ test.skipIf(!process.env.ALLOY_TEST_DATABASE_URL)(
     process.env.PUBLIC_SERVER_URL = "https://alloy.example"
     process.env.ALLOY_VIEWER_COOKIE_SECRET = "v".repeat(32)
     process.env.ALLOY_UPLOAD_HMAC_SECRET = "u".repeat(32)
+    process.env.ALLOY_STEAMGRIDDB_API_KEY = "steamgriddb-key"
 
     const { db, client } = await import("@alloy/server/db/index")
     const { hashSessionToken } = await import("@alloy/server/auth/tokens")

@@ -132,11 +132,11 @@ const apiApp = new Hono()
         styleSrc: ["'self'", "'unsafe-inline'"],
         // Storage is filesystem-only today, so browser media URLs stay
         // same-origin. Future direct-storage URLs need their origin here.
-        // Alloy Desktop adds local capture playback and a bounded image cache
-        // through these schemes. Normal browsers simply have no handlers.
-        imgSrc: ["'self'", "data:", "blob:", "alloy-asset:", "alloy-capture:"],
-        mediaSrc: ["'self'", "blob:", "alloy-capture:"],
-        connectSrc: ["'self'", "alloy-capture:"],
+        // Alloy Desktop serves local captures on a random loopback port.
+        // The native file server checks its access token and selected origin.
+        imgSrc: ["'self'", "data:", "blob:", "http://127.0.0.1:*"],
+        mediaSrc: ["'self'", "blob:", "http://127.0.0.1:*"],
+        connectSrc: ["'self'", "http://127.0.0.1:*"],
         fontSrc: ["'self'"],
         frameAncestors: ["'self'"],
         baseUri: ["'self'"],

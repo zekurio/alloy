@@ -8,8 +8,7 @@ import {
 import { useCallback, useEffect, useMemo } from "react"
 
 import {
-  type AlloyDesktop,
-  desktopCachedAssetUrl,
+  type AlloyTauriDesktop,
   onLibraryCapturesChanged,
   type RecordingLibraryGroup,
   type RecordingLibraryItem,
@@ -39,7 +38,7 @@ function invalidateLibrarySnapshot(queryClient: QueryClient): void {
 
 export async function refreshLibrarySnapshotCache(
   queryClient: QueryClient,
-  desktop: AlloyDesktop | null,
+  desktop: AlloyTauriDesktop | null,
 ): Promise<RecordingLibrarySnapshot | null> {
   if (!desktop) return null
   await queryClient.cancelQueries({ queryKey: librarySnapshotKey })
@@ -62,7 +61,7 @@ function librarySnapshotErrorMessage(cause: unknown): string | null {
  * Outside Alloy Desktop (`desktop` null) it stays empty without erroring.
  */
 export function useLibrarySnapshot(
-  desktop: AlloyDesktop | null,
+  desktop: AlloyTauriDesktop | null,
 ): LibrarySnapshotState {
   const queryClient = useQueryClient()
   const { data, error, isFetching, refetch } = useQuery({
@@ -170,9 +169,7 @@ export function enrichLibraryItem(
     game?.name ??
     item.gameName ??
     (item.source === "display" ? "" : item.groupLabel)
-  const steamgriddbIconUrl = desktopCachedAssetUrl(
-    game?.iconUrl ?? game?.logoUrl ?? null,
-  )
+  const steamgriddbIconUrl = game?.iconUrl ?? game?.logoUrl ?? null
   return {
     ...item,
     displayGame: game,
@@ -253,9 +250,7 @@ export function buildLibraryGroups(
     }
     const nameKey = gameNameKey(gameName)
     const existing = map.get(nameKey)
-    const iconUrl = desktopCachedAssetUrl(
-      row.gameRef?.iconUrl ?? row.gameRef?.logoUrl ?? null,
-    )
+    const iconUrl = row.gameRef?.iconUrl ?? row.gameRef?.logoUrl ?? null
     if (existing) {
       existing.totalCount += 1
       existing.iconUrl ??= iconUrl
@@ -310,9 +305,7 @@ export function enrichLibraryGroup(
   if (group.kind !== "game") return group
   const match = gamesByName.get(gameNameKey(group.label))
   const game = match?.confidence === 1 ? match.game : null
-  const steamgriddbIconUrl = desktopCachedAssetUrl(
-    game?.iconUrl ?? game?.logoUrl ?? null,
-  )
+  const steamgriddbIconUrl = game?.iconUrl ?? game?.logoUrl ?? null
   return {
     ...group,
     // Prefer the resolved server identity over a detector/folder label. This

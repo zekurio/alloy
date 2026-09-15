@@ -36,6 +36,7 @@ import {
   type VisibilityIntent,
   visibilityFeedbackIntent,
 } from "./library-clip-visibility"
+import { useLibrarySearch } from "./library-entry-navigation"
 import { ClipFileLocation } from "./library-file-location"
 
 type VisibilityAction = {
@@ -171,6 +172,7 @@ export function ClipEditorDetails({
   )
   const saveMutation = useUpdateClipMutation()
   const visibilityMutation = useUpdateClipMutation()
+  const librarySearch = useLibrarySearch()
   const saveFeedback = useActionFeedback()
   const visibilityFeedback = useActionFeedback()
   const activeVisibilityIntent = useRef<VisibilityIntent | null>(null)
@@ -308,7 +310,7 @@ export function ClipEditorDetails({
             variant="ghost"
             disabled={deleting || saving || visibilityPending}
             className={visibilityPending ? "disabled:opacity-100" : undefined}
-            render={<Link to="/library" />}
+            render={<Link to="/library" search={librarySearch} />}
           >
             {t("Cancel")}
           </Button>

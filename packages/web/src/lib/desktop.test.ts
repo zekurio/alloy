@@ -1,25 +1,48 @@
 import assert from "node:assert/strict"
 
-import { DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/contracts"
-import { afterEach, test } from "vite-plus/test"
+import { TAURI_DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/contracts/desktop-tauri"
+import { afterEach, test } from "vitest"
 
-import { alloyDesktop } from "./desktop"
+import { alloyDesktop, alloyWindowChrome, isNativeDesktop } from "./desktop"
 
 // SAFETY: Tests install and remove only this synthetic global property.
-const host = globalThis as { alloyDesktop?: unknown }
+const host = globalThis as {
+  alloyTauriDesktop?: unknown
+}
 
 afterEach(() => {
-  Reflect.deleteProperty(host, "alloyDesktop")
+  Reflect.deleteProperty(host, "alloyTauriDesktop")
 })
 
-test("accepts only the exact native bridge contract", () => {
-  const bridge = { bridgeContract: DESKTOP_BRIDGE_CONTRACT_1 }
-  host.alloyDesktop = bridge
+test("ignores a bridge with a missing or mismatched contract", () => {
+  assert.equal(alloyDesktop(), null)
+  assert.equal(isNativeDesktop(), false)
+
+  host.alloyTauriDesktop = {}
+  assert.equal(alloyDesktop(), null)
+  assert.equal(isNativeDesktop(), false)
+
+  host.alloyTauriDesktop = { bridgeContract: 2 }
+  assert.equal(alloyDesktop(), null)
+  assert.equal(isNativeDesktop(), false)
+})
+
+test("accepts only the exact desktop bridge contract", () => {
+  const bridge = {
+    bridgeContract: TAURI_DESKTOP_BRIDGE_CONTRACT_1,
+  }
+  host.alloyTauriDesktop = bridge
   assert.equal(alloyDesktop(), bridge)
+  assert.equal(isNativeDesktop(), true)
+})
 
-  host.alloyDesktop = { bridgeContract: 2 }
-  assert.equal(alloyDesktop(), null)
-
-  host.alloyDesktop = { recording: {} }
-  assert.equal(alloyDesktop(), null)
+test("exposes the window controls of a native bridge", () => {
+  const tauri = {
+    bridgeContract: TAURI_DESKTOP_BRIDGE_CONTRACT_1,
+    minimizeWindow: async () => {},
+    toggleMaximizeWindow: async () => {},
+    closeWindow: async () => {},
+  }
+  host.alloyTauriDesktop = tauri
+  assert.equal(alloyWindowChrome(), tauri)
 })
