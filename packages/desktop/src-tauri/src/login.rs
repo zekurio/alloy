@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-use rand::RngCore;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tokio::{
@@ -255,7 +254,7 @@ fn session_cookie(
 
 fn random_secret() -> String {
     let mut bytes = [0_u8; 32];
-    rand::rng().fill_bytes(&mut bytes);
+    rand::fill(&mut bytes);
     URL_SAFE_NO_PAD.encode(bytes)
 }
 

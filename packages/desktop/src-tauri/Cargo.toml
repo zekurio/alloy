@@ -30,7 +30,7 @@ futures-util = "0.3"
 http = "1"
 log = { version = "0.4", features = ["std"] }
 open = { version = "5", optional = true }
-rand = "0.9"
+rand = "0.10"
 reqwest = { workspace = true, features = ["json", "stream"] }
 rfd = { version = "0.17", optional = true }
 rustls = { workspace = true }
