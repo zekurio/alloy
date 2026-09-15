@@ -230,15 +230,14 @@ impl Recorder {
     }
 }
 
-/// Settings whose change requires tearing down active outputs. Allow/deny game
-/// list edits are intentionally absent: the tick loop already ends sessions
-/// whose active game became disallowed, so list edits never interrupt an
-/// unrelated active recording.
+/// Non-audio settings whose change requires tearing down active outputs. The
+/// audio selection layout is checked separately from volume, so mixer edits
+/// reach the live graph instead of restarting it. Allow/deny game list edits
+/// are intentionally absent: the tick loop already ends sessions whose active
+/// game became disallowed, so list edits never interrupt an unrelated active
+/// recording.
 fn active_settings_require_restart(current: &RecordingSettings, next: &RecordingSettings) -> bool {
-    current.audio_mode != next.audio_mode
-        || current.audio_devices != next.audio_devices
-        || current.audio_applications != next.audio_applications
-        || current.capture_mode != next.capture_mode
+    current.capture_mode != next.capture_mode
         || current.selected_display_id != next.selected_display_id
         || current.encoder != next.encoder
         || current.gpu != next.gpu
@@ -246,6 +245,44 @@ fn active_settings_require_restart(current: &RecordingSettings, next: &Recording
         || effective_quality(current) != effective_quality(next)
         || current.replay_buffer_seconds != next.replay_buffer_seconds
         || current.buffer_storage != next.buffer_storage
+}
+
+/// True when both settings describe the same set of audio sources. Volume
+/// differences are ignored because they can be applied to a live graph; any
+/// other audio change still requires a restart.
+fn audio_layout_unchanged(current: &RecordingSettings, next: &RecordingSettings) -> bool {
+    current.audio_mode == next.audio_mode
+        && audio_devices_have_same_layout(&current.audio_devices, &next.audio_devices)
+        && audio_applications_have_same_layout(
+            &current.audio_applications,
+            &next.audio_applications,
+        )
+}
+
+fn audio_devices_have_same_layout(
+    current: &[RecordingAudioDeviceSelection],
+    next: &[RecordingAudioDeviceSelection],
+) -> bool {
+    current.len() == next.len()
+        && current.iter().zip(next).all(|(current, next)| {
+            current.enabled == next.enabled
+                && current.kind == next.kind
+                && current.id == next.id
+                && current.label == next.label
+        })
+}
+
+fn audio_applications_have_same_layout(
+    current: &[RecordingAudioApplicationSelection],
+    next: &[RecordingAudioApplicationSelection],
+) -> bool {
+    current.len() == next.len()
+        && current.iter().zip(next).all(|(current, next)| {
+            current.enabled == next.enabled
+                && current.id == next.id
+                && current.name == next.name
+                && current.window == next.window
+        })
 }
 
 fn cache_expired(last_refresh: Option<Instant>, ttl: Duration) -> bool {
@@ -286,5 +323,68 @@ fn merge_codec_caps(cached: CodecCaps, live: CodecCaps) -> CodecCaps {
     CodecCaps {
         hardware,
         software_h264: cached.software_h264 || live.software_h264,
+    }
+}
+
+#[cfg(test)]
+mod restart_policy_tests {
+    use super::*;
+
+    fn settings_with_device(id: &str, volume: u32) -> RecordingSettings {
+        RecordingSettings {
+            audio_devices: vec![RecordingAudioDeviceSelection {
+                id: id.to_string(),
+                label: "Device".to_string(),
+                kind: RecordingAudioDeviceKind::Output,
+                enabled: true,
+                volume,
+            }],
+            ..RecordingSettings::default()
+        }
+    }
+
+    fn application(volume: u32) -> RecordingAudioApplicationSelection {
+        RecordingAudioApplicationSelection {
+            id: "application-a".to_string(),
+            name: "Application".to_string(),
+            window: "window-a".to_string(),
+            executable: None,
+            icon_url: None,
+            process_id: None,
+            enabled: true,
+            volume,
+        }
+    }
+
+    #[test]
+    fn volume_edits_keep_the_audio_layout() {
+        let current = settings_with_device("device-a", 100);
+        let next = settings_with_device("device-a", 25);
+        assert!(audio_layout_unchanged(&current, &next));
+
+        let current = RecordingSettings {
+            audio_applications: vec![application(100)],
+            ..current
+        };
+        let next = RecordingSettings {
+            audio_applications: vec![application(25)],
+            ..next
+        };
+        assert!(audio_layout_unchanged(&current, &next));
+    }
+
+    #[test]
+    fn selection_edits_change_the_audio_layout() {
+        let current = settings_with_device("device-a", 100);
+        let mut disabled = current.clone();
+        disabled.audio_devices[0].enabled = false;
+        let mut replaced = current.clone();
+        replaced.audio_devices[0].id = "device-b".to_string();
+        let mut added = current.clone();
+        added.audio_devices.push(current.audio_devices[0].clone());
+
+        assert!(!audio_layout_unchanged(&current, &disabled));
+        assert!(!audio_layout_unchanged(&current, &replaced));
+        assert!(!audio_layout_unchanged(&current, &added));
     }
 }

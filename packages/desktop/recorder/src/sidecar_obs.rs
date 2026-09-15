@@ -528,6 +528,7 @@ unsafe fn create_audio_graph(
 
     let mut graph = AudioGraph {
         sources: Vec::with_capacity(configs.len()),
+        selectors: Vec::with_capacity(configs.len()),
     };
 
     for (source_index, config) in configs.into_iter().enumerate() {
@@ -566,6 +567,7 @@ unsafe fn create_audio_graph(
             config.effective_value(),
             AUDIO_OUTPUT_CHANNEL_BASE + source_index as u32,
         );
+        graph.selectors.push(config.selector);
         graph.sources.push(source);
     }
 
@@ -695,12 +697,18 @@ fn audio_device_source_config(device: RecordingAudioDeviceSelection) -> AudioSou
     AudioSourceConfig {
         source_id,
         name: audio_source_name(prefix, &device.label, &device.id),
-        selector: format!("{:?}:{}", device.kind, device.id),
+        selector: audio_device_selector(&device),
         device_id: Some(device.id),
         window: None,
         priority: None,
         volume: audio_volume(device.volume),
     }
+}
+
+/// Selector identifying a device selection in the audio graph. Volume edits
+/// reuse it to find the live source that a selection was built from.
+fn audio_device_selector(device: &RecordingAudioDeviceSelection) -> String {
+    format!("{:?}:{}", device.kind, device.id)
 }
 
 fn audio_source_name(prefix: &str, label: &str, target: &str) -> String {

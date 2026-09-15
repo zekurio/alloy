@@ -66,13 +66,20 @@ impl Recorder {
             )
         }) != Some((next_quality, next_adapter))
             || self.obs_runtime_dir != params.obs_runtime_dir;
+        let same_audio_layout = self
+            .settings
+            .as_ref()
+            .is_none_or(|current| audio_layout_unchanged(current, &settings));
         let active_output_should_stop = self
             .settings
             .as_ref()
-            .is_some_and(|current| active_settings_require_restart(current, &settings))
+            .is_some_and(|current| {
+                !same_audio_layout || active_settings_require_restart(current, &settings)
+            })
             || active_paths_changed
             || needs_reinit
             || active_video_config_changed;
+        let apply_live_audio_levels = !active_output_should_stop && self.replay_session.is_some();
         self.settings = Some(settings);
         self.output_folder = Some(output_folder);
         self.replay_scratch_folder = Some(replay_scratch_folder);
@@ -89,6 +96,10 @@ impl Recorder {
                 });
                 return Err(error);
             }
+        }
+
+        if apply_live_audio_levels {
+            self.apply_audio_levels();
         }
 
         if needs_reinit || active_video_config_changed {
@@ -286,6 +297,49 @@ impl Recorder {
             return false;
         }
         true
+    }
+
+    /// Applies new per-source volumes to the live audio graph. Only called
+    /// when the audio layout is unchanged, so every source keeps its selector
+    /// and the running replay buffer is not interrupted.
+    fn apply_audio_levels(&self) {
+        let (Some(settings), Some(session), Some(obs)) = (
+            self.settings.as_ref(),
+            self.replay_session.as_ref(),
+            self.obs.as_ref(),
+        ) else {
+            return;
+        };
+
+        let mut volumes: HashMap<String, f32> = HashMap::new();
+        for device in settings
+            .audio_devices
+            .iter()
+            .filter(|device| device.enabled)
+        {
+            volumes.insert(audio_device_selector(device), audio_volume(device.volume));
+        }
+        for application in settings
+            .audio_applications
+            .iter()
+            .filter(|application| application.enabled)
+        {
+            volumes.insert(application.id.clone(), audio_volume(application.volume));
+        }
+
+        for (selector, source) in session
+            .audio_graph
+            .selectors
+            .iter()
+            .zip(&session.audio_graph.sources)
+        {
+            let Some(volume) = volumes.get(selector.as_str()) else {
+                continue;
+            };
+            // SAFETY: the active session retains this source and it was created
+            // by the same libobs instance.
+            unsafe { (obs.obs_source_set_volume)(*source, *volume) };
+        }
     }
 
     fn start_replay_buffer(&mut self) -> Result<(), String> {

@@ -85,6 +85,9 @@ struct AudioGraph {
     /// Audio capture sources attached directly to OBS output channels
     /// `AUDIO_OUTPUT_CHANNEL_BASE + i` in order.
     sources: Vec<*mut ObsSource>,
+    /// Settings selector paired with each entry in `sources`, so volume edits
+    /// can update the live graph without rebuilding it.
+    selectors: Vec<String>,
 }
 
 #[derive(Clone)]
