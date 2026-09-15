@@ -38,7 +38,7 @@ function RootLayout() {
   // In the desktop shell with custom chrome, flag the document so the app
   // header becomes a draggable title bar (see globals.css).
   useEffect(() => {
-    if (!alloyWindowChrome()?.titlebarOverlay) return
+    if (!alloyWindowChrome()) return
     const root = document.documentElement
     root.classList.add("is-desktop-titlebar")
     return () => root.classList.remove("is-desktop-titlebar")

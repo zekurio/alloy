@@ -220,7 +220,7 @@ impl Recorder {
             width: Some(width),
             height: Some(height),
             game: session.capture.game.clone(),
-            source: session.capture.source.clone(),
+            source: session.capture.source,
             kind: RecordingCaptureKind::Screenshot,
             post_process: None,
             created_at: now_iso(),

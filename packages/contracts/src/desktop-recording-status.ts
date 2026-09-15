@@ -131,18 +131,6 @@ export interface RecordingStatus {
   message: string | null
 }
 
-export type RecordingActionResult =
-  | { ok: true; status: RecordingStatus; capture?: RecordingCapture }
-  | { ok: false; error: string; status: RecordingStatus }
-
-export interface RecordingActionRequest {
-  requestedAtUnixMs: number
-}
-
-export interface SaveReplayClipRequest extends RecordingActionRequest {
-  durationSeconds: number
-}
-
 export type RecordingEvent =
   | { type: "settings"; settings: RecordingSettings }
   | { type: "status"; status: RecordingStatus }

@@ -3,6 +3,8 @@ import {
   type AlloyTauriDesktop,
 } from "@alloy/contracts/desktop-tauri"
 
+export type { AlloyTauriDesktop } from "@alloy/contracts/desktop-tauri"
+
 // Native and recording-library types live in @alloy/contracts. Re-export them
 // here so web consumers use one import path.
 export type {
@@ -16,7 +18,6 @@ export type {
   RecordingLibrarySnapshot,
   RecordingLibraryStagedImport,
 } from "@alloy/contracts"
-export type AlloyDesktop = AlloyTauriDesktop
 
 /**
  * Reads the bridge the desktop host installs on `globalThis`. A bridge is
@@ -24,34 +25,31 @@ export type AlloyDesktop = AlloyTauriDesktop
  * build speaks; anything else (a missing, older, or newer bridge) reads as the
  * plain browser build and returns null.
  */
-export function alloyDesktop(): AlloyDesktop | null {
+export function alloyDesktop(): AlloyTauriDesktop | null {
   // SAFETY: The optional host property is checked by the runtime contract ID
   // before it is returned to web code.
-  const host = globalThis as { alloyTauriDesktop?: AlloyDesktop }
+  const host = globalThis as { alloyTauriDesktop?: AlloyTauriDesktop }
   return host.alloyTauriDesktop?.bridgeContract ===
     TAURI_DESKTOP_BRIDGE_CONTRACT_1
     ? host.alloyTauriDesktop
     : null
 }
 
-/** Returns whether the page runs in Alloy Desktop. */
+/** Returns whether the page runs inside the Tauri desktop host. */
 export function isNativeDesktop(): boolean {
   return alloyDesktop() !== null
 }
 
 /**
- * Returns the bridge's window controls only when the host asked the web app to
- * draw its own title bar (frameless window with `titlebarOverlay` set);
- * otherwise null, so callers fall back to the plain browser layout.
+ * Returns the bridge's window controls inside the desktop host, whose window
+ * has no native decorations, so the web app draws the title bar and controls.
+ * Returns null in a plain browser, so callers fall back to the browser layout.
  */
 export function alloyWindowChrome(): Pick<
-  AlloyDesktop,
-  "titlebarOverlay" | "minimizeWindow" | "toggleMaximizeWindow" | "closeWindow"
+  AlloyTauriDesktop,
+  "minimizeWindow" | "toggleMaximizeWindow" | "closeWindow"
 > | null {
-  const desktop = alloyDesktop()
-  if (desktop?.titlebarOverlay) return desktop
-
-  return null
+  return alloyDesktop()
 }
 
 /**

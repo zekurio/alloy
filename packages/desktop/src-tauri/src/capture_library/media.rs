@@ -11,7 +11,7 @@ use tokio::time::timeout;
 use uuid::Uuid;
 
 use crate::capture_library::error::{LibraryError, Result};
-use crate::capture_library::paths::{extension, now_rfc3339};
+use crate::capture_library::paths::extension;
 use crate::capture_library::store::{
     CaptureLibrary, ensure_media_in_output, ensure_media_location,
 };
@@ -164,7 +164,7 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
         item.filename, item.modified_at, segment.start_ms, segment.end_ms
     );
     let export_id = crate::capture_library::paths::capture_id(export_key.as_str());
-    let output = library.export_path(&export_id)?;
+    let output = library.export_path(&item.id, &export_id)?;
     tokio::fs::create_dir_all(output.parent().ok_or(LibraryError::InvalidPath)?).await?;
     let mut start_offset_ms = 0;
     if full_source && extension(&source).as_deref() == Some("mp4") {
@@ -201,10 +201,14 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
         // needed when a cached export is reused.
         start_offset_ms = 0;
     }
+    // The editor only ever plays the export it just asked for, so the capture
+    // keeps one render instead of one per trim the user tried.
+    library.replace_exports(&item.id, &export_id)?;
     let size_bytes = tokio::fs::metadata(&output).await?.len();
     Ok(LibraryExport {
         id: export_id.clone(),
-        media_url: format!("alloy-capture://export/{export_id}"),
+        // The host fills this from its loopback file server.
+        media_url: String::new(),
         file_name: export_file_name(&item.file_name, segment, full_source),
         content_type: CONTENT_TYPE_MP4.to_string(),
         size_bytes,
@@ -664,14 +668,4 @@ pub async fn generate_thumbnail(
             Err(error)
         }
     }
-}
-
-pub fn generated_media_name(path: &Path) -> String {
-    format!(
-        "{}-{}.mp4",
-        path.file_stem()
-            .and_then(|value| value.to_str())
-            .unwrap_or("clip"),
-        now_rfc3339().replace(':', "-")
-    )
 }

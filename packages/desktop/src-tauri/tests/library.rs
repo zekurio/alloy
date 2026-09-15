@@ -6,7 +6,8 @@ use alloy_desktop::capture_library::protocol::CaptureHttpServer;
 use alloy_desktop::capture_library::store::{CaptureLibrary, CaptureLibraryConfig};
 use alloy_desktop::capture_library::types::{
     CaptureGame, CaptureKind, CaptureRecord, CaptureSource, CommitImport, ExportRequest,
-    ExportSegment, GameGuess, MetaPatch, PostProcess, TrimUpdate,
+    ExportSegment, GameGuess, GameGuessMatchKind, GameGuessSource, MetaPatch, PostProcess,
+    TrimUpdate,
 };
 use alloy_desktop::capture_library::{download::DownloadManager, types::DownloadRequest};
 use axum::Router;
@@ -23,6 +24,7 @@ fn library(temp: &TempDir) -> CaptureLibrary {
     CaptureLibrary::new(CaptureLibraryConfig::new(
         temp.path().join("captures"),
         temp.path().join("user-data"),
+        temp.path().join("cache"),
         Path::new("ffmpeg"),
         Path::new("ffprobe"),
     ))
@@ -73,7 +75,7 @@ async fn recorder_game_guesses_survive_manifest_round_trips() {
         let mut record = capture(media.to_str().unwrap(), CaptureKind::Replay);
         // The recorder reports confidence in percent, like the host models.
         record.game.as_mut().unwrap().guess = Some(GameGuess {
-            source: "discord-detectable".to_string(),
+            source: GameGuessSource::DiscordDetectable,
             source_id: Some("700136079562375258".to_string()),
             name: "Test Game".to_string(),
             aliases: Vec::new(),
@@ -83,7 +85,7 @@ async fn recorder_game_guesses_survive_manifest_round_trips() {
             window_class: None,
             icon_url: None,
             confidence: 96,
-            match_kind: "executable".to_string(),
+            match_kind: GameGuessMatchKind::Executable,
         });
         library.remember_capture(&record).unwrap();
     }
@@ -191,7 +193,9 @@ async fn manifest_uses_renderer_wire_names_and_mutations_are_bounded() {
     assert!(cleared.tags.is_none());
     assert!(cleared.privacy.is_none());
     assert_eq!(cleared.title, "Edited title");
-    assert!(library.export_path("../../outside").is_err());
+    assert!(library.export_path(&item.id, "../../outside").is_err());
+    assert!(library.export_path("../../outside", &item.id).is_err());
+    assert!(library.find_export_path("../../outside").is_err());
     assert!(
         library
             .update_metadata(MetaPatch {
@@ -221,6 +225,7 @@ fn reopened_libraries_share_manifest_mutations() {
     let first = CaptureLibrary::new(CaptureLibraryConfig::new(
         &first_output,
         &user_data,
+        user_data.join("cache"),
         Path::new("ffmpeg"),
         Path::new("ffprobe"),
     ))
@@ -228,6 +233,7 @@ fn reopened_libraries_share_manifest_mutations() {
     let second = CaptureLibrary::new(CaptureLibraryConfig::new(
         &second_output,
         &user_data,
+        user_data.join("cache"),
         Path::new("ffmpeg"),
         Path::new("ffprobe"),
     ))
@@ -307,6 +313,67 @@ async fn staged_image_import_commits_with_safe_path() {
         item.filename
             .starts_with(temp.path().canonicalize().unwrap().to_str().unwrap())
     );
+}
+
+#[tokio::test]
+async fn deleting_a_capture_drops_its_cached_thumbnails_and_exports() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let media = temp.path().join("captures/Screenshots/Desktop/screen.png");
+    fs::create_dir_all(media.parent().unwrap()).await.unwrap();
+    fs::write(&media, b"\x89PNG\r\n\x1a\n").await.unwrap();
+    library
+        .remember_capture(&capture(media.to_str().unwrap(), CaptureKind::Screenshot))
+        .unwrap();
+    let id = library.snapshot().unwrap().items[0].id.clone();
+    library.store_thumbnail(&id, b"thumbnail").unwrap();
+    let export = library.export_path(&id, "export-id-12345678").unwrap();
+    fs::create_dir_all(export.parent().unwrap()).await.unwrap();
+    fs::write(&export, b"render").await.unwrap();
+    let thumbnails = library.thumbnail_path(&id).unwrap();
+    assert!(thumbnails.is_dir());
+
+    library.delete(&id).unwrap();
+
+    assert!(!media.exists());
+    assert!(!thumbnails.exists());
+    assert!(!export.parent().unwrap().exists());
+}
+
+#[tokio::test]
+async fn pruning_drops_cache_folders_without_a_capture() {
+    let temp = TempDir::new().expect("temp dir");
+    let first = library(&temp);
+    let media = temp.path().join("captures/Clips/Test Game/clip.mp4");
+    fs::create_dir_all(media.parent().unwrap()).await.unwrap();
+    fs::write(&media, b"not a real mp4").await.unwrap();
+    first
+        .remember_capture(&capture(media.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+    let id = first.snapshot().unwrap().items[0].id.clone();
+    first.store_thumbnail(&id, b"thumbnail").unwrap();
+    let thumbnails = first.thumbnail_path(&id).unwrap();
+    let export = first.export_path(&id, "export-id-12345678").unwrap();
+    fs::create_dir_all(export.parent().unwrap()).await.unwrap();
+    fs::write(&export, b"render").await.unwrap();
+    // Cache folders whose capture is gone: the file they described was
+    // deleted outside the app, or by an older build that left them behind.
+    let orphan_thumbnails = temp
+        .path()
+        .join("cache/recording-thumbnails/gone-id-123456");
+    let orphan_export = temp.path().join("cache/recording-exports/gone-id-123456");
+    fs::create_dir_all(&orphan_thumbnails).await.unwrap();
+    fs::create_dir_all(&orphan_export).await.unwrap();
+    drop(first);
+
+    let reopened = library(&temp);
+    reopened.remove_orphan_cache_folders();
+
+    assert_eq!(reopened.snapshot().unwrap().total_count, 1);
+    assert!(!orphan_thumbnails.exists());
+    assert!(!orphan_export.exists());
+    assert!(thumbnails.is_dir());
+    assert!(export.is_file());
 }
 
 #[tokio::test]
@@ -531,6 +598,7 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     let library = CaptureLibrary::new(CaptureLibraryConfig::new(
         temp.path().join("captures"),
         temp.path().join("user-data"),
+        temp.path().join("cache"),
         ffmpeg,
         ffprobe.clone(),
     ))
@@ -577,7 +645,7 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     let result = export(
         &library,
         ExportRequest {
-            id,
+            id: id.clone(),
             segments: vec![ExportSegment {
                 start_ms: 250,
                 end_ms: 1_500,
@@ -588,13 +656,32 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     .unwrap();
     assert_eq!(result.content_type, "video/mp4");
     assert!(result.size_bytes > 0);
-    assert!(library.export_path(&result.id).unwrap().is_file());
+    let first_export = library.export_path(&id, &result.id).unwrap();
+    assert!(first_export.is_file());
+    assert!(library.find_export_path(&result.id).unwrap().is_file());
     assert!(media.is_file());
 
-    let exported = probe_file(&ffprobe, &library.export_path(&result.id).unwrap())
-        .await
-        .unwrap();
+    let exported = probe_file(&ffprobe, &first_export).await.unwrap();
     assert!(exported.duration_ms.unwrap().abs_diff(1_250) < 150);
+
+    // A capture keeps one render: the next export of the same capture takes
+    // the place of the one before it.
+    let second = export(
+        &library,
+        ExportRequest {
+            id: id.clone(),
+            segments: vec![ExportSegment {
+                start_ms: 500,
+                end_ms: 1_800,
+            }],
+        },
+    )
+    .await
+    .unwrap();
+    assert_ne!(second.id, result.id);
+    assert!(library.export_path(&id, &second.id).unwrap().is_file());
+    assert!(!first_export.exists());
+    assert!(library.find_export_path(&result.id).is_err());
 
     let first_segment = media.with_file_name("first-segment.mp4");
     fs::copy(&media, &first_segment).await.unwrap();
@@ -647,4 +734,54 @@ async fn shutdown_media_cancels_future_tool_work() {
 
 fn which(binary: &str) -> std::path::PathBuf {
     std::path::PathBuf::from(binary)
+}
+
+#[tokio::test]
+async fn a_bad_manifest_entry_does_not_discard_the_others() {
+    let temp = TempDir::new().expect("temp dir");
+    let first = library(&temp);
+    let media = temp.path().join("captures/Clips/Test Game/clip.mp4");
+    fs::create_dir_all(media.parent().unwrap()).await.unwrap();
+    fs::write(&media, b"not a real mp4").await.unwrap();
+    first
+        .remember_capture(&capture(media.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+    let id = first.snapshot().unwrap().items[0].id.clone();
+    first
+        .update_metadata(MetaPatch {
+            id: id.clone(),
+            title: Some("Kept".to_string()),
+            game_name: None,
+            game_icon_url: None,
+            game_guess: None,
+            description: None,
+            tags: None,
+            mentions: None,
+            privacy: None,
+            uploaded_clip_id: None,
+            uploaded_clip_source_start_ms: None,
+            uploaded_clip_source_duration_ms: None,
+        })
+        .unwrap();
+    drop(first);
+
+    // Corrupt a second entry the way a bug or a hand edit would: an enum field
+    // with a value no build knows.
+    let manifest_path = temp.path().join("user-data/recording-library.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).await.unwrap()).unwrap();
+    let captures = manifest["captures"].as_object_mut().unwrap();
+    let mut broken = captures.values().next().unwrap().clone();
+    broken["id"] = serde_json::Value::String("brokenbrokenbrokenbrok".to_string());
+    broken["filename"] = serde_json::Value::String("/nowhere/broken.mp4".to_string());
+    broken["kind"] = serde_json::Value::String("bogus".to_string());
+    captures.insert("/nowhere/broken.mp4".to_string(), broken);
+    fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap())
+        .await
+        .unwrap();
+
+    let reopened = library(&temp);
+    let snapshot = reopened.snapshot().unwrap();
+    assert_eq!(snapshot.items.len(), 1);
+    assert_eq!(snapshot.items[0].title, "Kept");
 }

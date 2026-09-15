@@ -26,12 +26,10 @@ impl Drop for MockServer {
 }
 
 fn server_info() -> Value {
-    let mut info: Value = serde_json::from_str(include_str!(
+    serde_json::from_str(include_str!(
         "../../../contracts/fixtures/server-http-v1.json"
     ))
-    .unwrap();
-    info["desktopTauriBridgeContracts"] = json!([1]);
-    info
+    .unwrap()
 }
 
 async fn mock_server(info: Value) -> MockServer {

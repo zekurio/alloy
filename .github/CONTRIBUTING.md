@@ -2,7 +2,7 @@
 
 Thanks for your interest in improving Alloy. This guide covers the workflow
 for getting a change from idea to merged PR. For a tour of the codebase, see
-the [repository guide in the README](../README.md#repository-guide).
+the repository map in [AGENTS.md](../AGENTS.md).
 
 ## Before You Start
 
@@ -69,7 +69,8 @@ pnpm typecheck  # tsc --noEmit across packages
 2. Open the PR against `dev` and fill in the pull request template, including
    how you verified the change.
 3. CI runs formatting, lint, typecheck, a server/web build, and a Nix flake
-   check. Recorder changes additionally run the Rust checks on Windows.
+   check. Desktop changes additionally build the Tauri host, the recorder, and
+   the Windows installer.
 
 Releases are tagged from `dev` by maintainers; see
 [RELEASING.md](RELEASING.md) for the release process.

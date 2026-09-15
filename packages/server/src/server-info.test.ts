@@ -47,7 +47,6 @@ test("serves server info publicly when browse auth is enabled", async () => {
     assert.equal(body.schema, SERVER_INFO_SCHEMA)
     assert.equal(body.product, SERVER_INFO_PRODUCT)
     assert.ok(body.version.length > 0)
-    assert.equal("desktopBridgeContracts" in body, false)
     assert.deepEqual(body.desktopTauriBridgeContracts, [1])
     assert.deepEqual(
       {

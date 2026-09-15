@@ -55,6 +55,7 @@ dependencies = [
  "fs2",
  "futures-util",
  "http",
+ "log",
  "open",
  "rand 0.9.5",
  "reqwest",

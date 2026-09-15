@@ -28,6 +28,7 @@ base64 = { workspace = true }
 fs2 = "0.4"
 futures-util = "0.3"
 http = "1"
+log = { version = "0.4", features = ["std"] }
 open = { version = "5", optional = true }
 rand = "0.9"
 reqwest = { workspace = true, features = ["json", "stream"] }

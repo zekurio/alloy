@@ -2,47 +2,23 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CaptureKind {
-    #[default]
-    Replay,
-    Screenshot,
-}
+/// The capture shapes the recorder defines. They cross the sidecar pipe, the
+/// manifest and the renderer bridge unchanged, so the library stores exactly
+/// what the recorder sent instead of a second copy that can drift.
+pub use alloy_recorder::types::{
+    RecordingCapture as CaptureRecord, RecordingCaptureKind as CaptureKind,
+    RecordingCapturePostProcess as PostProcess, RecordingCaptureSource as CaptureSource,
+    RecordingGame as CaptureGame, RecordingGameGuess as GameGuess,
+    RecordingGameGuessMatchKind as GameGuessMatchKind, RecordingGameGuessSource as GameGuessSource,
+};
 
-impl CaptureKind {
-    pub fn collection(self) -> &'static str {
-        match self {
-            Self::Replay => "Clips",
-            Self::Screenshot => "Screenshots",
-        }
+/// The output subfolder a capture kind lives in. The recorder chooses these
+/// names when it writes a capture; the library scans and reports the same two.
+pub fn collection_for(kind: CaptureKind) -> &'static str {
+    match kind {
+        CaptureKind::Replay => "Clips",
+        CaptureKind::Screenshot => "Screenshots",
     }
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CaptureSource {
-    Game,
-    #[default]
-    Display,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GameGuess {
-    pub source: String,
-    pub source_id: Option<String>,
-    pub name: String,
-    #[serde(default)]
-    pub aliases: Vec<String>,
-    pub executable: Option<String>,
-    pub path: Option<String>,
-    pub window_title: Option<String>,
-    pub window_class: Option<String>,
-    pub icon_url: Option<String>,
-    /// Detector confidence in percent (0-100), matching the recorder protocol.
-    pub confidence: u8,
-    pub match_kind: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -51,49 +27,6 @@ pub struct CaptureMention {
     pub id: String,
     pub username: String,
     pub image: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CaptureGame {
-    pub id: Option<String>,
-    pub name: String,
-    pub process_id: u32,
-    pub executable: Option<String>,
-    pub path: Option<String>,
-    pub icon_url: Option<String>,
-    pub window_title: Option<String>,
-    pub window_class: Option<String>,
-    pub started_at: Option<String>,
-    pub guess: Option<GameGuess>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CaptureRecord {
-    pub id: String,
-    pub filename: String,
-    pub content_type: String,
-    pub size_bytes: Option<u64>,
-    pub duration_ms: Option<u64>,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
-    pub game: Option<CaptureGame>,
-    pub source: CaptureSource,
-    pub kind: CaptureKind,
-    pub post_process: Option<PostProcess>,
-    pub created_at: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(
-    tag = "kind",
-    rename_all = "kebab-case",
-    rename_all_fields = "camelCase"
-)]
-pub enum PostProcess {
-    TrimTail { keep_ms: u64 },
-    ConcatSegments { segment_paths: Vec<String> },
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -348,10 +281,4 @@ pub struct VideoMeta {
     pub duration_ms: Option<u64>,
     pub width: Option<u32>,
     pub height: Option<u32>,
-}
-
-#[derive(Clone, Debug)]
-pub struct MediaPaths {
-    pub ffmpeg: std::path::PathBuf,
-    pub ffprobe: std::path::PathBuf,
 }

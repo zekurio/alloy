@@ -1,7 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod runtime;
-#[path = "services.rs"]
 mod services;
 
 use std::{
@@ -555,14 +554,10 @@ async fn install_remote(
         .initialization_script(bridge_initialization_script(&origin));
     // Overlay scrollbars keep the layout stable. Setting extra arguments
     // replaces Tauri's defaults, so restate them.
-    #[cfg(target_os = "windows")]
     let builder = builder.additional_browser_args(
         "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --enable-features=OverlayScrollbar",
     );
-    #[cfg(not(target_os = "macos"))]
     let builder = builder.data_directory(remote_profile_path(app, &origin)?);
-    #[cfg(target_os = "macos")]
-    let builder = builder.data_store_identifier(remote_profile_identifier(&origin));
     let window = builder
         .on_navigation(move |url| {
             if url.as_str() == "about:blank" || is_same_origin(url, &navigation_origin) {
@@ -778,8 +773,8 @@ async fn replace_injected_cookies(
             return;
         }
         if tokio::time::Instant::now() >= deadline {
-            eprintln!(
-                "Alloy: the server did not replace the injected session cookies. Sign in again if the session drops."
+            log::warn!(
+                "The server did not replace the injected session cookies. Sign in again if the session drops."
             );
             return;
         }
@@ -837,7 +832,6 @@ fn clear_session_cookies(window: &WebviewWindow, origin: &Url) -> Result<(), Str
     Ok(())
 }
 
-#[cfg(not(target_os = "macos"))]
 fn remote_profile_path(app: &AppHandle, origin: &Url) -> Result<std::path::PathBuf, String> {
     let path = remote_profile_directory(app, origin)?;
     std::fs::create_dir_all(&path)
@@ -845,11 +839,10 @@ fn remote_profile_path(app: &AppHandle, origin: &Url) -> Result<std::path::PathB
     Ok(path)
 }
 
-#[cfg(not(target_os = "macos"))]
 fn remote_profile_directory(app: &AppHandle, origin: &Url) -> Result<std::path::PathBuf, String> {
     let root = app
         .path()
-        .app_data_dir()
+        .app_local_data_dir()
         .map_err(|_| "Could not determine the Alloy data folder.")?;
     let hash = Sha256::digest(origin.origin().ascii_serialization().as_bytes());
     let name = hash
@@ -867,10 +860,7 @@ fn clear_inactive_remote_profile(app: &AppHandle, origin: &Url, host: &Host) -> 
     let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::External(blank))
         .visible(false)
         .incognito(false);
-    #[cfg(not(target_os = "macos"))]
     let builder = builder.data_directory(remote_profile_path(app, origin)?);
-    #[cfg(target_os = "macos")]
-    let builder = builder.data_store_identifier(remote_profile_identifier(origin));
     let window = builder
         .build()
         .map_err(|_| "Could not open the Alloy server profile.")?;
@@ -888,14 +878,6 @@ fn clear_inactive_remote_profile(app: &AppHandle, origin: &Url, host: &Host) -> 
         let _ = window.destroy();
     }
     result
-}
-
-#[cfg(target_os = "macos")]
-fn remote_profile_identifier(origin: &Url) -> [u8; 16] {
-    let hash = Sha256::digest(origin.origin().ascii_serialization().as_bytes());
-    let mut identifier = [0_u8; 16];
-    identifier.copy_from_slice(&hash[..16]);
-    identifier
 }
 
 fn add_remote_capability(app: &AppHandle, label: &str, origin: &Url) -> Result<(), String> {
@@ -1105,7 +1087,7 @@ fn request_quit(app: &AppHandle, host: &Arc<Host>) {
             Err(_) => Ok(()),
         };
         if let Err(error) = result {
-            eprintln!("Could not stop Alloy before exit: {error}");
+            log::warn!("Could not stop Alloy before exit: {error}");
         }
         app.exit(0);
     });
@@ -1212,7 +1194,7 @@ fn spawn_update_checks(services: Arc<DesktopServices>) {
         tokio::time::sleep(UPDATE_CHECK_STARTUP_DELAY).await;
         loop {
             if let Err(error) = services.check_for_updates().await {
-                eprintln!("Background update check failed: {error}");
+                log::warn!("Background update check failed: {error}");
             }
             tokio::time::sleep(UPDATE_CHECK_INTERVAL).await;
         }
@@ -1252,7 +1234,7 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
         let server = match prepare_server(&url).await {
             Ok(server) => server,
             Err(error) => {
-                eprintln!("Could not restore the saved Alloy server: {error}");
+                log::warn!("Could not restore the saved Alloy server: {error}");
                 fall_back_to_connect(&app, &host);
                 return;
             }
@@ -1260,7 +1242,7 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
         let runtime = match host.runtime() {
             Ok(runtime) => runtime.clone(),
             Err(error) => {
-                eprintln!("Could not restore the saved Alloy server: {error}");
+                log::warn!("Could not restore the saved Alloy server: {error}");
                 fall_back_to_connect(&app, &host);
                 return;
             }
@@ -1273,7 +1255,7 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
             Ok(_) => destroy_connect(&app),
             Err(error) => {
                 if error != NO_SAVED_SESSION {
-                    eprintln!("Could not restore the saved Alloy server: {error}");
+                    log::warn!("Could not restore the saved Alloy server: {error}");
                 }
                 fall_back_to_connect(&app, &host);
             }
@@ -1281,7 +1263,7 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
     });
 }
 
-fn handle_run_event(app: &AppHandle, event: RunEvent, host: &Arc<Host>) {
+fn handle_run_event(event: RunEvent, host: &Arc<Host>) {
     let RunEvent::ExitRequested { api, code, .. } = event else {
         return;
     };
@@ -1291,11 +1273,7 @@ fn handle_run_event(app: &AppHandle, event: RunEvent, host: &Arc<Host>) {
     api.prevent_exit();
     // Closing the last window (the connect screen with no server selected)
     // keeps capture and media work alive in the tray, like closing the
-    // server window does. Quit from the tray menu ends the app. macOS routes
-    // Cmd+Q through this event too, so it keeps quitting there.
-    if cfg!(target_os = "macos") {
-        request_quit(app, host);
-    }
+    // server window does. Quit from the tray menu ends the app.
 }
 
 fn main() {
@@ -1327,6 +1305,9 @@ fn main() {
             desktop_api,
         ])
         .setup(move |app| {
+            if let Err(error) = alloy_desktop::logging::init(&app.path().app_log_dir()?) {
+                eprintln!("Could not open the Alloy log file: {error}");
+            }
             let state_dir = app.path().app_data_dir()?;
             let services = Arc::new(DesktopServices::new(app.handle().clone(), state_dir));
             setup_host
@@ -1370,7 +1351,7 @@ fn main() {
         // the app silently doing nothing.
         Err(error) => fail_startup(&error.to_string()),
     };
-    app.run(move |app, event| handle_run_event(app, event, &host));
+    app.run(move |_app, event| handle_run_event(event, &host));
 }
 
 fn fail_startup(message: &str) -> ! {

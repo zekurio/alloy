@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/feedback/empty-state"
 import type { WebUploadAction } from "@/components/upload/web-upload-action"
 import {
   alloyDesktop,
-  type AlloyDesktop,
+  type AlloyTauriDesktop,
   notifyLibraryCapturesChanged,
 } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
@@ -76,7 +76,7 @@ function LibraryEditorContent({
   captureId,
   promptGame,
 }: {
-  desktop: AlloyDesktop
+  desktop: AlloyTauriDesktop
   captureId: string
   promptGame: boolean
 }) {

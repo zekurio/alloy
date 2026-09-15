@@ -18,7 +18,7 @@ test("ignores a bridge with a missing or mismatched contract", () => {
   assert.equal(alloyDesktop(), null)
   assert.equal(isNativeDesktop(), false)
 
-  host.alloyTauriDesktop = { titlebarOverlay: true }
+  host.alloyTauriDesktop = {}
   assert.equal(alloyDesktop(), null)
   assert.equal(isNativeDesktop(), false)
 
@@ -30,18 +30,15 @@ test("ignores a bridge with a missing or mismatched contract", () => {
 test("accepts only the exact desktop bridge contract", () => {
   const bridge = {
     bridgeContract: TAURI_DESKTOP_BRIDGE_CONTRACT_1,
-    titlebarOverlay: false,
   }
   host.alloyTauriDesktop = bridge
   assert.equal(alloyDesktop(), bridge)
   assert.equal(isNativeDesktop(), true)
-  assert.equal(alloyWindowChrome(), null)
 })
 
-test("uses native overlay controls only when requested", () => {
+test("exposes the window controls of a native bridge", () => {
   const tauri = {
     bridgeContract: TAURI_DESKTOP_BRIDGE_CONTRACT_1,
-    titlebarOverlay: true,
     minimizeWindow: async () => {},
     toggleMaximizeWindow: async () => {},
     closeWindow: async () => {},

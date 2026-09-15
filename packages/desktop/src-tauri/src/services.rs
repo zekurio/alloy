@@ -8,13 +8,9 @@ use std::{
     },
 };
 
-#[cfg(unix)]
-use std::fs::File;
-
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use tauri::AppHandle;
-#[cfg(target_os = "windows")]
 use tauri::Manager;
 use tokio::sync::broadcast;
 
@@ -23,7 +19,6 @@ use alloy_desktop::server::server_origin;
 use tauri_plugin_updater::UpdaterExt;
 
 const PREFERENCES_FILE: &str = "preferences.json";
-const PREFERENCES_VERSION: u64 = 2;
 const MAX_SAVED_SERVERS: usize = 8;
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 const UPDATE_UNSUPPORTED_ERROR: &str = "Automatic updates are unavailable in this build.";
@@ -110,7 +105,6 @@ impl SavedServerStore {
 
     fn write_servers(&self, servers: &[DesktopSavedServer]) -> Result<(), String> {
         let mut document = self.read_document();
-        document.insert("version".into(), Value::Number(PREFERENCES_VERSION.into()));
         document.insert(
             "servers".into(),
             serde_json::to_value(servers).map_err(|_| "Could not encode saved server settings.")?,
@@ -212,23 +206,12 @@ fn atomic_write(path: &Path, data: &[u8]) -> io::Result<()> {
         file.write_all(data)?;
         file.sync_all()?;
         drop(file);
-        fs::rename(&temporary, path)?;
-        sync_parent_directory(parent)
+        fs::rename(&temporary, path)
     })();
     if result.is_err() {
         let _ = fs::remove_file(&temporary);
     }
     result
-}
-
-#[cfg(unix)]
-fn sync_parent_directory(parent: &Path) -> io::Result<()> {
-    File::open(parent)?.sync_all()
-}
-
-#[cfg(not(unix))]
-fn sync_parent_directory(_parent: &Path) -> io::Result<()> {
-    Ok(())
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -512,57 +495,38 @@ impl DesktopServices {
                 enabled: false,
             };
         }
-        #[cfg(target_os = "windows")]
-        {
-            let Some(manager) = self
-                .app
-                .try_state::<tauri_plugin_autostart::AutoLaunchManager>()
-            else {
-                return DesktopAutostartState {
-                    supported: false,
-                    enabled: false,
-                };
-            };
+        let Some(manager) = self
+            .app
+            .try_state::<tauri_plugin_autostart::AutoLaunchManager>()
+        else {
             return DesktopAutostartState {
-                supported: true,
-                enabled: manager.is_enabled().unwrap_or(false),
+                supported: false,
+                enabled: false,
             };
-        }
-        #[allow(unreachable_code)]
+        };
         DesktopAutostartState {
-            supported: false,
-            enabled: false,
+            supported: true,
+            enabled: manager.is_enabled().unwrap_or(false),
         }
     }
 
     pub fn set_autostart_enabled(&self, enabled: bool) -> Result<DesktopAutostartState, String> {
-        #[cfg(not(target_os = "windows"))]
-        let _ = enabled;
-
         if !autostart_supported() {
             return Ok(DesktopAutostartState {
                 supported: false,
                 enabled: false,
             });
         }
-        #[cfg(target_os = "windows")]
-        {
-            let manager = self
-                .app
-                .try_state::<tauri_plugin_autostart::AutoLaunchManager>()
-                .ok_or_else(|| "Autostart is unavailable in this build.".to_string())?;
-            if enabled {
-                manager.enable().map_err(|error| error.to_string())?;
-            } else {
-                manager.disable().map_err(|error| error.to_string())?;
-            }
-            return Ok(self.get_autostart_state());
+        let manager = self
+            .app
+            .try_state::<tauri_plugin_autostart::AutoLaunchManager>()
+            .ok_or_else(|| "Autostart is unavailable in this build.".to_string())?;
+        if enabled {
+            manager.enable().map_err(|error| error.to_string())?;
+        } else {
+            manager.disable().map_err(|error| error.to_string())?;
         }
-        #[allow(unreachable_code)]
-        Ok(DesktopAutostartState {
-            supported: false,
-            enabled: false,
-        })
+        Ok(self.get_autostart_state())
     }
 
     /// The public key and endpoints come from `plugins.updater` in the Tauri
@@ -644,10 +608,9 @@ fn unsupported_update_state(current_version: String) -> DesktopUpdateState {
     }
 }
 
+/// Dev builds would register the bare debug binary as a login item.
 fn autostart_supported() -> bool {
-    cfg!(target_os = "windows")
-        && !tauri::is_dev()
-        && tauri::utils::platform::bundle_type().is_some()
+    !tauri::is_dev() && tauri::utils::platform::bundle_type().is_some()
 }
 
 #[cfg(test)]

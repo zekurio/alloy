@@ -366,18 +366,22 @@ pub struct RecordingTelemetry {
     pub output_total_bytes: Option<u64>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+/// `Display` is the default so a capture recovered without a source is filed
+/// as a desktop capture instead of claiming a game.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 #[allow(dead_code)]
 pub enum RecordingCaptureSource {
     Game,
+    #[default]
     Display,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 #[allow(dead_code)]
 pub enum RecordingCaptureKind {
+    #[default]
     Replay,
     Screenshot,
 }

@@ -35,7 +35,7 @@ import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import type { QueueItem } from "@/components/upload/upload-queue-types"
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
-import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
+import { alloyDesktop, type AlloyTauriDesktop } from "@/lib/desktop"
 import {
   type LibrarySort,
   type LibrarySource,
@@ -94,7 +94,7 @@ function LibraryContent({
   source,
   media,
 }: {
-  desktop: AlloyDesktop | null
+  desktop: AlloyTauriDesktop | null
   sort: LibrarySort
   source: LibrarySource
   media: MediaFilter
@@ -233,7 +233,7 @@ function useLibraryContentModel({
   query,
   groupKey,
 }: {
-  desktop: AlloyDesktop | null
+  desktop: AlloyTauriDesktop | null
   media: MediaFilter
   source: LibrarySource
   query: string

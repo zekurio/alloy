@@ -32,7 +32,9 @@ export function DesktopUpdateSettings() {
   const downloadBusy =
     phase === "downloading" || updateState.status === "downloading"
   const checkDisabled =
-    !updateState.supported || phase !== "idle" || updateState.status !== "idle"
+    !updateState.supported ||
+    phase !== "idle" ||
+    (updateState.status !== "idle" && updateState.status !== "available")
   const lastChecked =
     updateState.supported && updateState.lastCheckedAt
       ? t("Last checked {time}. Alloy checks again in the background.", {

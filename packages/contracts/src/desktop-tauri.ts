@@ -51,7 +51,6 @@ export interface AlloyTauriDesktopServerApi {
 /** Native operations granted to the selected server's web app. */
 export interface AlloyTauriDesktop {
   bridgeContract: typeof TAURI_DESKTOP_BRIDGE_CONTRACT_1
-  titlebarOverlay: boolean
   minimizeWindow(): Promise<void>
   toggleMaximizeWindow(): Promise<void>
   closeWindow(): Promise<void>

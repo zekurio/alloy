@@ -17,7 +17,6 @@ node_modules
 dist
 target/
 build
-out
 .output
 image-stream
 packages/desktop/release/

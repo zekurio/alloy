@@ -1,8 +1,8 @@
 # Alloy desktop
 
-This package replaces the Electron host with Tauri. It holds both Rust crates:
-`src-tauri/` is the Tauri host and `recorder/` is the OBS capture agent library
-plus its `alloy-agent` binary, which still runs as a separate process.
+This package is the Tauri desktop app. It holds both Rust crates: `src-tauri/`
+is the Tauri host and `recorder/` is the OBS capture agent library plus its
+`alloy-agent` binary, which runs as a separate process.
 
 ## Design
 
@@ -40,6 +40,14 @@ background media work live in the `capture_library` module. FFmpeg handles
 native media work. A local file server streams captures and exports with range
 support. It does not forward server API requests.
 
+On Windows the app keeps its state in two folders. `%APPDATA%\dev.zekurio.alloy`
+holds settings, the saved-server list, recorder settings and the capture
+manifest. `%LOCALAPPDATA%\dev.zekurio.alloy` holds everything the app can
+regenerate: WebView2 profiles, thumbnails, import staging, export renders,
+recorder scratch state, the Discord detection cache and the host log at
+`logs\alloy-desktop.log`. Recordings default to `%USERPROFILE%\Videos\Alloy`
+and the replay buffer to `%TEMP%\Alloy\replay`.
+
 ## Run
 
 Use Node 24, the pinned pnpm version, Rust, and the Windows C++ build tools.
@@ -70,15 +78,15 @@ installer script pins version 8.1.2 and checks the published SHA-256 hash. It
 keeps the upstream license and build notes with the binaries. The archive
 cache is local to this package.
 
-Tauri uses its own app data directory. This branch does not migrate Electron
-cookies or settings. Sign in and select your existing recording folder on the
-first start. Keep the Electron state folder if you need to compare builds.
+Tauri uses its own app data directory and does not read anything the Electron
+build wrote. Sign in and select your existing recording folder on the first
+start.
 
 ## Windows validation
 
-The macOS development host cannot validate the Windows capture runtime. The
-Windows CI job builds the native host and an unsigned NSIS installer. A build
-does not establish playback or recording behavior. Test these on Windows:
+Only Windows can validate the capture runtime. The Windows CI job builds the
+native host and an unsigned NSIS installer. A build does not establish
+playback or recording behavior. Test these on Windows:
 
 - Sign in, restart, refresh an expired session, sign out, and switch servers.
 - Cancel login, close during login, and reject an incompatible server.
@@ -88,6 +96,6 @@ does not establish playback or recording behavior. Test these on Windows:
 - Keep recording and media jobs active while the main window is hidden.
 - Install, start, update, and uninstall an NSIS build.
 
-No Windows runtime or performance result has been recorded yet. Compare clean
-and cached builds, native edit builds, installer size, and total process memory
-with the Electron version from `dev` on the same Windows machine.
+No Windows runtime or performance result has been recorded yet. Record clean
+and cached build times, native edit builds, installer size, and total process
+memory on a Windows machine before changing the capture pipeline.

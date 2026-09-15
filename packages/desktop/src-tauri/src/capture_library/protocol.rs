@@ -73,10 +73,6 @@ impl CaptureHttpServer {
         })
     }
 
-    pub fn addr(&self) -> std::net::SocketAddr {
-        self.addr
-    }
-
     pub fn base_url(&self) -> String {
         format!("http://127.0.0.1:{}", self.addr.port())
     }
@@ -105,14 +101,6 @@ impl CaptureHttpServer {
         access.selected_origin = normalized;
         access.token = new_token();
         Ok(())
-    }
-
-    pub fn selected_origin(&self) -> Option<String> {
-        self.state
-            .access
-            .read()
-            .ok()
-            .and_then(|access| access.selected_origin.clone())
     }
 
     pub async fn shutdown(mut self) {
@@ -184,10 +172,15 @@ async fn handle_request(
                 .await
                 .unwrap_or(Err(LibraryError::CaptureNotFound))
         }
-        "export" => state
-            .library
-            .export_path(&id)
-            .and_then(canonical_file_in_parent),
+        // Exports are filed under their capture, so the id is resolved by a
+        // lookup inside the exports folder rather than a direct path join.
+        "export" => {
+            let library = state.library.clone();
+            let id = id.clone();
+            tokio::task::spawn_blocking(move || library.find_export_path(&id))
+                .await
+                .unwrap_or(Err(LibraryError::CaptureNotFound))
+        }
         "thumbnail" => thumbnail_file(&state.library, &id).await,
         _ => Err(LibraryError::CaptureNotFound),
     };
@@ -420,18 +413,6 @@ fn normalize_origin(origin: Url) -> Result<String> {
         ));
     }
     Ok(origin.to_string().trim_end_matches('/').to_string())
-}
-
-fn canonical_file_in_parent(path: PathBuf) -> Result<PathBuf> {
-    let parent = path
-        .parent()
-        .ok_or(LibraryError::InvalidPath)?
-        .canonicalize()?;
-    let path = path.canonicalize()?;
-    if !path.starts_with(parent) {
-        return Err(LibraryError::InvalidPath);
-    }
-    Ok(path)
 }
 
 fn new_token() -> String {

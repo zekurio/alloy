@@ -86,18 +86,13 @@ function fileNameExtension(fileName: string): string {
   return baseName.slice(extensionIndex).toLowerCase()
 }
 
-/** One source range of an edited sequence, in playback order. */
-export interface RecordingLibraryExportSegment {
-  startMs: number
-  endMs: number
-}
-
 export interface RecordingLibraryExportRequest {
   id: string
   /**
-   * The single range to keep. Multi-segment sequences are rejected.
+   * The single source range to keep, in playback order. Multi-segment
+   * sequences are rejected.
    */
-  segments: RecordingLibraryExportSegment[]
+  segments: Array<{ startMs: number; endMs: number }>
 }
 
 export interface RecordingLibraryMetaPatch {

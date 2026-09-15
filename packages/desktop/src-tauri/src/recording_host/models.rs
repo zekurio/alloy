@@ -40,7 +40,6 @@ pub struct SidecarVersion {
     pub name: String,
     pub version: String,
     pub protocol_version: u32,
-    pub capabilities: Vec<String>,
 }
 
 /// Recording settings as the desktop app stores them: everything the recorder
@@ -192,7 +191,9 @@ pub struct RecorderHostOptions {
     pub output_folder: PathBuf,
     pub replay_scratch_folder: PathBuf,
     pub obs_runtime_dir: Option<PathBuf>,
-    pub discord_detection_cache_path: Option<PathBuf>,
+    /// Regenerable host data: the recorder scratch state and the Discord
+    /// detection cache. Defaults to the state folder.
+    pub cache_dir: PathBuf,
     pub request_timeout: std::time::Duration,
     pub configure_timeout: std::time::Duration,
     pub shutdown_request_timeout: std::time::Duration,
@@ -213,9 +214,9 @@ impl RecorderHostOptions {
             agent_state_folder: state_dir.join("agent"),
             output_folder: state_dir.join("captures"),
             replay_scratch_folder: state_dir.join("replay-buffer"),
+            cache_dir: state_dir.clone(),
             state_dir,
             obs_runtime_dir: None,
-            discord_detection_cache_path: None,
             request_timeout: std::time::Duration::from_secs(20),
             configure_timeout: std::time::Duration::from_secs(45),
             // OBS may take up to eight seconds to flush and stop an output.
@@ -231,8 +232,10 @@ impl RecorderHostOptions {
         }
     }
 
-    pub fn agent_state_folder(mut self, path: impl Into<PathBuf>) -> Self {
-        self.agent_state_folder = path.into();
+    pub fn cache_dir(mut self, path: impl Into<PathBuf>) -> Self {
+        let path = path.into();
+        self.agent_state_folder = path.join("agent");
+        self.cache_dir = path;
         self
     }
 
@@ -248,11 +251,6 @@ impl RecorderHostOptions {
 
     pub fn obs_runtime_dir(mut self, path: Option<PathBuf>) -> Self {
         self.obs_runtime_dir = path;
-        self
-    }
-
-    pub fn discord_detection_cache_path(mut self, path: Option<PathBuf>) -> Self {
-        self.discord_detection_cache_path = path;
         self
     }
 

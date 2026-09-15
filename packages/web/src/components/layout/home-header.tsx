@@ -95,7 +95,7 @@ export function HomeHeader() {
       </AppHeaderSearch>
       <AppHeaderActions className="h-full gap-1.5">
         <UserMenu />
-        {desktop?.titlebarOverlay ? (
+        {desktop ? (
           <AppHeaderWindowControls
             className="ml-1"
             onMinimize={() => {

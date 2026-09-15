@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use serde::Deserialize;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -18,8 +19,8 @@ use crate::capture_library::paths::{
 };
 use crate::capture_library::types::{
     CaptureKind, CaptureManifest, CaptureRecord, CaptureSource, CommitImport, FilesImportResult,
-    ImportFailure, LibraryGroup, LibraryItem, LibrarySnapshot, ManifestEntry, MetaPatch,
-    StagedImport, TrimUpdate,
+    GameGuess, ImportFailure, LibraryGroup, LibraryItem, LibrarySnapshot, ManifestEntry, MetaPatch,
+    StagedImport, TrimUpdate, collection_for,
 };
 
 const MANIFEST_VERSION: u8 = 2;
@@ -36,7 +37,10 @@ static MANIFEST_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> = OnceL
 #[derive(Clone, Debug)]
 pub struct CaptureLibraryConfig {
     pub output_folder: PathBuf,
+    /// Holds the manifest with titles, trims and upload links.
     pub user_data_folder: PathBuf,
+    /// Holds regenerable files: import staging, thumbnails and export renders.
+    pub cache_folder: PathBuf,
     pub ffmpeg: PathBuf,
     pub ffprobe: PathBuf,
     pub max_download_bytes: u64,
@@ -46,36 +50,18 @@ impl CaptureLibraryConfig {
     pub fn new(
         output_folder: impl Into<PathBuf>,
         user_data_folder: impl Into<PathBuf>,
+        cache_folder: impl Into<PathBuf>,
         ffmpeg: impl Into<PathBuf>,
         ffprobe: impl Into<PathBuf>,
     ) -> Self {
         Self {
             output_folder: output_folder.into(),
             user_data_folder: user_data_folder.into(),
+            cache_folder: cache_folder.into(),
             ffmpeg: ffmpeg.into(),
             ffprobe: ffprobe.into(),
             max_download_bytes: 8 * 1024 * 1024 * 1024,
         }
-    }
-
-    pub fn from_resource_dir(
-        output_folder: impl Into<PathBuf>,
-        user_data_folder: impl Into<PathBuf>,
-        resource_dir: impl AsRef<Path>,
-    ) -> Self {
-        let extension = if cfg!(windows) { ".exe" } else { "" };
-        Self::new(
-            output_folder,
-            user_data_folder,
-            resource_dir
-                .as_ref()
-                .join("ffmpeg")
-                .join(format!("ffmpeg{extension}")),
-            resource_dir
-                .as_ref()
-                .join("ffmpeg")
-                .join(format!("ffprobe{extension}")),
-        )
     }
 
     fn manifest_path(&self) -> PathBuf {
@@ -83,15 +69,15 @@ impl CaptureLibraryConfig {
     }
 
     fn imports_folder(&self) -> PathBuf {
-        self.user_data_folder.join("recording-library-imports")
+        self.cache_folder.join("recording-library-imports")
     }
 
     fn thumbnails_folder(&self) -> PathBuf {
-        self.user_data_folder.join("recording-thumbnails")
+        self.cache_folder.join("recording-thumbnails")
     }
 
     fn exports_folder(&self) -> PathBuf {
-        self.user_data_folder.join("recording-exports")
+        self.cache_folder.join("recording-exports")
     }
 }
 
@@ -139,8 +125,9 @@ impl CaptureLibrary {
     pub fn new(config: CaptureLibraryConfig) -> Result<Self> {
         fs::create_dir_all(&config.output_folder)?;
         fs::create_dir_all(&config.user_data_folder)?;
+        fs::create_dir_all(&config.cache_folder)?;
         let manifest_lock = manifest_lock_for(&config.manifest_path());
-        Ok(Self {
+        let library = Self {
             inner: Arc::new(LibraryInner {
                 config,
                 manifest_lock,
@@ -149,18 +136,48 @@ impl CaptureLibrary {
                 media_active: AtomicUsize::new(0),
                 media_idle: Notify::new(),
             }),
-        })
+        };
+        Ok(library)
+    }
+
+    /// Drops thumbnail and export folders whose capture no longer exists in
+    /// the output folder or the manifest. The cache is shared by every output
+    /// folder and the files are regenerable, so the host runs this once at
+    /// startup in the background, not on every open or on a timer.
+    pub fn remove_orphan_cache_folders(&self) {
+        let mut known: std::collections::HashSet<String> = self
+            .read_manifest()
+            .captures
+            .into_values()
+            .map(|entry| entry.id)
+            .collect();
+        // A failed scan says nothing about which captures exist, so keep every
+        // cache folder rather than deleting the whole cache.
+        let Ok(snapshot) = self.snapshot() else {
+            return;
+        };
+        known.extend(snapshot.items.into_iter().map(|item| item.id));
+        for root in [
+            self.inner.config.thumbnails_folder(),
+            self.inner.config.exports_folder(),
+        ] {
+            let Ok(entries) = fs::read_dir(&root) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                let Some(id) = entry.file_name().to_str().map(str::to_string) else {
+                    continue;
+                };
+                if known.contains(&id) || !entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+                    continue;
+                }
+                let _ = fs::remove_dir_all(entry.path());
+            }
+        }
     }
 
     pub fn config(&self) -> &CaptureLibraryConfig {
         &self.inner.config
-    }
-
-    /// Opens a new library when the recorder output folder changes. A library
-    /// keeps its paths fixed for its lifetime so concurrent scans cannot mix
-    /// files from two output locations.
-    pub fn reopen(config: CaptureLibraryConfig) -> Result<Self> {
-        Self::new(config)
     }
 
     pub fn output_folder(&self) -> &Path {
@@ -208,17 +225,71 @@ impl CaptureLibrary {
             .ok_or(LibraryError::CaptureNotFound)
     }
 
-    pub fn export_path(&self, id: &str) -> Result<PathBuf> {
-        if !is_capture_id(id) {
+    /// Where an export render for a capture is written. Every export of one
+    /// capture shares a folder named after the capture, so a new render can
+    /// replace the older ones and deleting the capture drops them all.
+    pub fn export_path(&self, capture_id: &str, export_id: &str) -> Result<PathBuf> {
+        if !is_capture_id(export_id) {
             return Err(LibraryError::InvalidPath);
         }
-        let path = self
-            .inner
-            .config
-            .exports_folder()
-            .join(id)
-            .with_extension("mp4");
-        ensure_within(&self.inner.config.exports_folder(), &path)
+        let root = self.exports_folder_for(capture_id)?;
+        ensure_within(&root, &root.join(export_id).with_extension("mp4"))
+    }
+
+    /// Resolves an export id for the loopback file server, which is handed the
+    /// export id alone. Only the capture folders below the exports folder are
+    /// searched, so no other file can be reached through this route.
+    pub fn find_export_path(&self, export_id: &str) -> Result<PathBuf> {
+        if !is_capture_id(export_id) {
+            return Err(LibraryError::InvalidPath);
+        }
+        let root = self.inner.config.exports_folder().canonicalize()?;
+        let file_name = format!("{export_id}.mp4");
+        for entry in fs::read_dir(&root)? {
+            let entry = entry?;
+            if !entry.file_type()?.is_dir() {
+                continue;
+            }
+            let Ok(candidate) = entry.path().join(&file_name).canonicalize() else {
+                continue;
+            };
+            if candidate.is_file() && candidate.starts_with(&root) {
+                return Ok(candidate);
+            }
+        }
+        Err(LibraryError::CaptureNotFound)
+    }
+
+    /// Keeps only the named render among a capture's exports. Older renders
+    /// are unreachable once the editor has a newer one, and every export is
+    /// reproducible from the capture.
+    pub(crate) fn replace_exports(&self, capture_id: &str, export_id: &str) -> Result<()> {
+        let keep = self
+            .export_path(capture_id, export_id)?
+            .file_name()
+            .ok_or(LibraryError::InvalidPath)?
+            .to_os_string();
+        for entry in fs::read_dir(self.exports_folder_for(capture_id)?)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            // Renders in flight are written to a dot-prefixed temporary file
+            // beside the destination; leave a concurrent export its own.
+            if name == keep || name.to_string_lossy().starts_with('.') {
+                continue;
+            }
+            if entry.file_type()?.is_file() {
+                let _ = fs::remove_file(entry.path());
+            }
+        }
+        Ok(())
+    }
+
+    fn exports_folder_for(&self, capture_id: &str) -> Result<PathBuf> {
+        if !is_capture_id(capture_id) {
+            return Err(LibraryError::InvalidPath);
+        }
+        let root = self.inner.config.exports_folder();
+        ensure_within(&root, &root.join(capture_id))
     }
 
     pub fn thumbnail_path(&self, id: &str) -> Result<PathBuf> {
@@ -247,11 +318,8 @@ impl CaptureLibrary {
     pub fn snapshot(&self) -> Result<LibrarySnapshot> {
         let manifest = self.read_manifest();
         let mut items = Vec::new();
-        for (kind, collection) in [
-            (CaptureKind::Replay, "Clips"),
-            (CaptureKind::Screenshot, "Screenshots"),
-        ] {
-            let root = self.inner.config.output_folder.join(collection);
+        for kind in [CaptureKind::Replay, CaptureKind::Screenshot] {
+            let root = self.inner.config.output_folder.join(collection_for(kind));
             scan_collection(&root, kind, &manifest, &mut items)?;
         }
         items.sort_by(|left, right| right.created_at.cmp(&left.created_at));
@@ -483,12 +551,25 @@ impl CaptureLibrary {
 
     pub fn delete(&self, id: &str) -> Result<()> {
         let path = ensure_media_in_output(&self.inner.config.output_folder, self.media_path(id)?)?;
-        trash::delete(&path).map_err(|error| LibraryError::Io(io::Error::other(error)))?;
+        // Volumes without a recycle bin (network shares, some removable
+        // drives) cannot trash a file. Deleting for good beats refusing.
+        if let Err(error) = trash::delete(&path) {
+            log::warn!(
+                "trash unavailable for {}, deleting permanently: {error}",
+                path.display()
+            );
+            fs::remove_file(&path)?;
+        }
         self.mutate_manifest(|manifest| {
             manifest.captures.remove(&manifest_key(&path));
             Ok(())
         })?;
+        // The capture is gone, so its cached thumbnails and export renders
+        // have nothing left to belong to.
         if let Ok(folder) = self.thumbnail_path(id) {
+            let _ = fs::remove_dir_all(folder);
+        }
+        if let Ok(folder) = self.exports_folder_for(id) {
             let _ = fs::remove_dir_all(folder);
         }
         Ok(())
@@ -799,18 +880,31 @@ fn read_manifest_file(path: &Path) -> CaptureManifest {
     if bytes.len() > MAX_MANIFEST_BYTES {
         return CaptureManifest::default();
     }
-    let Ok(mut manifest) = serde_json::from_slice::<CaptureManifest>(&bytes) else {
+    // Entries are decoded one at a time. Resetting the whole manifest would
+    // discard titles, trims, and upload links of every other capture because
+    // of one bad record, whether it fails to decode or fails validation.
+    #[derive(Deserialize)]
+    struct RawManifest {
+        version: u8,
+        #[serde(default)]
+        captures: BTreeMap<String, serde_json::Value>,
+    }
+    let Ok(raw) = serde_json::from_slice::<RawManifest>(&bytes) else {
         return CaptureManifest::default();
     };
-    if manifest.version != MANIFEST_VERSION || manifest.captures.len() > MAX_MANIFEST_ENTRIES {
+    if raw.version != MANIFEST_VERSION || raw.captures.len() > MAX_MANIFEST_ENTRIES {
         return CaptureManifest::default();
     }
-    // Drop entries that fail validation individually. Resetting the whole
-    // manifest would discard titles, trims, and upload links of every other
-    // capture because of one bad record.
-    manifest
-        .captures
-        .retain(|key, entry| validate_manifest_entry(key, entry));
+    let mut manifest = CaptureManifest::default();
+    for (key, value) in raw.captures {
+        match serde_json::from_value::<ManifestEntry>(value) {
+            Ok(entry) if validate_manifest_entry(&key, &entry) => {
+                manifest.captures.insert(key, entry);
+            }
+            Ok(_) => log::warn!("dropped invalid manifest entry {key}"),
+            Err(error) => log::warn!("dropped undecodable manifest entry {key}: {error}"),
+        }
+    }
     manifest
 }
 
@@ -867,24 +961,8 @@ fn write_manifest_file(path: &Path, manifest: &CaptureManifest) -> Result<()> {
     file.write_all(b"\n")?;
     file.sync_all()?;
     drop(file);
-    if path.exists() {
-        let backup = path.with_extension("json.bak");
-        if backup.exists() {
-            fs::remove_file(&backup)?;
-        }
-        fs::rename(path, &backup)?;
-        match fs::rename(&temp, path) {
-            Ok(()) => {
-                let _ = fs::remove_file(backup);
-            }
-            Err(error) => {
-                let _ = fs::rename(&backup, path);
-                return Err(error.into());
-            }
-        }
-    } else {
-        fs::rename(temp, path)?;
-    }
+    // A rename replaces the previous manifest atomically on Windows and Unix.
+    fs::rename(temp, path)?;
     if let Ok(directory) = File::open(parent) {
         let _ = directory.sync_all();
     }
@@ -988,10 +1066,12 @@ fn add_item(
             .and_then(|value| value.to_str())
             .unwrap_or("capture")
             .to_string(),
-        media_url: format!("alloy-capture://media/{id}"),
-        thumbnail_url: Some(format!("alloy-capture://thumbnail/{id}")),
+        // The host fills both from its loopback file server before the item
+        // leaves the process.
+        media_url: String::new(),
+        thumbnail_url: None,
         thumb_blur_hash: None,
-        collection: actual_kind.collection().to_string(),
+        collection: collection_for(actual_kind).to_string(),
         kind: actual_kind,
         source,
         group_key: group_label.to_ascii_lowercase(),
@@ -1165,13 +1245,13 @@ fn validate_meta_patch(patch: &MetaPatch) -> Result<()> {
     Ok(())
 }
 
-fn validate_game_guess(value: &crate::capture_library::types::GameGuess) -> Result<()> {
-    if value.source.len() > 128
-        || value.name.trim().is_empty()
+/// The detector fields (`source`, `matchKind`) are enums on the wire, so only
+/// the free-form parts still need bounds.
+fn validate_game_guess(value: &GameGuess) -> Result<()> {
+    if value.name.trim().is_empty()
         || value.name.len() > 256
         || value.aliases.len() > 100
         || value.aliases.iter().any(|alias| alias.len() > 256)
-        || value.match_kind.len() > 128
         || value.confidence > 100
     {
         return Err(LibraryError::InvalidMetadata("invalid game guess".into()));
@@ -1274,7 +1354,7 @@ pub(crate) fn ensure_media_location(output: &Path, path: impl AsRef<Path>) -> Re
 async fn move_file(source: &Path, destination: &Path) -> Result<()> {
     match tokio::fs::rename(source, destination).await {
         Ok(()) => Ok(()),
-        Err(error) if matches!(error.raw_os_error(), Some(17) | Some(18)) => {
+        Err(error) if error.kind() == io::ErrorKind::CrossesDevices => {
             tokio::fs::copy(source, destination).await?;
             tokio::fs::remove_file(source).await?;
             Ok(())

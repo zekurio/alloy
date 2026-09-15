@@ -1,4 +1,5 @@
 pub mod capture_library;
+pub mod logging;
 pub mod login;
 pub mod policy;
 pub mod recording_host;

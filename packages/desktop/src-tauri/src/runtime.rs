@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
 
 use alloy_desktop::capture_library::{
-    CaptureHttpServer, CaptureLibrary, CaptureLibraryConfig, CaptureRecord,
+    CaptureHttpServer, CaptureLibrary, CaptureLibraryConfig, collection_for,
     download::DownloadManager, media,
 };
 use alloy_desktop::recording_host::{
@@ -35,11 +35,17 @@ pub struct DesktopRuntime {
     libraries: Mutex<Vec<Weak<LibraryRuntime>>>,
     finalizing: Mutex<HashSet<String>>,
     sounds: PathBuf,
+    startup_error: Mutex<Option<String>>,
 }
 
 impl DesktopRuntime {
     pub async fn new(app: &AppHandle, host: Weak<Host>) -> Result<Arc<Self>, String> {
+        // Settings, the saved-server list and the library manifest live in the
+        // roaming app data folder. Regenerable data (thumbnails, import staging,
+        // export renders, recorder scratch, detection caches) lives in the
+        // local one so it never syncs with a roaming profile.
         let data = app.path().app_data_dir().map_err(error)?;
+        let cache = app.path().app_local_data_dir().map_err(error)?;
         let output = app.path().video_dir().map_err(error)?.join("Alloy");
         let resources = app.path().resource_dir().map_err(error)?;
         let package = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
@@ -59,6 +65,7 @@ impl DesktopRuntime {
             .unwrap_or_else(|| native_root.join("obs-runtime"));
         let recorder = RecorderHost::new(
             RecorderHostOptions::new(executable, &data)
+                .cache_dir(&cache)
                 .output_folder(&output)
                 .replay_scratch_folder(app.path().temp_dir().map_err(error)?.join("Alloy/replay"))
                 .obs_runtime_dir(Some(obs)),
@@ -74,17 +81,34 @@ impl DesktopRuntime {
         let media_tool = |name: &str| {
             std::env::var_os(format!("ALLOY_{}", name.to_uppercase()))
                 .map(PathBuf::from)
-                .unwrap_or_else(|| {
-                    if cfg!(windows) {
-                        native_root.join("ffmpeg").join(format!("{name}.exe"))
-                    } else {
-                        PathBuf::from(name)
-                    }
-                })
+                .unwrap_or_else(|| native_root.join("ffmpeg").join(format!("{name}.exe")))
         };
-        let config =
-            CaptureLibraryConfig::new(output, &data, media_tool("ffmpeg"), media_tool("ffprobe"));
-        let library = Self::open_library(config.clone()).await?;
+        let mut config = CaptureLibraryConfig::new(
+            output,
+            &data,
+            &cache,
+            media_tool("ffmpeg"),
+            media_tool("ffprobe"),
+        );
+        // An unreachable capture folder (unplugged drive, offline share) must
+        // not block startup: the user could not reach the settings UI to change
+        // it. Use the default folder for this session and report it once the
+        // web app can show the error. The setting itself stays untouched.
+        let mut startup_error = None;
+        let library = match Self::open_library(config.clone()).await {
+            Ok(library) => library,
+            Err(cause) => {
+                let message = format!(
+                    "Capture folder {} is unavailable ({cause}). Using {} until it is reachable again.",
+                    config.output_folder.display(),
+                    default_output.display()
+                );
+                log::warn!("{message}");
+                startup_error = Some(message);
+                config.output_folder = default_output.clone();
+                Self::open_library(config.clone()).await?
+            }
+        };
         let sounds = data.join("notification-sounds");
         std::fs::create_dir_all(&sounds).map_err(error)?;
         for (name, bytes) in [
@@ -113,6 +137,7 @@ impl DesktopRuntime {
             host,
             config,
             sounds,
+            startup_error: Mutex::new(startup_error),
         });
         runtime.start_events();
         Ok(runtime)
@@ -196,14 +221,18 @@ impl DesktopRuntime {
 
     pub async fn start(self: &Arc<Self>) {
         self.watch_downloads(self.library.read().await.clone());
+        if let Some(cause) = self.startup_error.lock().await.take() {
+            self.report_error(cause).await;
+        }
+        // One-time cache validation, off the startup path.
+        let library = self.library.read().await.clone();
+        tauri::async_runtime::spawn_blocking(move || library.library.remove_orphan_cache_folders());
         for capture in self.recorder.captures().await {
             if let Err(cause) = self.finalize(capture).await {
                 self.report_error(cause).await;
             }
         }
-        if cfg!(windows)
-            && let Err(cause) = self.recorder.configure().await
-        {
+        if let Err(cause) = self.recorder.configure().await {
             self.report_error(cause.to_string()).await;
         }
     }
@@ -249,14 +278,17 @@ impl DesktopRuntime {
             ));
         }
         let library = self.library_for_capture(&capture).await?;
-        let mut record: CaptureRecord =
-            serde_json::from_value(to_value(&capture)?).map_err(error)?;
+        // The recorder's capture type is the library's record type, so the
+        // finalized record goes straight back to the recorder.
+        let mut record = capture;
         media::finalize_capture_record(&library.library, &mut record)
             .await
             .map_err(error)?;
         library.library.remember_capture(&record).map_err(error)?;
-        let ready = serde_json::from_value(to_value(&record)?).map_err(error)?;
-        self.recorder.complete_capture(ready).await.map_err(error)?;
+        self.recorder
+            .complete_capture(record.clone())
+            .await
+            .map_err(error)?;
         let status = self.recorder.get_status().await;
         self.emit(json!({ "type": "capture-ready", "capture": record, "status": status }));
         let _ = self.preview_sound("clipSaved", false).await;
@@ -286,7 +318,7 @@ impl DesktopRuntime {
             }
         }
 
-        let output = infer_capture_output_folder(&filename, &capture.kind).ok_or_else(|| {
+        let output = infer_capture_output_folder(&filename, capture.kind).ok_or_else(|| {
             "The capture path is outside the configured output folders.".to_string()
         })?;
         let mut config = self.config.clone();
@@ -321,15 +353,13 @@ impl DesktopRuntime {
         *self.library.write().await = replacement.clone();
         self.watch_downloads(replacement);
 
-        if cfg!(windows) {
-            self.recorder.restart().await.map_err(error)?;
-        }
+        self.recorder.restart().await.map_err(error)?;
         self.emit(json!({ "type": "settings", "settings": settings }));
         Ok(())
     }
 
     async fn report_error(&self, cause: String) {
-        eprintln!("[alloy-desktop] recording error: {cause}");
+        log::warn!("recording error: {cause}");
         self.emit(
             json!({ "type": "error", "error": cause, "status": self.recorder.get_status().await }),
         );
@@ -383,6 +413,8 @@ impl DesktopRuntime {
             "recording.getSettings" => to_value(self.recorder.get_settings().await),
             "recording.setSettings" => {
                 let settings: RecordingSettings = arg(args, 0)?;
+                // Reject bad input before a new capture folder gets created.
+                self.recorder.validate(&settings).map_err(error)?;
                 let previous = self.recorder.get_settings().await;
                 if previous.output_folder != settings.output_folder {
                     let mut config = self.config.clone();
@@ -656,14 +688,11 @@ fn capture_is_in_output(filename: &Path, output: &Path) -> bool {
     filename.starts_with(output)
 }
 
-fn infer_capture_output_folder(filename: &Path, kind: &RecordingCaptureKind) -> Option<PathBuf> {
+fn infer_capture_output_folder(filename: &Path, kind: RecordingCaptureKind) -> Option<PathBuf> {
     if !filename.is_absolute() {
         return None;
     }
-    let collection = match kind {
-        RecordingCaptureKind::Replay => "Clips",
-        RecordingCaptureKind::Screenshot => "Screenshots",
-    };
+    let collection = collection_for(kind);
     filename.ancestors().find_map(|ancestor| {
         (ancestor.file_name().and_then(|name| name.to_str()) == Some(collection))
             .then(|| ancestor.parent().map(Path::to_path_buf))
@@ -672,17 +701,10 @@ fn infer_capture_output_folder(filename: &Path, kind: &RecordingCaptureKind) -> 
 }
 
 fn reveal(path: &Path) -> Result<(), String> {
-    #[cfg(windows)]
-    {
-        std::process::Command::new("explorer.exe")
-            .arg(format!("/select,{}", path.display()))
-            .spawn()
-            .map_err(error)?;
-    }
-    #[cfg(not(windows))]
-    {
-        open::that(path.parent().ok_or("Capture has no folder.")?).map_err(error)?;
-    }
+    std::process::Command::new("explorer.exe")
+        .arg(format!("/select,{}", path.display()))
+        .spawn()
+        .map_err(error)?;
     Ok(())
 }
 
@@ -705,7 +727,7 @@ mod tests {
             .join("Game")
             .join("clip.mp4");
         assert_eq!(
-            infer_capture_output_folder(&filename, &RecordingCaptureKind::Replay),
+            infer_capture_output_folder(&filename, RecordingCaptureKind::Replay),
             Some(std::env::temp_dir().join("Alloy"))
         );
     }
@@ -718,7 +740,7 @@ mod tests {
             .join("Game")
             .join("screenshot.png");
         assert_eq!(
-            infer_capture_output_folder(&filename, &RecordingCaptureKind::Replay),
+            infer_capture_output_folder(&filename, RecordingCaptureKind::Replay),
             None
         );
     }
@@ -728,7 +750,7 @@ mod tests {
         assert_eq!(
             infer_capture_output_folder(
                 Path::new("Alloy/Clips/Game/clip.mp4"),
-                &RecordingCaptureKind::Replay
+                RecordingCaptureKind::Replay
             ),
             None
         );

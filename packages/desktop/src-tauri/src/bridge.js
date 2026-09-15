@@ -106,7 +106,6 @@
 
   window.alloyTauriDesktop = Object.freeze({
     bridgeContract: 1,
-    titlebarOverlay: true,
     minimizeWindow: () => shell("minimizeWindow"),
     toggleMaximizeWindow: () => shell("toggleMaximizeWindow"),
     closeWindow: () => shell("closeWindow"),

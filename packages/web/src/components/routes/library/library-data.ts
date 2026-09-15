@@ -8,7 +8,7 @@ import {
 import { useCallback, useEffect, useMemo } from "react"
 
 import {
-  type AlloyDesktop,
+  type AlloyTauriDesktop,
   onLibraryCapturesChanged,
   type RecordingLibraryGroup,
   type RecordingLibraryItem,
@@ -38,7 +38,7 @@ function invalidateLibrarySnapshot(queryClient: QueryClient): void {
 
 export async function refreshLibrarySnapshotCache(
   queryClient: QueryClient,
-  desktop: AlloyDesktop | null,
+  desktop: AlloyTauriDesktop | null,
 ): Promise<RecordingLibrarySnapshot | null> {
   if (!desktop) return null
   await queryClient.cancelQueries({ queryKey: librarySnapshotKey })
@@ -61,7 +61,7 @@ function librarySnapshotErrorMessage(cause: unknown): string | null {
  * Outside Alloy Desktop (`desktop` null) it stays empty without erroring.
  */
 export function useLibrarySnapshot(
-  desktop: AlloyDesktop | null,
+  desktop: AlloyTauriDesktop | null,
 ): LibrarySnapshotState {
   const queryClient = useQueryClient()
   const { data, error, isFetching, refetch } = useQuery({

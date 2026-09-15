@@ -20,7 +20,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use tokio::{
-    io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader},
+    io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWriteExt, BufReader},
     process::{Child, ChildStdin, Command},
     sync::{Mutex, Notify, RwLock, broadcast, oneshot},
     time::{sleep, timeout},
@@ -44,7 +44,7 @@ const SETTINGS_FILE: &str = "recording-settings.json";
 const CAPTURES_FILE: &str = "recording-captures.json";
 const CAPTURE_EXTENSIONS: &[&str] = &["mp4", "mkv", "mov", "webm", "png", "jpg", "jpeg", "webp"];
 const DISCORD_DETECTABLE_URL: &str = "https://discord.com/api/v9/applications/detectable";
-const DISCORD_CACHE_FILE_NAME: &str = "discord-detections.v1.json";
+const DISCORD_CACHE_FILE_NAME: &str = "discord-detections.json";
 const DISCORD_CACHE_SCHEMA_VERSION: u32 = 1;
 const DISCORD_CACHE_TTL_SECONDS: i64 = 24 * 60 * 60;
 const DISCORD_REFRESH_INTERVAL: Duration = Duration::from_secs(60 * 60);
@@ -145,6 +145,28 @@ fn json_error(context: impl Into<String>, source: serde_json::Error) -> Recorder
     }
 }
 
+/// Empties a folder without removing it. Leftovers are reported and skipped:
+/// a file the agent still holds open must not stop it from starting.
+fn clear_folder_contents(folder: &Path) {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let removed = match entry.file_type() {
+            Ok(kind) if kind.is_dir() => fs::remove_dir_all(&path),
+            Ok(_) => fs::remove_file(&path),
+            Err(error) => Err(error),
+        };
+        if let Err(error) = removed {
+            log::warn!(
+                "[alloy-recording-host] could not clear {}: {error}",
+                path.display()
+            );
+        }
+    }
+}
+
 #[derive(Debug)]
 struct PendingResponse {
     sender: oneshot::Sender<Result<WireResponse, RecorderHostError>>,
@@ -169,12 +191,16 @@ impl Session {
             ));
         }
 
+        // Disk-mode replay segments are the agent's alone, and it cleans them
+        // up when it stops or saves a clip. A crash or a watchdog kill skips
+        // that, so the folder is emptied before the next agent starts.
+        clear_folder_contents(&options.replay_scratch_folder);
+
         let mut command = Command::new(&options.executable);
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .env("ALLOY_RECORDING_HOST", "1");
+            .stderr(Stdio::piped());
         configure_runtime_environment(&mut command, options, inner.discord_cache_path.as_deref());
 
         #[cfg(windows)]
@@ -381,7 +407,6 @@ struct Inner {
     discord_refresh_started: AtomicBool,
     settings: RwLock<RecordingSettings>,
     status: RwLock<RecordingStatus>,
-    capabilities: RwLock<Vec<String>>,
     captures: Mutex<CaptureManifest>,
     emitted_captures: Mutex<HashSet<String>>,
     completed_captures: Mutex<HashMap<String, RecordingCapture>>,
@@ -404,24 +429,29 @@ impl RecorderHost {
     pub fn new(options: RecorderHostOptions) -> Result<Self, RecorderHostError> {
         fs::create_dir_all(&options.state_dir)
             .map_err(|source| io_error("Failed to create recording state folder", source))?;
-        let settings = load_json_or_default(&options.state_dir.join(SETTINGS_FILE))?;
-        validate_settings(&settings)?;
-        let captures = load_json_or_default(&options.state_dir.join(CAPTURES_FILE))?;
-        let discord_cache_path = options
-            .discord_detection_cache_path
-            .clone()
-            .or_else(|| {
-                Some(
-                    options
-                        .state_dir
-                        .join("recording")
-                        .join(DISCORD_CACHE_FILE_NAME),
-                )
-            })
+        // A corrupt or rejected state file must not block startup: the user
+        // could not reach the settings UI to fix it. Fall back to defaults and
+        // log what was ignored.
+        let settings_path = options.state_dir.join(SETTINGS_FILE);
+        let settings = load_json_or_default(&settings_path)
+            .and_then(|settings: RecordingSettings| validate_settings(&settings).map(|()| settings))
+            .unwrap_or_else(|error| {
+                log::warn!(
+                    "Ignoring recording settings {}: {error}",
+                    settings_path.display()
+                );
+                RecordingSettings::default()
+            });
+        let captures_path = options.state_dir.join(CAPTURES_FILE);
+        let captures = load_json_or_default(&captures_path).unwrap_or_else(|error| {
+            log::warn!("Ignoring capture list {}: {error}", captures_path.display());
+            CaptureManifest::default()
+        });
+        let discord_cache_path = Some(options.cache_dir.join(DISCORD_CACHE_FILE_NAME))
             .filter(|path| match prepare_discord_detection_cache(path) {
                 Ok(()) => true,
                 Err(error) => {
-                    eprintln!(
+                    log::warn!(
                         "[alloy-recording-host] failed to prepare Discord detection cache {}: {error}",
                         path.display()
                     );
@@ -437,7 +467,6 @@ impl RecorderHost {
                 discord_refresh_started: AtomicBool::new(false),
                 settings: RwLock::new(settings),
                 status: RwLock::new(status),
-                capabilities: RwLock::new(Vec::new()),
                 captures: Mutex::new(captures),
                 emitted_captures: Mutex::new(HashSet::new()),
                 completed_captures: Mutex::new(HashMap::new()),
@@ -463,6 +492,12 @@ impl RecorderHost {
 
     pub async fn get_settings(&self) -> RecordingSettings {
         self.inner.settings.read().await.clone()
+    }
+
+    /// Checks a settings payload the way `set_settings` does, without applying
+    /// it. Callers with their own side effects run this first.
+    pub fn validate(&self, settings: &RecordingSettings) -> Result<(), RecorderHostError> {
+        validate_settings(settings)
     }
 
     pub async fn set_settings(
@@ -591,18 +626,6 @@ impl RecorderHost {
 
     pub async fn save_screenshot(&self) -> Result<RecordingActionResult, RecorderHostError> {
         let _session = self.ensure_session().await?;
-        if !self
-            .inner
-            .capabilities
-            .read()
-            .await
-            .iter()
-            .any(|capability| capability == "screenshots")
-        {
-            return Err(RecorderHostError::Protocol(
-                "Update the Alloy recorder to save screenshots.".into(),
-            ));
-        }
         let result = self
             .request_value(
                 "saveScreenshot",
@@ -784,7 +807,6 @@ impl RecorderHost {
             "outputFolder": output_folder,
             "replayScratchFolder": self.inner.options.replay_scratch_folder,
             "obsRuntimeDir": self.inner.options.obs_runtime_dir,
-            "discordDetectionCachePath": self.inner.discord_cache_path,
         }))
         .map_err(|source| json_error("Failed to encode recorder configuration", source))
     }
@@ -897,7 +919,6 @@ async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHost
                 version.name, version.protocol_version, AGENT_NAME, AGENT_PROTOCOL_VERSION
             ));
         }
-        *inner.capabilities.write().await = version.capabilities;
         let settings = inner.settings.read().await.clone();
         let output_folder = effective_output_folder(&inner.options, &settings);
         fs::create_dir_all(&output_folder)
@@ -912,7 +933,6 @@ async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHost
             "outputFolder": output_folder,
             "replayScratchFolder": inner.options.replay_scratch_folder,
             "obsRuntimeDir": inner.options.obs_runtime_dir,
-            "discordDetectionCachePath": inner.discord_cache_path,
         });
         let configure_value = session
             .request("configure", config, inner.options.configure_timeout)
@@ -937,7 +957,6 @@ async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHost
             inner.session.lock().await.take();
         }
         session.stop(&inner.options).await;
-        inner.capabilities.write().await.clear();
         set_error_status(inner, message.clone()).await;
         schedule_respawn(inner);
         return Err(RecorderHostError::Protocol(message));
@@ -966,15 +985,67 @@ async fn wait_for_exit(mut child: Child, session: Arc<Session>, inner: Weak<Inne
     }
 }
 
+enum BoundedLine {
+    Eof,
+    Oversized,
+    Line(String),
+}
+
+/// Reads one line without buffering more than `max_line_bytes` of it. A line
+/// that runs past the limit is reported as oversized while its tail is still
+/// in the stream; `discard_line_tail` drops the rest.
+async fn read_bounded_line<R>(reader: &mut R, max_line_bytes: usize) -> io::Result<BoundedLine>
+where
+    R: AsyncBufRead + Unpin,
+{
+    let mut buffer = Vec::new();
+    let count = reader
+        .take(max_line_bytes as u64 + 1)
+        .read_until(b'\n', &mut buffer)
+        .await?;
+    if count == 0 {
+        return Ok(BoundedLine::Eof);
+    }
+    if count > max_line_bytes {
+        return Ok(BoundedLine::Oversized);
+    }
+    let line = String::from_utf8(buffer)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    Ok(BoundedLine::Line(line))
+}
+
+async fn discard_line_tail<R>(reader: &mut R) -> io::Result<()>
+where
+    R: AsyncBufRead + Unpin,
+{
+    let mut chunk = Vec::with_capacity(64 * 1024);
+    loop {
+        chunk.clear();
+        let count = reader.take(64 * 1024).read_until(b'\n', &mut chunk).await?;
+        if count == 0 || chunk.last() == Some(&b'\n') {
+            return Ok(());
+        }
+    }
+}
+
 async fn read_stdout<R>(stdout: R, session: Arc<Session>, inner: Weak<Inner>, max_line_bytes: usize)
 where
     R: AsyncRead + Unpin,
 {
     let mut reader = BufReader::new(stdout);
     loop {
-        let mut line = String::new();
-        let count = match reader.read_line(&mut line).await {
-            Ok(count) => count,
+        let line = match read_bounded_line(&mut reader, max_line_bytes).await {
+            Ok(BoundedLine::Line(line)) => line,
+            Ok(BoundedLine::Eof) => break,
+            Ok(BoundedLine::Oversized) => {
+                session
+                    .fail_pending("Alloy agent sent an oversized protocol line.")
+                    .await;
+                if let Some(inner) = inner.upgrade() {
+                    let _ = session.stop(&inner.options).await;
+                }
+                break;
+            }
             Err(error) => {
                 session
                     .fail_pending(&format!("Alloy agent stdout failed: {error}"))
@@ -982,18 +1053,6 @@ where
                 break;
             }
         };
-        if count == 0 {
-            break;
-        }
-        if count > max_line_bytes {
-            session
-                .fail_pending("Alloy agent sent an oversized protocol line.")
-                .await;
-            if let Some(inner) = inner.upgrade() {
-                let _ = session.stop(&inner.options).await;
-            }
-            break;
-        }
         let Some(inner) = inner.upgrade() else {
             break;
         };
@@ -1007,24 +1066,24 @@ where
 {
     let mut reader = BufReader::new(stderr);
     loop {
-        let mut line = String::new();
-        let count = match reader.read_line(&mut line).await {
-            Ok(count) => count,
+        let line = match read_bounded_line(&mut reader, max_line_bytes).await {
+            Ok(BoundedLine::Line(line)) => line,
+            Ok(BoundedLine::Eof) => break,
+            Ok(BoundedLine::Oversized) => {
+                log::warn!("[alloy-agent] discarded oversized stderr line");
+                if discard_line_tail(&mut reader).await.is_err() {
+                    break;
+                }
+                continue;
+            }
             Err(error) => {
-                eprintln!("[alloy-agent] stderr read failed: {error}");
+                log::warn!("[alloy-agent] stderr read failed: {error}");
                 break;
             }
         };
-        if count == 0 {
-            break;
-        }
-        if count > max_line_bytes {
-            eprintln!("[alloy-agent] discarded oversized stderr line");
-            continue;
-        }
         let message = line.trim();
         if !message.is_empty() {
-            eprintln!("[alloy-agent] {message}");
+            log::info!("[alloy-agent] {message}");
         }
     }
 }
@@ -1036,7 +1095,7 @@ async fn handle_line(inner: &Arc<Inner>, session: &Arc<Session>, line: &str) {
     let value: Value = match serde_json::from_str(line) {
         Ok(value) => value,
         Err(error) => {
-            eprintln!("[alloy-agent] invalid protocol JSON: {error}");
+            log::warn!("[alloy-agent] invalid protocol JSON: {error}");
             return;
         }
     };
@@ -1044,7 +1103,7 @@ async fn handle_line(inner: &Arc<Inner>, session: &Arc<Session>, line: &str) {
     if value.get("event").is_some() {
         match serde_json::from_value::<EventEnvelope>(value) {
             Ok(envelope) => handle_event(inner, envelope.event).await,
-            Err(error) => eprintln!("[alloy-agent] invalid event: {error}"),
+            Err(error) => log::warn!("[alloy-agent] invalid event: {error}"),
         }
         return;
     }
@@ -1053,12 +1112,12 @@ async fn handle_line(inner: &Arc<Inner>, session: &Arc<Session>, line: &str) {
         let response = match serde_json::from_value::<WireResponse>(value) {
             Ok(response) => response,
             Err(error) => {
-                eprintln!("[alloy-agent] invalid response: {error}");
+                log::warn!("[alloy-agent] invalid response: {error}");
                 return;
             }
         };
         if response.id == 0 {
-            eprintln!("[alloy-agent] ignored response with id 0");
+            log::warn!("[alloy-agent] ignored response with id 0");
             return;
         }
         let pending = session.pending.lock().await.remove(&response.id);
@@ -1068,7 +1127,7 @@ async fn handle_line(inner: &Arc<Inner>, session: &Arc<Session>, line: &str) {
         return;
     }
 
-    eprintln!("[alloy-agent] ignored unknown protocol message");
+    log::warn!("[alloy-agent] ignored unknown protocol message");
 }
 
 async fn handle_event(inner: &Arc<Inner>, event: RecordingEvent) {
@@ -1077,7 +1136,7 @@ async fn handle_event(inner: &Arc<Inner>, event: RecordingEvent) {
             return;
         }
         if let Err(error) = remember_capture_inner(inner, capture.clone()).await {
-            eprintln!("[alloy-recording-host] failed to persist capture: {error}");
+            log::warn!("[alloy-recording-host] failed to persist capture: {error}");
             forget_capture_event(inner, capture).await;
             return;
         }
@@ -1201,7 +1260,6 @@ async fn process_exited(inner: &Arc<Inner>, session_id: u64, message: String) {
         return;
     }
     *inner.applied_settings.lock().await = None;
-    inner.capabilities.write().await.clear();
     set_error_status(inner, message.clone()).await;
     let status = inner.status.read().await.clone();
     let _ = inner.events.send(RecordingEvent::Error {
@@ -1246,7 +1304,7 @@ fn schedule_respawn(inner: &Arc<Inner>) {
             return;
         }
         if let Err(error) = ensure_session(&inner).await {
-            eprintln!("[alloy-recording-host] recorder respawn failed: {error}");
+            log::warn!("[alloy-recording-host] recorder respawn failed: {error}");
         }
     });
 }
@@ -1539,7 +1597,6 @@ fn prepare_discord_detection_cache(path: &Path) -> Result<(), RecorderHostError>
 
 fn start_discord_detection_refresh(inner: &Arc<Inner>) {
     if !cfg!(windows)
-        || inner.options.discord_detection_cache_path.is_some()
         || inner.discord_cache_path.is_none()
         || inner.discord_refresh_started.swap(true, Ordering::AcqRel)
     {
@@ -1556,7 +1613,7 @@ fn start_discord_detection_refresh(inner: &Arc<Inner>) {
             if !inner.shutdown.load(Ordering::Acquire)
                 && let Err(error) = refresh_discord_detection_cache(&path).await
             {
-                eprintln!("[alloy-recording-host] failed to refresh Discord detections: {error}");
+                log::warn!("[alloy-recording-host] failed to refresh Discord detections: {error}");
             }
             sleep(DISCORD_REFRESH_INTERVAL).await;
         }
@@ -1568,11 +1625,7 @@ async fn refresh_discord_detection_cache(path: &Path) -> Result<(), String> {
         return Ok(());
     }
 
-    // reqwest 0.13 builds rustls without a crypto provider; select ring once
-    // per process. A second install returns an error, which is fine to ignore.
-    if rustls::crypto::CryptoProvider::get_default().is_none() {
-        let _ = rustls::crypto::ring::default_provider().install_default();
-    }
+    crate::server::install_crypto_provider();
     let client = reqwest::Client::builder()
         .timeout(DISCORD_FETCH_TIMEOUT)
         .connect_timeout(DISCORD_CONNECT_TIMEOUT)
@@ -1779,14 +1832,6 @@ fn configure_runtime_environment(
         runtime.join("bin").join("64bit"),
     ];
     prepend_command_path(command, "PATH", &candidates);
-    let library_candidates = [
-        runtime.join("lib"),
-        runtime.join("lib64"),
-        runtime.join("bin"),
-        runtime.join("bin").join("64bit"),
-    ];
-    prepend_command_path(command, "LD_LIBRARY_PATH", &library_candidates);
-    prepend_command_path(command, "DYLD_LIBRARY_PATH", &library_candidates);
     for candidate in [
         runtime.join("bin").join("64bit"),
         runtime.join("bin"),

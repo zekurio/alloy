@@ -54,7 +54,10 @@ import {
   formatTags,
   parseTagString,
 } from "@/lib/clip-fields"
-import { notifyLibraryCapturesChanged, type AlloyDesktop } from "@/lib/desktop"
+import {
+  notifyLibraryCapturesChanged,
+  type AlloyTauriDesktop,
+} from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 import { useMediaWaveform } from "@/lib/media-waveform"
 import { useActionFeedback } from "@/lib/use-action-feedback"
@@ -92,7 +95,7 @@ import { UploadEditorBody } from "./library-upload-editor-body"
  * right with the post/delete actions pinned to its bottom.
  */
 type LocalEditorBodyProps = {
-  desktop: AlloyDesktop
+  desktop: AlloyTauriDesktop
   item: LibraryItemView
   promptGame: boolean
   prevEntry: NavigableLibraryEntry | null

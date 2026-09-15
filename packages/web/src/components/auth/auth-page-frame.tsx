@@ -40,24 +40,20 @@ export function AuthPageFrame({
       />
 
       <header
-        data-slot={desktop?.titlebarOverlay ? "app-header" : undefined}
+        data-slot={desktop ? "app-header" : undefined}
         className={cn(
           "absolute top-8 left-6 z-10 flex items-center sm:left-10",
-          desktop?.titlebarOverlay &&
-            "top-0 right-0 left-0 h-[var(--header-h)] px-4 sm:left-0",
+          desktop && "top-0 right-0 left-0 h-[var(--header-h)] px-4 sm:left-0",
         )}
       >
         <Link
           to="/"
-          data-slot={desktop?.titlebarOverlay ? "app-header-brand" : undefined}
-          className={cn(
-            "inline-flex items-center",
-            desktop?.titlebarOverlay && "h-full pl-3",
-          )}
+          data-slot={desktop ? "app-header-brand" : undefined}
+          className={cn("inline-flex items-center", desktop && "h-full pl-3")}
         >
           <AlloyLogo showText size={36} />
         </Link>
-        {desktop?.titlebarOverlay ? (
+        {desktop ? (
           <AppHeaderWindowControls
             className="absolute top-0 right-0 h-[var(--header-h)]"
             onMinimize={() => {

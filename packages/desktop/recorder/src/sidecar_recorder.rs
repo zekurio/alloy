@@ -178,11 +178,11 @@ impl Recorder {
             current_source: self
                 .replay_session
                 .as_ref()
-                .map(|session| session.capture.source.clone())
+                .map(|session| session.capture.source)
                 .or_else(|| {
                     self.last_capture
                         .as_ref()
-                        .map(|capture| capture.source.clone())
+                        .map(|capture| capture.source)
                 }),
             current_capture: self
                 .replay_session
@@ -392,7 +392,7 @@ impl Recorder {
             width: Some(output_dimensions.width),
             height: Some(output_dimensions.height),
             game: session.capture.game.clone(),
-            source: session.capture.source.clone(),
+            source: session.capture.source,
             kind: RecordingCaptureKind::Replay,
             post_process: saved.post_process,
             created_at: system_time_iso(requested_at),

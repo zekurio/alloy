@@ -1,4 +1,3 @@
-import { TAURI_DESKTOP_BRIDGE_CONTRACT_1 } from "./desktop-tauri"
 import type { ContractJsonInput } from "./json-value"
 import { isFiniteNumberValue, isStringValue } from "./object"
 import { t } from "./schema"
@@ -10,7 +9,7 @@ export const SERVER_INFO_SCHEMA = "alloy.server-info" as const
 export const SERVER_INFO_PRODUCT = "alloy" as const
 
 /**
- * The only desktop HTTP contract this renderer knows how to use.
+ * The only desktop HTTP contract the web app and the desktop host know.
  *
  * Alloy currently has one operator and no external deployments. Contract 1
  * can change with a coordinated desktop and server update. Version breaking
@@ -38,9 +37,6 @@ export const DESKTOP_HTTP_CAPABILITIES = Object.freeze({
     credentialedFetch: DESKTOP_HTTP_CAPABILITY_VERSION,
   }),
 } as const)
-
-export type DesktopHttpContractId = number
-export type DesktopHttpCapabilityVersion = number
 
 const PositiveSafeIntegerSchema = t
   .unknown()
@@ -99,7 +95,7 @@ const DesktopHttpCapabilitiesSchema = t.looseObject({
  * Runtime schema for the `/api/server-info` document.
  *
  * The loose objects are intentional. A future server can append document or
- * capability fields without making this renderer reject a response. Known
+ * capability fields without making a client reject a response. Known
  * capability fields stay exact, so a changed version is not treated as an
  * upgrade of the old contract.
  */
@@ -110,7 +106,7 @@ export const ServerInfoSchema = t.looseObject({
   version: InformationalVersionSchema,
   httpContracts: t.array(PositiveSafeIntegerSchema),
   /** Tauri shell contracts understood by the server-hosted web app. */
-  desktopTauriBridgeContracts: t.array(PositiveSafeIntegerSchema).optional(),
+  desktopTauriBridgeContracts: t.array(PositiveSafeIntegerSchema),
   capabilities: DesktopHttpCapabilitiesSchema,
 })
 
@@ -119,59 +115,4 @@ export type ServerInfo = t.infer<typeof ServerInfoSchema>
 /** Parse a server-info response at an untrusted HTTP boundary. */
 export function parseServerInfo(value: ContractJsonInput): ServerInfo {
   return ServerInfoSchema.parse(value)
-}
-
-/** Check a server-info response without throwing. */
-export function isServerInfo(value: ContractJsonInput): value is ServerInfo {
-  return ServerInfoSchema.safeParse(value).success
-}
-
-/**
- * Select the current desktop HTTP contract by exact membership.
- *
- * The array overload is useful to callers that have already validated the
- * surrounding document. The document overload validates the complete value so
- * malformed known capabilities cannot accidentally select a contract.
- */
-export function selectDesktopHttpContract(
-  value: ContractJsonInput,
-): typeof DESKTOP_HTTP_CONTRACT_1 | null {
-  if (Array.isArray(value)) {
-    const contracts = value.every(
-      (contractId) => PositiveSafeIntegerSchema.safeParse(contractId).success,
-    )
-    return contracts && value.includes(DESKTOP_HTTP_CONTRACT_1)
-      ? DESKTOP_HTTP_CONTRACT_1
-      : null
-  }
-
-  const result = ServerInfoSchema.safeParse(value)
-  if (!result.success) return null
-  return result.data.httpContracts.includes(DESKTOP_HTTP_CONTRACT_1)
-    ? DESKTOP_HTTP_CONTRACT_1
-    : null
-}
-
-/** Select the native bridge contract advertised by the server-hosted UI. */
-export function selectDesktopTauriBridgeContract(
-  value: ContractJsonInput,
-): typeof TAURI_DESKTOP_BRIDGE_CONTRACT_1 | null {
-  const result = ServerInfoSchema.safeParse(value)
-  if (!result.success) return null
-  return result.data.desktopTauriBridgeContracts?.includes(
-    TAURI_DESKTOP_BRIDGE_CONTRACT_1,
-  )
-    ? TAURI_DESKTOP_BRIDGE_CONTRACT_1
-    : null
-}
-
-/** Whether a server advertises one of this renderer's exact contract IDs. */
-export function supportsDesktopHttpContract(
-  value: ContractJsonInput,
-  contractId: number,
-): boolean {
-  return (
-    contractId === DESKTOP_HTTP_CONTRACT_1 &&
-    selectDesktopHttpContract(value) === DESKTOP_HTTP_CONTRACT_1
-  )
 }
