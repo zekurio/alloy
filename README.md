@@ -4,21 +4,19 @@
 
 <hr />
 
-The open-source, self-hosted alternative to Medal.tv: a Windows app records
-gameplay clips locally and publishes them to your own server; the web app
+The open-source, self-hosted alternative to Medal.tv. A Windows app records
+gameplay clips locally and publishes them to your own server. The web app
 handles playback, profiles, recommendations, search, and admin.
 
-This project is early and under active development. Expect sharp edges.
+Alloy is early and under active development. Expect sharp edges.
 
-Version 0.0.1 resets the migration history to a single initial migration.
-Start with a fresh PostgreSQL database. Existing databases cannot upgrade
-through this reset.
-
-### Desktop App
+### Desktop app
 
 Windows x64 only. Download the latest installer from
 [GitHub Releases](https://github.com/zekurio/alloy/releases/latest) and point
-it at your Alloy server.
+it at your Alloy server. The app keeps its settings in
+`%APPDATA%\dev.zekurio.alloy`, its caches and log in
+`%LOCALAPPDATA%\dev.zekurio.alloy`, and recordings in `Videos\Alloy`.
 
 ### Server
 
@@ -53,14 +51,15 @@ ALLOY_UPLOAD_HMAC_SECRET=replace-with-a-long-random-secret
 ALLOY_STEAMGRIDDB_API_KEY=replace-with-your-steamgriddb-api-key
 ```
 
-The module supplies PostgreSQL and filesystem storage defaults; see
+The module supplies PostgreSQL and filesystem storage defaults, and the server
+applies its database migrations on start. See
 [`.env.example`](.env.example) for authentication, storage, and transcoding
 options.
 
 ### Development
 
-With [devenv](https://devenv.sh/) (provides Node, pnpm, PostgreSQL, ffmpeg,
-and Rust):
+With [devenv](https://devenv.sh/), which provides Node, pnpm, PostgreSQL,
+ffmpeg, and Rust:
 
 ```bash
 nix profile install nixpkgs#devenv nixpkgs#direnv
@@ -70,14 +69,9 @@ pnpm dev
 ```
 
 Without Nix: install Node 24 and pnpm 11, provide a PostgreSQL database, copy
-`.env.example` to `.env`, then `pnpm install && pnpm dev`. `pnpm dev:all` adds
-the desktop shell; the recorder builds only on Windows.
-
-Formatting, linting, and tests run through the pinned local
-[oxfmt](https://oxc.rs/docs/guide/usage/formatter.html),
-[oxlint](https://oxc.rs/docs/guide/usage/linter.html), and
-[Vitest](https://vitest.dev/) versions, configured in `.oxfmtrc.json`,
-`.oxlintrc.json`, and `vitest.config.ts` at the repo root:
+`.env.example` to `.env`, then run `pnpm install && pnpm dev`. `pnpm dev:all`
+also starts the desktop shell, which builds only on Windows; see
+[`packages/desktop`](packages/desktop/README.md) for its setup.
 
 ```bash
 pnpm fmt                         # format the repository
@@ -85,12 +79,12 @@ pnpm lint                        # run type-aware linting
 pnpm test                        # run every test once
 pnpm test packages/server        # run tests matching a path
 pnpm typecheck                   # check every TypeScript package
+pnpm verify                      # format check, lint, and typecheck
 ```
 
-New `*.test.ts` and `*.test.tsx` files join the test suite without a package
-script. Run `pnpm verify` before opening a pull request. The
+Run `pnpm verify` before opening a pull request. The
 [contributing guide](.github/CONTRIBUTING.md) covers branch, commit, and PR
-conventions; package READMEs contain deeper implementation notes.
+conventions, and package READMEs hold the deeper implementation notes.
 
 ### Contributing
 
