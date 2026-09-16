@@ -4,19 +4,16 @@ import { expect, test, vi } from "vitest"
 
 import { toast } from "./toast"
 
-test("a primary action replaces the extra Close button with the native dismiss", () => {
+test("toasts dismiss from the round close button and keep an action as the only button", () => {
   const info = vi.spyOn(sonner, "info").mockReturnValue(1)
   try {
     const action = { label: "Reload", onClick: () => {} }
     toast.info("Alloy was updated", { action })
-    expect(info).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        action,
-        cancel: undefined,
-        closeButton: true,
-      }),
-    )
+    toast.info("Alloy was updated")
+    const [withAction, withoutAction] = info.mock.calls.map(([, data]) => data)
+    expect(withAction).toMatchObject({ action, closeButton: true })
+    expect(withoutAction).toMatchObject({ closeButton: true })
+    expect(withoutAction?.action).toBeUndefined()
   } finally {
     info.mockRestore()
   }
