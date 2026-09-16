@@ -45,6 +45,12 @@ export const RECORDING_RUN_STATES = [
 export const RECORDING_CAPTURE_SOURCES = ["game", "display"] as const
 export const RECORDING_AUDIO_MODES = ["devices", "applications"] as const
 export const RECORDING_AUDIO_DEVICE_KINDS = ["output", "input"] as const
+/**
+ * Most audio sources one capture can hold at once. libobs exposes 64 output
+ * channels and channel 0 carries video, so the recorder accepts at most 63;
+ * the settings UI blocks enabling more than this.
+ */
+export const RECORDING_MAX_AUDIO_SOURCES = 63
 export const RECORDING_NOTIFICATION_SOUND_EVENTS = [
   "replayBufferStarted",
   "clipSaved",
