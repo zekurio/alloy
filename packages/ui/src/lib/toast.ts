@@ -1,7 +1,5 @@
 import { isStringValue } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
-import { createElement } from "react"
 import type { ReactNode } from "react"
 import { type ExternalToast, toast } from "sonner"
 
@@ -13,30 +11,20 @@ function getToastId(id?: ExternalToast["id"]) {
   return `alloy-toast-${toastCounter}`
 }
 
-function getCloseAction(id: string | number) {
-  return createElement(
-    Button,
-    { size: "sm", onClick: () => toast.dismiss(id) },
-    t("Close"),
-  )
-}
-
-function withCloseAction(
+function withToastDefaults(
   id: string | number,
   data?: ExternalToast,
 ): ExternalToast {
-  const action = data?.action
   return {
     ...data,
     description: isStringValue(data?.description)
       ? t(data.description)
       : data?.description,
     id,
-    // A primary action owns the button slot; dismissal uses the native X
-    // so action toasts never show two side-by-side buttons.
-    action: action ?? getCloseAction(id),
+    // Closing is always the round corner dismiss button, and a caller-provided
+    // action stays the toast's only inline button.
     cancel: undefined,
-    closeButton: action !== undefined,
+    closeButton: true,
   }
 }
 
@@ -45,7 +33,7 @@ const alloyToast = Object.assign(
     const id = getToastId(data?.id)
     return toast(
       isStringValue(message) ? t(message) : message,
-      withCloseAction(id, data),
+      withToastDefaults(id, data),
     )
   },
   {
@@ -53,28 +41,28 @@ const alloyToast = Object.assign(
       const id = getToastId(data?.id)
       return toast.success(
         isStringValue(message) ? t(message) : message,
-        withCloseAction(id, data),
+        withToastDefaults(id, data),
       )
     },
     info: (message: ReactNode, data?: ExternalToast) => {
       const id = getToastId(data?.id)
       return toast.info(
         isStringValue(message) ? t(message) : message,
-        withCloseAction(id, data),
+        withToastDefaults(id, data),
       )
     },
     warning: (message: ReactNode, data?: ExternalToast) => {
       const id = getToastId(data?.id)
       return toast.warning(
         isStringValue(message) ? t(message) : message,
-        withCloseAction(id, data),
+        withToastDefaults(id, data),
       )
     },
     error: (message: ReactNode, data?: ExternalToast) => {
       const id = getToastId(data?.id)
       return toast.error(
         isStringValue(message) ? t(message) : message,
-        withCloseAction(id, data),
+        withToastDefaults(id, data),
       )
     },
     custom: toast.custom,
@@ -82,7 +70,7 @@ const alloyToast = Object.assign(
       const id = getToastId(data?.id)
       return toast.message(
         isStringValue(message) ? t(message) : message,
-        withCloseAction(id, data),
+        withToastDefaults(id, data),
       )
     },
     promise: toast.promise,
@@ -91,7 +79,7 @@ const alloyToast = Object.assign(
       const id = getToastId(data?.id)
       return toast.loading(
         isStringValue(message) ? t(message) : message,
-        withCloseAction(id, data),
+        withToastDefaults(id, data),
       )
     },
     getHistory: toast.getHistory,

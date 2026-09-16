@@ -6,6 +6,7 @@ import {
   Loader2Icon,
   OctagonXIcon,
   TriangleAlertIcon,
+  XIcon,
 } from "lucide-react"
 import { Toaster } from "sonner"
 import type { ToasterProps } from "sonner"
@@ -27,6 +28,7 @@ const AlloyToaster = ({ ...props }: ToasterProps) => {
         warning: <TriangleAlertIcon className="size-4" />,
         error: <OctagonXIcon className="size-4" />,
         loading: <Loader2Icon className="size-4 animate-spin" />,
+        close: <XIcon className="size-3" strokeWidth={2.25} />,
       }}
       style={cssVariables({
         "--normal-bg": "var(--surface-raised)",
