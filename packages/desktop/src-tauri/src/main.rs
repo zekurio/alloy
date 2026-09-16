@@ -22,7 +22,9 @@ use alloy_desktop::{
 use runtime::DesktopRuntime;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
-use services::{DesktopSavedServer, DesktopServices};
+use services::{
+    DesktopSavedServer, DesktopServices, DesktopWindowState, MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH,
+};
 use sha2::{Digest, Sha256};
 use tauri::{
     AppHandle, Emitter, Manager, RunEvent, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
@@ -52,6 +54,18 @@ const REMOTE_SHOW_FALLBACK: Duration = Duration::from_secs(3);
 /// replaced the injected bootstrap cookies with its own.
 const COOKIE_HANDOFF_POLL: Duration = Duration::from_millis(200);
 const COOKIE_HANDOFF_TIMEOUT: Duration = Duration::from_secs(10);
+/// Window size used until the user has resized a window once.
+const DEFAULT_WINDOW_STATE: DesktopWindowState = DesktopWindowState {
+    width: 1280,
+    height: 800,
+    maximized: false,
+};
+/// How long after the last resize event the window size is persisted, so
+/// dragging a window edge does not rewrite the preferences file every frame.
+const WINDOW_STATE_SAVE_DELAY: Duration = Duration::from_millis(400);
+
+/// Bumped on every resize so only the last save of a burst runs.
+static WINDOW_STATE_REVISION: AtomicU64 = AtomicU64::new(0);
 
 struct Host {
     connecting: tokio::sync::Mutex<()>,
@@ -517,6 +531,100 @@ fn open_external(url: &Url) {
     }
 }
 
+/// The size a new window opens with: the last saved size, clamped to the
+/// primary monitor so a window saved on a larger display still opens fully
+/// on screen.
+fn restored_window_state(app: &AppHandle, services: &DesktopServices) -> DesktopWindowState {
+    let saved = services.get_window_state().unwrap_or(DEFAULT_WINDOW_STATE);
+    let Ok(Some(monitor)) = app.primary_monitor() else {
+        return saved;
+    };
+    let available = monitor.size().to_logical::<f64>(monitor.scale_factor());
+    DesktopWindowState::clamped(
+        saved.width.min(available.width.round() as u32),
+        saved.height.min(available.height.round() as u32),
+        saved.maximized,
+    )
+}
+
+/// Writes a window's current geometry to the preferences file. A maximized
+/// window reports the screen size, so its last normal size is kept for when
+/// it is restored unmaximized.
+fn save_window_state(window: &WebviewWindow, services: &DesktopServices) {
+    // A minimized window reports a zero size, and its maximized flag is
+    // cleared, so skip it: minimizing must not change the remembered size.
+    let Ok(minimized) = window.is_minimized() else {
+        return;
+    };
+    if minimized {
+        return;
+    }
+    let previous = services.get_window_state().unwrap_or(DEFAULT_WINDOW_STATE);
+    let Ok(maximized) = window.is_maximized() else {
+        return;
+    };
+    let (width, height) = if maximized {
+        (previous.width, previous.height)
+    } else {
+        let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor()) else {
+            return;
+        };
+        if size.width == 0 || size.height == 0 {
+            return;
+        }
+        let logical = size.to_logical::<f64>(scale);
+        (logical.width.round() as u32, logical.height.round() as u32)
+    };
+    let state = DesktopWindowState::clamped(width, height, maximized);
+    if state == previous {
+        return;
+    }
+    if let Err(error) = services.remember_window_state(state) {
+        log::warn!("Could not save the window size: {error}");
+    }
+}
+
+/// Saves the geometry of every window still alive, so quitting right after a
+/// resize does not lose it.
+fn flush_window_state(app: &AppHandle, host: &Host) {
+    let Ok(services) = host.services() else {
+        return;
+    };
+    if let Some(window) = app.get_webview_window(CONNECT_WINDOW_LABEL) {
+        save_window_state(&window, services);
+    }
+    if let Some(window) = host
+        .remote
+        .read()
+        .ok()
+        .and_then(|remote| remote.as_ref().map(|session| session.window.clone()))
+    {
+        save_window_state(&window, services);
+    }
+}
+
+/// Coalesces a burst of resize events into one write after the user stops
+/// dragging.
+fn queue_window_state_save(window: WebviewWindow, services: Arc<DesktopServices>) {
+    let revision = WINDOW_STATE_REVISION.fetch_add(1, Ordering::Relaxed) + 1;
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(WINDOW_STATE_SAVE_DELAY).await;
+        if WINDOW_STATE_REVISION.load(Ordering::Relaxed) != revision {
+            return;
+        }
+        save_window_state(&window, &services);
+    });
+}
+
+fn track_window_state(window: &WebviewWindow, services: Arc<DesktopServices>) {
+    let tracked = window.clone();
+    window.clone().on_window_event(move |event| {
+        if matches!(event, WindowEvent::Resized(_)) {
+            queue_window_state_save(tracked.clone(), Arc::clone(&services));
+        }
+    });
+}
+
 /// `show` is false when the app was started as a login item: the saved server
 /// is restored so the recorder warms up, but its window stays hidden until the
 /// user opens it from the tray.
@@ -530,6 +638,8 @@ async fn install_remote(
     show: bool,
 ) -> Result<u64, String> {
     ensure_not_cancelled(cancelled)?;
+    let services = Arc::clone(host.services()?);
+    let state = restored_window_state(app, &services);
     let generation = host.next_generation.fetch_add(1, Ordering::Relaxed) + 1;
     let label = remote_window_label(generation);
     add_remote_capability(app, &label, &server.origin)?;
@@ -544,8 +654,9 @@ async fn install_remote(
     let blank = Url::parse("about:blank").map_err(|_| "Could not open the Alloy server window.")?;
     let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::External(blank))
         .title("Alloy")
-        .inner_size(1280.0, 800.0)
-        .min_inner_size(800.0, 600.0)
+        .inner_size(f64::from(state.width), f64::from(state.height))
+        .min_inner_size(f64::from(MIN_WINDOW_WIDTH), f64::from(MIN_WINDOW_HEIGHT))
+        .maximized(state.maximized)
         .visible(false)
         .background_color(WINDOW_BACKGROUND)
         // The web app renders its own title bar and window controls.
@@ -600,6 +711,7 @@ async fn install_remote(
         }
         _ => {}
     });
+    track_window_state(&window, services);
 
     if let Err(error) = ensure_not_cancelled(cancelled) {
         let _ = window.destroy();
@@ -983,20 +1095,24 @@ fn show_connect(app: &AppHandle, host: &Arc<Host>) -> Result<(), String> {
 }
 
 fn create_connect_window(app: &AppHandle, host: &Arc<Host>) -> Result<(), String> {
+    let services = Arc::clone(host.services()?);
+    let state = restored_window_state(app, &services);
     let window = WebviewWindowBuilder::new(
         app,
         CONNECT_WINDOW_LABEL,
         WebviewUrl::App("index.html".into()),
     )
     .title("Alloy")
-    .inner_size(1280.0, 800.0)
-    .min_inner_size(800.0, 600.0)
+    .inner_size(f64::from(state.width), f64::from(state.height))
+    .min_inner_size(f64::from(MIN_WINDOW_WIDTH), f64::from(MIN_WINDOW_HEIGHT))
+    .maximized(state.maximized)
     .visible(false)
     .background_color(WINDOW_BACKGROUND)
     .on_navigation(is_local_app_url)
     .on_new_window(|_, _| NewWindowResponse::Deny)
     .build()
     .map_err(|_| "Could not open the connect window.")?;
+    track_window_state(&window, services);
     let event_host = Arc::clone(host);
     window.on_window_event(move |event| {
         if let WindowEvent::CloseRequested { .. } = event {
@@ -1263,10 +1379,13 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
     });
 }
 
-fn handle_run_event(event: RunEvent, host: &Arc<Host>) {
+fn handle_run_event(app: &AppHandle, event: RunEvent, host: &Arc<Host>) {
     let RunEvent::ExitRequested { api, code, .. } = event else {
         return;
     };
+    // The last resize may still be waiting on the debounce, and the windows
+    // are still alive here, so capture the current geometry before saying yes.
+    flush_window_state(app, host);
     if code == Some(tauri::RESTART_EXIT_CODE) || host.quitting.load(Ordering::Acquire) {
         return;
     }
@@ -1351,7 +1470,7 @@ fn main() {
         // the app silently doing nothing.
         Err(error) => fail_startup(&error.to_string()),
     };
-    app.run(move |_app, event| handle_run_event(event, &host));
+    app.run(move |app, event| handle_run_event(app, event, &host));
 }
 
 fn fail_startup(message: &str) -> ! {
