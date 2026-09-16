@@ -1,4 +1,5 @@
 import { clipThumbnailUrl } from "@alloy/api"
+import { cssVariables } from "@alloy/ui/lib/css-properties"
 import { useQuery } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
 
@@ -25,6 +26,10 @@ const ROW_DURATIONS = [62, 78, 70, 86, 66, 82, 74, 90, 68, 84, 72, 88] as const
 // copy is wider than the (oversized, rotated) stage, so we recycle thumbnails
 // up to this count before duplicating for the loop.
 const MIN_TILES_PER_COPY = 16
+// The auth form sits directly on the backdrop, so light themes show the wall at
+// a fraction of its configured strength: dark copy loses contrast against image
+// detail far faster than light copy does against a dark wash.
+const LIGHT_WALL_OPACITY_RATIO = 0.35
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false)
@@ -83,7 +88,7 @@ function MarqueeRow({
         {tiles.map((url, i) => (
           <div
             key={i}
-            className="aspect-video h-full shrink-0 overflow-hidden rounded-lg bg-white/5"
+            className="bg-foreground/5 aspect-video h-full shrink-0 overflow-hidden rounded-lg"
           >
             <img
               src={url}
@@ -104,8 +109,9 @@ function MarqueeRow({
 /**
  * Jellyfin-inspired login backdrop: a live wall of public clip thumbnails laid
  * out in several rows that slowly scroll in alternating directions, the whole
- * grid sloped 15° and blurred/darkened behind the login form. No server-side
- * compositing — thumbnails load directly from `/api/clips/:id/thumbnail`.
+ * grid sloped 15° and blurred behind the login form, then faded into the active
+ * theme's surface so the form stays readable. No server-side compositing —
+ * thumbnails load directly from `/api/clips/:id/thumbnail`.
  */
 export function LoginBackdrop({
   enabled,
@@ -129,15 +135,20 @@ export function LoginBackdrop({
   if (!enabled || urls.length === 0) return null
 
   const rows = buildRows(urls, ROW_COUNT)
+  // Fading the wall into the themed surface is equivalent in dark to the old
+  // full-strength wall plus scrim, and it gives the light theme one knob to
+  // cap the wall without touching admin config.
+  const wallOpacity = 1 - darkenOpacity
 
   return (
     <div className="bg-surface-sunken pointer-events-none absolute inset-0 overflow-hidden">
       <div
-        className="absolute top-1/2 left-1/2 flex h-[170%] w-[170%] flex-col justify-center gap-3"
-        style={{
+        className="login-backdrop-wall absolute top-1/2 left-1/2 flex h-[170%] w-[170%] flex-col justify-center gap-3"
+        style={cssVariables({
+          "--login-wall-opacity": wallOpacity,
           transform: `translate(-50%, -50%) rotate(${SLOPE_DEGREES}deg)`,
           filter: blurPx > 0 ? `blur(${blurPx}px)` : undefined,
-        }}
+        })}
       >
         {rows.map((rowUrls, i) => (
           <MarqueeRow
@@ -149,14 +160,18 @@ export function LoginBackdrop({
           />
         ))}
       </div>
-      <div
-        aria-hidden
-        className="absolute inset-0"
-        style={{
-          backgroundColor: `color-mix(in oklab, var(--surface-sunken) ${darkenOpacity * 100}%, transparent)`,
-        }}
-      />
-      <style>{`@keyframes login-backdrop-marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }`}</style>
+      <style>{`
+        .login-backdrop-wall {
+          opacity: var(--login-wall-opacity);
+        }
+        :root.light .login-backdrop-wall {
+          opacity: calc(var(--login-wall-opacity) * ${LIGHT_WALL_OPACITY_RATIO});
+        }
+        @keyframes login-backdrop-marquee {
+          from { transform: translateX(0) }
+          to { transform: translateX(-50%) }
+        }
+      `}</style>
     </div>
   )
 }

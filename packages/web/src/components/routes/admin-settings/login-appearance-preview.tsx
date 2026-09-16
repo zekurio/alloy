@@ -100,7 +100,7 @@ function BackdropTreatmentControls({
       </div>
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex items-center justify-between gap-3 text-sm font-medium">
-          <span>{t("Darkening")}</span>
+          <span>{t("Fade")}</span>
           <span className="text-foreground-dim text-xs tabular-nums">
             {Math.round(darkenOpacity * 100)}
             {"%"}

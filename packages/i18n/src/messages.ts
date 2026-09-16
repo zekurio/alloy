@@ -622,7 +622,6 @@ export const DE_MESSAGES = {
   Current: "Aktuell",
   "Current version {version}": "Aktuelle Version {version}",
   Custom: "Nutzerdefiniert",
-  Darkening: "Verdunkelung",
   Delete: "Löschen",
   "Delete {username}?": "{username} löschen?",
   "Delete {noun}": "{noun} löschen",
@@ -721,6 +720,7 @@ export const DE_MESSAGES = {
   "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the selected link preview tier powers social embeds.":
     "Jeder Upload wird in diese Qualitätsstufen kodiert. Stufen oberhalb der Quellauflösung werden übersprungen, und die ausgewählte Link-Vorschau-Stufe versorgt Social-Einbettungen.",
   "Exit fullscreen": "Vollbild beenden",
+  Fade: "Ausblendung",
   "Failed to load users": "Nutzer konnten nicht geladen werden",
   "File Location": "Dateispeicherort",
   Finalizing: "Wird abgeschlossen",
