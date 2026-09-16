@@ -1,6 +1,6 @@
 import { t } from "@alloy/i18n"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
-import { Loader2Icon, PlusIcon, UploadIcon } from "lucide-react"
+import { PlusIcon, UploadIcon } from "lucide-react"
 import { Suspense, lazy, useRef } from "react"
 
 import { alloyDesktop } from "@/lib/desktop"
@@ -64,7 +64,7 @@ export function GlobalUploadControl({
           disabled={!importAction.available || pending}
           state={pending ? "pending" : importAction.error ? "error" : "idle"}
           pendingLabel={
-            variant === "header" ? t("Working…") : compactFeedbackLabel
+            variant === "mobile" ? compactFeedbackLabel : t("Working…")
           }
           errorLabel={variant === "header" ? t("Try again") : compactErrorLabel}
           className={triggerClassName}
@@ -80,10 +80,7 @@ export function GlobalUploadControl({
             void importAction.start()
           }}
         >
-          <UploadTriggerContent
-            pending={pending}
-            iconOnly={variant === "mobile"}
-          />
+          <UploadTriggerContent iconOnly={variant === "mobile"} />
         </FeedbackButton>
         {importAction.staged !== null ? (
           <Suspense fallback={null}>
@@ -120,7 +117,7 @@ export function GlobalUploadControl({
         }
         state={pending ? "pending" : webUploadAction.error ? "error" : "idle"}
         pendingLabel={
-          variant === "header" ? t("Working…") : compactFeedbackLabel
+          variant === "mobile" ? compactFeedbackLabel : t("Working…")
         }
         errorLabel={variant === "header" ? t("Try again") : compactErrorLabel}
         title={
@@ -133,31 +130,16 @@ export function GlobalUploadControl({
           inputRef.current?.click()
         }}
       >
-        <UploadTriggerContent
-          pending={pending}
-          iconOnly={variant === "mobile"}
-        />
+        <UploadTriggerContent iconOnly={variant === "mobile"} />
       </FeedbackButton>
     </>
   )
 }
 
-function UploadTriggerContent({
-  pending,
-  iconOnly = false,
-}: {
-  pending: boolean
-  iconOnly?: boolean
-}) {
+function UploadTriggerContent({ iconOnly = false }: { iconOnly?: boolean }) {
   return (
     <>
-      {pending ? (
-        <Loader2Icon className="animate-spin" />
-      ) : iconOnly ? (
-        <PlusIcon />
-      ) : (
-        <UploadIcon />
-      )}
+      {iconOnly ? <PlusIcon /> : <UploadIcon />}
       <span className={iconOnly ? "sr-only" : undefined}>{t("Upload")}</span>
     </>
   )

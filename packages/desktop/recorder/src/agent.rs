@@ -50,6 +50,9 @@ const SPEAKERS_STEREO: i32 = 2;
 // Output channel 0 is video; libobs exposes 64 independently routed sources.
 const AUDIO_OUTPUT_CHANNEL_BASE: u32 = 1;
 const MAX_OUTPUT_CHANNELS: usize = 64;
+// Every audio source feeds mixer 0, so the recorded file contains one
+// ready-to-play mixed track.
+const AUDIO_MIXER_ZERO: u32 = 1;
 const OBS_VIDEO_SUCCESS: i32 = 0;
 const OBS_ENCODER_AUDIO: c_int = 0;
 const OBS_ENCODER_VIDEO: c_int = 1;

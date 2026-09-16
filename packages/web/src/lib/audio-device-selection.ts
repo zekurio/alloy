@@ -1,10 +1,36 @@
 import type {
   RecordingAudioDevice,
   RecordingAudioDeviceSelection,
+  RecordingSettings,
 } from "@alloy/contracts"
 
 export interface RecordingAudioDeviceView extends RecordingAudioDeviceSelection {
   available: boolean
+}
+
+/**
+ * Audio sources the recorder captures for these settings: enabled devices, or
+ * in applications mode the enabled input devices plus enabled applications
+ * with a window. Matches the recorder's audio graph builder, where disabled
+ * and windowless applications create no source.
+ */
+export function enabledAudioSourceCount(
+  settings: Pick<
+    RecordingSettings,
+    "audioMode" | "audioDevices" | "audioApplications"
+  >,
+): number {
+  const enabledDevices = settings.audioDevices.filter(
+    (device) => device.enabled,
+  )
+  if (settings.audioMode !== "applications") return enabledDevices.length
+
+  return (
+    enabledDevices.filter((device) => device.kind === "input").length +
+    settings.audioApplications.filter(
+      (application) => application.enabled && application.window !== "",
+    ).length
+  )
 }
 
 export function mergeAudioDevices(

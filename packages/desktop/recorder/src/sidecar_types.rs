@@ -84,7 +84,17 @@ struct VideoGraph {
 struct AudioGraph {
     /// Audio capture sources attached directly to OBS output channels
     /// `AUDIO_OUTPUT_CHANNEL_BASE + i` in order.
-    sources: Vec<*mut ObsSource>,
+    sources: Vec<AudioSource>,
+}
+
+struct AudioSource {
+    /// Settings selector the source was created from, stable across volume
+    /// edits and selection changes.
+    selector: String,
+    /// Resolved capture target (`device_id` or `window`) the source was
+    /// created with; a different target needs a different OBS source.
+    target: String,
+    source: *mut ObsSource,
 }
 
 #[derive(Clone)]

@@ -106,6 +106,8 @@ value crosses a runtime boundary; use plain TypeScript types otherwise.
 target pull requests at `dev`. Follow `.github/CONTRIBUTING.md` for branch,
 commit, and PR conventions.
 
-UI pull requests need before and after screenshots. Release notes use one
-`changelog:*` label derived from the conventional PR title; use
-`changelog:skip` when no release note is needed.
+UI pull requests need before and after screenshots. Attach them with the GitHub
+CLI (`gh pr create --attach before.png --attach after.png`, or
+`gh pr comment <number> --attach ...`) instead of committing images to the
+repository. Release notes use one `changelog:*` label derived from the
+conventional PR title; use `changelog:skip` when no release note is needed.

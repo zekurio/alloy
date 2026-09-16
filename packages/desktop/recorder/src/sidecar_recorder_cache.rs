@@ -230,15 +230,14 @@ impl Recorder {
     }
 }
 
-/// Settings whose change requires tearing down active outputs. Allow/deny game
-/// list edits are intentionally absent: the tick loop already ends sessions
-/// whose active game became disallowed, so list edits never interrupt an
-/// unrelated active recording.
+/// Non-audio settings whose change requires tearing down active outputs.
+/// Audio selections and volumes are reconciled against the live graph by
+/// `sync_audio_sources`, so they never restart an active recording. Allow/deny
+/// game list edits are intentionally absent: the tick loop already ends
+/// sessions whose active game became disallowed, so list edits never interrupt
+/// an unrelated active recording.
 fn active_settings_require_restart(current: &RecordingSettings, next: &RecordingSettings) -> bool {
-    current.audio_mode != next.audio_mode
-        || current.audio_devices != next.audio_devices
-        || current.audio_applications != next.audio_applications
-        || current.capture_mode != next.capture_mode
+    current.capture_mode != next.capture_mode
         || current.selected_display_id != next.selected_display_id
         || current.encoder != next.encoder
         || current.gpu != next.gpu
@@ -246,6 +245,31 @@ fn active_settings_require_restart(current: &RecordingSettings, next: &Recording
         || effective_quality(current) != effective_quality(next)
         || current.replay_buffer_seconds != next.replay_buffer_seconds
         || current.buffer_storage != next.buffer_storage
+}
+
+/// Maps the live audio graph onto the configs the current settings describe.
+/// Position `i` holds the graph entry config `i` can reuse (same selector and
+/// capture target); `removed` lists entries no config needs.
+struct AudioSourcePlan {
+    reuse: Vec<Option<usize>>,
+    removed: Vec<usize>,
+}
+
+fn plan_audio_sources(existing: &[AudioSource], configs: &[AudioSourceConfig]) -> AudioSourcePlan {
+    let mut reuse: Vec<Option<usize>> = vec![None; configs.len()];
+    let mut removed = Vec::new();
+    for (index, entry) in existing.iter().enumerate() {
+        let reusable = configs.iter().position(|config| {
+            config.selector == entry.selector && config.effective_value() == entry.target.as_str()
+        });
+        match reusable {
+            Some(config_index) if reuse[config_index].is_none() => {
+                reuse[config_index] = Some(index);
+            }
+            _ => removed.push(index),
+        }
+    }
+    AudioSourcePlan { reuse, removed }
 }
 
 fn cache_expired(last_refresh: Option<Instant>, ttl: Duration) -> bool {
@@ -286,5 +310,74 @@ fn merge_codec_caps(cached: CodecCaps, live: CodecCaps) -> CodecCaps {
     CodecCaps {
         hardware,
         software_h264: cached.software_h264 || live.software_h264,
+    }
+}
+
+#[cfg(test)]
+mod audio_source_plan_tests {
+    use super::*;
+
+    fn source(selector: &str, target: &str) -> AudioSource {
+        AudioSource {
+            selector: selector.to_string(),
+            target: target.to_string(),
+            source: ptr::null_mut(),
+        }
+    }
+
+    fn device_config(id: &str) -> AudioSourceConfig {
+        AudioSourceConfig {
+            source_id: "test_device",
+            name: format!("alloy_test_{id}"),
+            selector: format!("Output:{id}"),
+            device_id: Some(id.to_string()),
+            window: None,
+            priority: None,
+            volume: 1.0,
+        }
+    }
+
+    fn application_config(id: &str, window: &str) -> AudioSourceConfig {
+        AudioSourceConfig {
+            source_id: "test_application",
+            name: format!("alloy_test_{id}"),
+            selector: id.to_string(),
+            device_id: None,
+            window: Some(window.to_string()),
+            priority: Some(OBS_WINDOW_PRIORITY_EXE),
+            volume: 1.0,
+        }
+    }
+
+    #[test]
+    fn volume_edits_reuse_every_source() {
+        let existing = vec![source("Output:device-a", "device-a")];
+        let plan = plan_audio_sources(&existing, &[device_config("device-a")]);
+        assert_eq!(plan.reuse, vec![Some(0)]);
+        assert!(plan.removed.is_empty());
+    }
+
+    #[test]
+    fn selection_edits_add_and_remove_sources() {
+        let existing = vec![source("Output:device-a", "device-a")];
+
+        let added = plan_audio_sources(
+            &existing,
+            &[device_config("device-a"), device_config("device-b")],
+        );
+        assert_eq!(added.reuse, vec![Some(0), None]);
+        assert!(added.removed.is_empty());
+
+        let removed = plan_audio_sources(&existing, &[device_config("device-b")]);
+        assert_eq!(removed.reuse, vec![None]);
+        assert_eq!(removed.removed, vec![0]);
+    }
+
+    #[test]
+    fn changed_capture_targets_replace_sources() {
+        let existing = vec![source("application-a", "window-a")];
+        let plan = plan_audio_sources(&existing, &[application_config("application-a", "window-b")]);
+        assert_eq!(plan.reuse, vec![None]);
+        assert_eq!(plan.removed, vec![0]);
     }
 }
