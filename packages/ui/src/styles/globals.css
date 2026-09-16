@@ -738,30 +738,52 @@
   }
 }
 
-/* Base card — single-line, vertically centred, no description. */
+/* Toast card — status icon on the header line, description tiered under it,
+   and the action button where the old inline Close used to sit. Dismissal is
+   always the round corner button sonner renders for non-custom toasts. */
 
 .alloy-toast {
-  display: flex !important;
-  align-items: center !important;
-  gap: 12px !important;
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "icon content content content"
+    "icon .       cancel  action";
+  align-items: start !important;
+  column-gap: 10px !important;
+  row-gap: 0 !important;
   width: 100%;
   padding: 12px 14px !important;
   background: var(--surface-raised);
   color: var(--foreground);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  overflow: hidden;
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* Custom and message toasts have no status icon; do not reserve its column. */
+.alloy-toast:not(:has(> [data-icon])) {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "content content content"
+    ".       cancel  action";
+}
+
+/* The header row stays tight; only a real button opens the bottom row. */
+.alloy-toast:has(> [data-button]),
+.alloy-toast:has(> [data-cancel]),
+.alloy-toast:has(> [data-slot="button"]) {
+  row-gap: 8px !important;
 }
 
 .alloy-toast-icon {
-  order: 1;
-  flex: none;
+  grid-area: icon;
+  align-self: start;
   display: inline-flex;
   align-items: center;
   justify-content: center !important;
   width: 20px !important;
-  height: 20px !important;
+  /* Match the title line box so the glyph sits on the header's baseline. */
+  height: calc(var(--text-base) * var(--leading-tight)) !important;
   margin: 0 !important;
   color: var(--foreground-muted);
 }
@@ -773,8 +795,7 @@
 }
 
 .alloy-toast > [data-content] {
-  order: 2;
-  flex: 1 1 auto;
+  grid-area: content;
   min-width: 0;
 }
 
@@ -793,38 +814,112 @@
 }
 
 .alloy-toast-title {
-  font-size: var(--text-base);
-  font-weight: 600;
-  line-height: var(--leading-tight);
-  color: var(--foreground);
+  font-size: var(--text-base) !important;
+  font-weight: 600 !important;
+  line-height: var(--leading-tight) !important;
+  color: var(--foreground) !important;
   letter-spacing: -0.01em;
+}
+
+.alloy-toast-description {
+  font-size: var(--text-base) !important;
+  line-height: var(--leading-normal) !important;
+  color: var(--foreground-dim) !important;
+}
+
+/* Round dismiss button hanging off the card's top-right corner, clear of the
+   status icon. */
+.alloy-toast[data-styled="true"] > [data-close-button] {
+  left: auto !important;
+  right: 0 !important;
+  transform: translate(35%, -35%) !important;
+  width: 20px !important;
+  height: 20px !important;
+  border: 1px solid var(--border-strong) !important;
+  background: var(--surface-raised) !important;
+  color: var(--foreground-muted) !important;
+  box-shadow: var(--shadow-md);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.alloy-toast[data-styled="true"] > [data-close-button]:hover {
+  border-color: var(--border-emphasis) !important;
+  background: var(--neutral-150) !important;
+  color: var(--foreground) !important;
+}
+
+.alloy-toast[data-styled="true"] > [data-close-button]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* The action takes the primary sm button so an action toast keeps one clear
+   button in the slot the inline Close used to occupy. */
+.alloy-toast > [data-button],
+.alloy-toast > [data-slot="button"] {
+  grid-area: action;
+  justify-self: end;
+  flex: none;
+}
+
+.alloy-toast[data-styled="true"] > [data-button] {
+  height: 28px !important;
+  padding-inline: 14px !important;
+  border: 1px solid var(--accent) !important;
+  border-radius: var(--radius-lg) !important;
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+  font-size: var(--text-xs) !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.alloy-toast[data-styled="true"] > [data-button]:hover {
+  border-color: var(--accent-hover) !important;
+  background: var(--accent-hover) !important;
+}
+
+.alloy-toast[data-styled="true"] > [data-button]:active {
+  border-color: var(--accent-active) !important;
+  background: var(--accent-active) !important;
+}
+
+.alloy-toast[data-styled="true"] > [data-button]:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--surface-raised),
+    0 0 0 4px var(--accent);
+}
+
+.alloy-toast[data-styled="true"] > [data-cancel] {
+  border-color: var(--border-strong) !important;
+  background: transparent !important;
+  color: var(--foreground) !important;
 }
 
 /* Collapse back to the compact desktop sizing at the sm breakpoint. */
 @media (width >= 40rem) {
   .alloy-toast {
-    gap: 10px !important;
-    padding: 8px 10px !important;
+    column-gap: 8px !important;
+    padding: 10px 12px !important;
   }
 
   .alloy-toast-icon {
     width: 16px !important;
-    height: 16px !important;
+    height: calc(var(--text-sm) * var(--leading-tight)) !important;
   }
 
-  .alloy-toast-title {
-    font-size: var(--text-sm);
+  .alloy-toast-title,
+  .alloy-toast-description {
+    font-size: var(--text-sm) !important;
   }
-}
-
-.alloy-toast-description {
-  display: none;
-}
-
-.alloy-toast > [data-slot="button"] {
-  order: 3;
-  flex: none;
-  margin-left: auto;
 }
 
 @media (width < 48rem) {
