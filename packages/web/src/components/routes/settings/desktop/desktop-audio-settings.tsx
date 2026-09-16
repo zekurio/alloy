@@ -1,8 +1,9 @@
-import type {
-  RecordingAudioApplicationSelection,
-  RecordingAudioDeviceKind,
-  RecordingAudioLevel,
-  RecordingSettings,
+import {
+  RECORDING_MAX_AUDIO_SOURCES,
+  type RecordingAudioApplicationSelection,
+  type RecordingAudioDeviceKind,
+  type RecordingAudioLevel,
+  type RecordingSettings,
 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
@@ -17,6 +18,7 @@ import {
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Slider } from "@alloy/ui/components/slider"
 import { Spinner } from "@alloy/ui/components/spinner"
+import { toast } from "@alloy/ui/lib/toast"
 import { cn, sliderValue } from "@alloy/ui/lib/utils"
 import {
   AppWindowIcon,
@@ -33,6 +35,7 @@ import {
   SettingsSubsection,
 } from "@/components/routes/settings/settings-panel"
 import {
+  enabledAudioSourceCount,
   mergeAudioDevices,
   type RecordingAudioDeviceView,
   upsertAudioDevice,
@@ -163,6 +166,8 @@ export function DesktopAudioSettings() {
     settings.audioApplications,
   )
   const controlsDisabled = busy
+  const sourceLimitReached =
+    enabledAudioSourceCount(settings) >= RECORDING_MAX_AUDIO_SOURCES
 
   return (
     <SettingsSections>
@@ -215,6 +220,7 @@ export function DesktopAudioSettings() {
           busy={controlsDisabled}
           save={save}
           levels={levels}
+          sourceLimitReached={sourceLimitReached}
         />
       ) : (
         <>
@@ -224,6 +230,7 @@ export function DesktopAudioSettings() {
             busy={controlsDisabled}
             save={save}
             levels={levels}
+            sourceLimitReached={sourceLimitReached}
           />
           {/* Microphones aren't application streams, so input devices stay
               manageable here for voice-over alongside the app audio. */}
@@ -234,6 +241,7 @@ export function DesktopAudioSettings() {
             save={save}
             levels={levels}
             kinds={["input"]}
+            sourceLimitReached={sourceLimitReached}
           />
         </>
       )}
@@ -248,6 +256,7 @@ function AudioDeviceList({
   save,
   levels,
   kinds,
+  sourceLimitReached,
 }: {
   devices: RecordingAudioDeviceView[]
   settings: RecordingSettings
@@ -256,6 +265,8 @@ function AudioDeviceList({
   levels: ReadonlyMap<string, number> | null
   /** Restricts the rendered device groups (e.g. input-only in apps mode). */
   kinds?: RecordingAudioDeviceKind[]
+  /** Whether enabling another source would exceed the recorder's channel limit. */
+  sourceLimitReached: boolean
 }) {
   const groups = kinds
     ? AUDIO_DEVICE_GROUPS.filter((group) => kinds.includes(group.kind))
@@ -313,6 +324,7 @@ function AudioDeviceList({
                   available={device.available}
                   level={deviceLevel(levels, device)}
                   busy={busy}
+                  sourceLimitReached={sourceLimitReached}
                   onRemove={
                     device.available
                       ? undefined
@@ -354,12 +366,15 @@ function AudioApplicationList({
   busy,
   save,
   levels,
+  sourceLimitReached,
 }: {
   applications: RecordingAudioApplicationSelection[]
   settings: RecordingSettings
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
   levels: ReadonlyMap<string, number> | null
+  /** Whether enabling another source would exceed the recorder's channel limit. */
+  sourceLimitReached: boolean
 }) {
   if (applications.length === 0) {
     return (
@@ -386,6 +401,7 @@ function AudioApplicationList({
             available
             level={applicationLevel(levels, application)}
             busy={busy}
+            sourceLimitReached={sourceLimitReached}
             onChange={(patch) =>
               void save({
                 ...settings,
@@ -441,6 +457,7 @@ function AudioRow({
   available,
   level,
   busy,
+  sourceLimitReached,
   onRemove,
   onChange,
 }: {
@@ -454,6 +471,8 @@ function AudioRow({
   /** Live linear peak 0..1 pre-volume, or null when metering is unavailable. */
   level: number | null
   busy: boolean
+  /** Whether enabling another source would exceed the recorder's channel limit. */
+  sourceLimitReached: boolean
   onRemove?: () => void
   onChange: (patch: { enabled?: boolean; volume?: number }) => void
 }) {
@@ -467,7 +486,17 @@ function AudioRow({
           id={id}
           checked={enabled}
           disabled={busy || (!available && !enabled)}
-          onCheckedChange={(checked) => onChange({ enabled: checked === true })}
+          onCheckedChange={(checked) => {
+            if (checked === true && sourceLimitReached) {
+              toast.error(
+                t("You can capture up to {count} audio sources at once.", {
+                  count: RECORDING_MAX_AUDIO_SOURCES,
+                }),
+              )
+              return
+            }
+            onChange({ enabled: checked === true })
+          }}
         />
         <span
           className={cn(
