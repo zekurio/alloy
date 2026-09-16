@@ -159,8 +159,8 @@
 }
 
 /* Dark theme is the default (:root). The `.dark` class carries the same values
-   so a subtree can force dark tokens even under a `.light` root — used by the
-   login frame, whose darkened backdrop stays dark in every theme. */
+   so a subtree can force dark tokens even under a `.light` root; theme presets
+   and `dark:` utilities key off the class. */
 :root,
 .dark {
   /* Align native form controls and scrollbars with the active dark palette. */
