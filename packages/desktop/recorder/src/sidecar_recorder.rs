@@ -66,20 +66,14 @@ impl Recorder {
             )
         }) != Some((next_quality, next_adapter))
             || self.obs_runtime_dir != params.obs_runtime_dir;
-        let same_audio_layout = self
-            .settings
-            .as_ref()
-            .is_none_or(|current| audio_layout_unchanged(current, &settings));
         let active_output_should_stop = self
             .settings
             .as_ref()
-            .is_some_and(|current| {
-                !same_audio_layout || active_settings_require_restart(current, &settings)
-            })
+            .is_some_and(|current| active_settings_require_restart(current, &settings))
             || active_paths_changed
             || needs_reinit
             || active_video_config_changed;
-        let apply_live_audio_levels = !active_output_should_stop && self.replay_session.is_some();
+        let sync_live_audio = !active_output_should_stop && self.replay_session.is_some();
         self.settings = Some(settings);
         self.output_folder = Some(output_folder);
         self.replay_scratch_folder = Some(replay_scratch_folder);
@@ -96,10 +90,6 @@ impl Recorder {
                 });
                 return Err(error);
             }
-        }
-
-        if apply_live_audio_levels {
-            self.apply_audio_levels();
         }
 
         if needs_reinit || active_video_config_changed {
@@ -130,6 +120,10 @@ impl Recorder {
                 status: status.clone(),
             });
             return Ok(status);
+        }
+
+        if sync_live_audio {
+            self.sync_audio_sources();
         }
 
         if let Err(error) = self.ensure_obs() {
@@ -299,47 +293,102 @@ impl Recorder {
         true
     }
 
-    /// Applies new per-source volumes to the live audio graph. Only called
-    /// when the audio layout is unchanged, so every source keeps its selector
-    /// and the running replay buffer is not interrupted.
-    fn apply_audio_levels(&self) {
-        let (Some(settings), Some(session), Some(obs)) = (
+    /// Reconciles the live audio graph with the current settings. Sources that
+    /// still match are reused in place, new sources are created before any
+    /// existing source is released so a failed creation leaves the active graph
+    /// running, and removed sources are unrouted and released. This keeps
+    /// volume and selection edits from interrupting the replay buffer.
+    fn sync_audio_sources(&mut self) {
+        let (Some(settings), Some(obs), Some(session)) = (
             self.settings.as_ref(),
-            self.replay_session.as_ref(),
             self.obs.as_ref(),
+            self.replay_session.as_mut(),
         ) else {
             return;
         };
 
-        let mut volumes: HashMap<String, f32> = HashMap::new();
-        for device in settings
-            .audio_devices
-            .iter()
-            .filter(|device| device.enabled)
-        {
-            volumes.insert(audio_device_selector(device), audio_volume(device.volume));
-        }
-        for application in settings
-            .audio_applications
-            .iter()
-            .filter(|application| application.enabled)
-        {
-            volumes.insert(application.id.clone(), audio_volume(application.volume));
+        let configs = match audio_source_configs(obs, settings, self.active_game.as_ref()) {
+            Ok(configs) => configs,
+            Err(error) => {
+                eprintln!("[{SIDE_CAR_NAME}] keeping current audio graph: {error}");
+                return;
+            }
+        };
+        if let Err(error) = validate_audio_source_count(configs.len()) {
+            eprintln!("[{SIDE_CAR_NAME}] keeping current audio graph: {error}");
+            return;
         }
 
-        for (selector, source) in session
-            .audio_graph
-            .selectors
-            .iter()
-            .zip(&session.audio_graph.sources)
-        {
-            let Some(volume) = volumes.get(selector.as_str()) else {
+        let plan = plan_audio_sources(&session.audio_graph.sources, &configs);
+
+        // Build every new source first. Creation is the only step that can
+        // fail, and nothing has been released yet, so a failure aborts the
+        // whole update without touching the running graph.
+        let mut created: Vec<Option<AudioSource>> = Vec::new();
+        created.resize_with(configs.len(), || None);
+        let mut added = 0usize;
+        for (config_index, config) in configs.iter().enumerate() {
+            if plan.reuse[config_index].is_some() {
+                continue;
+            }
+            match unsafe { create_audio_source(obs, config) } {
+                Ok(source) => {
+                    created[config_index] = Some(AudioSource {
+                        selector: config.selector.clone(),
+                        target: config.effective_value().to_string(),
+                        source,
+                    });
+                    added += 1;
+                }
+                Err(error) => {
+                    eprintln!("[{SIDE_CAR_NAME}] keeping current audio graph: {error}");
+                    for entry in created.into_iter().flatten() {
+                        unsafe { release_audio_source(obs, entry.source) };
+                    }
+                    return;
+                }
+            }
+        }
+
+        // Commit: unroute the old channels before releasing anything, then
+        // route and retune the reconciled graph.
+        let mut existing: Vec<Option<AudioSource>> = std::mem::take(&mut session.audio_graph.sources)
+            .into_iter()
+            .map(Some)
+            .collect();
+        unsafe { clear_audio_output_sources(obs, existing.len()) };
+
+        let mut next = Vec::with_capacity(configs.len());
+        for (config_index, config) in configs.iter().enumerate() {
+            let entry = match plan.reuse[config_index] {
+                Some(existing_index) => existing[existing_index].take(),
+                None => created[config_index].take(),
+            };
+            let Some(entry) = entry else {
                 continue;
             };
-            // SAFETY: the active session retains this source and it was created
-            // by the same libobs instance.
-            unsafe { (obs.obs_source_set_volume)(*source, *volume) };
+            unsafe {
+                (obs.obs_source_set_volume)(entry.source, config.volume);
+                route_audio_source(obs, entry.source, next.len());
+            }
+            next.push(entry);
         }
+
+        let mut removed = 0usize;
+        for existing_index in &plan.removed {
+            if let Some(entry) = existing[*existing_index].take() {
+                removed += 1;
+                unsafe { release_audio_source(obs, entry.source) };
+            }
+        }
+
+        if added > 0 || removed > 0 {
+            eprintln!(
+                "[{SIDE_CAR_NAME}] audio graph reconciled: {added} added, {removed} removed, {} active",
+                next.len()
+            );
+        }
+        session.audio_graph.sources = next;
     }
 
     fn start_replay_buffer(&mut self) -> Result<(), String> {

@@ -135,13 +135,18 @@ unsafe fn release_audio_graph(obs: &LibObs, audio_graph: AudioGraph) {
     release_audio_sources(obs, audio_graph.sources);
 }
 
-unsafe fn release_audio_sources(obs: &LibObs, sources: Vec<*mut ObsSource>) {
-    for source in sources {
-        if !source.is_null() {
-            (obs.obs_source_remove)(source);
-            (obs.obs_source_release)(source);
-        }
+unsafe fn release_audio_sources(obs: &LibObs, sources: Vec<AudioSource>) {
+    for entry in sources {
+        release_audio_source(obs, entry.source);
     }
+}
+
+unsafe fn release_audio_source(obs: &LibObs, source: *mut ObsSource) {
+    if source.is_null() {
+        return;
+    }
+    (obs.obs_source_remove)(source);
+    (obs.obs_source_release)(source);
 }
 
 unsafe fn clear_audio_output_sources(obs: &LibObs, source_count: usize) {
@@ -513,62 +518,84 @@ impl AudioSourceConfig {
 
 const OBS_WINDOW_PRIORITY_EXE: i64 = 2;
 
+/// Creates one audio capture source from a resolved selection and applies the
+/// shared mixer and per-source volume. Routing to an output channel is kept
+/// separate so a live update can build every new source before it touches the
+/// active graph.
+unsafe fn create_audio_source(
+    obs: &LibObs,
+    config: &AudioSourceConfig,
+) -> Result<*mut ObsSource, String> {
+    let source_settings = obs.create_data();
+    let source = (|| {
+        if let Some(device_id) = config.device_id.as_deref() {
+            obs.set_string(source_settings, "device_id", device_id)?;
+        }
+        if let Some(window) = config.window.as_deref() {
+            obs.set_string(source_settings, "window", window)?;
+        }
+        if let Some(priority) = config.priority {
+            obs.set_int(source_settings, "priority", priority)?;
+        }
+        create_source(obs, config.source_id, &config.name, Some(source_settings))
+    })();
+    obs.release_data(source_settings);
+
+    let source = source?;
+    // Every selected source feeds mixer 0. Per-source volume is applied here,
+    // so the recorded file contains one ready-to-play mixed track.
+    (obs.obs_source_set_audio_mixers)(source, AUDIO_MIXER_ZERO);
+    (obs.obs_source_set_volume)(source, config.volume);
+    Ok(source)
+}
+
+unsafe fn route_audio_source(obs: &LibObs, source: *mut ObsSource, source_index: usize) {
+    (obs.obs_set_output_source)(AUDIO_OUTPUT_CHANNEL_BASE + source_index as u32, source);
+}
+
+fn validate_audio_source_count(source_count: usize) -> Result<(), String> {
+    let max_sources = MAX_OUTPUT_CHANNELS - AUDIO_OUTPUT_CHANNEL_BASE as usize;
+    if source_count > max_sources {
+        return Err(format!(
+            "OBS supports at most {max_sources} simultaneous audio sources."
+        ));
+    }
+    Ok(())
+}
+
 unsafe fn create_audio_graph(
     obs: &LibObs,
     settings: &RecordingSettings,
     game: Option<&DetectedGame>,
 ) -> Result<AudioGraph, String> {
     let configs = audio_source_configs(obs, settings, game)?;
-    if configs.len() > MAX_OUTPUT_CHANNELS - AUDIO_OUTPUT_CHANNEL_BASE as usize {
-        return Err(format!(
-            "OBS supports at most {} simultaneous audio sources.",
-            MAX_OUTPUT_CHANNELS - AUDIO_OUTPUT_CHANNEL_BASE as usize
-        ));
-    }
+    validate_audio_source_count(configs.len())?;
 
     let mut graph = AudioGraph {
         sources: Vec::with_capacity(configs.len()),
-        selectors: Vec::with_capacity(configs.len()),
     };
 
     for (source_index, config) in configs.into_iter().enumerate() {
-        let source_settings = obs.create_data();
-        let source = (|| {
-            if let Some(device_id) = config.device_id.as_deref() {
-                obs.set_string(source_settings, "device_id", device_id)?;
-            }
-            if let Some(window) = config.window.as_deref() {
-                obs.set_string(source_settings, "window", window)?;
-            }
-            if let Some(priority) = config.priority {
-                obs.set_int(source_settings, "priority", priority)?;
-            }
-            create_source(obs, config.source_id, &config.name, Some(source_settings))
-        })();
-        obs.release_data(source_settings);
-
-        let source = match source {
+        let source = match create_audio_source(obs, &config) {
             Ok(source) => source,
             Err(error) => {
                 release_audio_graph(obs, graph);
                 return Err(error);
             }
         };
-
-        // Every selected source feeds mixer 0. Per-source volume is applied
-        // here, so the recorded file contains one ready-to-play mixed track.
-        const MIXER_ZERO: u32 = 1;
-        (obs.obs_source_set_audio_mixers)(source, MIXER_ZERO);
-        (obs.obs_source_set_volume)(source, config.volume);
-        (obs.obs_set_output_source)(AUDIO_OUTPUT_CHANNEL_BASE + source_index as u32, source);
+        route_audio_source(obs, source, source_index);
         eprintln!(
             "[{SIDE_CAR_NAME}] configured audio source selector={} effective={} channel={} mixer=0",
             config.selector,
             config.effective_value(),
             AUDIO_OUTPUT_CHANNEL_BASE + source_index as u32,
         );
-        graph.selectors.push(config.selector);
-        graph.sources.push(source);
+        let target = config.effective_value().to_string();
+        graph.sources.push(AudioSource {
+            selector: config.selector,
+            target,
+            source,
+        });
     }
 
     Ok(graph)

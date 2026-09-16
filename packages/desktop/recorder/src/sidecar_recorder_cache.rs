@@ -230,12 +230,12 @@ impl Recorder {
     }
 }
 
-/// Non-audio settings whose change requires tearing down active outputs. The
-/// audio selection layout is checked separately from volume, so mixer edits
-/// reach the live graph instead of restarting it. Allow/deny game list edits
-/// are intentionally absent: the tick loop already ends sessions whose active
-/// game became disallowed, so list edits never interrupt an unrelated active
-/// recording.
+/// Non-audio settings whose change requires tearing down active outputs.
+/// Audio selections and volumes are reconciled against the live graph by
+/// `sync_audio_sources`, so they never restart an active recording. Allow/deny
+/// game list edits are intentionally absent: the tick loop already ends
+/// sessions whose active game became disallowed, so list edits never interrupt
+/// an unrelated active recording.
 fn active_settings_require_restart(current: &RecordingSettings, next: &RecordingSettings) -> bool {
     current.capture_mode != next.capture_mode
         || current.selected_display_id != next.selected_display_id
@@ -247,42 +247,29 @@ fn active_settings_require_restart(current: &RecordingSettings, next: &Recording
         || current.buffer_storage != next.buffer_storage
 }
 
-/// True when both settings describe the same set of audio sources. Volume
-/// differences are ignored because they can be applied to a live graph; any
-/// other audio change still requires a restart.
-fn audio_layout_unchanged(current: &RecordingSettings, next: &RecordingSettings) -> bool {
-    current.audio_mode == next.audio_mode
-        && audio_devices_have_same_layout(&current.audio_devices, &next.audio_devices)
-        && audio_applications_have_same_layout(
-            &current.audio_applications,
-            &next.audio_applications,
-        )
+/// Maps the live audio graph onto the configs the current settings describe.
+/// Position `i` holds the graph entry config `i` can reuse (same selector and
+/// capture target); `removed` lists entries no config needs.
+struct AudioSourcePlan {
+    reuse: Vec<Option<usize>>,
+    removed: Vec<usize>,
 }
 
-fn audio_devices_have_same_layout(
-    current: &[RecordingAudioDeviceSelection],
-    next: &[RecordingAudioDeviceSelection],
-) -> bool {
-    current.len() == next.len()
-        && current.iter().zip(next).all(|(current, next)| {
-            current.enabled == next.enabled
-                && current.kind == next.kind
-                && current.id == next.id
-                && current.label == next.label
-        })
-}
-
-fn audio_applications_have_same_layout(
-    current: &[RecordingAudioApplicationSelection],
-    next: &[RecordingAudioApplicationSelection],
-) -> bool {
-    current.len() == next.len()
-        && current.iter().zip(next).all(|(current, next)| {
-            current.enabled == next.enabled
-                && current.id == next.id
-                && current.name == next.name
-                && current.window == next.window
-        })
+fn plan_audio_sources(existing: &[AudioSource], configs: &[AudioSourceConfig]) -> AudioSourcePlan {
+    let mut reuse: Vec<Option<usize>> = vec![None; configs.len()];
+    let mut removed = Vec::new();
+    for (index, entry) in existing.iter().enumerate() {
+        let reusable = configs.iter().position(|config| {
+            config.selector == entry.selector && config.effective_value() == entry.target.as_str()
+        });
+        match reusable {
+            Some(config_index) if reuse[config_index].is_none() => {
+                reuse[config_index] = Some(index);
+            }
+            _ => removed.push(index),
+        }
+    }
+    AudioSourcePlan { reuse, removed }
 }
 
 fn cache_expired(last_refresh: Option<Instant>, ttl: Duration) -> bool {
@@ -327,64 +314,70 @@ fn merge_codec_caps(cached: CodecCaps, live: CodecCaps) -> CodecCaps {
 }
 
 #[cfg(test)]
-mod restart_policy_tests {
+mod audio_source_plan_tests {
     use super::*;
 
-    fn settings_with_device(id: &str, volume: u32) -> RecordingSettings {
-        RecordingSettings {
-            audio_devices: vec![RecordingAudioDeviceSelection {
-                id: id.to_string(),
-                label: "Device".to_string(),
-                kind: RecordingAudioDeviceKind::Output,
-                enabled: true,
-                volume,
-            }],
-            ..RecordingSettings::default()
+    fn source(selector: &str, target: &str) -> AudioSource {
+        AudioSource {
+            selector: selector.to_string(),
+            target: target.to_string(),
+            source: ptr::null_mut(),
         }
     }
 
-    fn application(volume: u32) -> RecordingAudioApplicationSelection {
-        RecordingAudioApplicationSelection {
-            id: "application-a".to_string(),
-            name: "Application".to_string(),
-            window: "window-a".to_string(),
-            executable: None,
-            icon_url: None,
-            process_id: None,
-            enabled: true,
-            volume,
+    fn device_config(id: &str) -> AudioSourceConfig {
+        AudioSourceConfig {
+            source_id: "test_device",
+            name: format!("alloy_test_{id}"),
+            selector: format!("Output:{id}"),
+            device_id: Some(id.to_string()),
+            window: None,
+            priority: None,
+            volume: 1.0,
+        }
+    }
+
+    fn application_config(id: &str, window: &str) -> AudioSourceConfig {
+        AudioSourceConfig {
+            source_id: "test_application",
+            name: format!("alloy_test_{id}"),
+            selector: id.to_string(),
+            device_id: None,
+            window: Some(window.to_string()),
+            priority: Some(OBS_WINDOW_PRIORITY_EXE),
+            volume: 1.0,
         }
     }
 
     #[test]
-    fn volume_edits_keep_the_audio_layout() {
-        let current = settings_with_device("device-a", 100);
-        let next = settings_with_device("device-a", 25);
-        assert!(audio_layout_unchanged(&current, &next));
-
-        let current = RecordingSettings {
-            audio_applications: vec![application(100)],
-            ..current
-        };
-        let next = RecordingSettings {
-            audio_applications: vec![application(25)],
-            ..next
-        };
-        assert!(audio_layout_unchanged(&current, &next));
+    fn volume_edits_reuse_every_source() {
+        let existing = vec![source("Output:device-a", "device-a")];
+        let plan = plan_audio_sources(&existing, &[device_config("device-a")]);
+        assert_eq!(plan.reuse, vec![Some(0)]);
+        assert!(plan.removed.is_empty());
     }
 
     #[test]
-    fn selection_edits_change_the_audio_layout() {
-        let current = settings_with_device("device-a", 100);
-        let mut disabled = current.clone();
-        disabled.audio_devices[0].enabled = false;
-        let mut replaced = current.clone();
-        replaced.audio_devices[0].id = "device-b".to_string();
-        let mut added = current.clone();
-        added.audio_devices.push(current.audio_devices[0].clone());
+    fn selection_edits_add_and_remove_sources() {
+        let existing = vec![source("Output:device-a", "device-a")];
 
-        assert!(!audio_layout_unchanged(&current, &disabled));
-        assert!(!audio_layout_unchanged(&current, &replaced));
-        assert!(!audio_layout_unchanged(&current, &added));
+        let added = plan_audio_sources(
+            &existing,
+            &[device_config("device-a"), device_config("device-b")],
+        );
+        assert_eq!(added.reuse, vec![Some(0), None]);
+        assert!(added.removed.is_empty());
+
+        let removed = plan_audio_sources(&existing, &[device_config("device-b")]);
+        assert_eq!(removed.reuse, vec![None]);
+        assert_eq!(removed.removed, vec![0]);
+    }
+
+    #[test]
+    fn changed_capture_targets_replace_sources() {
+        let existing = vec![source("application-a", "window-a")];
+        let plan = plan_audio_sources(&existing, &[application_config("application-a", "window-b")]);
+        assert_eq!(plan.reuse, vec![None]);
+        assert_eq!(plan.removed, vec![0]);
     }
 }
