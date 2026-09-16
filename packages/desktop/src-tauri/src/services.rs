@@ -19,9 +19,17 @@ use alloy_desktop::server::server_origin;
 use tauri_plugin_updater::UpdaterExt;
 
 const PREFERENCES_FILE: &str = "preferences.json";
+const WINDOW_STATE_KEY: &str = "window";
 const MAX_SAVED_SERVERS: usize = 8;
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 const UPDATE_UNSUPPORTED_ERROR: &str = "Automatic updates are unavailable in this build.";
+/// The smallest window the web app can lay out in, matching the builders in
+/// `main.rs`.
+pub const MIN_WINDOW_WIDTH: u32 = 800;
+pub const MIN_WINDOW_HEIGHT: u32 = 600;
+/// Upper bound for a persisted size, so a corrupted preferences file cannot
+/// ask for an absurd window.
+const MAX_WINDOW_DIMENSION: u32 = 16_384;
 
 static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -35,15 +43,37 @@ pub struct DesktopSavedServer {
     pub bridge_contract: u64,
 }
 
+/// Window geometry remembered across restarts. Sizes are logical pixels, so a
+/// display scale change keeps the same apparent size.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopWindowState {
+    pub width: u32,
+    pub height: u32,
+    pub maximized: bool,
+}
+
+impl DesktopWindowState {
+    /// Builds a state that is safe to restore: a window no smaller than the
+    /// web app's minimum and no larger than any real display.
+    pub fn clamped(width: u32, height: u32, maximized: bool) -> Self {
+        Self {
+            width: width.clamp(MIN_WINDOW_WIDTH, MAX_WINDOW_DIMENSION),
+            height: height.clamp(MIN_WINDOW_HEIGHT, MAX_WINDOW_DIMENSION),
+            maximized,
+        }
+    }
+}
+
 /// Persistent desktop state lives in a small JSON file. Unknown fields stay in
-/// the document when the server list changes, so other native services can use
-/// the same file without losing their settings.
+/// the document when one service changes its settings, so other native
+/// services can use the same file without losing theirs.
 #[derive(Clone, Debug)]
-pub struct SavedServerStore {
+pub struct PreferencesStore {
     path: PathBuf,
 }
 
-impl SavedServerStore {
+impl PreferencesStore {
     pub fn new(state_dir: impl Into<PathBuf>) -> Self {
         Self {
             path: state_dir.into().join(PREFERENCES_FILE),
@@ -93,6 +123,20 @@ impl SavedServerStore {
         Ok(servers)
     }
 
+    pub fn get_window_state(&self) -> Option<DesktopWindowState> {
+        normalize_window_state(self.read_document().get(WINDOW_STATE_KEY))
+    }
+
+    pub fn remember_window_state(&self, state: DesktopWindowState) -> Result<(), String> {
+        let mut document = self.read_document();
+        document.insert(
+            WINDOW_STATE_KEY.into(),
+            serde_json::to_value(state).map_err(|_| "Could not encode the window size.")?,
+        );
+        self.write_document(document)
+            .map_err(|_| "Could not save the window size.".into())
+    }
+
     fn read_document(&self) -> Map<String, Value> {
         let Ok(raw) = fs::read_to_string(&self.path) else {
             return Map::new();
@@ -109,10 +153,33 @@ impl SavedServerStore {
             "servers".into(),
             serde_json::to_value(servers).map_err(|_| "Could not encode saved server settings.")?,
         );
-        let data = serde_json::to_vec_pretty(&Value::Object(document))
-            .map_err(|_| "Could not encode saved server settings.")?;
-        atomic_write(&self.path, &data).map_err(|_| "Could not save server settings.".into())
+        self.write_document(document)
+            .map_err(|_| "Could not save server settings.".into())
     }
+
+    fn write_document(&self, document: Map<String, Value>) -> io::Result<()> {
+        let data = serde_json::to_vec_pretty(&Value::Object(document)).map_err(io::Error::other)?;
+        atomic_write(&self.path, &data)
+    }
+}
+
+fn normalize_window_state(value: Option<&Value>) -> Option<DesktopWindowState> {
+    let object = value?.as_object()?;
+    let width = object.get("width")?.as_u64()?;
+    let height = object.get("height")?.as_u64()?;
+    if !(u64::from(MIN_WINDOW_WIDTH)..=u64::from(MAX_WINDOW_DIMENSION)).contains(&width)
+        || !(u64::from(MIN_WINDOW_HEIGHT)..=u64::from(MAX_WINDOW_DIMENSION)).contains(&height)
+    {
+        return None;
+    }
+    Some(DesktopWindowState {
+        width: width as u32,
+        height: height as u32,
+        maximized: object
+            .get("maximized")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+    })
 }
 
 fn normalize_servers(value: Option<&Value>) -> Vec<DesktopSavedServer> {
@@ -247,7 +314,7 @@ struct UpdateRuntime {
 /// Native services used by the Tauri command handlers.
 pub struct DesktopServices {
     app: AppHandle,
-    servers: SavedServerStore,
+    preferences: PreferencesStore,
     updates: Mutex<UpdateRuntime>,
     update_events: broadcast::Sender<DesktopUpdateState>,
 }
@@ -259,7 +326,7 @@ impl DesktopServices {
         let (update_events, _) = broadcast::channel(16);
         Self {
             app,
-            servers: SavedServerStore::new(state_dir),
+            preferences: PreferencesStore::new(state_dir),
             updates: Mutex::new(UpdateRuntime {
                 state: DesktopUpdateState {
                     status: DesktopUpdateStatus::Idle,
@@ -279,11 +346,11 @@ impl DesktopServices {
     }
 
     pub fn get_servers(&self) -> Vec<DesktopSavedServer> {
-        self.servers.get_servers()
+        self.preferences.get_servers()
     }
 
     pub fn get_current_server(&self) -> Option<String> {
-        self.servers.get_current_server()
+        self.preferences.get_current_server()
     }
 
     pub fn remember_server(
@@ -292,12 +359,20 @@ impl DesktopServices {
         http_contract: u64,
         bridge_contract: u64,
     ) -> Result<Vec<DesktopSavedServer>, String> {
-        self.servers
+        self.preferences
             .remember_server(server_url, http_contract, bridge_contract)
     }
 
     pub fn forget_server(&self, server_url: &str) -> Result<Vec<DesktopSavedServer>, String> {
-        self.servers.forget_server(server_url)
+        self.preferences.forget_server(server_url)
+    }
+
+    pub fn get_window_state(&self) -> Option<DesktopWindowState> {
+        self.preferences.get_window_state()
+    }
+
+    pub fn remember_window_state(&self, state: DesktopWindowState) -> Result<(), String> {
+        self.preferences.remember_window_state(state)
     }
 
     pub fn get_update_state(&self) -> DesktopUpdateState {
@@ -617,9 +692,9 @@ fn autostart_supported() -> bool {
 mod tests {
     use std::{fs, time::SystemTime};
 
-    use super::{DesktopSavedServer, SavedServerStore};
+    use super::{DesktopSavedServer, DesktopWindowState, PreferencesStore};
 
-    fn temp_store() -> (SavedServerStore, std::path::PathBuf) {
+    fn temp_store() -> (PreferencesStore, std::path::PathBuf) {
         let path = std::env::temp_dir().join(format!(
             "alloy-services-test-{}-{}",
             std::process::id(),
@@ -628,7 +703,7 @@ mod tests {
                 .unwrap()
                 .as_nanos()
         ));
-        (SavedServerStore::new(&path), path)
+        (PreferencesStore::new(&path), path)
     }
 
     #[test]
@@ -685,5 +760,50 @@ mod tests {
         assert_eq!(servers.len(), 1);
         assert_eq!(servers[0].server_url, "https://alloy.example");
         let _ = fs::remove_dir_all(path);
+    }
+
+    #[test]
+    fn window_state_survives_server_list_writes() {
+        let (store, path) = temp_store();
+        assert_eq!(store.get_window_state(), None);
+        let state = DesktopWindowState::clamped(1440, 900, true);
+        store.remember_window_state(state).unwrap();
+        store
+            .remember_server("https://alloy.example", 1, 1)
+            .unwrap();
+        assert_eq!(store.get_window_state(), Some(state));
+        let _ = fs::remove_dir_all(path);
+    }
+
+    #[test]
+    fn ignores_invalid_persisted_window_states() {
+        let (store, path) = temp_store();
+        fs::create_dir_all(&path).unwrap();
+        for window in [
+            r#"{"width":100,"height":600,"maximized":false}"#,
+            r#"{"width":1920,"height":100,"maximized":false}"#,
+            r#"{"width":1920}"#,
+            r#""maximized""#,
+        ] {
+            fs::write(
+                path.join("preferences.json"),
+                format!(r#"{{"window":{window}}}"#),
+            )
+            .unwrap();
+            assert_eq!(store.get_window_state(), None, "accepted {window}");
+        }
+        let _ = fs::remove_dir_all(path);
+    }
+
+    #[test]
+    fn clamps_window_state_to_restorable_bounds() {
+        assert_eq!(
+            DesktopWindowState::clamped(100, 100, false),
+            DesktopWindowState {
+                width: 800,
+                height: 600,
+                maximized: false,
+            }
+        );
     }
 }
