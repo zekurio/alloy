@@ -48,7 +48,7 @@ test("serves public server boundaries with enforced security headers", async () 
     assert.match(csp, /script-src 'self' 'nonce-[^']+'/)
     assert.match(
       csp,
-      /img-src 'self' data: blob: https:\/\/cdn2\.steamgriddb\.com http:\/\/127\.0\.0\.1:\*/,
+      /img-src 'self' data: blob: https: http:\/\/127\.0\.0\.1:\*/,
     )
     assert.ok(csp.includes("media-src 'self' blob: http://127.0.0.1:*"))
     assert.ok(csp.includes("connect-src 'self' http://127.0.0.1:*"))
@@ -56,7 +56,10 @@ test("serves public server boundaries with enforced security headers", async () 
     assert.ok(csp.includes("frame-src 'none'"))
     assert.ok(csp.includes("frame-ancestors 'self'"))
     assert.ok(!csp.includes("unsafe-eval"))
-    assert.doesNotMatch(csp, /(?:^| )https:(?: |;|$)/)
+    assert.doesNotMatch(
+      csp,
+      /(?:default-src|script-src|style-src|media-src|connect-src|font-src|frame-src)[^;]* https:(?: |;|$)/,
+    )
     assert.doesNotMatch(csp, /(?:^| )\*(?: |;|$)/)
     const body = ServerInfoSchema.parse(await response.json())
     assert.equal(body.schema, SERVER_INFO_SCHEMA)

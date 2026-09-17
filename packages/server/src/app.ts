@@ -131,16 +131,12 @@ const apiApp = new Hono()
         styleSrc: ["'self'", "'unsafe-inline'"],
         // Storage is filesystem-only today, so browser media URLs stay
         // same-origin. Future direct-storage URLs need their origin here.
-        // SteamGridDB search and game records contain CDN image URLs.
+        // OAuth avatars and game artwork may come from external HTTPS hosts.
+        // Keep this permission in img-src only; scripts and connections remain
+        // restricted to explicit same-origin and desktop-loopback sources.
         // Alloy Desktop serves local captures on a random loopback port.
         // The native file server checks its access token and selected origin.
-        imgSrc: [
-          "'self'",
-          "data:",
-          "blob:",
-          "https://cdn2.steamgriddb.com",
-          "http://127.0.0.1:*",
-        ],
+        imgSrc: ["'self'", "data:", "blob:", "https:", "http://127.0.0.1:*"],
         mediaSrc: ["'self'", "blob:", "http://127.0.0.1:*"],
         connectSrc: ["'self'", "http://127.0.0.1:*"],
         fontSrc: ["'self'"],
