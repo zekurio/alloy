@@ -42,17 +42,26 @@ test("Discord edits tracked messages and only replaces missing messages", async 
     }
     assert.deepEqual(
       await sendWebhook({ provider: "discord", url, secret: null }, message),
-      { ok: true, status: 200, discordMessageId: "123456789012345678" },
+      { ok: true, status: 200, messageId: "123456789012345678" },
     )
     assert.deepEqual(requests.at(-1), {
       method: "POST",
       url: "/api/webhooks/1/token?thread_id=42&wait=true",
     })
 
-    const edit = { ...message, discordMessageId: "123456789012345678" }
+    assert.deepEqual(
+      await sendWebhook({ provider: "fluxer", url, secret: null }, message),
+      { ok: true, status: 200, messageId: "123456789012345678" },
+    )
+    assert.deepEqual(requests.at(-1), {
+      method: "POST",
+      url: "/api/webhooks/1/token?thread_id=42&wait=true",
+    })
+
+    const edit = { ...message, messageId: "123456789012345678" }
     assert.deepEqual(
       await sendWebhook({ provider: "discord", url, secret: null }, edit),
-      { ok: true, status: 200, discordMessageId: edit.discordMessageId },
+      { ok: true, status: 200, messageId: edit.messageId },
     )
     assert.deepEqual(requests.at(-1), {
       method: "PATCH",
@@ -66,7 +75,7 @@ test("Discord edits tracked messages and only replaces missing messages", async 
         url: url.replace("/1/token", "/2/other-token"),
         secret: null,
       },
-      { ...edit, discordMessageId: "987654321098765432" },
+      { ...edit, messageId: "987654321098765432" },
     )
     assert.deepEqual(requests.at(-1), {
       method: "PATCH",
@@ -77,7 +86,7 @@ test("Discord edits tracked messages and only replaces missing messages", async 
     responseBody = JSON.stringify({ id: "111111111111111111" })
     assert.deepEqual(
       await sendWebhook({ provider: "discord", url, secret: null }, edit),
-      { ok: true, status: 200, discordMessageId: "111111111111111111" },
+      { ok: true, status: 200, messageId: "111111111111111111" },
     )
     assert.deepEqual(
       requests.slice(-2).map((request) => request.method),
@@ -113,7 +122,7 @@ test("Discord edits tracked messages and only replaces missing messages", async 
       responseBody = invalidBody
       assert.deepEqual(
         await sendWebhook({ provider: "discord", url, secret: null }, edit),
-        { ok: true, status: 200, discordMessageId: edit.discordMessageId },
+        { ok: true, status: 200, messageId: edit.messageId },
       )
       // Don't retry an accepted post just because its response cannot be tracked.
       assert.deepEqual(

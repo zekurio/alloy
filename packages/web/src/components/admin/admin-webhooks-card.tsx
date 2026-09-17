@@ -1,4 +1,5 @@
 import type { AdminWebhookRow } from "@alloy/api"
+import { isMessageWebhookProvider } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
@@ -14,6 +15,7 @@ import {
 } from "@alloy/ui/components/section"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Switch } from "@alloy/ui/components/switch"
+import { toast } from "@alloy/ui/lib/toast"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { SendIcon, Trash2Icon } from "lucide-react"
 import { useState } from "react"
@@ -84,15 +86,13 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
   const queryClient = useQueryClient()
   const sendTestFeedback = useActionFeedback()
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [toggleError, setToggleError] = useState<string | null>(null)
 
   const toggle = useMutation({
     mutationFn: (enabled: boolean) =>
       api.admin.updateWebhook(webhook.id, { enabled }),
-    onMutate: () => setToggleError(null),
     onSuccess: (updated) => setAdminWebhookCacheRow(queryClient, updated),
     onError: (cause) =>
-      setToggleError(errorMessage(cause, t("Couldn't update webhook"))),
+      toast.error(errorMessage(cause, t("Couldn't update webhook"))),
   })
 
   const sendTest = useMutation({
@@ -103,6 +103,8 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: adminKeys.webhooks() })
     },
+    onError: (cause) =>
+      toast.error(errorMessage(cause, t("Couldn't send test"))),
   })
 
   const remove = useMutation({
@@ -112,11 +114,6 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
       setDeleteOpen(false)
     },
   })
-  const actionError =
-    toggleError ??
-    (sendTestFeedback.feedback.state === "error"
-      ? sendTestFeedback.feedback.message
-      : null)
   const deleteError = remove.error
     ? errorMessage(remove.error, t("Couldn't delete webhook"))
     : null
@@ -128,14 +125,11 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
         <span className="text-foreground-muted truncate text-xs">
           {webhook.url}
         </span>
-        {actionError ? (
-          <span role="alert" className="text-destructive text-xs">
-            {actionError}
-          </span>
-        ) : null}
       </div>
       <Badge
-        variant={webhook.provider === "discord" ? "accent" : "secondary"}
+        variant={
+          isMessageWebhookProvider(webhook.provider) ? "accent" : "secondary"
+        }
         size="text"
       >
         {WEBHOOK_PROVIDER_LABELS[webhook.provider]}

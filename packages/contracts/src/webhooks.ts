@@ -2,12 +2,23 @@ import { t } from "./schema"
 import type { IsoDateString } from "./shared"
 
 /**
- * Where a webhook delivers. "discord" posts to a Discord webhook URL and lets
- * Discord unfurl the clip link; "generic" posts a signed JSON envelope to an
- * arbitrary endpoint.
+ * Where a webhook delivers. Discord and Fluxer receive a message containing
+ * the clip link; "generic" receives a signed JSON envelope.
  */
-export const WEBHOOK_PROVIDERS = ["discord", "generic"] as const
+export const MESSAGE_WEBHOOK_PROVIDERS = ["discord", "fluxer"] as const
+export type MessageWebhookProvider = (typeof MESSAGE_WEBHOOK_PROVIDERS)[number]
+
+export const WEBHOOK_PROVIDERS = [
+  ...MESSAGE_WEBHOOK_PROVIDERS,
+  "generic",
+] as const
 export type WebhookProvider = (typeof WEBHOOK_PROVIDERS)[number]
+
+export function isMessageWebhookProvider(
+  provider: WebhookProvider,
+): provider is MessageWebhookProvider {
+  return provider === "discord" || provider === "fluxer"
+}
 
 /**
  * Events a webhook can carry. Only clip publication exists today; the wire
@@ -36,8 +47,8 @@ export const WebhookProviderSchema = t.enum(WEBHOOK_PROVIDERS)
 
 /**
  * A webhook as an admin sees it. Credentials never round-trip: `secret` is
- * reported only as `secretSet`, and a Discord `url` arrives with its token
- * segment masked, so the list stays identifiable without leaking the token.
+ * reported only as `secretSet`, and a message webhook `url` arrives with its
+ * token segment masked, so the list stays identifiable without leaking it.
  */
 export const AdminWebhookRowSchema = t.object({
   id: t.string(),
@@ -128,13 +139,25 @@ export function isDiscordWebhookUrl(value: string): boolean {
 }
 
 /**
- * Hide the token segment of a Discord webhook URL so a webhook stays
- * recognisable in the admin list without handing the token back to the client.
- * Non-Discord URLs are returned unchanged: they are an endpoint the admin
- * typed, and the signing secret — not the URL — is the generic credential.
+ * Fluxer Cloud and self-hosted instances use the same webhook path under
+ * whichever API prefix the deployment exposes.
+ */
+export function isFluxerWebhookUrl(value: string): boolean {
+  const url = URL.parse(value)
+  if (!url) return false
+  return (
+    url.protocol === "https:" &&
+    /^\/(?:api\/)?(?:v1\/)?webhooks\/\d+\/[\w-]+$/.test(url.pathname)
+  )
+}
+
+/**
+ * Hide the token segment of a message webhook URL so it stays recognisable in
+ * the admin list without handing the token back to the client. Generic URLs
+ * are returned unchanged: the signing secret, not the URL, is their credential.
  */
 export function maskWebhookUrl(provider: WebhookProvider, url: string): string {
-  if (provider !== "discord") return url
+  if (!isMessageWebhookProvider(provider)) return url
   const parsed = URL.parse(url)
   if (!parsed) return url
   const segments = parsed.pathname.split("/")

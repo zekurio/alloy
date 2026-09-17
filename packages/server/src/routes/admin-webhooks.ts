@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 
 import {
   isDiscordWebhookUrl,
+  isFluxerWebhookUrl,
   maskWebhookUrl,
   WEBHOOK_NAME_MAX_LENGTH,
   WEBHOOK_PROVIDERS,
@@ -24,7 +25,7 @@ import { Hono } from "hono"
 
 import { requiredTrimmedString, tbValidator } from "./validation"
 
-const TEST_DISCORD_CONTENT =
+const TEST_MESSAGE_CONTENT =
   "Alloy webhook test — published clips will be posted here as links that unfurl into a playable preview."
 
 const WebhookIdParam = t.object({ id: t.uuid() })
@@ -129,7 +130,7 @@ export const adminWebhooksRoute = new Hono()
         {
           deliveryId,
           event: "test",
-          content: TEST_DISCORD_CONTENT,
+          content: TEST_MESSAGE_CONTENT,
           body: {
             event: "test",
             deliveryId,
@@ -166,6 +167,11 @@ function webhookUrlProblem(
     return isDiscordWebhookUrl(url)
       ? null
       : "Enter a Discord webhook URL, e.g. https://discord.com/api/webhooks/<id>/<token>"
+  }
+  if (provider === "fluxer") {
+    return isFluxerWebhookUrl(url)
+      ? null
+      : "Enter a Fluxer webhook URL, e.g. https://api.fluxer.app/webhooks/<id>/<token>"
   }
   const parsed = URL.parse(url)
   if (

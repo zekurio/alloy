@@ -1,0 +1,2 @@
+ALTER TABLE "webhook" DROP CONSTRAINT "webhook_provider_check";--> statement-breakpoint
+ALTER TABLE "webhook" ADD CONSTRAINT "webhook_provider_check" CHECK ("webhook"."provider" in ('discord', 'fluxer', 'generic'));
