@@ -1,4 +1,5 @@
 import type { AdminWebhookRow } from "@alloy/api"
+import { isMessageWebhookProvider } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
@@ -135,7 +136,9 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
         ) : null}
       </div>
       <Badge
-        variant={webhook.provider === "discord" ? "accent" : "secondary"}
+        variant={
+          isMessageWebhookProvider(webhook.provider) ? "accent" : "secondary"
+        }
         size="text"
       >
         {WEBHOOK_PROVIDER_LABELS[webhook.provider]}

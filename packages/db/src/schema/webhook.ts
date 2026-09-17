@@ -29,8 +29,8 @@ export const webhook = pgTable(
     name: text().notNull(),
     provider: text().$type<WebhookProvider>().notNull(),
     url: text().notNull(),
-    // HMAC signing key for generic deliveries; null for Discord, whose URL
-    // already carries its own token.
+    // HMAC signing key for generic deliveries; null for message providers,
+    // whose URL already carries its own token.
     secret: text(),
     enabled: boolean().notNull().default(true),
     last_delivery_at: timestamp({ withTimezone: true }),

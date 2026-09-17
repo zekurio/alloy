@@ -115,7 +115,11 @@ export function CreateWebhookDialog() {
         <Select
           value={provider}
           onValueChange={(value) => {
-            if (value === "discord" || value === "generic") {
+            if (
+              value === "discord" ||
+              value === "fluxer" ||
+              value === "generic"
+            ) {
               setProvider(value)
             }
           }}
@@ -132,9 +136,11 @@ export function CreateWebhookDialog() {
           </SelectContent>
         </Select>
         <FieldDescription>
-          {provider === "discord"
-            ? t("Discord renders the clip link as a playable preview.")
-            : t("Your endpoint receives a signed JSON payload.")}
+          {provider === "generic"
+            ? t("Your endpoint receives a signed JSON payload.")
+            : t("{provider} renders the clip link as a playable preview.", {
+                provider: WEBHOOK_PROVIDER_LABELS[provider],
+              })}
         </FieldDescription>
       </Field>
       <Field>

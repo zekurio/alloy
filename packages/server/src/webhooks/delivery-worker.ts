@@ -1,3 +1,4 @@
+import { isMessageWebhookProvider } from "@alloy/contracts"
 import { webhook, webhookDelivery } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
@@ -6,7 +7,7 @@ import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-work
 import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm"
 
 import { webhookFailurePlan } from "./delivery-policy"
-import { clipPublishedPayload, discordContent } from "./payload"
+import { clipPublishedPayload, messageWebhookContent } from "./payload"
 import { sendWebhook, type WebhookSendResult } from "./send"
 
 const logger = createLogger("webhooks")
@@ -105,8 +106,8 @@ async function deliverPending(
   }
   if (signal.aborted) return
 
-  let discordMessageId: string | undefined
-  if (row.provider === "discord") {
+  let messageId: string | undefined
+  if (isMessageWebhookProvider(row.provider)) {
     // Message IDs belong to a clip AND a configured webhook. Each destination
     // can be edited or retried independently of the others.
     const [previous] = await db
@@ -122,7 +123,7 @@ async function deliverPending(
       )
       .orderBy(desc(webhookDelivery.delivered_at), desc(webhookDelivery.id))
       .limit(1)
-    discordMessageId = previous?.messageId ?? undefined
+    messageId = previous?.messageId ?? undefined
   }
 
   const result = await sendWebhook(
@@ -130,9 +131,9 @@ async function deliverPending(
     {
       deliveryId: row.deliveryId,
       event: row.event,
-      content: discordContent(announcement),
+      content: messageWebhookContent(announcement),
       body: announcement,
-      discordMessageId,
+      messageId,
     },
     signal,
   )
@@ -140,7 +141,11 @@ async function deliverPending(
   // the receiver, so the stable delivery ID remains the receiver's dedup key.
   if (signal.aborted) return
   await recordAttempt(row, result)
-  if (result.ok && row.provider === "discord" && !result.discordMessageId) {
+  if (
+    result.ok &&
+    isMessageWebhookProvider(row.provider) &&
+    !result.messageId
+  ) {
     logger.warn(`webhook delivery ${row.deliveryId} returned no message ID`)
   }
 }
@@ -159,9 +164,7 @@ async function recordAttempt(
       .set({
         attempts: sql`${webhookDelivery.attempts} + 1`,
         response_status: result.status,
-        discord_message_id: result.ok
-          ? (result.discordMessageId ?? null)
-          : null,
+        discord_message_id: result.ok ? (result.messageId ?? null) : null,
         status: result.ok
           ? ("succeeded" as const)
           : terminalFailure
