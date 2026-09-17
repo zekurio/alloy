@@ -113,10 +113,10 @@
     openSettings: () => shell("openSettings"),
     reloadApp: () => shell("reloadApp"),
     servers: Object.freeze({
-      connect: (url) => call("servers.connect", url),
-      getServers: () => call("servers.getServers"),
-      getCurrentServer: () => call("servers.getCurrentServer"),
-      forgetServer: (url) => call("servers.forgetServer", url),
+      switchTo: (url) => call("servers.switchTo", url),
+      list: () => call("servers.list"),
+      current: () => call("servers.current"),
+      forget: (url) => call("servers.forget", url),
     }),
     recording: Object.freeze(recording),
     updates: Object.freeze({
