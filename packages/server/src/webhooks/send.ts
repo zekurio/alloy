@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto"
 
 import {
+  isMessageWebhookProvider,
   WEBHOOK_DELIVERY_HEADER,
   WEBHOOK_EVENT_HEADER,
   WEBHOOK_SIGNATURE_HEADER,
@@ -12,8 +13,8 @@ import { errorMessage } from "@alloy/server/runtime/error-message"
 
 const REQUEST_TIMEOUT_MS = 10_000
 const ERROR_BODY_MAX_CHARS = 200
-const DiscordMessage = t.object({ id: t.string().regex(/^\d+$/) })
-const DiscordError = t.object({ code: t.number() })
+const MessageResponse = t.object({ id: t.string().regex(/^\d+$/) })
+const MessageError = t.object({ code: t.number() })
 
 export interface WebhookTarget {
   provider: WebhookProvider
@@ -24,16 +25,16 @@ export interface WebhookTarget {
 export interface WebhookMessage {
   deliveryId: string
   event: WebhookEvent | "test"
-  /** What Discord posts as message content. */
+  /** What Discord and Fluxer post as message content. */
   content: string
   /** What a generic endpoint receives as the JSON body. */
   body: unknown
-  /** Edit this Discord message; other providers always receive a new post. */
-  discordMessageId?: string
+  /** Edit this message; generic endpoints always receive a new post. */
+  messageId?: string
 }
 
 export type WebhookSendResult =
-  | { ok: true; status: number; discordMessageId?: string }
+  | { ok: true; status: number; messageId?: string }
   | { ok: false; status: number | null; error: string }
 
 /**
@@ -48,10 +49,10 @@ export async function sendWebhook(
   message: WebhookMessage,
   signal?: AbortSignal,
 ): Promise<WebhookSendResult> {
-  const body =
-    target.provider === "discord"
-      ? JSON.stringify({ content: message.content })
-      : JSON.stringify(message.body)
+  const messageProvider = isMessageWebhookProvider(target.provider)
+  const body = messageProvider
+    ? JSON.stringify({ content: message.content })
+    : JSON.stringify(message.body)
 
   const headers = new Headers({
     "content-type": "application/json",
@@ -70,13 +71,13 @@ export async function sendWebhook(
   // redirect: "error" — a webhook endpoint that redirects is misconfigured or
   // hostile, and following it would send the signature to an unintended host.
   const url = new URL(target.url)
-  const editing = target.provider === "discord" && message.discordMessageId
+  const editing = messageProvider && message.messageId
   if (editing) {
     url.pathname += `/messages/${encodeURIComponent(editing)}`
     const threadId = url.searchParams.get("thread_id")
     url.search = ""
     if (threadId) url.searchParams.set("thread_id", threadId)
-  } else if (target.provider === "discord") {
+  } else if (messageProvider) {
     url.searchParams.set("wait", "true")
   }
   const result = await fetch(url, {
@@ -99,27 +100,27 @@ export async function sendWebhook(
   }
   const response = result.response
   if (response.ok) {
-    if (target.provider === "discord") {
-      const message = DiscordMessage.safeParse(
+    if (messageProvider) {
+      const message = MessageResponse.safeParse(
         await response.json().catch(() => null),
       )
       if (message.success) {
         return {
           ok: true,
           status: response.status,
-          discordMessageId: message.data.id,
+          messageId: message.data.id,
         }
       }
       // A successful post with an unreadable response must not be reposted.
       if (editing) {
-        return { ok: true, status: response.status, discordMessageId: editing }
+        return { ok: true, status: response.status, messageId: editing }
       }
     }
     return { ok: true, status: response.status }
   }
 
   if (editing && response.status === 404) {
-    const error = DiscordError.safeParse(
+    const error = MessageError.safeParse(
       await response
         .clone()
         .json()
@@ -128,11 +129,7 @@ export async function sendWebhook(
     // Only Unknown Message permits a replacement. Missing webhooks, permission
     // errors, and temporary failures must follow the normal delivery retries.
     if (error.success && error.data.code === 10008) {
-      return sendWebhook(
-        target,
-        { ...message, discordMessageId: undefined },
-        signal,
-      )
+      return sendWebhook(target, { ...message, messageId: undefined }, signal)
     }
   }
 

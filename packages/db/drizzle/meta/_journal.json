@@ -8,6 +8,13 @@
       "when": 1789247789003,
       "tag": "0000_bumpy_lethal_legion",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789686783781,
+      "tag": "0001_tearful_silver_samurai",
+      "breakpoints": true
     }
   ]
 }

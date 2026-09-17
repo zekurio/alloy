@@ -7,11 +7,13 @@ import { adminKeys } from "@/lib/admin-query-keys"
 
 export const WEBHOOK_PROVIDER_LABELS = {
   discord: t("Discord"),
+  fluxer: t("Fluxer"),
   generic: t("Generic"),
 } satisfies Record<WebhookProvider, string>
 
 export const WEBHOOK_URL_PLACEHOLDERS = {
   discord: "https://discord.com/api/webhooks/…",
+  fluxer: "https://api.fluxer.app/webhooks/…",
   generic: "https://example.com/hooks/alloy",
 } satisfies Record<WebhookProvider, string>
 

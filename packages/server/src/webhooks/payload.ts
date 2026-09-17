@@ -89,10 +89,9 @@ export function buildClipPublishedPayload(
 }
 
 /**
- * Discord cannot render playable video inside a custom embed — that field is
- * reserved for its own unfurler — so the message is the bare permalink and the
- * rich card comes from the clip page's OpenGraph tags.
+ * Message webhooks receive the bare permalink so Discord or Fluxer can unfurl
+ * the clip page's OpenGraph tags into a playable preview.
  */
-export function discordContent(payload: ClipPublishedPayload): string {
+export function messageWebhookContent(payload: ClipPublishedPayload): string {
   return payload.clip.url
 }
