@@ -75,7 +75,7 @@ export function DesktopServerSettings() {
     try {
       // On success the host replaces this window with the new server's
       // window, so there is nothing left to update here.
-      await activeServerApi.connect(nextUrl)
+      await activeServerApi.switchTo(nextUrl)
       setUrl("")
     } catch (cause) {
       setError(errorText(cause, t("Couldn't connect to server.")))
@@ -95,7 +95,7 @@ export function DesktopServerSettings() {
     setForgetError(null)
     setForgetting(true)
     try {
-      const nextServers = await activeServerApi.forgetServer(serverUrl)
+      const nextServers = await activeServerApi.forget(serverUrl)
       setServers(nextServers)
       setServerToForget(null)
     } catch (cause) {
@@ -224,8 +224,8 @@ function useSavedServers(
       setPhase("loading")
       try {
         const [savedServers, currentServer] = await Promise.all([
-          serverApi.getServers(),
-          serverApi.getCurrentServer(),
+          serverApi.list(),
+          serverApi.current(),
         ])
         if (cancelled) return
         setServers(savedServers)

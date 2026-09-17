@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "connect",
-  "description": "Only the bundled connect window can manage native login and saved servers.",
+  "description": "Only the bundled connect window can run native login and the local saved-server commands.",
   "windows": ["connect"],
   "permissions": [
     "allow-connect-server",
