@@ -393,16 +393,16 @@ async fn desktop_api(
         operation if operation.starts_with("recording.") => {
             runtime.invoke(&window, operation, &args).await
         }
-        "servers.getServers" => runtime_value(services.get_servers()),
-        "servers.getCurrentServer" => runtime_value(origin.origin().ascii_serialization()),
-        "servers.forgetServer" => {
+        "servers.list" => runtime_value(services.get_servers()),
+        "servers.current" => runtime_value(origin.origin().ascii_serialization()),
+        "servers.forget" => {
             let url: String = runtime_arg(&args, 0)?;
             if is_same_origin(&Server::new(&url)?.origin, &origin) {
                 return Err("Switch to another server before forgetting this one.".into());
             }
             runtime_value(forget_saved_server(&app, host.inner(), &url).await?)
         }
-        "servers.connect" => {
+        "servers.switchTo" => {
             let url: String = runtime_arg(&args, 0)?;
             // A successful switch replaces the calling window, so return
             // without re-checking it.
