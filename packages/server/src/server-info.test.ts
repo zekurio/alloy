@@ -11,7 +11,7 @@ import {
 import { SERVER_HTTP_CONTRACT_1_FIXTURE } from "@alloy/contracts/server-http-fixtures"
 import { test } from "vitest"
 
-test("serves server info publicly when browse auth is enabled", async () => {
+test("serves public server boundaries with enforced security headers", async () => {
   // Production mode skips the workspace .env file, whose numeric values are
   // intended for the devenv wrapper rather than direct process.env parsing.
   process.env.NODE_ENV = "production"
@@ -40,9 +40,24 @@ test("serves server info publicly when browse auth is enabled", async () => {
 
     assert.equal(response.status, 200)
     assert.equal(response.headers.get("Cache-Control"), "private, no-store")
-    const csp =
-      response.headers.get("Content-Security-Policy-Report-Only") ?? ""
-    assert.ok(csp.includes("http://127.0.0.1:*"))
+    const csp = response.headers.get("Content-Security-Policy") ?? ""
+    assert.equal(
+      response.headers.get("Content-Security-Policy-Report-Only"),
+      null,
+    )
+    assert.match(csp, /script-src 'self' 'nonce-[^']+'/)
+    assert.match(
+      csp,
+      /img-src 'self' data: blob: https:\/\/cdn2\.steamgriddb\.com http:\/\/127\.0\.0\.1:\*/,
+    )
+    assert.ok(csp.includes("media-src 'self' blob: http://127.0.0.1:*"))
+    assert.ok(csp.includes("connect-src 'self' http://127.0.0.1:*"))
+    assert.ok(csp.includes("object-src 'none'"))
+    assert.ok(csp.includes("frame-src 'none'"))
+    assert.ok(csp.includes("frame-ancestors 'self'"))
+    assert.ok(!csp.includes("unsafe-eval"))
+    assert.doesNotMatch(csp, /(?:^| )https:(?: |;|$)/)
+    assert.doesNotMatch(csp, /(?:^| )\*(?: |;|$)/)
     const body = ServerInfoSchema.parse(await response.json())
     assert.equal(body.schema, SERVER_INFO_SCHEMA)
     assert.equal(body.product, SERVER_INFO_PRODUCT)

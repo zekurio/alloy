@@ -4,6 +4,7 @@ import {
   isFiniteNumberValue,
   isObjectRecord,
   isStringValue,
+  managedOAuthProviderIconKey,
 } from "@alloy/contracts"
 
 import type { ApiJsonInput, ApiJsonValue } from "./json-value"
@@ -144,9 +145,12 @@ function hasControlCharacter(value: string) {
   return false
 }
 
-function isPublicAssetPath(value: string) {
+function isPublicAssetPath(
+  value: string,
+  prefix: string = GAME_ASSET_PATH_PREFIX,
+) {
   if (
-    !value.startsWith(GAME_ASSET_PATH_PREFIX) ||
+    !value.startsWith(prefix) ||
     value.includes("\\") ||
     hasControlCharacter(value) ||
     !URL.canParse(value, PUBLIC_IMAGE_SRC_BASE_URL)
@@ -157,7 +161,7 @@ function isPublicAssetPath(value: string) {
   const url = new URL(value, PUBLIC_IMAGE_SRC_BASE_URL)
   return (
     url.origin === PUBLIC_IMAGE_SRC_BASE_ORIGIN &&
-    url.pathname.startsWith(GAME_ASSET_PATH_PREFIX)
+    url.pathname.startsWith(prefix)
   )
 }
 
@@ -167,6 +171,19 @@ export function validatePublicImageSrcString(
 ): asserts value is string {
   validateString(value, message)
   if (isHttpUrlString(value) || isPublicAssetPath(value)) return
+  throw new Error(message)
+}
+
+/**
+ * Public auth provider icons must be Alloy-managed same-origin assets.
+ */
+export function validateOptionalAuthProviderIconString(
+  value: ApiJsonInput,
+  message: string,
+) {
+  if (value === undefined) return
+  validateString(value, message)
+  if (managedOAuthProviderIconKey(value)) return
   throw new Error(message)
 }
 

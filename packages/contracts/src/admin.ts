@@ -9,7 +9,12 @@ import type { UserStatus } from "./shared"
 export {
   AdminOAuthProviderSchema,
   AuthConfigLocksSchema,
+  managedOAuthProviderIconKey,
   OAUTH_AVATAR_CLAIM_DEFAULT,
+  OAUTH_PROVIDER_ICON_KEY_RE,
+  OAUTH_PROVIDER_ICON_PATH_PREFIX,
+  oauthProviderIconPath,
+  publicOAuthProviderIconUrl,
   OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD,
   OAUTH_CLIENT_SECRET_POST_AUTH_METHOD,
   OAUTH_QUOTA_CLAIM_DEFAULT,

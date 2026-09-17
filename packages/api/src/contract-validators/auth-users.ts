@@ -9,7 +9,7 @@ import {
   validateNullableEnumString,
   validateNullablePositiveInteger,
   validateNullableString,
-  validateOptionalUrlString,
+  validateOptionalAuthProviderIconString,
   validateRequiredString,
 } from "@alloy/api/runtime-validation"
 import {
@@ -53,9 +53,9 @@ function validatePublicAuthProvider(value: ApiJsonInput): PublicAuthProvider {
     )
   }
   validateAuthProviderColors(provider, "auth config response: provider")
-  validateOptionalUrlString(
+  validateOptionalAuthProviderIconString(
     provider.iconUrl,
-    "Invalid auth config response: provider.iconUrl must be a URL",
+    "Invalid auth config response: provider.iconUrl must be a managed icon path",
   )
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as PublicAuthProvider
