@@ -15,6 +15,7 @@ import { htmlEscape } from "./web-html"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
 const BOOTSTRAP_MARKER = "<!-- alloy:bootstrap -->"
+const CSP_NONCE_MARKER = "__ALLOY_CSP_NONCE__"
 const DEFAULT_WEB_DIST_DIR = "../../build/www"
 const PUBLIC_WEB_PATHS = new Set(["/login", "/setup", "/sign-up"])
 
@@ -110,6 +111,10 @@ function withInjectedBootstrap(indexHtml: string, script: string): string {
   return indexHtml.replace(BOOTSTRAP_MARKER, script)
 }
 
+function withInjectedNonce(indexHtml: string, nonce: string): string {
+  return indexHtml.replaceAll(CSP_NONCE_MARKER, htmlEscape(nonce))
+}
+
 export async function mountWeb(app: Hono): Promise<Hono> {
   const mount = await resolveWebMount()
   if (!mount) {
@@ -190,7 +195,7 @@ export async function mountWeb(app: Hono): Promise<Hono> {
       throw new Error("secure headers nonce missing for app shell")
     }
     const html = withInjectedBootstrap(
-      withInjectedHead(webMount.indexHtml, head),
+      withInjectedHead(withInjectedNonce(webMount.indexHtml, nonce), head),
       bootstrapScript(await buildPublicAuthConfig(), nonce),
     )
     return c.html(html)

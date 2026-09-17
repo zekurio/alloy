@@ -32,6 +32,13 @@ export type ProviderDraft = {
   buttonColor: string
   buttonTextColor: string
   iconUrl: string
+  /** Local icon file chosen for upload after the provider list is saved. */
+  iconFile: File | null
+}
+
+export type ProviderIconUpload = {
+  providerId: string
+  file: File
 }
 
 const EMPTY_PROVIDER_DRAFT: ProviderDraft = {
@@ -55,6 +62,7 @@ const EMPTY_PROVIDER_DRAFT: ProviderDraft = {
   buttonColor: "",
   buttonTextColor: "",
   iconUrl: "",
+  iconFile: null,
 }
 
 export function providerToDraft(
@@ -83,6 +91,7 @@ export function providerToDraft(
     buttonColor: provider.buttonColor ?? "",
     buttonTextColor: provider.buttonTextColor ?? "",
     iconUrl: provider.iconUrl ?? "",
+    iconFile: null,
   }
 }
 

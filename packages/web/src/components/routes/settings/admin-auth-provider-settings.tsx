@@ -3,6 +3,7 @@ import type {
   AdminOAuthProviderInput,
   AdminRuntimeConfig,
 } from "@alloy/api"
+import { publicOAuthProviderIconUrl } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import {
   AlertDialog,
@@ -46,12 +47,20 @@ import { EnvManagedNote } from "@/components/routes/settings/admin-env-note"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 
 import { OAuthProviderForm } from "./admin-auth-provider-form"
-import type { ProviderDraft } from "./admin-auth-provider-utils"
+import type {
+  ProviderDraft,
+  ProviderIconUpload,
+} from "./admin-auth-provider-utils"
 import {
   draftToInput,
   providerToDraft,
   providerToInput,
 } from "./admin-auth-provider-utils"
+
+type SaveProviders = (
+  providers: AdminOAuthProviderInput[],
+  iconUpload?: ProviderIconUpload,
+) => Promise<boolean>
 
 export function OAuthProviderSettings({
   config,
@@ -62,7 +71,7 @@ export function OAuthProviderSettings({
   config: AdminRuntimeConfig
   pending: boolean
   error: string | null
-  onSave: (providers: AdminOAuthProviderInput[]) => Promise<boolean>
+  onSave: SaveProviders
 }) {
   const readOnly = config.authLocks.oauthProviders
   return (
@@ -140,7 +149,7 @@ function ProviderRow({
   readOnly: boolean
   pending: boolean
   error: string | null
-  onSave: (providers: AdminOAuthProviderInput[]) => Promise<boolean>
+  onSave: SaveProviders
 }) {
   async function toggleEnabled(enabled: boolean) {
     await onSave(
@@ -160,6 +169,10 @@ function ProviderRow({
     )
   }
 
+  // Same filter the server applies to login buttons: only same-origin managed
+  // paths render; external URLs never load in the browser.
+  const iconUrl = publicOAuthProviderIconUrl(provider.iconUrl)
+
   return (
     <>
       <div className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -170,12 +183,8 @@ function ProviderRow({
             color: provider.buttonTextColor,
           }}
         >
-          {provider.iconUrl ? (
-            <img
-              src={provider.iconUrl}
-              alt=""
-              className="size-4 object-contain"
-            />
+          {iconUrl ? (
+            <img src={iconUrl} alt="" className="size-4 object-contain" />
           ) : (
             <UserKeyIcon className="size-4" />
           )}
@@ -229,7 +238,7 @@ function ProviderActions({
   pending: boolean
   error: string | null
   onDelete: () => Promise<void>
-  onSave: (providers: AdminOAuthProviderInput[]) => Promise<boolean>
+  onSave: SaveProviders
 }) {
   return (
     <>
@@ -302,7 +311,7 @@ function ProviderDialog({
   authBaseURL: string
   pending: boolean
   error: string | null
-  onSave: (providers: AdminOAuthProviderInput[]) => Promise<boolean>
+  onSave: SaveProviders
 }) {
   const [open, setOpen] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
@@ -324,7 +333,10 @@ function ProviderDialog({
           index === providerIndex ? providerInput : providerToInput(current),
         )
       : [...providers.map(providerToInput), providerInput]
-    if (!(await onSave(nextProviders))) return
+    const iconUpload = draft.iconFile
+      ? { providerId: providerInput.providerId, file: draft.iconFile }
+      : undefined
+    if (!(await onSave(nextProviders, iconUpload))) return
     setOpen(false)
     resetDraft()
   }

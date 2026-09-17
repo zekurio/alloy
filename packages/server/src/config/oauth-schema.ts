@@ -1,4 +1,5 @@
 import {
+  managedOAuthProviderIconKey,
   OAUTH_AVATAR_CLAIM_DEFAULT,
   OAUTH_TOKEN_AUTH_METHODS,
   OAUTH_QUOTA_CLAIM_DEFAULT,
@@ -27,7 +28,17 @@ const OAuthProviderBaseSchema = t.object({
   enabled: t.boolean().$default(true),
   buttonColor: HexColorSchema.optional(),
   buttonTextColor: HexColorSchema.optional(),
-  iconUrl: t.string().url().optional(),
+  // Absolute URL (ingested or filtered before reaching browsers) or an
+  // Alloy-managed icon path produced by ingestion.
+  iconUrl: t
+    .string()
+    .refine(
+      (value) =>
+        managedOAuthProviderIconKey(value) !== null ||
+        t.string().url().safeParse(value).success,
+      "must be a URL or a managed provider icon path",
+    )
+    .optional(),
   discoveryUrl: t.string().url().optional(),
   authorizationUrl: t.string().url().optional(),
   tokenUrl: t.string().url().optional(),
@@ -72,6 +83,20 @@ function validateOAuthProvider(
       code: "custom",
       path: ["usernameClaim"],
       message: "Username claim is required for custom providers.",
+    })
+  }
+  // A managed icon path must belong to this provider. Cross-provider
+  // references would break icon-lifecycle cleanup (deleting provider A's icon
+  // could orphan or block provider B's reference).
+  const managedKey = managedOAuthProviderIconKey(provider.iconUrl)
+  if (
+    managedKey &&
+    !managedKey.startsWith(`providers/${provider.providerId}/`)
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["iconUrl"],
+      message: "Managed icon path must belong to this provider.",
     })
   }
 }

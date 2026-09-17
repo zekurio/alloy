@@ -242,8 +242,38 @@ function AdvancedProviderFields({
         value={draft.iconUrl}
         onChange={(iconUrl) => onChange({ iconUrl })}
         type="url"
+        description={t(
+          "Downloaded and stored on this server when you save. Clear to remove the icon.",
+        )}
+      />
+      <ProviderIconFileField
+        id={providerFieldId("icon-file", editingProviderId)}
+        onChange={(iconFile) => onChange({ iconFile })}
       />
     </div>
+  )
+}
+
+function ProviderIconFileField({
+  id,
+  onChange,
+}: {
+  id: string
+  onChange: (file: File | null) => void
+}) {
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{t("Icon image")}</FieldLabel>
+      <Input
+        id={id}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        onChange={(event) => onChange(event.target.files?.[0] ?? null)}
+      />
+      <FieldDescription>
+        {t("Uploaded to this server and shown on the sign-in button.")}
+      </FieldDescription>
+    </Field>
   )
 }
 
