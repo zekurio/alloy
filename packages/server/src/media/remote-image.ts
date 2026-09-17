@@ -68,8 +68,9 @@ export async function fetchRemoteImage(
   url: string,
   label: string,
   signal?: AbortSignal,
-  options?: { redirect?: "error" | "follow" },
+  options?: { redirect?: "error" | "follow"; maxBytes?: number },
 ): Promise<{ bytes: Buffer; contentType: string }> {
+  const maxBytes = options?.maxBytes ?? REMOTE_IMAGE_MAX_BYTES
   const response = await fetch(url, {
     signal: boundedRemoteSignal(signal),
     redirect: options?.redirect ?? "follow",
@@ -82,14 +83,11 @@ export async function fetchRemoteImage(
     throw new Error(`${label}: expected image content type`)
   }
   const contentLength = response.headers.get("content-length")
-  if (
-    contentLength !== null &&
-    Number(contentLength) > REMOTE_IMAGE_MAX_BYTES
-  ) {
+  if (contentLength !== null && Number(contentLength) > maxBytes) {
     throw new Error(`${label}: image exceeds byte limit`)
   }
   return {
-    bytes: Buffer.from(await readBoundedRemoteBody(response, label)),
+    bytes: Buffer.from(await readBoundedRemoteBody(response, label, maxBytes)),
     contentType: contentType.split(";")[0]?.trim().toLowerCase() ?? "",
   }
 }
@@ -97,6 +95,7 @@ export async function fetchRemoteImage(
 async function readBoundedRemoteBody(
   response: Response,
   label: string,
+  maxBytes: number,
 ): Promise<ArrayBuffer> {
   const reader = response.body?.getReader()
   if (!reader) return response.arrayBuffer()
@@ -108,7 +107,7 @@ async function readBoundedRemoteBody(
       const { done, value } = await reader.read()
       if (done) break
       total += value.byteLength
-      if (total > REMOTE_IMAGE_MAX_BYTES) {
+      if (total > maxBytes) {
         throw new Error(`${label}: image exceeds byte limit`)
       }
       chunks.push(value)

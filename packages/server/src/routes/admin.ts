@@ -5,6 +5,7 @@ import {
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { withAdminAccessChange } from "@alloy/server/auth/admin-access"
+import { OAUTH_PROVIDER_ICON_MAX_BYTES } from "@alloy/server/auth/oauth-provider-icons"
 import { requireAdmin } from "@alloy/server/auth/session"
 import { signInConfigError } from "@alloy/server/auth/sign-in-config"
 import {
@@ -23,11 +24,19 @@ import {
   badRequest,
   batchProgress,
   conflict,
+  errorResult,
 } from "@alloy/server/runtime/http-response"
+import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { Hono } from "hono"
+import { bodyLimit } from "hono/body-limit"
 
 import { adminGamesRoute } from "./admin-games"
 import { adminRuntimeConfigResponse } from "./admin-helpers"
+import {
+  abandonIngestedOAuthProviderIcons,
+  ingestSubmittedOAuthProviderIcons,
+  uploadOAuthProviderIcon,
+} from "./admin-oauth-provider-icons"
 import { adminUsersRoute } from "./admin-users"
 import { adminWebhooksRoute } from "./admin-webhooks"
 import { tbValidator } from "./validation"
@@ -71,6 +80,21 @@ const OAuthProvidersBody = t.object({
       }
     }),
 })
+
+const OAuthProviderIconParam = t.object({
+  providerId: t
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-z0-9-]+$/),
+})
+
+const OAuthProviderIconForm = t.object({
+  file: t.instanceof(File, { message: "Expected an uploaded image file" }),
+})
+
+const OAUTH_PROVIDERS_ENV_MANAGED_ERROR =
+  "OAuth providers are managed by the ALLOY_SOCIALACCOUNT_PROVIDERS environment variable. Unset it to edit providers here."
 
 const TranscodingPatch = t.object({
   videoCodec: VideoCodecSchema.optional(),
@@ -146,10 +170,7 @@ export const adminRoute = new Hono()
     tbValidator("json", OAuthProvidersBody),
     async (c) => {
       if (authEnvLocks().oauthProviders) {
-        return badRequest(
-          c,
-          "OAuth providers are managed by the ALLOY_SOCIALACCOUNT_PROVIDERS environment variable. Unset it to edit providers here.",
-        )
+        return badRequest(c, OAUTH_PROVIDERS_ENV_MANAGED_ERROR)
       }
 
       const submissions = c.req.valid("json").providers
@@ -160,24 +181,73 @@ export const adminRoute = new Hono()
         const secret = submission.clientSecret?.trim()
         if (secret) newSecrets[submission.providerId] = secret
       }
-      const providers = submissions.map(
+      const submitted = submissions.map(
         ({
           clientSecret: _clientSecret,
           ...provider
         }: OAuthProviderSubmission) => provider,
       )
 
-      return withAdminAccessChange(async () => {
-        const error = await signInConfigError(
-          {
-            passkeyEnabled: configStore.get("passkeyEnabled"),
-            oauthProviders: providers,
-          },
-          (providerId) => Object.hasOwn(newSecrets, providerId),
-        )
-        if (error) return conflict(c, error)
+      // External icon source URLs are downloaded into managed asset storage
+      // before the config write, so stored providers only ever reference
+      // same-origin icon paths.
+      const ingestion = await ingestSubmittedOAuthProviderIcons(submitted)
+      if (!ingestion.ok) return errorResult(c, ingestion)
 
-        await setOAuthProviders(providers, newSecrets)
+      try {
+        return await withAdminAccessChange(async () => {
+          const error = await signInConfigError(
+            {
+              passkeyEnabled: configStore.get("passkeyEnabled"),
+              oauthProviders: ingestion.providers,
+            },
+            (providerId) => Object.hasOwn(newSecrets, providerId),
+          )
+          if (error) {
+            await abandonIngestedOAuthProviderIcons(
+              ingestion.newIcons,
+              "provider save conflicted",
+            )
+            return conflict(c, error)
+          }
+
+          const { queuedIconDeletions } = await setOAuthProviders(
+            ingestion.providers,
+            newSecrets,
+          )
+          if (queuedIconDeletions > 0) wakeStorageDeletionWorker()
+          return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+        })
+      } catch (cause) {
+        await abandonIngestedOAuthProviderIcons(
+          ingestion.newIcons,
+          "provider save failed",
+        )
+        throw cause
+      }
+    },
+  )
+  .post(
+    "/oauth-providers/:providerId/icon",
+    bodyLimit({ maxSize: OAUTH_PROVIDER_ICON_MAX_BYTES + 16 * 1024 }),
+    tbValidator("param", OAuthProviderIconParam),
+    tbValidator("form", OAuthProviderIconForm),
+    async (c) => {
+      if (authEnvLocks().oauthProviders) {
+        return badRequest(c, OAUTH_PROVIDERS_ENV_MANAGED_ERROR)
+      }
+      const { providerId } = c.req.valid("param")
+      const file = c.req.valid("form").file
+
+      // Serialized with the other provider-list writes; an icon change never
+      // alters which providers exist, so no sign-in lockout check is needed.
+      return withAdminAccessChange(async () => {
+        const result = await uploadOAuthProviderIcon(
+          configStore.get("oauthProviders"),
+          providerId,
+          file,
+        )
+        if (!result.ok) return errorResult(c, result)
         return c.json(adminRuntimeConfigResponse(configStore.getAll()))
       })
     },

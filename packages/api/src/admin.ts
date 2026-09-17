@@ -22,6 +22,7 @@ import {
   updateOAuthProviders,
   updateRuntimeConfig,
   updateTranscodingConfig,
+  uploadOAuthProviderIcon,
 } from "./admin-config"
 import type { AdminCreateUserInput } from "./admin-resources"
 import {
@@ -51,6 +52,7 @@ export {
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_TOKEN_AUTH_METHODS,
   OAUTH_USERNAME_CLAIM_DEFAULT,
+  publicOAuthProviderIconUrl,
 } from "@alloy/contracts"
 export type {
   AdminCreateGameInput,
@@ -100,6 +102,8 @@ export function createAdminApi(context: ApiContext) {
       updateAuthConfig(context, patch),
     updateOAuthProviders: (providers: AdminOAuthProviderInput[]) =>
       updateOAuthProviders(context, providers),
+    uploadOAuthProviderIcon: (providerId: string, blob: Blob) =>
+      uploadOAuthProviderIcon(context, providerId, blob),
     fetchTranscodingCapabilities: (options?: { refresh?: boolean }) =>
       fetchTranscodingCapabilities(context, options),
     reEncodeAllClips: () => reEncodeAllClips(context),

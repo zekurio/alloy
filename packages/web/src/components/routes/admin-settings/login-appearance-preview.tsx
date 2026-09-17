@@ -3,7 +3,10 @@ import type {
   PublicAuthConfig,
   PublicLoginSplashConfig,
 } from "@alloy/api"
-import { DESKTOP_AUTH_CAPABILITY_VERSION } from "@alloy/contracts"
+import {
+  DESKTOP_AUTH_CAPABILITY_VERSION,
+  publicOAuthProviderIconUrl,
+} from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Slider } from "@alloy/ui/components/slider"
 import {
@@ -42,7 +45,7 @@ function toPublicAuthConfig(
         displayName: provider.displayName,
         buttonColor: provider.buttonColor,
         buttonTextColor: provider.buttonTextColor,
-        iconUrl: provider.iconUrl,
+        iconUrl: publicOAuthProviderIconUrl(provider.iconUrl),
       })),
     loginSplash,
   }

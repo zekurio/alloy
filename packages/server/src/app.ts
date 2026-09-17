@@ -9,6 +9,7 @@ import { configStore } from "./config/store"
 import { env } from "./env"
 import { adminRoute } from "./routes/admin"
 import { gameAssetsRoute } from "./routes/admin-games"
+import { oauthProviderIconAssetsRoute } from "./routes/admin-oauth-provider-icons"
 import { authRoute } from "./routes/auth"
 import { authConfigRoute } from "./routes/auth-config"
 import { csrf } from "./routes/auth-route-helpers"
@@ -124,20 +125,23 @@ const apiApp = new Hono()
       // csrf middleware would reject. "same-origin" keeps Origin intact for
       // same-origin requests while still hiding the referrer cross-origin.
       referrerPolicy: "same-origin",
-      // Report-only first; rename this key to `contentSecurityPolicy` to
-      // enforce after production reports confirm the policy is quiet.
-      contentSecurityPolicyReportOnly: {
+      contentSecurityPolicy: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", NONCE],
         styleSrc: ["'self'", "'unsafe-inline'"],
         // Storage is filesystem-only today, so browser media URLs stay
         // same-origin. Future direct-storage URLs need their origin here.
+        // OAuth avatars and game artwork may come from external HTTPS hosts.
+        // Keep this permission in img-src only; scripts and connections remain
+        // restricted to explicit same-origin and desktop-loopback sources.
         // Alloy Desktop serves local captures on a random loopback port.
         // The native file server checks its access token and selected origin.
-        imgSrc: ["'self'", "data:", "blob:", "http://127.0.0.1:*"],
+        imgSrc: ["'self'", "data:", "blob:", "https:", "http://127.0.0.1:*"],
         mediaSrc: ["'self'", "blob:", "http://127.0.0.1:*"],
         connectSrc: ["'self'", "http://127.0.0.1:*"],
         fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameSrc: ["'none'"],
         frameAncestors: ["'self'"],
         baseUri: ["'self'"],
         formAction: ["'self'"],
@@ -175,6 +179,7 @@ const apiApp = new Hono()
   .route("/api/assets", storageRoute)
   .route("/api/assets/users", userAssetsRoute)
   .route("/api/assets/games", gameAssetsRoute)
+  .route("/api/assets/auth", oauthProviderIconAssetsRoute)
   .onError((err, c) => {
     const requestId =
       getLogContext().req ?? c.res.headers.get("X-Request-Id") ?? undefined

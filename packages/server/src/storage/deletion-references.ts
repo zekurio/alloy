@@ -10,6 +10,7 @@ import {
   type StorageDeletionNamespace,
   uploadTicket,
 } from "@alloy/db/schema"
+import { referencedOAuthProviderIconKeys } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { clipAssetDir } from "@alloy/server/storage/driver"
 import { and, type AnyColumn, eq, isNotNull, or, sql } from "drizzle-orm"
@@ -121,6 +122,11 @@ export function activeRunBlocksStorageDeletion(
 }
 
 async function assetHasLiveReference(key: string): Promise<boolean> {
+  // OAuth provider icons live in config settings (and possibly env), not in a
+  // relational column, so they are checked against the in-process config
+  // state that every mutation path keeps current.
+  if (referencedOAuthProviderIconKeys().has(key.toLowerCase())) return true
+
   const userPath = `${USER_ASSET_PATH_PREFIX}${key}`
   const gamePath = `${GAME_ASSET_PATH_PREFIX}${key}`
   const [userRows, gameRows] = await Promise.all([

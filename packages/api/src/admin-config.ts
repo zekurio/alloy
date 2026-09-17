@@ -91,6 +91,22 @@ export async function updateOAuthProviders(
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
+export async function uploadOAuthProviderIcon(
+  context: ApiContext,
+  providerId: string,
+  blob: Blob,
+): Promise<AdminRuntimeConfig> {
+  const file =
+    blob instanceof File ? blob : new File([blob], "icon", { type: blob.type })
+  const res = await context.rpc.api.admin["oauth-providers"][
+    ":providerId"
+  ].icon.$post({
+    param: { providerId },
+    form: { file },
+  })
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
+}
+
 export async function fetchTranscodingCapabilities(
   context: ApiContext,
   options?: { refresh?: boolean },

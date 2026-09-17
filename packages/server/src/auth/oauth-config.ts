@@ -1,4 +1,8 @@
-import type { OAuthProviderConfig, PublicAuthProvider } from "@alloy/contracts"
+import {
+  publicOAuthProviderIconUrl,
+  type OAuthProviderConfig,
+  type PublicAuthProvider,
+} from "@alloy/contracts"
 import { isOAuthProviderUsable } from "@alloy/server/config/secret-store"
 import { configStore } from "@alloy/server/config/store"
 
@@ -26,6 +30,9 @@ export function getPublicProviders(): PublicAuthProvider[] {
     displayName: provider.displayName,
     buttonColor: provider.buttonColor,
     buttonTextColor: provider.buttonTextColor,
-    iconUrl: provider.iconUrl,
+    // Browsers only ever receive same-origin managed icon paths. External
+    // icon URLs (possible via env icon_url or legacy stored config) are
+    // withheld rather than proxied.
+    iconUrl: publicOAuthProviderIconUrl(provider.iconUrl),
   }))
 }

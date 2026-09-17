@@ -1,5 +1,6 @@
 import {
   AppearanceConfigSchema,
+  managedOAuthProviderIconKey,
   RUNTIME_CONFIG_VERSION,
   TranscodingConfigSchema,
   type AppearanceConfig,
@@ -14,6 +15,10 @@ import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
 import { synchronizeMediaGeneration } from "@alloy/server/queue/media-generation"
+import {
+  cancelStorageDeletion,
+  enqueueStorageDeletions,
+} from "@alloy/server/storage/deletion-store"
 import { eq } from "drizzle-orm"
 
 import { OAuthProvidersSchema } from "./oauth-schema"
@@ -129,11 +134,17 @@ export async function setAuthToggles(
  * Replace the stored OAuth provider list. `secrets` carries new client secrets
  * by provider id; providers absent from it keep their stored secret, and
  * secrets for removed providers are pruned.
+ *
+ * Managed icon lifecycle: prewrite deletion reservations for every icon in the
+ * new list are cancelled alongside the config write; managed icons the
+ * previous list referenced but the next list does not are enqueued for
+ * deletion in the same transaction. Callers must wake the storage deletion
+ * worker when `queuedIconDeletions > 0`.
  */
 export async function setOAuthProviders(
   providers: OAuthProviderConfig[],
   secrets: Record<string, string>,
-): Promise<void> {
+): Promise<{ queuedIconDeletions: number }> {
   if (env.authEnv.oauthProviders !== null) {
     throw new Error(
       "OAuth providers are managed by the ALLOY_SOCIALACCOUNT_PROVIDERS environment variable. Unset it to edit providers here.",
@@ -149,15 +160,64 @@ export async function setOAuthProviders(
     if (value) nextSecrets[provider.providerId] = value
   }
 
-  // One transaction: a failure between the two writes must not leave a new
-  // provider list paired with a stale (or already-pruned) secret map.
+  const nextKeys = managedIconKeysByLowercase(nextProviders)
+  const orphanedIconKeys = [
+    ...managedIconKeysByLowercase(oauthProvidersSetting),
+  ]
+    .filter(([lower]) => !nextKeys.has(lower))
+    .map(([, key]) => key)
+
+  // One transaction: a failure between the writes must not leave a new
+  // provider list paired with a stale (or already-pruned) secret map, nor
+  // detach icon objects without a durable deletion intent.
   await db.transaction(async (tx) => {
     await writeSetting("oauthProviders", nextProviders, tx)
     await writeSetting("oauthClientSecrets", nextSecrets, tx)
+    for (const key of nextKeys.values()) {
+      await cancelStorageDeletion("assets", key, { tx })
+    }
+    await enqueueStorageDeletions(
+      orphanedIconKeys.map((key) => ({
+        namespace: "assets" as const,
+        key,
+        reason: "OAuth provider icon no longer referenced",
+        source: { type: "oauth-provider-icon" },
+      })),
+      { tx },
+    )
   })
   oauthProvidersSetting = deepFreeze(nextProviders)
   oauthClientSecretsSetting = deepFreeze(nextSecrets)
   refreshState()
+  return { queuedIconDeletions: orphanedIconKeys.length }
+}
+
+function managedIconKeysByLowercase(
+  providers: readonly OAuthProviderConfig[],
+): Map<string, string> {
+  const keys = new Map<string, string>()
+  for (const provider of providers) {
+    const key = managedOAuthProviderIconKey(provider.iconUrl)
+    if (key) keys.set(key.toLowerCase(), key)
+  }
+  return keys
+}
+
+/**
+ * Managed icon storage keys currently referenced by any provider source (the
+ * DB-stored list even while env-locked, and the env list). The deletion
+ * worker consults this before removing an object in the assets namespace.
+ */
+export function referencedOAuthProviderIconKeys(): Set<string> {
+  const keys = new Set<string>()
+  for (const provider of [
+    ...oauthProvidersSetting,
+    ...(env.authEnv.oauthProviders ?? []),
+  ]) {
+    const key = managedOAuthProviderIconKey(provider.iconUrl)
+    if (key) keys.add(key.toLowerCase())
+  }
+  return keys
 }
 
 /**

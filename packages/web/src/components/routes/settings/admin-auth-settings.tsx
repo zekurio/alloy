@@ -23,6 +23,7 @@ import { errorMessage } from "@/lib/error-message"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
 
 import { OAuthProviderSettings } from "./admin-auth-provider-settings"
+import type { ProviderIconUpload } from "./admin-auth-provider-utils"
 type AuthToggleKey = keyof AdminAuthConfigPatch
 
 const AUTH_TOGGLES: {
@@ -81,14 +82,27 @@ export function AuthSettingsContent({
     }
   }
 
-  async function saveProviders(providers: AdminOAuthProviderInput[]) {
+  async function saveProviders(
+    providers: AdminOAuthProviderInput[],
+    iconUpload?: ProviderIconUpload,
+  ) {
     if (providerPending) return false
     setProviderError(null)
     setProviderPending(true)
     try {
+      // Apply the list update before the icon upload so a failed upload still
+      // leaves the saved provider list visible (with the error shown).
       const updated = await api.admin.updateOAuthProviders(providers)
       queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
       publishRuntimeConfigUpdate({ authConfigChanged: true })
+      if (iconUpload) {
+        const withIcon = await api.admin.uploadOAuthProviderIcon(
+          iconUpload.providerId,
+          iconUpload.file,
+        )
+        queryClient.setQueryData(adminKeys.runtimeConfig(), withIcon)
+        publishRuntimeConfigUpdate({ authConfigChanged: true })
+      }
       return true
     } catch (cause) {
       setProviderError(errorMessage(cause, t("Couldn't save OAuth providers")))

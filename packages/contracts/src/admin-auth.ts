@@ -14,6 +14,46 @@ function oauthClientSecretAuthMethod<Suffix extends "post" | "basic">(
   return `client_${"secret"}_${suffix}`
 }
 
+/**
+ * Managed OAuth provider icons are ingested into Alloy's asset storage and
+ * served from this same-origin path. Keys are versioned per upload, so the
+ * serving route can cache immutably and replaced icons can be deleted safely.
+ */
+export const OAUTH_PROVIDER_ICON_PATH_PREFIX = "/api/assets/auth/"
+
+export const OAUTH_PROVIDER_ICON_KEY_RE =
+  /^providers\/[a-z0-9-]{1,64}\/icon-[0-9a-f]{32}\.webp$/
+
+export function oauthProviderIconPath(key: string): string {
+  return `${OAUTH_PROVIDER_ICON_PATH_PREFIX}${key}`
+}
+
+/**
+ * Extract the storage key from a managed provider icon URL, or null when the
+ * value is anything else (external URL or malformed path).
+ */
+export function managedOAuthProviderIconKey(
+  iconUrl: string | null | undefined,
+): string | null {
+  if (!iconUrl) return null
+  const base = iconUrl.split("?", 1)[0] ?? ""
+  if (!base.startsWith(OAUTH_PROVIDER_ICON_PATH_PREFIX)) return null
+  const key = base.slice(OAUTH_PROVIDER_ICON_PATH_PREFIX.length)
+  return OAUTH_PROVIDER_ICON_KEY_RE.test(key) ? key : null
+}
+
+/**
+ * The icon URL a browser may be given for a login button. Only Alloy-managed
+ * same-origin paths cross this boundary.
+ */
+export function publicOAuthProviderIconUrl(
+  iconUrl: string | undefined,
+): string | undefined {
+  if (!iconUrl) return undefined
+  if (managedOAuthProviderIconKey(iconUrl)) return iconUrl
+  return undefined
+}
+
 export const OAUTH_CLIENT_SECRET_POST_AUTH_METHOD =
   oauthClientSecretAuthMethod("post")
 export const OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD =
@@ -35,6 +75,20 @@ const NonEmptyStringSchema = t
 
 const OptionalUrlStringSchema = t.string().url().optional()
 
+const UrlStringSchema = t.string().url()
+
+// Absolute source URL or an Alloy-managed icon path. The admin ingestion
+// boundary later restricts new source URLs to public http(s) images.
+const OAuthProviderIconUrlSchema = t
+  .string()
+  .refine(
+    (value) =>
+      managedOAuthProviderIconKey(value) !== null ||
+      UrlStringSchema.safeParse(value).success,
+    "must be a URL or a managed provider icon path",
+  )
+  .optional()
+
 const OAuthProviderConfigFields = {
   providerId: NonEmptyStringSchema,
   displayName: NonEmptyStringSchema,
@@ -43,7 +97,7 @@ const OAuthProviderConfigFields = {
   enabled: t.boolean(),
   buttonColor: t.string().optional(),
   buttonTextColor: t.string().optional(),
-  iconUrl: OptionalUrlStringSchema,
+  iconUrl: OAuthProviderIconUrlSchema,
   discoveryUrl: OptionalUrlStringSchema,
   authorizationUrl: OptionalUrlStringSchema,
   tokenUrl: OptionalUrlStringSchema,
