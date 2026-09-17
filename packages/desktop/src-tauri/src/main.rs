@@ -992,6 +992,9 @@ fn clear_inactive_remote_profile(app: &AppHandle, origin: &Url, host: &Host) -> 
     result
 }
 
+/// Grants the selected server's window the shell and `desktop_api` bridge
+/// permissions, which include listing, switching, and forgetting saved servers
+/// from that server's web UI.
 fn add_remote_capability(app: &AppHandle, label: &str, origin: &Url) -> Result<(), String> {
     let capability = tauri::ipc::CapabilityBuilder::new(format!("{label}-shell"))
         .window(label.to_string())

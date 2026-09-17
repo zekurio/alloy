@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "connect",
-  "description": "Native login runs only in the bundled connect window. Saved servers can also be listed, switched, and forgotten from the selected server's web UI through the desktop bridge.",
+  "description": "Only the bundled connect window can run native login and the local saved-server commands.",
   "windows": ["connect"],
   "permissions": [
     "allow-connect-server",
