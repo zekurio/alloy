@@ -74,6 +74,36 @@ test("native bridge is absent on another origin and in child frames", () => {
   )
 })
 
+test("server management calls use the dotted operation names", async () => {
+  const { window, calls } = loadBridge()
+  assert.ok(window.alloyTauriDesktop)
+  await window.alloyTauriDesktop.servers.switchTo("https://alloy.example")
+  await window.alloyTauriDesktop.servers.list()
+  await window.alloyTauriDesktop.servers.current()
+  await window.alloyTauriDesktop.servers.forget("https://alloy.example")
+  assert.equal(
+    JSON.stringify(calls),
+    JSON.stringify([
+      {
+        command: "desktop_api",
+        args: {
+          operation: "servers.switchTo",
+          args: ["https://alloy.example"],
+        },
+      },
+      { command: "desktop_api", args: { operation: "servers.list", args: [] } },
+      {
+        command: "desktop_api",
+        args: { operation: "servers.current", args: [] },
+      },
+      {
+        command: "desktop_api",
+        args: { operation: "servers.forget", args: ["https://alloy.example"] },
+      },
+    ]),
+  )
+})
+
 test("native thumbnail calls carry bytes and subscriptions can stop before registration", async () => {
   const { window, calls, callbacks, completeListen } = loadBridge()
   assert.ok(window.alloyTauriDesktop)

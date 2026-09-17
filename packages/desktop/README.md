@@ -22,9 +22,11 @@ JavaScript. The WebView then sends normal same-origin API, upload, media, and
 event-stream requests. There is no general API proxy.
 
 On Windows, each server origin has a separate persistent WebView profile.
-The local connection screen lists saved servers. Forgetting a server removes
-its saved session. Closing the main window keeps capture and media work active
-in the tray. Quit stops the recorder and media processes.
+The local connection screen lists saved servers. The selected server's web UI
+can also list, switch, and forget saved servers through the desktop bridge.
+Forgetting a server removes its saved session. Closing the main window keeps
+capture and media work active in the tray. Quit stops the recorder and media
+processes.
 
 Autostart registers the app with `--autostart`. Started that way it restores the
 saved server and warms up the recorder without showing a window; the tray opens

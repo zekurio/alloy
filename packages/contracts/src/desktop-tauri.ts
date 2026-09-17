@@ -38,14 +38,14 @@ export const DesktopTauriSavedServersSchema = z
 
 /**
  * Server management from inside the selected server's web app. Every call
- * rejects with a user-facing message on failure. A successful `connect`
+ * rejects with a user-facing message on failure. A successful `switchTo`
  * replaces the calling window with the new server's window.
  */
 export interface AlloyTauriDesktopServerApi {
-  connect(url: string): Promise<DesktopTauriConnectResult>
-  getServers(): Promise<DesktopSavedServer[]>
-  getCurrentServer(): Promise<string>
-  forgetServer(url: string): Promise<DesktopSavedServer[]>
+  switchTo(url: string): Promise<DesktopTauriConnectResult>
+  list(): Promise<DesktopSavedServer[]>
+  current(): Promise<string>
+  forget(url: string): Promise<DesktopSavedServer[]>
 }
 
 /** Native operations granted to the selected server's web app. */
