@@ -1,7 +1,10 @@
 "use client"
 
 import { Button } from "@alloy/ui/components/button"
-import { MODAL_OVERLAY_CLASS_NAME } from "@alloy/ui/lib/modal-overlay"
+import {
+  MODAL_OVERLAY_CLASS_NAME,
+  MODAL_OVERLAY_FORCE_RENDER,
+} from "@alloy/ui/lib/modal-overlay"
 import { cn } from "@alloy/ui/lib/utils"
 import { AlertDialog } from "@base-ui/react/alert-dialog"
 import type { ComponentProps } from "react"
@@ -20,11 +23,13 @@ function AlertDialogPortal({ ...props }: AlertDialog.Portal.Props) {
 
 function AlertDialogOverlay({
   className,
+  forceRender = MODAL_OVERLAY_FORCE_RENDER,
   ...props
 }: AlertDialog.Backdrop.Props) {
   return (
     <AlertDialog.Backdrop
       data-slot="alert-dialog-overlay"
+      forceRender={forceRender}
       className={cn(
         MODAL_OVERLAY_CLASS_NAME,
         "duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",

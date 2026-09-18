@@ -1,4 +1,7 @@
-import { MODAL_OVERLAY_CLASS_NAME } from "@alloy/ui/lib/modal-overlay"
+import {
+  MODAL_OVERLAY_CLASS_NAME,
+  MODAL_OVERLAY_FORCE_RENDER,
+} from "@alloy/ui/lib/modal-overlay"
 import { cn } from "@alloy/ui/lib/utils"
 import { Dialog } from "@base-ui/react/dialog"
 import type { ComponentProps } from "react"
@@ -19,10 +22,15 @@ function DialogClose({ ...props }: Dialog.Close.Props) {
   return <Dialog.Close data-slot="dialog-close" {...props} />
 }
 
-function DialogOverlay({ className, ...props }: Dialog.Backdrop.Props) {
+function DialogOverlay({
+  className,
+  forceRender = MODAL_OVERLAY_FORCE_RENDER,
+  ...props
+}: Dialog.Backdrop.Props) {
   return (
     <Dialog.Backdrop
       data-slot="dialog-overlay"
+      forceRender={forceRender}
       className={cn(
         MODAL_OVERLAY_CLASS_NAME,
         "duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",

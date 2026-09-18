@@ -1,5 +1,6 @@
 "use client"
 
+import { MODAL_OVERLAY_FORCE_RENDER } from "@alloy/ui/lib/modal-overlay"
 import { cn } from "@alloy/ui/lib/utils"
 import { Drawer } from "@base-ui/react/drawer"
 import { createContext, isValidElement, useContext } from "react"
@@ -101,10 +102,7 @@ function DrawerHandle({ className, ...props }: ComponentProps<"div">) {
 
 function DrawerOverlay({
   className,
-  // Base UI suppresses the backdrop when the drawer is nested inside another
-  // dialog/drawer (`enabled: forceRender || !nested`). Force it so the sheet
-  // always darkens its surroundings and the backdrop can catch outside taps.
-  forceRender = true,
+  forceRender = MODAL_OVERLAY_FORCE_RENDER,
   ...props
 }: Drawer.Backdrop.Props) {
   return (
