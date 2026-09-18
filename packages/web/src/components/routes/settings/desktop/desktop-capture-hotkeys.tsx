@@ -1,4 +1,4 @@
-import type { RecordingSettings } from "@alloy/contracts"
+import type { RecordingSettings } from "@alloy/desktop-contracts"
 import { t } from "@alloy/i18n"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { toast } from "@alloy/ui/lib/toast"

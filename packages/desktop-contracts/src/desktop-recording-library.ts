@@ -1,9 +1,10 @@
+import type { ClipPrivacy } from "@alloy/primitives"
+
 import type {
   RecordingCaptureKind,
   RecordingCaptureSource,
   RecordingGameGuess,
 } from "./desktop-recording-types"
-import type { ClipPrivacy } from "./shared"
 
 /** Minimal user summary persisted with capture drafts to rehydrate pickers. */
 export interface RecordingCaptureMention {

@@ -1,4 +1,7 @@
-import type { DesktopUpdateState, DesktopUpdateStatus } from "@alloy/contracts"
+import type {
+  DesktopUpdateState,
+  DesktopUpdateStatus,
+} from "@alloy/desktop-contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"

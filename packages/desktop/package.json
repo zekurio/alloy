@@ -18,7 +18,7 @@
     "dist:win:installer:signed": "pnpm dist:win:installer --config src-tauri/tauri.signed.conf.json"
   },
   "dependencies": {
-    "@alloy/contracts": "workspace:*",
+    "@alloy/desktop-contracts": "workspace:*",
     "@alloy/i18n": "workspace:*",
     "@alloy/ui": "workspace:*",
     "@tauri-apps/api": "2.11.1",

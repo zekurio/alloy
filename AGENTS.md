@@ -16,7 +16,9 @@ boundaries, especially desktop-to-server HTTP and desktop-to-recorder IPC.
 | `packages/desktop`                                  | `src-tauri/` Tauri host, `recorder/` capture agent lib + `alloy-agent` bin |
 | `packages/server`                                   | Hono API, uploads, jobs, and media processing                              |
 | `packages/web`                                      | React web app and file-based routes                                        |
-| `packages/contracts`                                | Shared schemas, types, and desktop contracts                               |
+| `packages/contracts`                                | Web, server, and browser contracts                                         |
+| `packages/desktop-contracts`                        | Desktop bridge, recorder, and update contracts                             |
+| `packages/primitives`                               | Dependency-free scalars and IDs both contract surfaces share               |
 | `packages/api`                                      | Typed API client                                                           |
 | `packages/db`                                       | Drizzle schema and database workflows                                      |
 | `packages/ui`                                       | Shared React components and styles                                         |
@@ -78,7 +80,8 @@ Query options. Routes live in `packages/web/src/routes/`; use the guards from
 `packages/web/src/lib/auth-guards.ts`.
 
 The Tauri host and server-hosted web UI can release separately. Define exact
-native bridge contracts in `packages/contracts/src/desktop-tauri.ts`. Native
+native bridge contracts in `packages/desktop-contracts/src/desktop-tauri.ts`.
+Native
 commands must validate their inputs and the calling window's selected origin.
 Keep local connection commands separate from remote window permissions. The
 browser build must ignore globals from unsupported native bridge contracts.

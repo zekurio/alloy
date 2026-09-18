@@ -1,3 +1,4 @@
+import { TAURI_DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
 import { z } from "zod"
 
 import type {
@@ -6,12 +7,6 @@ import type {
 } from "./desktop-api"
 import type { AlloyDesktopAutostartApi } from "./desktop-autostart"
 import type { AlloyDesktopUpdatesApi } from "./desktop-update"
-
-/** Exact contract for the Tauri host's server-hosted renderer. */
-export const TAURI_DESKTOP_BRIDGE_CONTRACT_1 = 1 as const
-export const TAURI_DESKTOP_BRIDGE_CONTRACT_IDS = Object.freeze([
-  TAURI_DESKTOP_BRIDGE_CONTRACT_1,
-] as const)
 
 /** Returned by the local connection screen and the in-app server switch. */
 export const DesktopTauriConnectResultSchema = z.object({

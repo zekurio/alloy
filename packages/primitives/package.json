@@ -1,5 +1,5 @@
 {
-  "name": "@alloy/contracts",
+  "name": "@alloy/primitives",
   "private": true,
   "type": "module",
   "exports": {
@@ -9,10 +9,5 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@alloy/primitives": "workspace:*",
-    "typebox": "1.3.30",
-    "zod": "4.6.5"
   }
 }

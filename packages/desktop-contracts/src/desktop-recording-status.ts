@@ -1,3 +1,5 @@
+import type { IsoDateString } from "@alloy/primitives"
+
 import type {
   RecordingAudioApplicationSelection,
   RecordingAudioDevice,
@@ -14,7 +16,6 @@ import type {
 } from "./desktop-recording-config"
 import type { RecordingGame } from "./desktop-recording-games"
 import type { RecordingLibraryDownload } from "./desktop-recording-library"
-import type { IsoDateString } from "./shared"
 
 /**
  * Live loudness sample for one audio source, emitted by the capture backend

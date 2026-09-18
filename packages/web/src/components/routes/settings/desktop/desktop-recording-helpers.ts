@@ -10,8 +10,8 @@ import type {
   RecordingQualitySettings,
   RecordingResolution,
   RecordingSettings,
-} from "@alloy/contracts"
-import { RECORDING_QUALITY_PRESETS } from "@alloy/contracts"
+} from "@alloy/desktop-contracts"
+import { RECORDING_QUALITY_PRESETS } from "@alloy/desktop-contracts"
 import { getRuntimeLocale, localeToLanguageTag, t } from "@alloy/i18n"
 
 export const ENCODER_LABELS = {

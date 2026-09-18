@@ -1,12 +1,10 @@
-import {
-  TAURI_DESKTOP_BRIDGE_CONTRACT_1,
-  type AlloyTauriDesktop,
-} from "@alloy/contracts/desktop-tauri"
+import type { AlloyTauriDesktop } from "@alloy/desktop-contracts/desktop-tauri"
+import { TAURI_DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
 
-export type { AlloyTauriDesktop } from "@alloy/contracts/desktop-tauri"
+export type { AlloyTauriDesktop } from "@alloy/desktop-contracts/desktop-tauri"
 
-// Native and recording-library types live in @alloy/contracts. Re-export them
-// here so web consumers use one import path.
+// Native and recording-library types live in @alloy/desktop-contracts.
+// Re-export them here so web consumers use one import path.
 export type {
   AlloyDesktopRecordingApi,
   DesktopSavedServer,
@@ -17,7 +15,7 @@ export type {
   RecordingLibraryMetaPatch,
   RecordingLibrarySnapshot,
   RecordingLibraryStagedImport,
-} from "@alloy/contracts"
+} from "@alloy/desktop-contracts"
 
 /**
  * Reads the bridge the desktop host installs on `globalThis`. A bridge is

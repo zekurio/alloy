@@ -4,7 +4,7 @@ import type {
   RecordingNotificationSoundOption,
   RecordingNotificationSoundSettings,
   RecordingSettings,
-} from "@alloy/contracts"
+} from "@alloy/desktop-contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {

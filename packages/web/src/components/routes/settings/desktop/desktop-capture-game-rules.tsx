@@ -1,4 +1,4 @@
-import type { RecordingAllowedGame } from "@alloy/contracts"
+import type { RecordingAllowedGame } from "@alloy/desktop-contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { List, ListItem } from "@alloy/ui/components/list"
