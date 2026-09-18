@@ -1,5 +1,5 @@
 import { type ClipRow } from "@alloy/api"
-import { contentTypeForFile } from "@alloy/contracts"
+import { contentTypeForFile } from "@alloy/desktop-contracts"
 import { t } from "@alloy/i18n"
 import { ClipCard } from "@alloy/ui/components/clip-card"
 import { GlobeIcon, Link2Icon, LockIcon, MonitorIcon } from "lucide-react"

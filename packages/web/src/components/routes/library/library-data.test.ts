@@ -5,7 +5,7 @@ import type {
   RecordingLibraryGroup,
   RecordingLibraryItem,
   RecordingLibrarySnapshot,
-} from "@alloy/contracts"
+} from "@alloy/desktop-contracts"
 import { test } from "vitest"
 
 import {

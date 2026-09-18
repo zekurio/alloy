@@ -6,7 +6,7 @@ import {
   clipThumbnailUrl,
   type EncodeStage,
 } from "@alloy/api"
-import { contentTypeForFile } from "@alloy/contracts"
+import { contentTypeForFile } from "@alloy/desktop-contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"

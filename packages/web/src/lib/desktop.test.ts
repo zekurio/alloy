@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 
-import { TAURI_DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/contracts/desktop-tauri"
+import { TAURI_DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
 import { afterEach, test } from "vitest"
 
 import { alloyDesktop, alloyWindowChrome, isNativeDesktop } from "./desktop"

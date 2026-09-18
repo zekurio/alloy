@@ -1,9 +1,9 @@
-import type { DesktopSavedServer } from "@alloy/contracts/desktop-api"
+import type { DesktopSavedServer } from "@alloy/desktop-contracts/desktop-api"
 import {
   DesktopTauriConnectResultSchema,
   DesktopTauriErrorSchema,
   DesktopTauriSavedServersSchema,
-} from "@alloy/contracts/desktop-tauri"
+} from "@alloy/desktop-contracts/desktop-tauri"
 import { initializeClientLocale, t } from "@alloy/i18n"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
 import { Button } from "@alloy/ui/components/button"

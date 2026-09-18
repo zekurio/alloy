@@ -1,4 +1,4 @@
-import type { DesktopAutostartState } from "@alloy/contracts"
+import type { DesktopAutostartState } from "@alloy/desktop-contracts"
 import { t } from "@alloy/i18n"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Skeleton } from "@alloy/ui/components/skeleton"

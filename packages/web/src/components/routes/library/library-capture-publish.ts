@@ -4,7 +4,7 @@ import type {
   GameRow,
   UserSearchResult,
 } from "@alloy/api"
-import { contentTypeForFile } from "@alloy/contracts"
+import { contentTypeForFile } from "@alloy/desktop-contracts"
 import { t } from "@alloy/i18n"
 
 import type { ScreenshotEdit } from "@/components/media/screenshot-edit"

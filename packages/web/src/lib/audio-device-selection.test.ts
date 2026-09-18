@@ -3,7 +3,7 @@ import assert from "node:assert/strict"
 import type {
   RecordingAudioApplicationSelection,
   RecordingAudioDeviceSelection,
-} from "@alloy/contracts"
+} from "@alloy/desktop-contracts"
 import { test } from "vitest"
 
 import { enabledAudioSourceCount } from "./audio-device-selection"

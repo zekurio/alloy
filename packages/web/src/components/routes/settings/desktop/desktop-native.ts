@@ -5,7 +5,7 @@ import {
   RECORDING_ENCODERS,
   RECORDING_FRAME_RATES,
   RECORDING_RESOLUTIONS,
-} from "@alloy/contracts"
+} from "@alloy/desktop-contracts"
 
 export { alloyDesktop } from "@/lib/desktop"
 export type { DesktopSavedServer } from "@/lib/desktop"

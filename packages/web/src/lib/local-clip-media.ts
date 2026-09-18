@@ -1,5 +1,5 @@
 import type { ClipRow } from "@alloy/api"
-import type { RecordingLibraryItem } from "@alloy/contracts"
+import type { RecordingLibraryItem } from "@alloy/desktop-contracts"
 
 const SOURCE_DURATION_TOLERANCE_MS = 1_500
 const FINAL_COPY_DURATION_TOLERANCE_MS = 100

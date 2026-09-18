@@ -1,4 +1,4 @@
-import type { RecordingSettings } from "@alloy/contracts"
+import type { RecordingSettings } from "@alloy/desktop-contracts"
 import { t } from "@alloy/i18n"
 import {
   Select,

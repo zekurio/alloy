@@ -5,7 +5,7 @@ import {
   clipThumbnailUrl,
   clipWaveformFileUrl,
 } from "@alloy/api"
-import { contentTypeForFile } from "@alloy/contracts"
+import { contentTypeForFile } from "@alloy/desktop-contracts"
 import { t } from "@alloy/i18n"
 import { Card } from "@alloy/ui/components/card"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"

@@ -1,4 +1,4 @@
-import type { IsoDateString } from "./shared"
+import type { IsoDateString } from "@alloy/primitives"
 
 export interface RecordingAllowedGame {
   id: string
