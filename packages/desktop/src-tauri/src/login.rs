@@ -301,9 +301,9 @@ async fn read_callback(
 }
 
 /// Static strings for the loopback result page. The listener has no access to
-/// the app's `@alloy/i18n` catalog, so this table mirrors the matching
-/// entries in `packages/i18n/src/messages.ts` by hand. Anything unrecognized
-/// falls back to English.
+/// the app's `@alloy/i18n` catalog, so this table is the page's only source:
+/// a new locale means a new `CALLBACK_STRINGS_*` table plus its language
+/// subtag in `callback_strings`. Anything unrecognized falls back to English.
 struct CallbackStrings {
     lang: &'static str,
     success_title: &'static str,
