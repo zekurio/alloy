@@ -70,15 +70,15 @@ jobs:
           toolchain: stable
           components: clippy, rustfmt
 
-      # One shared key for both Windows jobs and the release job in
-      # publish.yml: a pull request restores only caches saved on `dev` or on
-      # its own merge ref, so a key per job would make every first run
-      # recompile the dependency graph from scratch.
+      # Keyed by compiled profile, not by job: the two Windows jobs save
+      # different artifacts and would race for one entry, dropping whichever
+      # profile lost. A pull request restores only caches saved on `dev` or on
+      # its own merge ref, so this debug cache is what its later runs reuse.
       - name: cache cargo artifacts
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: .
-          shared-key: tauri-desktop
+          shared-key: tauri-desktop-check
 
       - name: install dependencies
         run: pnpm install --frozen-lockfile
@@ -139,6 +139,8 @@ jobs:
         with:
           toolchain: stable
 
+      # Same key as the release job in publish.yml: both build the release
+      # profile, and a cache saved on `dev` is the one a pull request restores.
       - name: cache cargo artifacts
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
