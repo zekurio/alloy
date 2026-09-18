@@ -33,15 +33,28 @@ if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(version)) {
 }
 
 for (const filePath of releasePackageFiles) {
-  const config = JSON.parse(readFileSync(filePath, "utf8"))
+  const original = readFileSync(filePath, "utf8")
+  const config = JSON.parse(original)
 
   if (config.version === version) {
     console.log(`${filePath} is already at version ${version}.`)
     continue
   }
 
-  config.version = version
-  writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`)
+  // Patch the version value in place instead of re-serializing the document:
+  // `JSON.stringify` expands arrays that oxfmt keeps inline in the Tauri
+  // config, which would leave the release commit failing `pnpm fmt:check`.
+  const updated = original.replace(
+    /^ {2}"version": "[^"]+"(,?)$/m,
+    `  "version": "${version}"$1`,
+  )
+
+  if (updated === original) {
+    console.error(`No top-level "version" field found in ${filePath}.`)
+    process.exit(1)
+  }
+
+  writeFileSync(filePath, updated)
 }
 
 for (const filePath of cargoPackageFiles) {
