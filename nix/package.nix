@@ -6,7 +6,7 @@
   ffmpegPackage ? ffmpeg-headless,
   nodejs_24,
   nodejs-slim_24,
-  pnpm,
+  pnpm_11,
   pnpmConfigHook,
   makeWrapper,
   version ? (builtins.fromJSON (builtins.readFile ../package.json)).version,
@@ -18,7 +18,7 @@
 }:
 
 let
-  pnpmPackage = import ./pnpm.nix { inherit pnpm; };
+  pnpmPackage = import ./pnpm.nix { inherit pnpm_11; };
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "alloy";

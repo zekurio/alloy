@@ -12,7 +12,7 @@ let
     zlib
     zstd
   ];
-  pnpmPackage = import ./nix/pnpm.nix { inherit (pkgs) pnpm; };
+  pnpmPackage = import ./nix/pnpm.nix { inherit (pkgs) pnpm_11; };
 in
 {
   imports = lib.optional (builtins.pathExists ./devenv.local.nix) ./devenv.local.nix;
