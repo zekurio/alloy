@@ -1364,14 +1364,20 @@ export const DE_MESSAGES = {
   "Delete OAuth provider?": "OAuth-Anbieter löschen?",
   "Discovery URL": "Discovery-URL",
   "Display name": "Anzeigename",
+  "Downloaded and stored on this server when you save.":
+    "Wird beim Speichern heruntergeladen und auf diesem Server gespeichert.",
   "Edit OAuth provider": "OAuth-Anbieter bearbeiten",
   "Enable password-free sign-in and registration with passkeys.":
     "Aktiviere passwortlose Anmeldung und Registrierung mit Passkeys.",
   "Icon URL": "Symbol-URL",
+  "Leave empty to use the theme color.":
+    "Leer lassen, um die Theme-Farbe zu verwenden.",
   "Lowercase letters, numbers, and hyphens only.":
     "Nur Kleinbuchstaben, Zahlen und Bindestriche.",
   "Managed by environment variable": "Durch Umgebungsvariable verwaltet",
   "No OAuth providers configured": "Keine OAuth-Anbieter konfiguriert",
+  "PNG, JPEG, WebP, or SVG up to 2 MB, stored on this server and shown on the sign-in button.":
+    "PNG, JPEG, WebP oder SVG bis 2 MB, auf diesem Server gespeichert und auf dem Anmeldebutton angezeigt.",
   "OAuth providers": "OAuth-Anbieter",
   "OAuth providers saved": "OAuth-Anbieter gespeichert",
   "Open registrations": "Offene Registrierungen",
@@ -1386,16 +1392,21 @@ export const DE_MESSAGES = {
     "Registriere diese Redirect-URI beim Anbieter.",
   "Registration, passkeys, browsing access, and OAuth sign-in providers.":
     "Registrierung, Passkeys, Browsing-Zugriff und OAuth-Anmeldeanbieter.",
+  Remove: "Entfernen",
+  "Remove icon": "Symbol entfernen",
   "Require sign-in to browse": "Anmeldung zum Browsen erforderlich",
   "Role claim": "Rollen-Claim",
   Scopes: "Scopes",
   "Secure the authorization flow with Proof Key for Code Exchange.":
     "Sichere den Autorisierungsablauf mit Proof Key for Code Exchange ab.",
   "Separate scopes with spaces.": "Trenne Scopes mit Leerzeichen.",
+  "Sign-in button": "Anmeldebutton",
   "Token auth method": "Token-Auth-Methode",
   "Token URL": "Token-URL",
   "UID claim": "UID-Claim",
   Unchanged: "Unverändert",
+  "Upload icon": "Symbol hochladen",
+  "Use the theme color": "Theme-Farbe verwenden",
   "User info URL": "Userinfo-URL",
   "Username claim": "Nutzername-Claim",
   "Users may lose this sign-in method immediately.":
