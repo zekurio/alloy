@@ -167,7 +167,7 @@ jobs:
       # `dist:win:installer` stages the recorder and FFmpeg itself before it
       # bundles, so this job repeats none of the staging steps.
       - name: build unsigned installer
-        run: pnpm tauri:dist:win:installer
+        run: pnpm --filter @alloy/desktop dist:win:installer
 
       - name: upload test installer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
