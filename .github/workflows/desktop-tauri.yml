@@ -56,7 +56,7 @@ jobs:
       - name: set up pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.3.4
+          version: 11.24.0
 
       - name: set up node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -126,7 +126,7 @@ jobs:
       - name: set up pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.3.4
+          version: 11.24.0
 
       - name: set up node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -167,7 +167,7 @@ jobs:
       # `dist:win:installer` stages the recorder and FFmpeg itself before it
       # bundles, so this job repeats none of the staging steps.
       - name: build unsigned installer
-        run: pnpm --filter @alloy/desktop dist:win:installer
+        run: pnpm tauri:dist:win:installer
 
       - name: upload test installer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

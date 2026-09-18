@@ -6,7 +6,7 @@
   ffmpegPackage ? ffmpeg-headless,
   nodejs_24,
   nodejs-slim_24,
-  pnpm,
+  pnpm_11,
   pnpmConfigHook,
   makeWrapper,
   version ? (builtins.fromJSON (builtins.readFile ../package.json)).version,
@@ -14,9 +14,12 @@
     inherit lib;
     root = ../.;
   },
-  pnpmDepsHash ? "sha256-EW49v4nGw2tU2kkwiWaq+FXeyDJUfLXD/la9kXN8YS0=",
+  pnpmDepsHash ? "sha256-1UGrjoN9XFo3ZGccYldTf8B3a3jQIHjzIbwPi5I+ONM=",
 }:
 
+let
+  pnpmPackage = import ./pnpm.nix { inherit pnpm_11; };
+in
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "alloy";
   inherit version;
@@ -24,14 +27,14 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
   pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
-    inherit pnpm;
+    pnpm = pnpmPackage;
     fetcherVersion = 4;
     hash = pnpmDepsHash;
   };
 
   nativeBuildInputs = [
     nodejs_24
-    pnpm
+    pnpmPackage
     pnpmConfigHook
     makeWrapper
   ];
