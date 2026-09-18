@@ -86,8 +86,8 @@ start.
 
 ## Windows validation
 
-Only Windows can validate the capture runtime. The Windows CI job builds the
-native host and an unsigned NSIS installer. A build does not establish
+Only Windows can validate the capture runtime. The Windows CI jobs check the
+native host and build an unsigned NSIS installer. A build does not establish
 playback or recording behavior. Test these on Windows:
 
 - Sign in, restart, refresh an expired session, sign out, and switch servers.

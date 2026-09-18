@@ -1,18 +1,18 @@
 name: tauri desktop
 
+# Windows-only desktop CI: the Tauri host, the recorder, and the installer
+# bundle. JavaScript and TypeScript, including the desktop connection screen,
+# is built and tested by `checks` on ubuntu, so shared TS packages, lockfiles,
+# and docs do not start a Windows run.
 on:
   pull_request:
     branches: [dev]
     paths:
       - "packages/desktop/**"
-      - "packages/contracts/**"
-      - "packages/ui/**"
-      - "packages/i18n/**"
       - "Cargo.toml"
       - "Cargo.lock"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
       - ".github/workflows/desktop-tauri.yml"
+      - "!**/*.md"
   schedule:
     - cron: "23 4 * * 1"
   workflow_dispatch:
@@ -41,10 +41,12 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  windows:
-    name: build and check windows desktop
-    # The weekly cron exists for the rustsec audit; skip the 2x-billed
-    # Windows job there since code did not change.
+  # Lint and test are split from packaging: the two jobs compile different
+  # profiles, and a lint failure should not wait behind the release link and
+  # the NSIS bundle. The weekly cron exists for the rustsec audit; both
+  # Windows jobs skip it since code did not change.
+  rust:
+    name: check rust workspace
     if: github.event_name != 'schedule'
     runs-on: windows-latest
     steps:
@@ -68,10 +70,82 @@ jobs:
           toolchain: stable
           components: clippy, rustfmt
 
+      # Keyed by compiled profile, not by job: the two Windows jobs save
+      # different artifacts and would race for one entry, dropping whichever
+      # profile lost. A pull request restores only caches saved on `dev` or on
+      # its own merge ref, so this debug cache is what its later runs reuse.
       - name: cache cargo artifacts
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: .
+          shared-key: tauri-desktop-check
+
+      - name: install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `tauri::generate_context!` embeds the frontend dist while compiling, so
+      # the check fails without the connection screen even though `checks` owns
+      # its browser-side verification.
+      - name: build connection screen
+        run: pnpm --filter @alloy/desktop build:renderer
+
+      - name: cache native runtimes
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            packages/desktop/resources/obs-runtime
+            packages/desktop/.cache/ffmpeg
+          key: windows-native-obs-32.1.2-ffmpeg-8.1.2-v2
+
+      # Builds the recorder and stages the FFmpeg the tests run against.
+      - name: stage recorder and media tools
+        run: node packages/desktop/scripts/prepare-native.mjs
+
+      # One workspace-wide pass: every crate shares the dependency graph, so
+      # clippy and the tests compile each dependency once.
+      - name: check rust workspace
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: test rust workspace
+        shell: pwsh
+        run: |
+          $env:PATH = "${{ github.workspace }}/packages/desktop/resources/ffmpeg;$env:PATH"
+          cargo test --workspace --all-targets --locked
+          exit $LASTEXITCODE
+
+  installer:
+    name: build windows installer
+    if: github.event_name != 'schedule'
+    runs-on: windows-latest
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 11.24.0
+
+      - name: set up node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: set up rust
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with:
+          toolchain: stable
+
+      # Same key as the release job in publish.yml: both build the release
+      # profile, and a cache saved on `dev` is the one a pull request restores.
+      - name: cache cargo artifacts
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: .
+          shared-key: tauri-desktop
 
       - name: install dependencies
         run: pnpm install --frozen-lockfile
@@ -90,23 +164,8 @@ jobs:
       - name: stage obs runtime
         run: pnpm --filter @alloy/desktop obs:install --version 32.1.2
 
-      - name: stage recorder and media tools
-        run: node packages/desktop/scripts/prepare-native.mjs --release
-
-      # One workspace-wide pass: every crate shares the dependency graph, so
-      # clippy and the tests compile each dependency once.
-      - name: check rust workspace
-        run: |
-          cargo fmt --all --check
-          cargo clippy --workspace --all-targets --locked -- -D warnings
-
-      - name: test rust workspace
-        shell: pwsh
-        run: |
-          $env:PATH = "${{ github.workspace }}/packages/desktop/resources/ffmpeg;$env:PATH"
-          cargo test --workspace --all-targets --locked
-          exit $LASTEXITCODE
-
+      # `dist:win:installer` stages the recorder and FFmpeg itself before it
+      # bundles, so this job repeats none of the staging steps.
       - name: build unsigned installer
         run: pnpm tauri:dist:win:installer
 
