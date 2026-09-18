@@ -1078,6 +1078,7 @@ export const DE_MESSAGES = {
   "Saves the configured replay buffer.":
     "Speichert den konfigurierten Replay-Puffer.",
   "Save trim": "Zuschnitt speichern",
+  "Cancel trim": "Zuschnitt verwerfen",
   "Saving...": "Wird gespeichert...",
   "Saving…": "Wird gespeichert…",
   "Software (CPU)": "Software (CPU)",

@@ -41,6 +41,9 @@ const videoChromeIconClass =
   "size-10 rounded-full text-white shadow-none hover:bg-transparent hover:text-white hover:shadow-none focus-visible:ring-ring"
 const videoChromeGlyphClass =
   "size-[18px] stroke-[2] [filter:drop-shadow(0_0_1px_rgba(0,0,0,0.4))_drop-shadow(0_1px_2px_rgba(0,0,0,0.3))]"
+/** Touch chrome keeps a 44px target: big enough for a thumb, small enough that
+ *  the controls don't crowd a phone-width player. */
+const videoChromeCompactIconClass = "size-11"
 
 type ChromeBarSize = "default" | "compact"
 
@@ -121,7 +124,7 @@ export function ChromeBar({
         data-pinned={undefined}
         className={cn(
           "pointer-events-none absolute inset-x-0 bottom-0 isolate z-20 flex items-center gap-1 px-1 pt-2 pb-[env(safe-area-inset-bottom)] transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-          "bg-gradient-to-t from-black via-black/30 to-transparent pt-10",
+          "bg-gradient-to-t from-black/85 via-black/25 to-transparent pt-7",
           visible ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0",
           visible && "pointer-events-auto",
           "data-[pinned=true]:translate-y-0 data-[pinned=true]:opacity-100",
@@ -132,7 +135,7 @@ export function ChromeBar({
         <div
           className={cn(
             "flex min-h-[60px] min-w-0 flex-1 items-center gap-1",
-            size === "compact" && "min-h-[64px]",
+            size === "compact" && "min-h-[52px]",
           )}
         >
           <ChromeLeadingControls
@@ -153,6 +156,7 @@ export function ChromeBar({
             bufferedEnd={bufferedEnd}
             onSeek={onSeek}
             variant="translucent"
+            expandHitArea={isCoarsePointer}
           />
 
           <ChromeTrailingControls
@@ -203,7 +207,7 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
         onClick={onTogglePlay}
         className={cn(
           videoChromeIconClass,
-          size === "compact" && "size-[56px]",
+          size === "compact" && videoChromeCompactIconClass,
         )}
       >
         {playing ? (
@@ -223,7 +227,7 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
         iconGlyphClassName={videoChromeGlyphClass}
         iconClassName={cn(
           videoChromeIconClass,
-          size === "compact" && "size-[56px]",
+          size === "compact" && videoChromeCompactIconClass,
         )}
       />
     </>
@@ -236,12 +240,14 @@ const ChromeTimeline = memo(function ChromeTimeline({
   bufferedEnd,
   onSeek,
   variant,
+  expandHitArea,
 }: {
   currentTime: number
   duration: number
   bufferedEnd: number
   onSeek: (sec: number) => void
   variant: "translucent" | "edge"
+  expandHitArea?: boolean
 }) {
   const scrubber = (
     <VideoScrubber
@@ -250,10 +256,11 @@ const ChromeTimeline = memo(function ChromeTimeline({
       bufferedEnd={bufferedEnd}
       onSeek={onSeek}
       variant={variant}
+      expandHitArea={expandHitArea}
     />
   )
   if (variant === "edge") return scrubber
-  return <div className="min-w-0 flex-1 px-[2px]">{scrubber}</div>
+  return <div className="min-w-0 flex-1 px-2">{scrubber}</div>
 })
 
 const ChromeTrailingControls = memo(function ChromeTrailingControls({
@@ -300,7 +307,7 @@ const ChromeTrailingControls = memo(function ChromeTrailingControls({
           onClick={onToggleFullscreen}
           className={cn(
             videoChromeIconClass,
-            size === "compact" && "size-[56px]",
+            size === "compact" && videoChromeCompactIconClass,
           )}
         >
           <MaximizeIcon className={videoChromeGlyphClass} />
@@ -412,7 +419,7 @@ function QualitySettingsButton({
       aria-label={t("Playback quality")}
       className={cn(
         videoChromeIconClass,
-        size === "compact" && "size-[56px]",
+        size === "compact" && videoChromeCompactIconClass,
         className,
       )}
     >

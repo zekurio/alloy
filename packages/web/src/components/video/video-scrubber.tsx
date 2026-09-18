@@ -9,11 +9,15 @@ export function VideoScrubber({
   bufferedEnd,
   onSeek,
   variant = "default",
+  expandHitArea = false,
 }: {
   currentTime: number
   duration: number
   bufferedEnd: number
   onSeek: (sec: number) => void
+  /** Grows the invisible hit box only: the bar layers are absolutely centred,
+   *  so a 4px track is still easy to grab with a thumb. */
+  expandHitArea?: boolean
   /** "translucent" uses white-on-transparent track colours suitable for
    *  rails that sit on a plain dark background without a chrome surface. */
   variant?: "default" | "translucent" | "edge"
@@ -89,6 +93,7 @@ export function VideoScrubber({
       className={cn(
         "group/scrub relative w-full cursor-pointer touch-none",
         variant === "edge" ? "h-3 rounded-none" : "h-3 rounded-full",
+        expandHitArea && variant !== "edge" && "h-8",
         "bg-transparent",
         variant !== "edge" &&
           "transition-[height] duration-[var(--duration-fast)] ease-[var(--ease-out)] focus-visible:h-2",

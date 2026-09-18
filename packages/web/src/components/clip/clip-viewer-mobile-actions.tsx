@@ -112,7 +112,7 @@ function ClipActionsMenu({
         render={
           <button
             type="button"
-            className="flex flex-col items-center text-white/80"
+            className="flex flex-col items-center"
             aria-label={t("Clip actions")}
           >
             <MoreHorizontalIcon className={iconClassName} />
@@ -205,7 +205,9 @@ export function MobileActionsRail({
           canManage={canManage}
           deleting={deleting}
           downloadAction={downloadAction}
-          iconClassName={cn(iconSizeClassName, "rotate-90")}
+          // Same white as the rail's other glyphs; the rotation makes the
+          // horizontal dots read as the usual vertical overflow menu.
+          iconClassName={cn(iconSizeClassName, "rotate-90 text-white")}
           onEdit={onEdit}
           onDelete={onDelete}
         />
