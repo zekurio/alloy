@@ -198,6 +198,10 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: .
+          # Same key as the Windows jobs in desktop-tauri.yml: a cache saved on
+          # `dev` is the only one a pull request can restore, so this release
+          # build is what keeps desktop CI from recompiling from scratch.
+          shared-key: tauri-desktop
 
       - name: cache native runtimes
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
