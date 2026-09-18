@@ -167,8 +167,8 @@ export const DE_MESSAGES = {
   "{resolution} · {fps} FPS": "{resolution} · {fps} FPS",
   "{used} used": "{used} verwendet",
   "≈ {size}/hr": "≈ {size}/Std.",
-  "A browser window may open to sign in. Return here once you're done.":
-    "Vielleicht öffnet sich ein Browserfenster zum Anmelden. Komm danach hierher zurück.",
+  "A browser window opens to sign in. Return here once you're done.":
+    "Ein Browserfenster öffnet sich zum Anmelden. Komm danach hierher zurück.",
   "A new version has been downloaded.":
     "Eine neue Version wurde heruntergeladen.",
   "A new version is available to download.":
@@ -245,6 +245,8 @@ export const DE_MESSAGES = {
   "Audio settings": "Audioeinstellungen",
   "Audio source": "Audioquelle",
   "Auth attempt cancelled.": "Authentifizierungsversuch abgebrochen.",
+  "Authorize Alloy Desktop": "Alloy Desktop autorisieren",
+  "Authorize desktop app": "Desktop-App autorisieren",
   Auto: "Auto",
   "Auto-detect a game or display and keep the replay buffer ready.":
     "Erkenne ein Spiel oder Display automatisch und halte den Replay-Puffer bereit.",
@@ -365,6 +367,8 @@ export const DE_MESSAGES = {
   "Enter an Alloy server URL.": "Gib eine Alloy-Server-URL ein.",
   "Enter a valid server URL.": "Gib eine gültige Server-URL ein.",
   "Invalid server URL.": "Ungültige Server-URL.",
+  "Invalid desktop login request.":
+    "Ungültige Anmeldeanfrage für die Desktop-App.",
   "Use HTTPS. HTTP is allowed only for loopback development.":
     "Verwende HTTPS. HTTP ist nur für lokale Entwicklung erlaubt.",
   "Enter the server origin without a path.":
@@ -1131,6 +1135,8 @@ export const DE_MESSAGES = {
   "Sign-up is currently closed.": "Die Registrierung ist derzeit geschlossen.",
   "Sign-up page preview": "Vorschau der Registrierungsseite",
   "Sign-ups are disabled": "Registrierungen sind deaktiviert",
+  "Signed in as {username}. Continue only if you opened the Alloy desktop app.":
+    "Angemeldet als {username}. Fahre nur fort, wenn du die Alloy-Desktop-App geöffnet hast.",
   "Signed out": "Abgemeldet",
   "Something went wrong": "Etwas ist schiefgelaufen",
   "Sound effect": "Soundeffekt",

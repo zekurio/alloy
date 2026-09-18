@@ -176,7 +176,7 @@ function ConnectScreen() {
           {state === "connecting" ? (
             <p className="text-foreground-muted text-sm">
               {t(
-                "A browser window may open to sign in. Return here once you're done.",
+                "A browser window opens to sign in. Return here once you're done.",
               )}
             </p>
           ) : null}

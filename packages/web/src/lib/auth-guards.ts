@@ -100,7 +100,8 @@ export async function redirectAuthedBeforeLoad({
 
   if (session) {
     // Already signed in: honor a same-origin redirect target (the desktop
-    // browser-login handshake returns here) before falling back to home.
+    // browser-login handshake returns to its confirmation page here) before
+    // falling back to home.
     const target = sanitizeLoginRedirect(search?.redirect)
     if (target) throw redirect({ href: target })
     throw redirect({ to: "/" })

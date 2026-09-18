@@ -50,11 +50,13 @@ export function getRuntimeLocale(): Locale {
   return runtimeLocale ?? getClientLocale()
 }
 
-export function getClientLocale(storageKey = LOCALE_STORAGE_KEY): Locale {
+export function getClientLocale(): Locale {
   if (!globalThis.window) return DEFAULT_LOCALE
 
   try {
-    const stored = normalizeLocale(window.localStorage.getItem(storageKey))
+    const stored = normalizeLocale(
+      window.localStorage.getItem(LOCALE_STORAGE_KEY),
+    )
     if (stored) return stored
   } catch {
     // localStorage can be unavailable in hardened/privacy contexts.
@@ -68,29 +70,32 @@ export function getClientLocale(storageKey = LOCALE_STORAGE_KEY): Locale {
   return detectLocale(navigatorLanguages)
 }
 
-export function setClientLocale(
-  locale: Locale,
-  storageKey = LOCALE_STORAGE_KEY,
-): void {
+function activateLocale(locale: Locale): void {
   setRuntimeLocale(locale)
   if (globalThis.document) {
     document.documentElement.lang = localeToLanguageTag(locale)
   }
+}
+
+export function setClientLocale(locale: Locale): void {
+  activateLocale(locale)
   if (!globalThis.window) return
 
   try {
-    window.localStorage.setItem(storageKey, locale)
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale)
   } catch {
     // Best effort: the runtime locale still applies for this process.
   }
 }
 
-export function initializeClientLocale(
-  storageKey = LOCALE_STORAGE_KEY,
-): Locale {
-  const locale = getClientLocale(storageKey)
-  setClientLocale(locale, storageKey)
-  return locale
+/**
+ * Resolve the locale for a fresh boot (stored choice, else navigator
+ * detection) and activate it without persisting: only an explicit choice
+ * from settings is ever written to storage, so OS-language changes keep
+ * taking effect until the user picks otherwise.
+ */
+export function initializeClientLocale(): void {
+  activateLocale(getClientLocale())
 }
 
 export function translate(

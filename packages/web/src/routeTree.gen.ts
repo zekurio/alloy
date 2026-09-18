@@ -26,6 +26,7 @@ import { Route as appAppLibraryIndexRouteImport } from './routes/(app)/_app.libr
 import { Route as appAppLibraryCaptureIdRouteImport } from './routes/(app)/_app.library.$captureId'
 import { Route as appAppTagsTagRouteImport } from './routes/(app)/_app.tags.$tag'
 import { Route as appAppUUsernameRouteImport } from './routes/(app)/_app.u.$username'
+import { Route as authAuthDesktopAuthorizeRouteImport } from './routes/(auth)/_auth.desktop.authorize'
 import { Route as appAppLibraryClipsClipIdRouteImport } from './routes/(app)/_app.library.clips.$clipId'
 import { Route as appAppUUsernameIndexRouteImport } from './routes/(app)/_app.u.$username.index'
 import { Route as appAppUUsernameAllRouteImport } from './routes/(app)/_app.u.$username.all'
@@ -118,6 +119,12 @@ const appAppUUsernameRoute = appAppUUsernameRouteImport.update({
   path: '/u/$username',
   getParentRoute: () => appAppRoute,
 } as any)
+const authAuthDesktopAuthorizeRoute =
+  authAuthDesktopAuthorizeRouteImport.update({
+    id: '/desktop/authorize',
+    path: '/desktop/authorize',
+    getParentRoute: () => authAuthRoute,
+  } as any)
 const appAppLibraryClipsClipIdRoute =
   appAppLibraryClipsClipIdRouteImport.update({
     id: '/library/clips/$clipId',
@@ -176,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/library/$captureId': typeof appAppLibraryCaptureIdRoute
   '/tags/$tag': typeof appAppTagsTagRoute
   '/u/$username': typeof appAppUUsernameRouteWithChildren
+  '/desktop/authorize': typeof authAuthDesktopAuthorizeRoute
   '/games/': typeof appAppGamesIndexRoute
   '/library/': typeof appAppLibraryIndexRoute
   '/library/clips/$clipId': typeof appAppLibraryClipsClipIdRoute
@@ -199,6 +207,7 @@ export interface FileRoutesByTo {
   '/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
   '/library/$captureId': typeof appAppLibraryCaptureIdRoute
   '/tags/$tag': typeof appAppTagsTagRoute
+  '/desktop/authorize': typeof authAuthDesktopAuthorizeRoute
   '/games': typeof appAppGamesIndexRoute
   '/library': typeof appAppLibraryIndexRoute
   '/library/clips/$clipId': typeof appAppLibraryClipsClipIdRoute
@@ -227,6 +236,7 @@ export interface FileRoutesById {
   '/(app)/_app/library/$captureId': typeof appAppLibraryCaptureIdRoute
   '/(app)/_app/tags/$tag': typeof appAppTagsTagRoute
   '/(app)/_app/u/$username': typeof appAppUUsernameRouteWithChildren
+  '/(auth)/_auth/desktop/authorize': typeof authAuthDesktopAuthorizeRoute
   '/(app)/_app/games/': typeof appAppGamesIndexRoute
   '/(app)/_app/library/': typeof appAppLibraryIndexRoute
   '/(app)/_app/library/clips/$clipId': typeof appAppLibraryClipsClipIdRoute
@@ -254,6 +264,7 @@ export interface FileRouteTypes {
     | '/library/$captureId'
     | '/tags/$tag'
     | '/u/$username'
+    | '/desktop/authorize'
     | '/games/'
     | '/library/'
     | '/library/clips/$clipId'
@@ -277,6 +288,7 @@ export interface FileRouteTypes {
     | '/games/$gameId'
     | '/library/$captureId'
     | '/tags/$tag'
+    | '/desktop/authorize'
     | '/games'
     | '/library'
     | '/library/clips/$clipId'
@@ -304,6 +316,7 @@ export interface FileRouteTypes {
     | '/(app)/_app/library/$captureId'
     | '/(app)/_app/tags/$tag'
     | '/(app)/_app/u/$username'
+    | '/(auth)/_auth/desktop/authorize'
     | '/(app)/_app/games/'
     | '/(app)/_app/library/'
     | '/(app)/_app/library/clips/$clipId'
@@ -442,6 +455,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/u/$username'
       preLoaderRoute: typeof appAppUUsernameRouteImport
       parentRoute: typeof appAppRoute
+    }
+    '/(auth)/_auth/desktop/authorize': {
+      id: '/(auth)/_auth/desktop/authorize'
+      path: '/desktop/authorize'
+      fullPath: '/desktop/authorize'
+      preLoaderRoute: typeof authAuthDesktopAuthorizeRouteImport
+      parentRoute: typeof authAuthRoute
     }
     '/(app)/_app/library/clips/$clipId': {
       id: '/(app)/_app/library/clips/$clipId'
@@ -583,11 +603,13 @@ const appAppRouteWithChildren =
 interface authAuthRouteChildren {
   authAuthLoginRoute: typeof authAuthLoginRoute
   authAuthSignUpRoute: typeof authAuthSignUpRoute
+  authAuthDesktopAuthorizeRoute: typeof authAuthDesktopAuthorizeRoute
 }
 
 const authAuthRouteChildren: authAuthRouteChildren = {
   authAuthLoginRoute: authAuthLoginRoute,
   authAuthSignUpRoute: authAuthSignUpRoute,
+  authAuthDesktopAuthorizeRoute: authAuthDesktopAuthorizeRoute,
 }
 
 const authAuthRouteWithChildren = authAuthRoute._addFileChildren(
