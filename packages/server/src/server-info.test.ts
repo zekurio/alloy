@@ -55,6 +55,14 @@ test("serves public server boundaries with enforced security headers", async () 
     assert.ok(csp.includes("object-src 'none'"))
     assert.ok(csp.includes("frame-src 'none'"))
     assert.ok(csp.includes("frame-ancestors 'self'"))
+    // The desktop authorize page posts to this server and the response
+    // redirects the browser to the app's loopback listener. Chromium applies
+    // form-action to that redirect, so the callback origins have to stay
+    // listed or desktop sign-in stalls right after the POST.
+    assert.match(
+      csp,
+      /form-action 'self' http:\/\/127\.0\.0\.1:\* http:\/\/localhost:\*/,
+    )
     assert.ok(!csp.includes("unsafe-eval"))
     assert.doesNotMatch(
       csp,

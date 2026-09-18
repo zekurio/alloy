@@ -277,18 +277,16 @@ async fn read_callback(
     }
     let request = String::from_utf8(bytes).map_err(|_| "Invalid login callback encoding.")?;
     let code = callback_code(&request, host, state);
+    let strings = callback_strings(callback_locale(&request));
     let (status, body) = if code.is_some() {
         (
             "200 OK",
-            callback_page("Signed in", "You can close this page and return to Alloy."),
+            callback_page(strings.lang, strings.success_title, strings.success_message),
         )
     } else {
         (
             "400 Bad Request",
-            callback_page(
-                "Sign-in failed",
-                "This login link is invalid or was already used. Return to Alloy and connect again.",
-            ),
+            callback_page(strings.lang, strings.failure_title, strings.failure_message),
         )
     };
     let response = format!(
@@ -302,13 +300,70 @@ async fn read_callback(
     Ok(code)
 }
 
+/// Static strings for the loopback result page. The listener has no access to
+/// the app's `@alloy/i18n` catalog, so this table is the page's only source:
+/// a new locale means a new `CALLBACK_STRINGS_*` table plus its language
+/// subtag in `callback_strings`. Anything unrecognized falls back to English.
+struct CallbackStrings {
+    lang: &'static str,
+    success_title: &'static str,
+    success_message: &'static str,
+    failure_title: &'static str,
+    failure_message: &'static str,
+}
+
+const CALLBACK_STRINGS_EN: CallbackStrings = CallbackStrings {
+    lang: "en",
+    success_title: "Signed in",
+    success_message: "You can close this page and return to Alloy.",
+    failure_title: "Sign-in failed",
+    failure_message: "This login link is invalid or was already used. Return to Alloy and connect again.",
+};
+
+const CALLBACK_STRINGS_DE: CallbackStrings = CallbackStrings {
+    lang: "de",
+    success_title: "Angemeldet",
+    success_message: "Du kannst diese Seite schließen und zu Alloy zurückkehren.",
+    failure_title: "Anmeldung fehlgeschlagen",
+    failure_message: "Dieser Anmeldelink ist ungültig oder wurde bereits verwendet. Kehre zu Alloy zurück und verbinde dich erneut.",
+};
+
+/// Language for the loopback result page. The server appends the browser
+/// locale it saw (`locale=de`) to the loopback redirect; only the language
+/// subtag matters, so tags like `de-DE` match too.
+fn callback_strings(locale: &str) -> &'static CallbackStrings {
+    let language = locale.split(['-', '_']).next().unwrap_or("");
+    if language.eq_ignore_ascii_case("de") {
+        &CALLBACK_STRINGS_DE
+    } else {
+        &CALLBACK_STRINGS_EN
+    }
+}
+
+/// Raw `locale` hint from the loopback callback target, if any. Only the
+/// language table consumes it, so no validation happens here.
+fn callback_locale(request: &str) -> &str {
+    let target = request.split_whitespace().nth(1).unwrap_or("");
+    let query = match target.split_once('?') {
+        Some((_, query)) => query,
+        None => return "",
+    };
+    for pair in query.split('&') {
+        match pair.split_once('=') {
+            Some(("locale", value)) if !value.is_empty() => return value,
+            _ => {}
+        }
+    }
+    ""
+}
+
 /// A self-contained page in the desktop theme. The browser tab has no access
 /// to the app, so it only needs inline styles and static text.
-fn callback_page(title: &str, message: &str) -> String {
+fn callback_page(lang: &str, title: &str, message: &str) -> String {
     format!(
         concat!(
             "<!doctype html>",
-            "<html lang=\"en\"><head><meta charset=\"utf-8\">",
+            "<html lang=\"{lang}\"><head><meta charset=\"utf-8\">",
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
             "<meta name=\"color-scheme\" content=\"dark\">",
             "<title>{title} - Alloy</title>",
@@ -327,6 +382,7 @@ fn callback_page(title: &str, message: &str) -> String {
             "<main><section><h1>{title}</h1><p>{message}</p></section></main>",
             "</body></html>",
         ),
+        lang = lang,
         title = title,
         message = message,
     )
@@ -380,7 +436,7 @@ fn callback_code(request: &str, host: &str, state: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{callback_code, callback_page, session_cookie};
+    use super::{callback_code, callback_locale, callback_page, callback_strings, session_cookie};
 
     #[test]
     fn callback_accepts_only_one_matching_state_and_code() {
@@ -412,12 +468,61 @@ mod tests {
 
     #[test]
     fn callback_page_is_self_contained_html() {
-        let page = callback_page("Signed in", "You can close this page and return to Alloy.");
+        let strings = callback_strings("");
+        let page = callback_page(strings.lang, strings.success_title, strings.success_message);
         assert!(page.starts_with("<!doctype html>"));
+        assert!(page.contains("<html lang=\"en\">"));
         assert!(page.contains("<title>Signed in - Alloy</title>"));
         assert!(page.contains("You can close this page and return to Alloy."));
         assert!(!page.contains("<script"));
         assert!(!page.contains("src="));
+    }
+
+    #[test]
+    fn callback_page_renders_german_strings() {
+        let strings = callback_strings("de");
+        let page = callback_page(strings.lang, strings.success_title, strings.success_message);
+        assert!(page.contains("<html lang=\"de\">"));
+        assert!(page.contains("<title>Angemeldet - Alloy</title>"));
+        assert!(page.contains("zu Alloy zurückkehren"));
+        assert!(!page.contains("<script"));
+        assert!(!page.contains("src="));
+
+        let failure = callback_page(strings.lang, strings.failure_title, strings.failure_message);
+        assert!(failure.contains("Anmeldung fehlgeschlagen"));
+    }
+
+    #[test]
+    fn callback_strings_fall_back_to_english() {
+        for locale in ["", "fr", "en-US", "deu", "d"] {
+            let strings = callback_strings(locale);
+            assert_eq!(strings.lang, "en");
+            assert_eq!(strings.success_title, "Signed in");
+        }
+        // Only the language subtag matters.
+        assert_eq!(callback_strings("de-DE").lang, "de");
+    }
+
+    #[test]
+    fn callback_locale_reads_hint_from_request_target() {
+        let request = concat!(
+            "GET /callback?code=one-time-code&state=expected&locale=de HTTP/1.1\r\n",
+            "Host: 127.0.0.1:1234\r\n",
+            "Connection: close\r\n\r\n"
+        );
+        assert_eq!(callback_locale(request), "de");
+
+        let missing = concat!(
+            "GET /callback?code=one-time-code&state=expected HTTP/1.1\r\n",
+            "Host: 127.0.0.1:1234\r\n\r\n"
+        );
+        assert_eq!(callback_locale(missing), "");
+
+        let empty = concat!(
+            "GET /callback?code=one-time-code&state=expected&locale= HTTP/1.1\r\n",
+            "Host: 127.0.0.1:1234\r\n\r\n"
+        );
+        assert_eq!(callback_locale(empty), "");
     }
 
     #[test]

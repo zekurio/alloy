@@ -3,7 +3,7 @@
  * paths are allowed: protocol-relative (`//host`) and backslash variants are
  * rejected so the value can never send the user (or a freshly issued desktop
  * login code) to another origin. Used by the desktop browser-login handshake,
- * which returns to `/api/auth/desktop/authorize` after sign-in.
+ * which returns to `/desktop/authorize` after sign-in.
  */
 export function sanitizeLoginRedirect(cause: unknown): string | null {
   const result = LoginRedirectSchema.safeParse(cause)
