@@ -106,7 +106,17 @@ export function PlayerCore({
   const [volume, setVolumeState] = useState(playerVolume.volume)
   const [muted, setMutedState] = useState(initialMuted || playerVolume.muted)
   const [hasRenderedFrame, setHasRenderedFrame] = useState(false)
+  // The poster stands in for the media until the viewer's own frame is on
+  // screen — playback starting, or a seek they asked for. The first decoded
+  // frame is the media's opening frame, so uncovering it while the video is
+  // still parked at the start swaps one still for another and reads as the
+  // clip having two thumbnails.
+  const [posterHeld, setPosterHeld] = useState(true)
   const isCoarsePointer = useMediaQuery("(pointer: coarse)")
+
+  useEffect(() => {
+    setPosterHeld(true)
+  }, [identity])
 
   const {
     chromeVisible,
@@ -218,6 +228,7 @@ export function PlayerCore({
   const setPlayingState = useCallback((next: boolean) => {
     if (playingRef.current === next) return
     playingRef.current = next
+    if (next) setPosterHeld(false)
     setPlaying(next)
     onPlayingChangeRef.current?.(next)
   }, [])
@@ -319,6 +330,7 @@ export function PlayerCore({
         durationHint,
       )
       rangeEndedRef.current = dur > 0 && clamped >= dur - 0.01
+      setPosterHeld(false)
       setCurrentTime(clamped)
       onTimeUpdateRef.current?.(clamped)
       if (keepPlaying) void playInternal()
@@ -508,7 +520,7 @@ export function PlayerCore({
       fallbackSeed={fallbackSeed ?? identity}
       aspectRatio={aspectRatio}
       placeholderVisible={!hasRenderedFrame}
-      posterVisible={Boolean(poster) && !hasRenderedFrame}
+      posterVisible={Boolean(poster) && (posterHeld || !hasRenderedFrame)}
       autoPlay={autoPlay}
       loop={loop && !activePlaybackRange}
       muted={muted}
