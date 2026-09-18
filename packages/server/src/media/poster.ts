@@ -57,13 +57,16 @@ function posterCandidateTimes(opts: { durationMs: number; atMs?: number }) {
   if (opts.atMs !== undefined) {
     return uniqueClampedTimes([opts.atMs], opts.durationMs)
   }
+  // The opening frame first: it is the frame playback reveals, so any later
+  // candidate makes the thumbnail and the starting picture two different
+  // images. The rest are fallbacks for clips that open on a blank frame.
   return uniqueClampedTimes(
     [
+      0,
+      100,
       Math.min(1000, opts.durationMs - 100),
       opts.durationMs * 0.1,
       opts.durationMs * 0.5,
-      100,
-      0,
     ],
     opts.durationMs,
   )
