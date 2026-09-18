@@ -4,6 +4,10 @@ import { useLayoutEffect, useEffect, useRef, useState } from "react"
 
 import type { MediaWaveformStatus } from "@/lib/media-waveform"
 
+/** Peaks carry the strip; the centre line only suggests the zero crossing. */
+const PEAK_ALPHA = 0.78
+const LINE_ALPHA = 0.22
+
 interface WaveformCanvasProps {
   peaks: Float32Array
   durationMs: number
@@ -24,6 +28,7 @@ export function WaveformCanvas({
 }: WaveformCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
+  const themeRevision = useThemeRevision()
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current
@@ -63,8 +68,13 @@ export function WaveformCanvas({
 
     context.save()
     context.scale(dpr, dpr)
-    context.strokeStyle = "rgba(255, 255, 255, 0.22)"
+    // Canvas has no `currentColor`, so the waveform is painted in the
+    // canvas' own text colour: the component styles it `text-foreground`
+    // (callers can override), which keeps the ink readable on either palette.
+    const ink = getComputedStyle(canvas).color
+    context.strokeStyle = ink
     context.lineWidth = 1
+    context.globalAlpha = LINE_ALPHA
     context.beginPath()
     context.moveTo(0, size.height / 2 + 0.5)
     context.lineTo(size.width, size.height / 2 + 0.5)
@@ -91,7 +101,8 @@ export function WaveformCanvas({
     )
     const peakCount = Math.max(1, lastPeak - firstPeak)
     const halfHeight = Math.max(1, size.height / 2 - 3)
-    context.fillStyle = "rgba(255, 255, 255, 0.78)"
+    context.fillStyle = ink
+    context.globalAlpha = PEAK_ALPHA
 
     for (let index = firstPeak; index < lastPeak; index++) {
       const minimum = peaks[index * 2] ?? 0
@@ -106,15 +117,52 @@ export function WaveformCanvas({
     }
 
     context.restore()
-  }, [durationMs, endMs, peaks, size.height, size.width, startMs, status])
+  }, [
+    durationMs,
+    endMs,
+    peaks,
+    size.height,
+    size.width,
+    startMs,
+    status,
+    themeRevision,
+  ])
 
   return (
     <canvas
       ref={canvasRef}
       aria-hidden
-      className={cn("block size-full", className)}
+      className={cn("text-foreground block size-full", className)}
     />
   )
+}
+
+/**
+ * Canvas paints pixels, so it can't follow a palette swap through CSS the way
+ * elements do. Returns a revision the paint effect depends on: a theme change
+ * either swaps the attributes on the root or replaces the stylesheet overrides
+ * that accents and presets write into the head.
+ */
+function useThemeRevision(): number {
+  const [revision, setRevision] = useState(0)
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setRevision((current) => current + 1)
+    })
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-neutral"],
+    })
+    observer.observe(document.head, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    })
+    return () => observer.disconnect()
+  }, [])
+
+  return revision
 }
 
 function clampMs(value: number, durationMs: number): number {

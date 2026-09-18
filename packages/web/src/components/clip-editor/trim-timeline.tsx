@@ -353,14 +353,14 @@ export function TrimTimeline({
                     can always be dragged back out to recover it. */}
                 <div
                   aria-hidden
-                  className="absolute inset-y-0 left-0 bg-black/65"
+                  className="bg-surface-sunken/65 absolute inset-y-0 left-0"
                   style={{
                     width: Math.max(0, (startMs - paintStartMs) * zoom),
                   }}
                 />
                 <div
                   aria-hidden
-                  className="absolute inset-y-0 right-0 bg-black/65"
+                  className="bg-surface-sunken/65 absolute inset-y-0 right-0"
                   style={{ width: Math.max(0, (paintEndMs - endMs) * zoom) }}
                 />
               </div>
@@ -394,9 +394,9 @@ export function TrimTimeline({
 
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-1/2 z-20 w-0.5 -translate-x-1/2 rounded-full bg-white shadow-[0_0_4px_rgba(0,0,0,0.6)]"
+          className="bg-foreground pointer-events-none absolute inset-y-0 left-1/2 z-20 w-0.5 -translate-x-1/2 rounded-full shadow-[0_0_4px_rgba(0,0,0,0.6)]"
         >
-          <span className="absolute -top-0.5 left-1/2 size-2.5 -translate-x-1/2 rounded-full bg-white" />
+          <span className="bg-foreground absolute -top-0.5 left-1/2 size-2.5 -translate-x-1/2 rounded-full" />
         </div>
       </div>
     </div>

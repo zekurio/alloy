@@ -211,16 +211,17 @@ export function TrimBar({
           status={waveform.status}
         />
         <WaveformStatus status={waveform.status} />
-        {/* Cut-away material outside the kept range stays visible, dimmed,
-            so the handles can always be dragged back out to recover it. */}
+        {/* Cut-away material outside the kept range stays visible, dimmed
+            toward the sunken surface so it reads as excluded on either theme,
+            while the handles can always be dragged back out to recover it. */}
         <div
           aria-hidden
-          className="absolute inset-y-0 left-0 bg-black/65"
+          className="bg-surface-sunken/65 absolute inset-y-0 left-0"
           style={{ width: `${startPct}%` }}
         />
         <div
           aria-hidden
-          className="absolute inset-y-0 right-0 bg-black/65"
+          className="bg-surface-sunken/65 absolute inset-y-0 right-0"
           style={{ width: `${Math.max(0, 100 - endPct)}%` }}
         />
       </div>
@@ -315,8 +316,8 @@ function TrimPlayhead({
         left: `${Math.min(100, Math.max(0, (currentMs / durationMs) * 100))}%`,
       }}
     >
-      <div className="absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-white shadow-[0_0_4px_rgba(0,0,0,0.6)]" />
-      <div className="absolute -top-1 size-2.5 -translate-x-1/2 rounded-full bg-white shadow-[0_0_4px_rgba(0,0,0,0.6)]" />
+      <div className="bg-foreground absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full shadow-[0_0_4px_rgba(0,0,0,0.6)]" />
+      <div className="bg-foreground absolute -top-1 size-2.5 -translate-x-1/2 rounded-full shadow-[0_0_4px_rgba(0,0,0,0.6)]" />
     </div>
   )
 }
