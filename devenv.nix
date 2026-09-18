@@ -12,7 +12,6 @@ let
     zlib
     zstd
   ];
-  pnpmPackage = import ./nix/pnpm.nix { inherit (pkgs) pnpm; };
 in
 {
   imports = lib.optional (builtins.pathExists ./devenv.local.nix) ./devenv.local.nix;
@@ -28,13 +27,12 @@ in
     package = pkgs.nodejs_24;
     pnpm = {
       enable = true;
-      package = pnpmPackage;
+      package = pkgs.pnpm;
     };
   };
 
   # https://devenv.sh/packages/
   packages = with pkgs; [
-    pnpmPackage
     postgresql_17
     typescript-language-server
     nixd

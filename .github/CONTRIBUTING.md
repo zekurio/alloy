@@ -23,8 +23,8 @@ pnpm install
 pnpm dev
 ```
 
-For non-Nix setups, install Node 24 and pnpm 11 (the repo pins
-`pnpm@11.24.0` via `packageManager`, so `corepack enable` is enough), provide
+For non-Nix setups, install Node 24 and pnpm 12 (the repo pins
+`pnpm@12.3.4` via `packageManager`, so `corepack enable` is enough), provide
 a local PostgreSQL database, and copy the env template:
 
 ```bash

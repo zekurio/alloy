@@ -68,7 +68,7 @@ pnpm install
 pnpm dev
 ```
 
-Without Nix: install Node 24 and pnpm 11, provide a PostgreSQL database, copy
+Without Nix: install Node 24 and pnpm 12, provide a PostgreSQL database, copy
 `.env.example` to `.env`, then run `pnpm install && pnpm dev`. `pnpm dev:all`
 also starts the desktop shell, which builds only on Windows; see
 [`packages/desktop`](packages/desktop/README.md) for its setup.

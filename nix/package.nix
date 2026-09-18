@@ -14,12 +14,9 @@
     inherit lib;
     root = ../.;
   },
-  pnpmDepsHash ? "sha256-1UGrjoN9XFo3ZGccYldTf8B3a3jQIHjzIbwPi5I+ONM=",
+  pnpmDepsHash ? "sha256-EW49v4nGw2tU2kkwiWaq+FXeyDJUfLXD/la9kXN8YS0=",
 }:
 
-let
-  pnpmPackage = import ./pnpm.nix { inherit pnpm; };
-in
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "alloy";
   inherit version;
@@ -27,14 +24,14 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
   pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
-    pnpm = pnpmPackage;
+    inherit pnpm;
     fetcherVersion = 4;
     hash = pnpmDepsHash;
   };
 
   nativeBuildInputs = [
     nodejs_24
-    pnpmPackage
+    pnpm
     pnpmConfigHook
     makeWrapper
   ];
