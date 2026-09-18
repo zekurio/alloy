@@ -194,6 +194,9 @@ importers:
       '@alloy/env':
         specifier: workspace:*
         version: link:../env
+      '@alloy/i18n':
+        specifier: workspace:*
+        version: link:../i18n
       '@alloy/logging':
         specifier: workspace:*
         version: link:../logging

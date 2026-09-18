@@ -12,6 +12,7 @@ import { gameAssetsRoute } from "./routes/admin-games"
 import { oauthProviderIconAssetsRoute } from "./routes/admin-oauth-provider-icons"
 import { authRoute } from "./routes/auth"
 import { authConfigRoute } from "./routes/auth-config"
+import { LOOPBACK_FORM_ACTION_SOURCES } from "./routes/auth-desktop-helpers"
 import { csrf } from "./routes/auth-route-helpers"
 import { clips } from "./routes/clips"
 import { eventsRoute } from "./routes/events"
@@ -144,7 +145,10 @@ const apiApp = new Hono()
         frameSrc: ["'none'"],
         frameAncestors: ["'self'"],
         baseUri: ["'self'"],
-        formAction: ["'self'"],
+        // The desktop authorize page is a form post whose response redirects
+        // the browser to the app's loopback listener, and Chromium applies
+        // form-action to that redirect too.
+        formAction: ["'self'", ...LOOPBACK_FORM_ACTION_SOURCES],
       },
     }),
   )

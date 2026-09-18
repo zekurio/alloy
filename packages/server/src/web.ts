@@ -17,7 +17,12 @@ const HEAD_MARKER = "<!-- alloy:head -->"
 const BOOTSTRAP_MARKER = "<!-- alloy:bootstrap -->"
 const CSP_NONCE_MARKER = "__ALLOY_CSP_NONCE__"
 const DEFAULT_WEB_DIST_DIR = "../../build/www"
-const PUBLIC_WEB_PATHS = new Set(["/login", "/setup", "/sign-up"])
+const PUBLIC_WEB_PATHS = new Set([
+  "/login",
+  "/setup",
+  "/sign-up",
+  "/desktop/authorize",
+])
 
 type WebMount = {
   distDir: string
