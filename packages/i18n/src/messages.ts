@@ -167,8 +167,8 @@ export const DE_MESSAGES = {
   "{resolution} · {fps} FPS": "{resolution} · {fps} FPS",
   "{used} used": "{used} verwendet",
   "≈ {size}/hr": "≈ {size}/Std.",
-  "A browser window opens to sign in. Return here once you're done.":
-    "Ein Browserfenster öffnet sich zum Anmelden. Komm danach hierher zurück.",
+  "A browser window may open to sign in. Return here once you're done.":
+    "Vielleicht öffnet sich ein Browserfenster zum Anmelden. Komm danach hierher zurück.",
   "A new version has been downloaded.":
     "Eine neue Version wurde heruntergeladen.",
   "A new version is available to download.":
