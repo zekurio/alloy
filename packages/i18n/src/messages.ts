@@ -297,6 +297,13 @@ export const DE_MESSAGES = {
   Reload: "Neu laden",
   "Automatic updates are unavailable in this build.":
     "Automatische Updates sind in dieser Version nicht verfügbar.",
+  Diagnostics: "Diagnose",
+  "Desktop logs": "Desktop-Protokolle",
+  "Host and recorder diagnostics are saved in alloy-desktop.log.":
+    "Diagnosedaten der Desktop-App und des Recorders werden in alloy-desktop.log gespeichert.",
+  "Open logs folder": "Protokollordner öffnen",
+  "Couldn't open the desktop logs folder.":
+    "Der Desktop-Protokollordner konnte nicht geöffnet werden.",
   "Checking...": "Wird geprüft...",
   "Checking for updates": "Suche nach Updates",
   "Active recording and replay buffering will stop.":
