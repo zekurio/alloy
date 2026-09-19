@@ -50,6 +50,11 @@ recorder scratch state, the Discord detection cache and the host log at
 `logs\alloy-desktop.log`. Recordings default to `%USERPROFILE%\Videos\Alloy`
 and the replay buffer to `%TEMP%\Alloy\replay`.
 
+In the server UI, open Settings > Desktop > App > Diagnostics > Open logs folder
+to find the host log, including forwarded recorder stderr. This action reports
+an error if file logging could not start. Logs do not include browser console
+output or server logs. Review their contents before sharing them.
+
 ## Run
 
 Use Node 24, the pinned pnpm version, Rust, and the Windows C++ build tools.
@@ -97,6 +102,14 @@ playback or recording behavior. Test these on Windows:
 - Export a trim, join replay segments, and upload the result.
 - Keep recording and media jobs active while the main window is hidden.
 - Install, start, update, and uninstall an NSIS build.
+
+For session-cookie regressions, use a HTTPS server on a registrable domain and
+repeat on loopback. Start with stale host-only and domain-scoped session cookies,
+then sign in again. After the initial refresh, only the server's host-only
+`alloy_access` and `alloy_refresh` cookies should remain. Refresh again, restart,
+and verify the session survives. Forget the server and verify both cookie scopes
+are gone, including any stale path variants. Inspect cookie names, domains, and
+paths only; do not copy token values into logs or screenshots.
 
 No Windows runtime or performance result has been recorded yet. Record clean
 and cached build times, native edit builds, installer size, and total process

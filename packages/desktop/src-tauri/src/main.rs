@@ -1,9 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod native_cookies;
 mod runtime;
 mod services;
 
 use std::{
+    io::Write,
+    path::PathBuf,
     sync::{
         Arc, Mutex, OnceLock, RwLock,
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -74,6 +77,7 @@ struct Host {
     next_generation: AtomicU64,
     services: OnceLock<Arc<DesktopServices>>,
     runtime: OnceLock<Arc<DesktopRuntime>>,
+    logs: OnceLock<Result<PathBuf, String>>,
     quitting: AtomicBool,
     /// Set while a freshly created connect screen waits to be shown. It stays
     /// hidden until its page has rendered to avoid a blank window.
@@ -98,6 +102,7 @@ impl Default for Host {
             next_generation: AtomicU64::new(0),
             services: OnceLock::new(),
             runtime: OnceLock::new(),
+            logs: OnceLock::new(),
             quitting: AtomicBool::new(false),
             connect_pending: AtomicBool::new(false),
             connect_creating: AtomicBool::new(false),
@@ -134,6 +139,7 @@ enum DesktopShellOperation {
     CloseWindow,
     OpenConnect,
     OpenSettings,
+    OpenLogsFolder,
     ReloadApp,
 }
 
@@ -364,7 +370,7 @@ async fn forget_saved_server(
 
     if let Some((generation, remote_window)) = active {
         let _selection = runtime.selection_lock.lock().await;
-        clear_session_cookies(&remote_window, &origin)?;
+        clear_session_cookies(&remote_window, &origin).await?;
         remote_window
             .clear_all_browsing_data()
             .map_err(|_| "Could not clear the Alloy server profile.")?;
@@ -372,7 +378,7 @@ async fn forget_saved_server(
         clear_remote(host, generation);
         let _ = remote_window.destroy();
     } else {
-        clear_inactive_remote_profile(app, &origin, host)?;
+        clear_inactive_remote_profile(app, &origin, host).await?;
     }
     host.services()?
         .forget_server(origin.origin().ascii_serialization().as_str())
@@ -499,7 +505,7 @@ async fn desktop_shell(
                 .path()
                 == "/login"
             {
-                clear_session_cookies(&window, &origin)?;
+                clear_session_cookies(&window, &origin).await?;
             }
             // Switching servers returns to the connect screen. The server
             // window stays alive so closing the connect screen restores it.
@@ -509,6 +515,17 @@ async fn desktop_shell(
             show_connect(&app, host.inner())
         }
         DesktopShellOperation::OpenSettings => open_settings(&window),
+        DesktopShellOperation::OpenLogsFolder => {
+            let directory = host
+                .logs
+                .get()
+                .ok_or("Desktop logging is not ready.")?
+                .as_ref()
+                .map_err(Clone::clone)?;
+            log::logger().flush();
+            open::that(directory)
+                .map_err(|error| format!("Could not open the desktop logs folder: {error}"))
+        }
         DesktopShellOperation::ReloadApp => window
             .reload()
             .map_err(|_| "Could not reload the server window.".into()),
@@ -718,8 +735,10 @@ async fn install_remote(
         return Err(error);
     }
     let injected = tokens.map(SessionTokens::injected_cookies);
-    let cookie_result = (|| {
+    let cookie_result = async {
         if let Some(tokens) = tokens {
+            // A previous host-only or domain cookie must not shadow this login.
+            clear_session_cookies(&window, &server.origin).await?;
             for header in tokens.cookie_headers(&server.origin)? {
                 let cookie = Cookie::parse(header)
                     .map_err(|_| "Could not create the Alloy session cookie.")?
@@ -737,7 +756,8 @@ async fn install_remote(
             }
         }
         Ok::<(), String>(())
-    })();
+    }
+    .await;
     if let Err(error) = cookie_result {
         let _ = window.destroy();
         return Err(error);
@@ -868,21 +888,13 @@ async fn replace_injected_cookies(
     }
     let deadline = tokio::time::Instant::now() + COOKIE_HANDOFF_TIMEOUT;
     loop {
-        let Ok(cookies) = window.cookies_for_url(origin.clone()) else {
-            return;
-        };
-        // A refresh cookie the host did not inject is the server's own.
-        if cookies.iter().any(|cookie| {
-            cookie.name() == "alloy_refresh"
-                && !injected.is_injected_cookie(cookie.name(), cookie.value())
-        }) {
-            for cookie in cookies
-                .into_iter()
-                .filter(|cookie| injected.is_injected_cookie(cookie.name(), cookie.value()))
-            {
-                let _ = window.delete_cookie(cookie);
+        match native_cookies::remove(&window, &origin, Some(injected.clone())).await {
+            Ok(true) => return,
+            Ok(false) => {}
+            Err(error) => {
+                log::warn!("Session cookie handoff failed: {error}");
+                return;
             }
-            return;
         }
         if tokio::time::Instant::now() >= deadline {
             log::warn!(
@@ -929,19 +941,10 @@ fn has_session_cookie(cookies: &[Cookie<'static>]) -> bool {
     })
 }
 
-fn clear_session_cookies(window: &WebviewWindow, origin: &Url) -> Result<(), String> {
-    let cookies = window
-        .cookies_for_url(origin.clone())
-        .map_err(|_| "Could not read the Alloy session cookies.")?;
-    for cookie in cookies
-        .into_iter()
-        .filter(|cookie| matches!(cookie.name(), "alloy_access" | "alloy_refresh"))
-    {
-        window
-            .delete_cookie(cookie)
-            .map_err(|_| "Could not clear the Alloy session cookies.")?;
-    }
-    Ok(())
+async fn clear_session_cookies(window: &WebviewWindow, origin: &Url) -> Result<(), String> {
+    native_cookies::remove(window, origin, None)
+        .await
+        .map(|_| ())
 }
 
 fn remote_profile_path(app: &AppHandle, origin: &Url) -> Result<std::path::PathBuf, String> {
@@ -964,7 +967,11 @@ fn remote_profile_directory(app: &AppHandle, origin: &Url) -> Result<std::path::
     Ok(root.join("webviews").join("servers").join(name))
 }
 
-fn clear_inactive_remote_profile(app: &AppHandle, origin: &Url, host: &Host) -> Result<(), String> {
+async fn clear_inactive_remote_profile(
+    app: &AppHandle,
+    origin: &Url,
+    host: &Host,
+) -> Result<(), String> {
     let generation = host.next_generation.fetch_add(1, Ordering::Relaxed) + 1;
     let label = format!("forget-server-{generation}");
     let blank =
@@ -976,7 +983,7 @@ fn clear_inactive_remote_profile(app: &AppHandle, origin: &Url, host: &Host) -> 
     let window = builder
         .build()
         .map_err(|_| "Could not open the Alloy server profile.")?;
-    let result = clear_session_cookies(&window, origin).and_then(|()| {
+    let result = clear_session_cookies(&window, origin).await.and_then(|()| {
         window
             .clear_all_browsing_data()
             .map_err(|_| "Could not clear the Alloy server profile.".to_string())
@@ -1427,9 +1434,20 @@ fn main() {
             desktop_api,
         ])
         .setup(move |app| {
-            if let Err(error) = alloy_desktop::logging::init(&app.path().app_log_dir()?) {
-                eprintln!("Could not open the Alloy log file: {error}");
+            let logs = app
+                .path()
+                .app_log_dir()
+                .map_err(|error| format!("Could not locate the desktop logs folder: {error}"))
+                .and_then(|directory| {
+                    alloy_desktop::logging::init(&directory)
+                        .map_err(|error| format!("Could not open the Alloy log file: {error}"))?;
+                    Ok(directory)
+                });
+            if let Err(error) = &logs {
+                let _ = writeln!(std::io::stderr(), "{error}");
             }
+            let _ = setup_host.logs.set(logs);
+            log::info!("Alloy desktop {} started", app.package_info().version);
             let state_dir = app.path().app_data_dir()?;
             let services = Arc::new(DesktopServices::new(app.handle().clone(), state_dir));
             setup_host

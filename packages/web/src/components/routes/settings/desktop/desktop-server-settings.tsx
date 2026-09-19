@@ -24,6 +24,7 @@ import {
 } from "@/components/routes/settings/settings-panel"
 
 import { DesktopAutostartSettings } from "./desktop-autostart-settings"
+import { DesktopLogSettings } from "./desktop-log-settings"
 import { alloyDesktop, type DesktopSavedServer } from "./desktop-native"
 import { DesktopUpdateSettings } from "./desktop-update-settings"
 
@@ -204,6 +205,13 @@ export function DesktopAppPanel() {
           <DesktopUpdateSettings />
         </SettingRows>
       </SettingsSubsection>
+      {alloyDesktop()?.openLogsFolder ? (
+        <SettingsSubsection id="diagnostics" title={t("Diagnostics")}>
+          <SettingRows>
+            <DesktopLogSettings />
+          </SettingRows>
+        </SettingsSubsection>
+      ) : null}
     </SettingsSections>
   )
 }

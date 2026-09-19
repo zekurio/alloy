@@ -51,6 +51,11 @@ export interface AlloyTauriDesktop {
   closeWindow(): Promise<void>
   openConnect(): Promise<void>
   openSettings(): Promise<void>
+  /**
+   * Opens the host's log directory. Rejects if logging could not start.
+   * Absent on older contract-1 hosts.
+   */
+  openLogsFolder?(): Promise<void>
   reloadApp(): Promise<void>
   servers: AlloyTauriDesktopServerApi
   recording: AlloyDesktopRecordingApi
