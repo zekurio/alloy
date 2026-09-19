@@ -10,26 +10,28 @@ lib.cleanSourceWith {
     let
       name = baseNameOf path;
     in
-    !(
-      name == ".direnv"
-      || name == ".devenv"
-      || name == ".devenv.flake.nix"
-      || name == ".env"
-      || name == ".git"
-      || name == ".pg"
-      || name == ".turbo"
-      || name == ".venv"
-      || name == "__pycache__"
-      || name == ".cache"
-      || name == "build"
-      || name == "data"
-      || name == "devenv.local.nix"
-      || name == "dist"
-      || name == "nix"
-      || name == "node_modules"
-      || name == "release"
-      || name == "resources"
-      || name == "target"
-      || lib.hasSuffix ".pyc" (toString path)
-    );
+    # Exclude local state and generated output at every workspace depth.
+    # Nix expressions configure the derivation, but are not build inputs.
+    !(builtins.elem name [
+      ".cache"
+      ".devenv"
+      ".devenv.flake.nix"
+      ".direnv"
+      ".env"
+      ".git"
+      ".pg"
+      ".turbo"
+      ".venv"
+      "__pycache__"
+      "build"
+      "data"
+      "devenv.local.nix"
+      "dist"
+      "nix"
+      "node_modules"
+      "release"
+      "resources"
+      "target"
+    ])
+    && !(lib.hasSuffix ".pyc" name);
 }

@@ -372,7 +372,7 @@ in
     };
 
     database = {
-      enable = lib.mkEnableOption "the PostgreSQL database for use with Alloy" // {
+      enable = lib.mkEnableOption "a local PostgreSQL server for Alloy" // {
         default = true;
       };
 
@@ -401,6 +401,8 @@ in
         description = ''
           Hostname or address of the PostgreSQL server. If this is an absolute
           path, it is treated as a Unix socket directory.
+          Set database.enable = false when using a remote or independently
+          managed PostgreSQL server.
         '';
       };
 
@@ -419,8 +421,8 @@ in
         message = "services.alloy-server currently supports x86_64-linux only.";
       }
       {
-        assertion = cfg.publicServerUrl != null;
-        message = "services.alloy-server.publicServerUrl must be set for production deployments.";
+        assertion = effectivePublicServerUrl != null;
+        message = "Set services.alloy-server.publicServerUrl or services.alloy-server.environment.PUBLIC_SERVER_URL for production deployments.";
       }
       {
         assertion = hasHttpsPublicServerUrl;
@@ -497,8 +499,8 @@ in
           NODE_ENV = "production";
           DATABASE_URL = databaseUrl;
           PORT = toString cfg.port;
-          PUBLIC_SERVER_URL = cfg.publicServerUrl;
-          TRUSTED_ORIGINS = lib.concatStringsSep "," ([ cfg.publicServerUrl ] ++ cfg.trustedOrigins);
+          PUBLIC_SERVER_URL = publicServerUrlForService;
+          TRUSTED_ORIGINS = lib.concatStringsSep "," ([ publicServerUrlForService ] ++ cfg.trustedOrigins);
           ALLOY_UPLOAD_TTL_SEC = toString cfg.limits.uploadTtlSec;
           ALLOY_STORAGE_FS_CLIPS_PATH = toString cfg.storage.fs.clipsPath;
           ALLOY_STORAGE_FS_THUMBNAILS_PATH = toString cfg.storage.fs.thumbnailsPath;
