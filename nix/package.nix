@@ -81,6 +81,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     cp -R packages/web/dist "$out/share/alloy/web"
     cp -R packages/db/drizzle "$out/share/alloy/migrations"
+    install -Dm644 LICENSE "$out/share/doc/alloy/LICENSE"
 
     # Run on nodejs-slim: the full nodejs package retains node-gyp headers
     # and their -dev closures, which the server never needs at runtime.
@@ -101,7 +102,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   meta = {
     description = "Open-source and self-hostable alternative to Medal.tv";
     homepage = "https://github.com/zekurio/alloy";
-    license = lib.licenses.agpl3Only;
+    license = lib.licenses.mit;
     mainProgram = "alloy";
     platforms = [ "x86_64-linux" ];
   };
