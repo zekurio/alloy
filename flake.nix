@@ -22,13 +22,12 @@
     }:
     let
       systems = [ "x86_64-linux" ];
-      version = (builtins.fromJSON (builtins.readFile ./package.json)).version;
     in
     flake-utils.lib.eachSystem systems (
       system:
       let
         pkgs = import nixpkgs { inherit system; };
-        alloy = pkgs.callPackage ./nix/package.nix { inherit version; };
+        alloy = pkgs.callPackage ./nix/package.nix { };
         dockerImageConfig = {
           Cmd = [ "${pkgs.lib.getExe alloy}" ];
           ExposedPorts."2552/tcp" = { };
