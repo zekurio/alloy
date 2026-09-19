@@ -61,6 +61,7 @@ impl SessionTokens {
 /// Lets the host tell an injected session cookie apart from one the server
 /// set itself. The tokens stay private so they cannot reach a log or a
 /// command result.
+#[derive(Clone)]
 pub struct InjectedCookies {
     access_token: String,
     refresh_token: String,
@@ -73,6 +74,27 @@ impl InjectedCookies {
             "alloy_refresh" => value == self.refresh_token,
             _ => false,
         }
+    }
+
+    /// Uses the raw WebView2 domain, not cookie::Cookie::domain(), which strips
+    /// the leading dot and loses the distinction from a host-only cookie.
+    pub fn should_remove(&self, name: &str, value: &str, domain: &str, host: &str) -> bool {
+        domain.strip_prefix('.') == Some(host) && self.is_injected_cookie(name, value)
+    }
+
+    pub fn has_replacement(
+        &self,
+        name: &str,
+        value: &str,
+        domain: &str,
+        path: &str,
+        host: &str,
+    ) -> bool {
+        name == "alloy_refresh"
+            && !value.is_empty()
+            && !self.is_injected_cookie(name, value)
+            && domain == host
+            && path == "/"
     }
 }
 
@@ -437,6 +459,55 @@ fn callback_code(request: &str, host: &str, state: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{callback_code, callback_locale, callback_page, callback_strings, session_cookie};
+
+    #[test]
+    fn cookie_handoff_keeps_host_only_rotation_and_removes_only_its_domain_bootstrap() {
+        let injected = super::InjectedCookies {
+            access_token: "bootstrap-access".into(),
+            refresh_token: "bootstrap-refresh".into(),
+        };
+        // Scope must protect host-only cookies independently of their values.
+        let cookies = [
+            ("alloy_access", "bootstrap-access", ".alloy.example"),
+            ("alloy_refresh", "bootstrap-refresh", ".alloy.example"),
+            ("alloy_access", "bootstrap-access", "alloy.example"),
+            ("alloy_refresh", "rotated-refresh", "alloy.example"),
+            ("alloy_refresh", "bootstrap-refresh", ".other.example"),
+        ];
+        let removed = cookies
+            .iter()
+            .map(|(name, value, domain)| {
+                injected.should_remove(name, value, domain, "alloy.example")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(removed, [true, true, false, false, false]);
+        for (domain, path, value, expected) in [
+            ("alloy.example", "/", "rotated-refresh", true),
+            (".alloy.example", "/", "rotated-refresh", false),
+            ("alloy.example", "/api", "rotated-refresh", false),
+            ("alloy.example", "/", "bootstrap-refresh", false),
+            ("alloy.example", "/", "", false),
+        ] {
+            assert_eq!(
+                injected.has_replacement("alloy_refresh", value, domain, path, "alloy.example"),
+                expected
+            );
+        }
+        // Chromium replaces host-only loopback injection in place.
+        assert!(!injected.should_remove(
+            "alloy_access",
+            "bootstrap-access",
+            "localhost",
+            "localhost",
+        ));
+        assert!(injected.has_replacement(
+            "alloy_refresh",
+            "rotated-refresh",
+            "localhost",
+            "/",
+            "localhost",
+        ));
+    }
 
     #[test]
     fn callback_accepts_only_one_matching_state_and_code() {

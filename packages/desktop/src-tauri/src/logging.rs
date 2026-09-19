@@ -31,10 +31,12 @@ impl log::Log for FileLogger {
             record.level(),
             record.args()
         );
-        eprint!("{line}");
         if let Ok(mut file) = self.file.lock() {
             let _ = file.write_all(line.as_bytes());
         }
+        // A detached Windows app may not have usable stderr. Diagnostics must
+        // still reach the file rather than panic while mirroring to a console.
+        let _ = std::io::stderr().write_all(line.as_bytes());
     }
 
     fn flush(&self) {

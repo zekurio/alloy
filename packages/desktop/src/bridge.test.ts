@@ -104,6 +104,25 @@ test("server management calls use the dotted operation names", async () => {
   )
 })
 
+test("opening logs uses a shell operation without a renderer-supplied path", async () => {
+  const { window, calls } = loadBridge()
+  assert.ok(window.alloyTauriDesktop?.openLogsFolder)
+  await window.alloyTauriDesktop.openLogsFolder()
+  assert.equal(
+    JSON.stringify(calls),
+    JSON.stringify([
+      { command: "desktop_shell", args: { operation: "openLogsFolder" } },
+    ]),
+  )
+  Reflect.set(window.__TAURI_INTERNALS__, "invoke", () =>
+    Promise.reject("Could not open the Alloy log file: Access is denied."),
+  )
+  await assert.rejects(
+    window.alloyTauriDesktop.openLogsFolder(),
+    /Could not open the Alloy log file: Access is denied\./,
+  )
+})
+
 test("native thumbnail calls carry bytes and subscriptions can stop before registration", async () => {
   const { window, calls, callbacks, completeListen } = loadBridge()
   assert.ok(window.alloyTauriDesktop)

@@ -111,6 +111,7 @@
     closeWindow: () => shell("closeWindow"),
     openConnect: () => shell("openConnect"),
     openSettings: () => shell("openSettings"),
+    openLogsFolder: () => shell("openLogsFolder"),
     reloadApp: () => shell("reloadApp"),
     servers: Object.freeze({
       switchTo: (url) => call("servers.switchTo", url),
