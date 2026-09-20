@@ -212,7 +212,11 @@ function SignInButtonFields({
           label={t("Icon URL")}
           value={draft.iconUrl}
           onChange={(iconUrl) => onChange({ iconUrl })}
-          type="url"
+          // Stored icons use relative paths, which native URL inputs reject.
+          type={
+            publicOAuthProviderIconUrl(draft.iconUrl.trim()) ? "text" : "url"
+          }
+          inputMode="url"
           className="md:col-span-2"
           description={t("Downloaded and stored on this server when you save.")}
         />
