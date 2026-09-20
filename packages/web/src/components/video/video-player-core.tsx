@@ -170,6 +170,13 @@ export function PlayerCore({
       : 0
   }, [activePlaybackRange, durationHint])
 
+  const checkPlayThreshold = usePlayThreshold({
+    identity,
+    playbackRange: activePlaybackRange,
+    durationHint,
+    onPlayThreshold,
+  })
+
   const syncTime = useCallback(() => {
     const video = videoRef.current
     if (!video) return
@@ -179,7 +186,8 @@ export function PlayerCore({
     setCurrentTime(nextTime)
     setDuration(nextDuration)
     onTimeUpdateRef.current?.(nextTime)
-  }, [readCurrentTime, readDuration])
+    checkPlayThreshold(video)
+  }, [checkPlayThreshold, readCurrentTime, readDuration])
 
   const syncBuffered = useCallback(() => {
     const video = videoRef.current
@@ -236,6 +244,7 @@ export function PlayerCore({
   const reportError = useCallback(() => {
     // The engine may recover by stepping down one playable quality tier;
     // the media key change resets load state.
+    syncTime()
     if (onMediaError()) return
     const video = videoRef.current
     const message = mediaErrorMessage(video)
@@ -247,7 +256,7 @@ export function PlayerCore({
     } else {
       setStatus({ kind: "error", message })
     }
-  }, [clearBuffering, onMediaError, setPlayingState])
+  }, [clearBuffering, onMediaError, setPlayingState, syncTime])
 
   const playInternal = useCallback(
     async (reportBlocked = true) => {
@@ -442,13 +451,6 @@ export function PlayerCore({
     scheduleChromeHide,
   ])
 
-  usePlayThreshold({
-    playing,
-    duration,
-    identity,
-    onPlayThreshold,
-  })
-
   const {
     handleLoadedMetadata,
     handleLoadedData,
@@ -539,6 +541,7 @@ export function PlayerCore({
       onPause={() => {
         setPlayingState(false)
         clearBuffering()
+        syncTime()
       }}
       onEnded={handleEnded}
       onError={reportError}
@@ -595,7 +598,10 @@ export function PlayerCore({
           onToggleFullscreen={toggleFullscreen}
           qualityOptions={qualityOptions}
           selectedQualityId={selectedQualityId}
-          onSelectQuality={onSelectQuality}
+          onSelectQuality={(id) => {
+            syncTime()
+            onSelectQuality?.(id)
+          }}
         />
       }
     >
