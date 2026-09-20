@@ -269,7 +269,9 @@ function ProviderActions({
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Delete OAuth provider?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("Users may lose this sign-in method immediately.")}
+              {t(
+                "This immediately deletes every linked account for this provider. Users will need to link the provider again if it is added back.",
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {error ? (

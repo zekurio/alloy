@@ -10,6 +10,7 @@ import {
   type TranscodingConfig,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
+import { authAccount } from "@alloy/db/auth-schema"
 import { instanceSetting } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
@@ -19,7 +20,7 @@ import {
   cancelStorageDeletion,
   enqueueStorageDeletions,
 } from "@alloy/server/storage/deletion-store"
-import { eq } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 
 import { OAuthProvidersSchema } from "./oauth-schema"
 
@@ -133,7 +134,7 @@ export async function setAuthToggles(
 /**
  * Replace the stored OAuth provider list. `secrets` carries new client secrets
  * by provider id; providers absent from it keep their stored secret, and
- * secrets for removed providers are pruned.
+ * secrets and linked auth accounts for removed providers are pruned.
  *
  * Managed icon lifecycle: prewrite deletion reservations for every icon in the
  * new list are cancelled alongside the config write; managed icons the
@@ -161,6 +162,12 @@ export async function setOAuthProviders(
   }
 
   const nextKeys = managedIconKeysByLowercase(nextProviders)
+  const nextProviderIds = new Set(
+    nextProviders.map((provider) => provider.providerId),
+  )
+  const removedProviderIds = oauthProvidersSetting
+    .map((provider) => provider.providerId)
+    .filter((providerId) => !nextProviderIds.has(providerId))
   const orphanedIconKeys = [
     ...managedIconKeysByLowercase(oauthProvidersSetting),
   ]
@@ -173,6 +180,11 @@ export async function setOAuthProviders(
   await db.transaction(async (tx) => {
     await writeSetting("oauthProviders", nextProviders, tx)
     await writeSetting("oauthClientSecrets", nextSecrets, tx)
+    if (removedProviderIds.length > 0) {
+      await tx
+        .delete(authAccount)
+        .where(inArray(authAccount.provider_id, removedProviderIds))
+    }
     for (const key of nextKeys.values()) {
       await cancelStorageDeletion("assets", key, { tx })
     }
