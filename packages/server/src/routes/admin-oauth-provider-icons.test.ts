@@ -9,7 +9,12 @@ import {
   managedOAuthProviderIconKey,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
-import { authSession, user, userPasskey } from "@alloy/db/auth-schema"
+import {
+  authAccount,
+  authSession,
+  user,
+  userPasskey,
+} from "@alloy/db/auth-schema"
 import { instanceSetting, storageDeletion } from "@alloy/db/schema"
 import { OAUTH_PROVIDER_ICON_MAX_BYTES } from "@alloy/server/auth/oauth-provider-icons"
 import { and, eq, inArray, like } from "drizzle-orm"
@@ -268,9 +273,21 @@ test.skipIf(!process.env.ALLOY_TEST_DATABASE_URL)(
       )
       assert.equal(oversized.status, 413)
 
-      // Deleting the provider enqueues deletion of its managed icon.
+      await db.insert(authAccount).values({
+        user_id: adminId,
+        provider_id: providerId,
+        provider_account_id: `account-${adminId}`,
+      })
+
+      // Deleting the provider removes its account links and enqueues deletion
+      // of its managed icon in the same config transaction.
       const removed = await putProviders([])
       assert.equal(removed.status, 200, await removed.clone().text())
+      const linkedAccounts = await db
+        .select({ id: authAccount.id })
+        .from(authAccount)
+        .where(eq(authAccount.provider_id, providerId))
+      assert.deepEqual(linkedAccounts, [])
       assert.match(
         (await pendingDeletion(secondKey))?.reason ?? "",
         /no longer referenced/,
