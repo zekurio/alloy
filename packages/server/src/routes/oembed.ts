@@ -13,7 +13,8 @@ import { tbValidator } from "./validation"
  *
  * This is what puts the bold author line above the title in a Discord unfurl —
  * the slot YouTube fills with the channel name. OpenGraph has no equivalent, so
- * without this the embed jumps straight from the site name to the title.
+ * without this the embed starts with the title. Provider fields are omitted so
+ * previews lead with the author rather than a separate site label.
  *
  * Deliberately `type: "link"` with no `html`: returning `type: "video"` with an
  * iframe would make Discord embed the iframe instead of the native `og:video`
@@ -45,8 +46,6 @@ export const oembedRoute = new Hono().get(
       type: "link",
       version: "1.0",
       title: row.title,
-      provider_name: "alloy",
-      provider_url: origin,
       author_name: userDisplayLabel({
         username: row.authorUsername,
         displayName: row.authorDisplayName,

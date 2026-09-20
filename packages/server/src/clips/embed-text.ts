@@ -4,7 +4,6 @@ import { oklchToHex, stableHue } from "@alloy/contracts"
 // saturated that a wall of clips becomes noisy.
 const ACCENT_LIGHTNESS = 0.7
 const ACCENT_CHROMA = 0.15
-const STAT_UNITS = ["K", "M", "B", "T"] as const
 
 /**
  * Accent colour for a clip's embed, derived from its game so the same game
@@ -19,36 +18,22 @@ export function clipAccentColor(gameName: string | null): string {
 }
 
 /**
- * Compact, locale-free counts for the embed wire format. The web app's
- * formatCount is locale-aware via the i18n runtime, which has no meaning in
- * someone else's Discord client.
+ * Fluxer renders Markdown in OpenGraph descriptions. Other crawlers get plain
+ * text, and clips without a known game page never get a guessed link.
  */
-function formatStatCount(value: number): string {
-  const count = Math.trunc(Math.abs(value))
-  if (count < 1_000) return String(count)
-
-  let divisor = 1_000
-  let unitIndex = 0
-  while (unitIndex < STAT_UNITS.length - 1 && count >= divisor * 1_000) {
-    divisor *= 1_000
-    unitIndex += 1
+export function clipEmbedDescription(
+  clip: { gameName: string; gameSlug: string | null },
+  origin: string,
+  userAgent = "",
+): string {
+  if (!clip.gameSlug || !/\bFluxerbot(?:\/|$)/i.test(userAgent)) {
+    return clip.gameName
   }
 
-  const scaled = Math.trunc((count / divisor) * 10) / 10
-  const formatted = Number.isInteger(scaled)
-    ? String(scaled)
-    : scaled.toFixed(1)
-  return `${formatted}${STAT_UNITS[unitIndex]}`
-}
-
-/**
- * The embed description shows the game and view count.
- */
-export function clipEmbedDescription(clip: {
-  gameName: string
-  viewCount: number
-}): string {
-  // Keep each icon as a fully-qualified emoji sequence. Discord otherwise
-  // renders text-default characters such as the eye as monochrome glyphs.
-  return [clip.gameName, `👁️ ${formatStatCount(clip.viewCount)}`].join(" · ")
+  const label = clip.gameName.replace(/[\\`*_[\]<>~]/g, "\\$&")
+  const slug = encodeURIComponent(clip.gameSlug)
+    .replaceAll("(", "%28")
+    .replaceAll(")", "%29")
+  const url = new URL(`/games/${slug}`, origin).toString()
+  return `[${label}](${url})`
 }
