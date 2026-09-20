@@ -22,33 +22,42 @@ type MetadataClip = NonNullable<
 export async function clipHead(
   pathname: string,
   timestamp?: number,
+  userAgent?: string,
 ): Promise<string> {
   const clipId = clipIdFromPath(pathname)
   if (!clipId) return ""
 
   try {
     const row = await selectEmbeddableClip(clipId)
-    return row ? buildClipHead(row, timestamp) : ""
+    return row ? buildClipHead(row, timestamp, userAgent) : ""
   } catch (error) {
     logger.error("failed to build clip metadata:", error)
     return ""
   }
 }
 
-function buildClipHead(row: MetadataClip, timestamp?: number): string {
+function buildClipHead(
+  row: MetadataClip,
+  timestamp?: number,
+  userAgent?: string,
+): string {
   const origin = env.PUBLIC_SERVER_URL
   const gameName = clipGameName(row)
-  const description = clipEmbedDescription({ ...row, gameName })
+  const description = clipEmbedDescription(
+    { gameName, gameSlug: row.gameRef?.slug ?? null },
+    origin,
+    userAgent,
+  )
   const poster = embedPosterUrl(row, origin)
   const video = embedVideo(row, origin)
   const permalink = clipShareUrl(row.id, origin, timestamp)
 
   return [
     `<title>${htmlEscape(row.title)} | alloy</title>`,
-    metaName("description", description),
+    metaName("description", gameName),
     // Supplies the bold author line above the title — the slot YouTube fills
     // with the channel name. OpenGraph has no equivalent field, so without this
-    // the embed jumps straight from the site name to the title.
+    // the embed starts with the title.
     linkAlternate(
       "application/json+oembed",
       new URL(
@@ -57,7 +66,6 @@ function buildClipHead(row: MetadataClip, timestamp?: number): string {
       ).toString(),
     ),
     metaName("theme-color", clipAccentColor(gameName)),
-    metaProperty("og:site_name", "alloy"),
     metaProperty("og:type", "video.other"),
     metaProperty("og:url", permalink),
     metaProperty("og:title", row.title),
@@ -66,7 +74,7 @@ function buildClipHead(row: MetadataClip, timestamp?: number): string {
     ...socialVideoTags(video),
     metaName("twitter:card", "summary_large_image"),
     metaName("twitter:title", row.title),
-    metaName("twitter:description", description),
+    metaName("twitter:description", gameName),
     ...(poster ? [metaName("twitter:image", poster)] : []),
   ].join("\n    ")
 }
