@@ -25,6 +25,7 @@ export const DesktopTauriSavedServersSchema = z
     z.object({
       serverUrl: z.url(),
       lastConnectedAt: z.iso.datetime({ offset: true }),
+      serverVersion: z.string().trim().min(1).optional(),
       httpContract: z.number().int().positive(),
       bridgeContract: z.number().int().positive(),
     }),

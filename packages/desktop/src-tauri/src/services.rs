@@ -39,6 +39,8 @@ static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
 pub struct DesktopSavedServer {
     pub server_url: String,
     pub last_connected_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_version: Option<String>,
     pub http_contract: u64,
     pub bridge_contract: u64,
 }
@@ -93,12 +95,14 @@ impl PreferencesStore {
     pub fn remember_server(
         &self,
         server_url: &str,
+        server_version: &str,
         http_contract: u64,
         bridge_contract: u64,
     ) -> Result<Vec<DesktopSavedServer>, String> {
         validate_contract_id(http_contract)?;
         validate_contract_id(bridge_contract)?;
         let server_url = canonical_server_url(server_url)?;
+        let server_version = nonempty_string(server_version)?;
         let mut servers = self.get_servers();
         servers.retain(|server| server.server_url != server_url);
         servers.insert(
@@ -106,6 +110,7 @@ impl PreferencesStore {
             DesktopSavedServer {
                 server_url,
                 last_connected_at: now_rfc3339(),
+                server_version: Some(server_version),
                 http_contract,
                 bridge_contract,
             },
@@ -213,9 +218,16 @@ fn normalize_server(value: &Value) -> Option<DesktopSavedServer> {
                 .unwrap_or_else(|_| epoch_rfc3339().to_string())
         })
         .unwrap_or_else(|| epoch_rfc3339().to_string());
+    let server_version = object
+        .get("serverVersion")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned);
     Some(DesktopSavedServer {
         server_url,
         last_connected_at,
+        server_version,
         http_contract,
         bridge_contract,
     })
@@ -231,6 +243,15 @@ fn validate_contract_id(value: u64) -> Result<(), String> {
         Err("The desktop contract ID is invalid.".into())
     } else {
         Ok(())
+    }
+}
+
+fn nonempty_string(value: &str) -> Result<String, String> {
+    let value = value.trim();
+    if value.is_empty() {
+        Err("The server version is invalid.".into())
+    } else {
+        Ok(value.to_owned())
     }
 }
 
@@ -356,11 +377,12 @@ impl DesktopServices {
     pub fn remember_server(
         &self,
         server_url: &str,
+        server_version: &str,
         http_contract: u64,
         bridge_contract: u64,
     ) -> Result<Vec<DesktopSavedServer>, String> {
         self.preferences
-            .remember_server(server_url, http_contract, bridge_contract)
+            .remember_server(server_url, server_version, http_contract, bridge_contract)
     }
 
     pub fn forget_server(&self, server_url: &str) -> Result<Vec<DesktopSavedServer>, String> {
@@ -710,18 +732,19 @@ mod tests {
     fn remembers_normalized_servers_and_moves_latest_to_front() {
         let (store, path) = temp_store();
         let first = store
-            .remember_server("https://alloy.example/api/", 1, 1)
+            .remember_server("https://alloy.example/api/", "1.2.3", 1, 1)
             .unwrap();
         assert_eq!(first[0].server_url, "https://alloy.example");
         let second = store
-            .remember_server("http://localhost:2552/", 1, 1)
+            .remember_server("http://localhost:2552/", "1.2.3", 1, 1)
             .unwrap();
         assert_eq!(second[0].server_url, "http://localhost:2552");
         assert_eq!(second.len(), 2);
         let again = store
-            .remember_server("https://alloy.example", 1, 1)
+            .remember_server("https://alloy.example", "1.2.4", 1, 1)
             .unwrap();
         assert_eq!(again[0].server_url, "https://alloy.example");
+        assert_eq!(again[0].server_version.as_deref(), Some("1.2.4"));
         assert_eq!(again.len(), 2);
         assert_eq!(
             store.get_current_server().as_deref(),
@@ -733,15 +756,19 @@ mod tests {
     #[test]
     fn rejects_unsafe_server_urls_and_contract_ids() {
         let (store, path) = temp_store();
-        assert!(store.remember_server("http://alloy.example", 1, 1).is_err());
         assert!(
             store
-                .remember_server("https://alloy.example", 0, 1)
+                .remember_server("http://alloy.example", "1.2.3", 1, 1)
                 .is_err()
         );
         assert!(
             store
-                .remember_server("https://alloy.example", 1, 9_007_199_254_740_992)
+                .remember_server("https://alloy.example", "1.2.3", 0, 1)
+                .is_err()
+        );
+        assert!(
+            store
+                .remember_server("https://alloy.example", "1.2.3", 1, 9_007_199_254_740_992,)
                 .is_err()
         );
         let _ = fs::remove_dir_all(path);
@@ -769,7 +796,7 @@ mod tests {
         let state = DesktopWindowState::clamped(1440, 900, true);
         store.remember_window_state(state).unwrap();
         store
-            .remember_server("https://alloy.example", 1, 1)
+            .remember_server("https://alloy.example", "1.2.3", 1, 1)
             .unwrap();
         assert_eq!(store.get_window_state(), Some(state));
         let _ = fs::remove_dir_all(path);

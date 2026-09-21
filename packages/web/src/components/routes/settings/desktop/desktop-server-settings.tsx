@@ -1,4 +1,6 @@
+import { DESKTOP_HTTP_CONTRACT_1 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
+import { TAURI_DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
 import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
@@ -10,6 +12,8 @@ import { cn } from "@alloy/ui/lib/utils"
 import {
   CheckCircle2Icon,
   CircleAlertIcon,
+  CircleXIcon,
+  LinkIcon,
   LogInIcon,
   PlusIcon,
   Trash2Icon,
@@ -373,6 +377,11 @@ function SavedServerRow({
   connectTo: (serverUrl: string) => Promise<void>
   forgetServer: (serverUrl: string) => void
 }) {
+  const compatible = savedCompatibility(server)
+  const compatibilityLabel = compatible
+    ? t("Compatible when last checked")
+    : t("Incompatible when last checked")
+
   return (
     <div className="not-last:border-border flex items-center gap-2 py-3 not-last:border-b first:pt-0 last:pb-0">
       <div className="min-w-0 flex-1">
@@ -381,14 +390,39 @@ function SavedServerRow({
             {server.serverUrl}
           </span>
           {current ? (
-            <span className="text-success inline-flex shrink-0 items-center gap-1 text-xs font-medium">
-              <CheckCircle2Icon className="size-3.5" />
-              {t("Current")}
+            <span
+              role="img"
+              aria-label={t("Connected")}
+              title={t("Connected")}
+              className="text-foreground-dim inline-flex shrink-0"
+            >
+              <LinkIcon aria-hidden="true" className="size-3.5" />
             </span>
           ) : null}
         </div>
-        <div className="text-foreground-dim mt-0.5 text-xs">
-          {t("Last used")} {formatLastConnected(server.lastConnectedAt)}
+        <div className="mt-1 flex items-center gap-1.5 text-xs">
+          <span className="text-foreground-dim min-w-0 break-words">
+            {server.serverVersion
+              ? t("Server version {version}", {
+                  version: server.serverVersion,
+                })
+              : t("Server version unknown")}
+          </span>
+          <span
+            role="img"
+            aria-label={compatibilityLabel}
+            title={compatibilityLabel}
+            className={cn(
+              "inline-flex shrink-0",
+              compatible ? "text-success" : "text-destructive",
+            )}
+          >
+            {compatible ? (
+              <CheckCircle2Icon aria-hidden="true" className="size-3.5" />
+            ) : (
+              <CircleXIcon aria-hidden="true" className="size-3.5" />
+            )}
+          </span>
         </div>
       </div>
 
@@ -441,13 +475,11 @@ function sameServerTarget(left: string | null, right: string): boolean {
   return left !== null && left.trim() === right.trim()
 }
 
-function formatLastConnected(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return t("recently")
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date)
+function savedCompatibility(server: DesktopSavedServer): boolean {
+  return (
+    server.httpContract === DESKTOP_HTTP_CONTRACT_1 &&
+    server.bridgeContract === TAURI_DESKTOP_BRIDGE_CONTRACT_1
+  )
 }
 
 function errorText(cause: unknown, fallback: string): string {
