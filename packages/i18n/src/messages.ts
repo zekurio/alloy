@@ -200,6 +200,8 @@ export const DE_MESSAGES = {
   "Add passkey": "Passkey hinzufügen",
   "Add server": "Server hinzufügen",
   "Server address": "Serveradresse",
+  "Server version {version}": "Serverversion {version}",
+  "Server version unknown": "Serverversion unbekannt",
   "Add the clip details before it enters your library.":
     "Füge die Clip-Details hinzu, bevor er in deine Bibliothek kommt.",
   "Add tier": "Stufe hinzufügen",
@@ -216,6 +218,8 @@ export const DE_MESSAGES = {
     "Alloy {version} wurde heruntergeladen.",
   "Alloy {version} is available to download.":
     "Alloy {version} steht zum Herunterladen bereit.",
+  "Alloy Desktop {version}": "Alloy Desktop {version}",
+  "Alloy Web {version}": "Alloy Web {version}",
   "Alloy auto-detects games. Add manual rules when detection needs a nudge.":
     "Alloy erkennt Spiele automatisch. Füge manuelle Regeln hinzu, wenn die Erkennung mal nachhelfen muss.",
   "Alloy will start capturing when you launch a game.":
@@ -287,6 +291,8 @@ export const DE_MESSAGES = {
     "Aufnahmen und Clips erscheinen hier.",
   Change: "Ändern",
   "Check for updates": "Nach Updates suchen",
+  "Check for and install desktop app updates.":
+    "Nach Updates für die Desktop-App suchen und sie installieren.",
   "Last checked {time}. Alloy checks again in the background.":
     "Zuletzt geprüft {time}. Alloy prüft im Hintergrund erneut.",
   "Alloy checks for updates in the background.":
@@ -494,6 +500,7 @@ export const DE_MESSAGES = {
     "Verbinde weitere Anmeldemethoden mit deinem Konto.",
   "Connect to Alloy": "Mit Alloy verbinden",
   Connected: "Verbunden",
+  "Compatible when last checked": "Bei der letzten Prüfung kompatibel",
   "Connected as {label}": "Verbunden als {label}",
   "Connecting...": "Verbindung wird hergestellt...",
   "Continue with {displayName}": "Mit {displayName} fortfahren",
@@ -798,6 +805,7 @@ export const DE_MESSAGES = {
     "Behalte zwischen 1 und 6 Qualitätsstufen bei.",
   Language: "Sprache",
   "Last used": "Zuletzt verwendet",
+  "Incompatible when last checked": "Bei der letzten Prüfung nicht kompatibel",
   "Launches in the background so your games are captured right away.":
     "Startet im Hintergrund, damit deine Spiele sofort aufgenommen werden.",
   Library: "Bibliothek",

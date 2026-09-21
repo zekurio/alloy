@@ -1,17 +1,11 @@
-import type {
-  DesktopUpdateState,
-  DesktopUpdateStatus,
-} from "@alloy/desktop-contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { cn } from "@alloy/ui/lib/utils"
 import { DownloadIcon, RefreshCcwIcon, SearchIcon } from "lucide-react"
 import { useState } from "react"
 
-import { formatRelativeTime } from "@/lib/date-format"
 import { useDesktopUpdateState } from "@/lib/desktop-updates"
 
 import { alloyDesktop } from "./desktop-native"
@@ -38,14 +32,6 @@ export function DesktopUpdateSettings() {
     !updateState.supported ||
     phase !== "idle" ||
     (updateState.status !== "idle" && updateState.status !== "available")
-  const lastChecked =
-    updateState.supported && updateState.lastCheckedAt
-      ? t("Last checked {time}. Alloy checks again in the background.", {
-          time: formatRelativeTime(updateState.lastCheckedAt),
-        })
-      : updateState.supported
-        ? t("Alloy checks for updates in the background.")
-        : null
 
   async function restartToInstall() {
     setActionMessage(null)
@@ -95,37 +81,18 @@ export function DesktopUpdateSettings() {
 
   return (
     <SettingRow
-      title={
-        <span className="flex items-center gap-2">
-          <StatusDot status={updateState.status} />
-          {updateStatusTitle(updateState.status)}
-        </span>
-      }
+      title={t("Updates")}
       description={
-        <>
-          {updateVersionSummary(updateState)}
-          {lastChecked ? (
-            <span className="mt-1 block">{lastChecked}</span>
-          ) : null}
-          {!updateState.supported ? (
-            <span className="mt-1 block">
-              {t("Automatic updates are unavailable in this build.")}
-            </span>
-          ) : null}
-          {actionMessage ? (
-            <span
-              role={actionMessage.tone === "error" ? "alert" : "status"}
-              className={cn(
-                "mt-1 block",
-                actionMessage.tone === "error"
-                  ? "text-destructive"
-                  : "text-success",
-              )}
-            >
-              {actionMessage.text}
-            </span>
-          ) : null}
-        </>
+        !updateState.supported
+          ? t("Automatic updates are unavailable in this build.")
+          : t("Check for and install desktop app updates.")
+      }
+      footer={
+        actionMessage?.tone === "error" ? (
+          <p role="alert" className="text-destructive text-xs">
+            {actionMessage.text}
+          </p>
+        ) : null
       }
     >
       {updateState.status === "downloaded" ? (
@@ -133,6 +100,7 @@ export function DesktopUpdateSettings() {
           type="button"
           size="sm"
           disabled={phase === "installing"}
+          aria-busy={phase === "installing"}
           onClick={() => setRestartDialogOpen(true)}
         >
           {phase === "installing" ? (
@@ -151,7 +119,8 @@ export function DesktopUpdateSettings() {
         <Button
           type="button"
           size="sm"
-          disabled={downloadBusy}
+          disabled={phase !== "idle"}
+          aria-busy={downloadBusy}
           onClick={() => void downloadUpdate()}
         >
           {downloadBusy ? (
@@ -172,6 +141,8 @@ export function DesktopUpdateSettings() {
           size="sm"
           variant="secondary"
           disabled={checkDisabled}
+          aria-busy={checkBusy || downloadBusy}
+          aria-live="polite"
           onClick={() => void checkForUpdates()}
         >
           {checkBusy ? (
@@ -187,7 +158,9 @@ export function DesktopUpdateSettings() {
           ) : (
             <>
               <SearchIcon className="size-3.5" />
-              {t("Check for updates")}
+              {actionMessage?.tone === "success"
+                ? actionMessage.text
+                : t("Check for updates")}
             </>
           )}
         </Button>
@@ -210,57 +183,6 @@ export function DesktopUpdateSettings() {
       />
     </SettingRow>
   )
-}
-
-function StatusDot({ status }: { status: DesktopUpdateStatus }) {
-  return (
-    <span
-      className={cn(
-        "size-1.5 shrink-0 rounded-full",
-        status === "downloaded"
-          ? "bg-success"
-          : status === "available" ||
-              status === "checking" ||
-              status === "downloading"
-            ? "bg-accent"
-            : "bg-foreground-dim",
-      )}
-    />
-  )
-}
-
-function updateStatusTitle(status: DesktopUpdateStatus): string {
-  switch (status) {
-    case "checking":
-      return t("Checking for updates")
-    case "available":
-      return t("Update available")
-    case "downloading":
-      return t("Downloading update")
-    case "downloaded":
-      return t("Update ready")
-    case "idle":
-      return t("Updates")
-  }
-}
-
-function updateVersionSummary(state: DesktopUpdateState): string {
-  if (state.currentVersion && state.version) {
-    return t("{currentVersion} -> {version}", {
-      currentVersion: state.currentVersion,
-      version: state.version,
-    })
-  }
-
-  if (state.currentVersion) {
-    return t("Current version {version}", { version: state.currentVersion })
-  }
-
-  if (state.version) {
-    return t("Version {version}", { version: state.version })
-  }
-
-  return t("Desktop releases")
 }
 
 function errorText(cause: unknown, fallback: string): string {

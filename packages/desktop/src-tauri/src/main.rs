@@ -207,7 +207,7 @@ async fn connect_to_server(
         .map_err(|_| "Login state is unavailable.")? = Some(cancel);
 
     let mut prepare_cancelled = cancelled.clone();
-    let server = match tokio::select! {
+    let (server, server_version) = match tokio::select! {
         result = prepare_server(url) => result,
         _ = prepare_cancelled.changed() => Err("Sign-in was cancelled.".into()),
     } {
@@ -280,6 +280,7 @@ async fn connect_to_server(
 
     if let Err(error) = host.services()?.remember_server(
         server.origin.origin().ascii_serialization().as_str(),
+        &server_version,
         alloy_desktop::server::HTTP_CONTRACT_1,
         alloy_desktop::server::TAURI_BRIDGE_CONTRACT_1,
     ) {
@@ -293,10 +294,10 @@ async fn connect_to_server(
     })
 }
 
-async fn prepare_server(url: &str) -> Result<Server, String> {
+async fn prepare_server(url: &str) -> Result<(Server, String), String> {
     let server = Server::new(url)?;
-    server.check().await?;
-    Ok(server)
+    let version = server.check().await?;
+    Ok((server, version))
 }
 
 async fn browser_login(server: &Server) -> Result<SessionTokens, String> {
@@ -1357,7 +1358,7 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
                 return;
             }
         };
-        let server = match prepare_server(&url).await {
+        let (server, server_version) = match prepare_server(&url).await {
             Ok(server) => server,
             Err(error) => {
                 log::warn!("Could not restore the saved Alloy server: {error}");
@@ -1378,7 +1379,19 @@ fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
         match install_remote(&app, &host, &runtime, server, None, &cancelled, show).await {
             // The connect screen only exists here if it was opened from the
             // tray while the server was still being restored.
-            Ok(_) => destroy_connect(&app),
+            Ok(_) => {
+                if let Ok(services) = host.services()
+                    && let Err(error) = services.remember_server(
+                        &url,
+                        &server_version,
+                        alloy_desktop::server::HTTP_CONTRACT_1,
+                        alloy_desktop::server::TAURI_BRIDGE_CONTRACT_1,
+                    )
+                {
+                    log::warn!("Could not update the saved Alloy server: {error}");
+                }
+                destroy_connect(&app)
+            }
             Err(error) => {
                 if error != NO_SAVED_SESSION {
                     log::warn!("Could not restore the saved Alloy server: {error}");
