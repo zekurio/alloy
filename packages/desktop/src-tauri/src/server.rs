@@ -29,7 +29,7 @@ impl Server {
 
     /// Check the exact HTTP and native bridge contracts before opening a
     /// server-hosted webview.
-    pub async fn check(&self) -> Result<(), String> {
+    pub async fn check(&self) -> Result<String, String> {
         let info: ServerInfo = self.get_json("/api/server-info").await?;
         let valid_ids = |ids: &[u64]| ids.iter().all(|id| *id > 0 && *id <= 9_007_199_254_740_991);
         if info.schema != "alloy.server-info"
@@ -56,7 +56,7 @@ impl Server {
         if config.desktop_auth.version != 1 {
             return Err("This server does not support desktop login.".into());
         }
-        Ok(())
+        Ok(info.version)
     }
 
     async fn get_json<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T, String> {

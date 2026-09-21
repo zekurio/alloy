@@ -35,6 +35,7 @@ import {
 
 import { AdminConfigProvider } from "@/components/routes/settings/admin-config-context"
 import { DesktopRecordingProvider } from "@/components/routes/settings/desktop/desktop-recording-context"
+import { SettingsBuildInfo } from "@/components/routes/settings/settings-build-info"
 import {
   type SettingsCategory,
   DEFAULT_SETTINGS_SECTION,
@@ -300,6 +301,7 @@ function SettingsDialogContent({
             {t("No settings found.")}
           </p>
         ) : null}
+        <SettingsBuildInfo className="mt-auto px-2.5 pt-8" />
       </nav>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -383,6 +385,7 @@ function SettingsDialogContent({
           <Suspense fallback={<PanelLoading />}>
             <ActivePanel />
           </Suspense>
+          <SettingsBuildInfo className="mt-8 md:hidden" />
         </div>
 
         <SettingsSaveBar />
