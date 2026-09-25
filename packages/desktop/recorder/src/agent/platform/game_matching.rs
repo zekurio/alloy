@@ -1,5 +1,27 @@
+use std::{
+    collections::{HashMap, HashSet},
+    env, fs,
+    path::PathBuf,
+    sync::{Mutex, OnceLock},
+    time::{Duration, Instant, SystemTime},
+};
+
+use serde::Deserialize;
+
+use super::{
+    application_display_name, manual_allowed_game_match, manual_game_denied, path_file_name,
+    DetectedGame,
+};
+use crate::{
+    protocol::SIDE_CAR_NAME,
+    types::{
+        RecordingAllowedGame, RecordingGameGuessMatchKind, RecordingGameGuessSource,
+        RecordingSettings, VideoDimensions,
+    },
+};
+
 const PLAYS_NON_GAME_DETECTIONS_JSON: &str =
-    include_str!("detections/nonGameDetections.json");
+    include_str!("../../detections/nonGameDetections.json");
 
 const MANUAL_ALLOW_SCORE: i32 = 120;
 const DISCORD_DETECTIONS_PATH_ENV: &str = "ALLOY_DISCORD_DETECTIONS_PATH";
@@ -23,27 +45,27 @@ const GAME_CLASS_DENY_TERMS: &[&str] = &[
 ];
 
 #[derive(Clone, Debug)]
-struct CandidateGameMatch {
-    id: Option<String>,
-    source: RecordingGameGuessSource,
-    source_id: Option<String>,
-    name: String,
-    aliases: Vec<String>,
-    icon_url: Option<String>,
+pub(super) struct CandidateGameMatch {
+    pub(super) id: Option<String>,
+    pub(super) source: RecordingGameGuessSource,
+    pub(super) source_id: Option<String>,
+    pub(super) name: String,
+    pub(super) aliases: Vec<String>,
+    pub(super) icon_url: Option<String>,
     preserve_name: bool,
-    detection_score: i32,
-    confidence: u8,
-    match_kind: RecordingGameGuessMatchKind,
+    pub(super) detection_score: i32,
+    pub(super) confidence: u8,
+    pub(super) match_kind: RecordingGameGuessMatchKind,
 }
 
 #[derive(Clone, Copy)]
-struct ProcessDisplayName<'a> {
-    path: Option<&'a str>,
-    preferred: Option<&'a str>,
-    title: Option<&'a str>,
-    executable: Option<&'a str>,
-    fallback: Option<&'a str>,
-    preserve_preferred: bool,
+pub(super) struct ProcessDisplayName<'a> {
+    pub(super) path: Option<&'a str>,
+    pub(super) preferred: Option<&'a str>,
+    pub(super) title: Option<&'a str>,
+    pub(super) executable: Option<&'a str>,
+    pub(super) fallback: Option<&'a str>,
+    pub(super) preserve_preferred: bool,
 }
 
 #[derive(Default)]
@@ -100,7 +122,7 @@ struct PlaysNonGameRule {
 static NON_GAME_EXECUTABLES: OnceLock<HashSet<String>> = OnceLock::new();
 static DISCORD_DETECTION_STATE: OnceLock<Mutex<RuntimeDiscordDetectionState>> = OnceLock::new();
 
-fn candidate_game_detection_match(
+pub(super) fn candidate_game_detection_match(
     path: Option<&str>,
     executable: Option<&str>,
     title: Option<&str>,
@@ -137,7 +159,7 @@ fn candidate_game_detection_match(
         .filter(|_| known_game_window_is_plausible(capture_dimensions, class_name))
 }
 
-fn detected_game_still_allowed(
+pub(super) fn detected_game_still_allowed(
     detected: &DetectedGame,
     settings: &RecordingSettings,
 ) -> bool {
@@ -213,10 +235,8 @@ fn discord_icon_url(game: &DiscordDetectionGame) -> Option<String> {
 }
 
 fn is_builtin_non_game(executable: Option<&str>) -> bool {
-    executable.is_some_and(|executable| {
-        non_game_executables()
-            .contains(&executable.to_ascii_lowercase())
-    })
+    executable
+        .is_some_and(|executable| non_game_executables().contains(&executable.to_ascii_lowercase()))
 }
 
 fn known_game_window_is_plausible(
@@ -275,7 +295,7 @@ fn contains_any_folded(value: &str, terms: &[&str]) -> bool {
         .any(|term| lower.contains(term) || compact.contains(term))
 }
 
-fn readable_detected_game_name(
+pub(super) fn readable_detected_game_name(
     candidate: &CandidateGameMatch,
     path: Option<&str>,
     title: Option<&str>,
@@ -295,7 +315,7 @@ fn readable_detected_game_name(
     .unwrap_or_else(|| candidate.name.clone())
 }
 
-fn user_facing_process_name(input: ProcessDisplayName<'_>) -> Option<String> {
+pub(super) fn user_facing_process_name(input: ProcessDisplayName<'_>) -> Option<String> {
     if input.preserve_preferred {
         return input.preferred.and_then(clean_user_facing_process_name);
     }
@@ -318,7 +338,7 @@ fn user_facing_process_name(input: ProcessDisplayName<'_>) -> Option<String> {
         .or_else(|| input.fallback.and_then(humanize_compact_process_name))
 }
 
-fn clean_user_facing_process_name(value: &str) -> Option<String> {
+pub(super) fn clean_user_facing_process_name(value: &str) -> Option<String> {
     let name = value.trim();
     if name.is_empty() {
         None
@@ -499,16 +519,16 @@ fn parse_discord_detection_catalog(
 }
 
 fn load_non_game_executables() -> HashSet<String> {
-    let entries = match serde_json::from_str::<Vec<PlaysNonGameEntry>>(
-        PLAYS_NON_GAME_DETECTIONS_JSON,
-    )
-    {
-        Ok(entries) => entries,
-        Err(error) => {
-            eprintln!("[{SIDE_CAR_NAME}] failed to parse embedded non-game detections: {error}");
-            return HashSet::new();
-        }
-    };
+    let entries =
+        match serde_json::from_str::<Vec<PlaysNonGameEntry>>(PLAYS_NON_GAME_DETECTIONS_JSON) {
+            Ok(entries) => entries,
+            Err(error) => {
+                eprintln!(
+                    "[{SIDE_CAR_NAME}] failed to parse embedded non-game detections: {error}"
+                );
+                return HashSet::new();
+            }
+        };
 
     let mut catalog = HashSet::new();
     for entry in entries {

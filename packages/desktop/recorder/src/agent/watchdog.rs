@@ -36,7 +36,9 @@ impl RecorderProgress {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::time::{Duration, Instant};
+
+    use super::RecorderProgress;
 
     #[test]
     fn detects_a_stall_after_progress_stops_without_renewing_on_reads() {

@@ -12,7 +12,11 @@ use windows_sys::Win32::{
     },
 };
 
-use super::{emit_event, RecordingEvent, RecordingSettings, SIDE_CAR_NAME};
+use crate::{
+    agent::events::emit_event,
+    protocol::SIDE_CAR_NAME,
+    types::{RecordingEvent, RecordingSettings},
+};
 
 static HOTKEY_STATE: OnceLock<Mutex<HotkeyState>> = OnceLock::new();
 static HOTKEY_EVENTS: OnceLock<mpsc::SyncSender<usize>> = OnceLock::new();
@@ -38,7 +42,7 @@ struct HotkeyState {
     hotkey_down: [bool; 2],
 }
 
-pub(super) fn start() {
+pub(in crate::agent) fn start() {
     HOTKEY_STATE.get_or_init(|| Mutex::new(HotkeyState::default()));
     let (event_tx, event_rx) = mpsc::sync_channel(8);
     if HOTKEY_EVENTS.set(event_tx).is_err() {
@@ -67,7 +71,7 @@ pub(super) fn start() {
     }
 }
 
-pub(super) fn configure(settings: &RecordingSettings) {
+pub(in crate::agent) fn configure(settings: &RecordingSettings) {
     let mut hotkeys = [&settings.hotkeys.clip, &settings.hotkeys.screenshot].map(|value| {
         if settings.enabled {
             parse_hotkey(value)
