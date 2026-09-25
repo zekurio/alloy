@@ -1,5 +1,34 @@
+use std::{
+    os::raw::c_int,
+    time::{Duration, Instant},
+};
+
+use crate::agent::obs::{
+    encoders::{
+        available_video_codecs, codec_allowed_for_gpu_label, has_software_h264_encoder,
+        selected_gpu_adapter, selected_gpu_label,
+    },
+    platform::{
+        available_audio_applications, dedupe_audio_devices, platform_audio_devices, platform_gpus,
+    },
+    types::{AudioSource, ObsVideoConfig},
+    video_config::{effective_quality, DEFAULT_VIDEO_DIMENSIONS},
+    AudioSourceConfig, LibObs,
+};
+use crate::protocol::SIDE_CAR_NAME;
+use crate::settings::default_audio_devices;
+use crate::types::{
+    RecordingActionResult, RecordingAudioMode, RecordingCodec, RecordingEncoder, RecordingMode,
+    RecordingSettings,
+};
+
+use super::{
+    CodecCaps, CodecCapsKey, Recorder, AUDIO_APPLICATION_DISCOVERY_CACHE_TTL,
+    CODEC_PROBE_RETRY_COOLDOWN, HARDWARE_DISCOVERY_CACHE_TTL,
+};
+
 impl Recorder {
-    fn action_error(&mut self, error: &str) -> RecordingActionResult {
+    pub(super) fn action_error(&mut self, error: &str) -> RecordingActionResult {
         RecordingActionResult {
             ok: false,
             status: self.status(),
@@ -8,7 +37,7 @@ impl Recorder {
         }
     }
 
-    fn available_codecs(&self, settings: &RecordingSettings) -> Vec<RecordingCodec> {
+    pub(super) fn available_codecs(&self, settings: &RecordingSettings) -> Vec<RecordingCodec> {
         let caps = self.codec_caps.clone().unwrap_or_default();
         match settings.encoder {
             RecordingEncoder::Hardware => caps
@@ -36,7 +65,7 @@ impl Recorder {
     /// capabilities are already known; otherwise OBS is spun up briefly to probe
     /// the encoders and torn back down. The result is cached per GPU adapter +
     /// runtime so this only re-probes when the relevant inputs change.
-    fn refresh_codec_capabilities(&mut self) {
+    pub(super) fn refresh_codec_capabilities(&mut self) {
         let Some(settings) = self.settings.clone() else {
             return;
         };
@@ -96,7 +125,7 @@ impl Recorder {
     }
 
     /// Whether `codec_caps` already reflect the current adapter + runtime.
-    fn codec_caps_current(&self) -> bool {
+    pub(super) fn codec_caps_current(&self) -> bool {
         let Some(settings) = self.settings.as_ref() else {
             return true;
         };
@@ -148,7 +177,7 @@ impl Recorder {
     /// Refresh the hardware and audio discovery caches that `status()` reads.
     /// Called from the recorder thread (tick/configure) so `status()` stays
     /// cheap enough to answer from a snapshot without touching the platform.
-    fn refresh_discovery_caches(&mut self) {
+    pub(super) fn refresh_discovery_caches(&mut self) {
         self.refresh_gpu_cache();
         match self.settings.as_ref().map(|settings| &settings.audio_mode) {
             Some(RecordingAudioMode::Applications) => {
@@ -161,7 +190,7 @@ impl Recorder {
         }
     }
 
-    fn refresh_gpu_cache(&mut self) {
+    pub(super) fn refresh_gpu_cache(&mut self) {
         if self.should_refresh_idle_cache(self.cached_gpus_at, HARDWARE_DISCOVERY_CACHE_TTL) {
             self.cached_gpus = platform_gpus();
             self.cached_gpus_at = Some(Instant::now());
@@ -190,7 +219,7 @@ impl Recorder {
         }
     }
 
-    fn refresh_audio_application_cache(&mut self) {
+    pub(super) fn refresh_audio_application_cache(&mut self) {
         let game_key = self
             .active_game
             .as_ref()
@@ -221,7 +250,7 @@ impl Recorder {
             || (self.current_mode() == RecordingMode::Idle && cache_expired(last_refresh, ttl))
     }
 
-    fn current_mode(&self) -> RecordingMode {
+    pub(super) fn current_mode(&self) -> RecordingMode {
         if self.replay_buffer_available() {
             RecordingMode::ReplayBuffer
         } else {
@@ -236,7 +265,10 @@ impl Recorder {
 /// game list edits are intentionally absent: the tick loop already ends
 /// sessions whose active game became disallowed, so list edits never interrupt
 /// an unrelated active recording.
-fn active_settings_require_restart(current: &RecordingSettings, next: &RecordingSettings) -> bool {
+pub(super) fn active_settings_require_restart(
+    current: &RecordingSettings,
+    next: &RecordingSettings,
+) -> bool {
     current.capture_mode != next.capture_mode
         || current.selected_display_id != next.selected_display_id
         || current.encoder != next.encoder
@@ -250,12 +282,15 @@ fn active_settings_require_restart(current: &RecordingSettings, next: &Recording
 /// Maps the live audio graph onto the configs the current settings describe.
 /// Position `i` holds the graph entry config `i` can reuse (same selector and
 /// capture target); `removed` lists entries no config needs.
-struct AudioSourcePlan {
-    reuse: Vec<Option<usize>>,
-    removed: Vec<usize>,
+pub(super) struct AudioSourcePlan {
+    pub(super) reuse: Vec<Option<usize>>,
+    pub(super) removed: Vec<usize>,
 }
 
-fn plan_audio_sources(existing: &[AudioSource], configs: &[AudioSourceConfig]) -> AudioSourcePlan {
+pub(super) fn plan_audio_sources(
+    existing: &[AudioSource],
+    configs: &[AudioSourceConfig],
+) -> AudioSourcePlan {
     let mut reuse: Vec<Option<usize>> = vec![None; configs.len()];
     let mut removed = Vec::new();
     for (index, entry) in existing.iter().enumerate() {
@@ -276,15 +311,15 @@ fn cache_expired(last_refresh: Option<Instant>, ttl: Duration) -> bool {
     last_refresh.is_none_or(|last_refresh| last_refresh.elapsed() >= ttl)
 }
 
-fn nonnegative_c_int(value: c_int) -> Option<u32> {
+pub(super) fn nonnegative_c_int(value: c_int) -> Option<u32> {
     u32::try_from(value).ok()
 }
 
-fn ns_to_ms(value: u64) -> f64 {
+pub(super) fn ns_to_ms(value: u64) -> f64 {
     value as f64 / 1_000_000.0
 }
 
-fn percent(part: Option<u32>, total: Option<u32>) -> Option<f64> {
+pub(super) fn percent(part: Option<u32>, total: Option<u32>) -> Option<f64> {
     let part = part?;
     let total = total?;
     if total == 0 {
@@ -315,6 +350,10 @@ fn merge_codec_caps(cached: CodecCaps, live: CodecCaps) -> CodecCaps {
 
 #[cfg(test)]
 mod audio_source_plan_tests {
+    use std::ptr;
+
+    use crate::agent::obs::OBS_WINDOW_PRIORITY_EXE;
+
     use super::*;
 
     fn source(selector: &str, target: &str) -> AudioSource {
@@ -376,7 +415,10 @@ mod audio_source_plan_tests {
     #[test]
     fn changed_capture_targets_replace_sources() {
         let existing = vec![source("application-a", "window-a")];
-        let plan = plan_audio_sources(&existing, &[application_config("application-a", "window-b")]);
+        let plan = plan_audio_sources(
+            &existing,
+            &[application_config("application-a", "window-b")],
+        );
         assert_eq!(plan.reuse, vec![None]);
         assert_eq!(plan.removed, vec![0]);
     }

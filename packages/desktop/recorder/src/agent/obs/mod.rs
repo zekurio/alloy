@@ -1,4 +1,56 @@
-unsafe fn load_symbol<T: Copy>(library: &Library, name: &[u8]) -> Result<T, String> {
+pub(in crate::agent) mod bindings;
+pub(in crate::agent) mod encoders;
+pub(in crate::agent) mod platform;
+pub(in crate::agent) mod screenshot;
+pub(in crate::agent) mod types;
+pub(in crate::agent) mod video_config;
+
+pub(in crate::agent) use bindings::LibObs;
+
+use std::{
+    ffi::{c_void, CStr, CString},
+    ptr,
+    sync::atomic::{AtomicBool, Ordering},
+    time::{Duration, Instant},
+};
+
+use libloading::{Library, Symbol};
+
+use crate::{
+    agent::platform::{primary_display_id, DetectedGame},
+    protocol::SIDE_CAR_NAME,
+    settings::{
+        default_audio_device_selections, resolve_audio_device_selection,
+        validate_and_dedupe_audio_selections,
+    },
+    types::{
+        RecordingAudioApplicationSelection, RecordingAudioDeviceKind,
+        RecordingAudioDeviceSelection, RecordingAudioMode, RecordingCaptureMode,
+        RecordingCaptureSource, RecordingCodec, RecordingEncoder, RecordingSettings,
+        VideoDimensions,
+    },
+};
+
+use self::{
+    bindings::{
+        CallData, ObsData, ObsEncoder, ObsOutput, ObsSource, Vec2, AUDIO_MIXER_ZERO,
+        AUDIO_OUTPUT_CHANNEL_BASE, GAME_CAPTURE_SOURCE_ID, MAX_OUTPUT_CHANNELS, OBS_ALIGN_CENTER,
+        OBS_BOUNDS_SCALE_INNER, OBS_SCALE_BILINEAR,
+    },
+    platform::{
+        audio_application_from_game, available_audio_applications, free_calldata,
+        platform_application_audio_source_id, platform_audio_devices,
+        platform_audio_input_source_id, platform_audio_output_source_id,
+        platform_default_audio_device_id, platform_display_source_id,
+    },
+    types::{AudioGraph, AudioSource, GameCaptureHookWait, OutputSourceKind, VideoGraph},
+    video_config::EffectiveQuality,
+};
+
+pub(in crate::agent) unsafe fn load_symbol<T: Copy>(
+    library: &Library,
+    name: &[u8],
+) -> Result<T, String> {
     let symbol: Symbol<T> = library.get(name).map_err(|error| {
         format!(
             "Missing libobs symbol {}: {error}",
@@ -8,7 +60,10 @@ unsafe fn load_symbol<T: Copy>(library: &Library, name: &[u8]) -> Result<T, Stri
     Ok(*symbol)
 }
 
-unsafe fn load_optional_symbol<T: Copy>(library: &Library, name: &[u8]) -> Option<T> {
+pub(in crate::agent) unsafe fn load_optional_symbol<T: Copy>(
+    library: &Library,
+    name: &[u8],
+) -> Option<T> {
     let symbol: Symbol<T> = library.get(name).ok()?;
     Some(*symbol)
 }
@@ -34,7 +89,7 @@ unsafe fn create_source(
     Ok(source)
 }
 
-unsafe fn create_video_encoder(
+pub(in crate::agent) unsafe fn create_video_encoder(
     obs: &LibObs,
     id: &str,
     settings: *mut ObsData,
@@ -66,7 +121,10 @@ unsafe fn create_audio_encoder(
     Ok(encoder)
 }
 
-unsafe fn create_output_audio_encoder(obs: &LibObs, id: &str) -> Result<*mut ObsEncoder, String> {
+pub(in crate::agent) unsafe fn create_output_audio_encoder(
+    obs: &LibObs,
+    id: &str,
+) -> Result<*mut ObsEncoder, String> {
     let settings = obs.create_data();
     let result = (|| {
         obs.set_int(settings, "bitrate", 160)?;
@@ -78,7 +136,7 @@ unsafe fn create_output_audio_encoder(obs: &LibObs, id: &str) -> Result<*mut Obs
     result
 }
 
-unsafe fn create_output(
+pub(in crate::agent) unsafe fn create_output(
     obs: &LibObs,
     id: &str,
     settings: *mut ObsData,
@@ -92,7 +150,7 @@ unsafe fn create_output(
     Ok(output)
 }
 
-unsafe fn release_output_graph(
+pub(in crate::agent) unsafe fn release_output_graph(
     obs: &LibObs,
     output: *mut ObsOutput,
     video_encoder: *mut ObsEncoder,
@@ -117,7 +175,7 @@ unsafe fn release_output_graph(
     release_audio_graph(obs, audio_graph);
 }
 
-unsafe fn release_video_graph(obs: &LibObs, graph: VideoGraph) {
+pub(in crate::agent) unsafe fn release_video_graph(obs: &LibObs, graph: VideoGraph) {
     if !graph.scene.is_null() {
         (obs.obs_scene_release)(graph.scene);
     }
@@ -141,7 +199,7 @@ unsafe fn release_audio_sources(obs: &LibObs, sources: Vec<AudioSource>) {
     }
 }
 
-unsafe fn release_audio_source(obs: &LibObs, source: *mut ObsSource) {
+pub(in crate::agent) unsafe fn release_audio_source(obs: &LibObs, source: *mut ObsSource) {
     if source.is_null() {
         return;
     }
@@ -149,7 +207,7 @@ unsafe fn release_audio_source(obs: &LibObs, source: *mut ObsSource) {
     (obs.obs_source_release)(source);
 }
 
-unsafe fn clear_audio_output_sources(obs: &LibObs, source_count: usize) {
+pub(in crate::agent) unsafe fn clear_audio_output_sources(obs: &LibObs, source_count: usize) {
     for source_index in 0..source_count {
         (obs.obs_set_output_source)(
             AUDIO_OUTPUT_CHANNEL_BASE + source_index as u32,
@@ -158,7 +216,7 @@ unsafe fn clear_audio_output_sources(obs: &LibObs, source_count: usize) {
     }
 }
 
-unsafe fn configure_video_encoder(
+pub(in crate::agent) unsafe fn configure_video_encoder(
     obs: &LibObs,
     data: *mut ObsData,
     settings: &RecordingSettings,
@@ -188,9 +246,7 @@ unsafe fn configure_video_encoder(
     Ok(())
 }
 
-include!("sidecar_obs_encoders.rs");
-
-fn target_bitrate_kbps(quality: &EffectiveQuality) -> u32 {
+pub(in crate::agent) fn target_bitrate_kbps(quality: &EffectiveQuality) -> u32 {
     if let Some(kbps) = quality.bitrate.custom_kbps() {
         return kbps;
     }
@@ -207,7 +263,10 @@ fn target_bitrate_kbps(quality: &EffectiveQuality) -> u32 {
     }
 }
 
-fn estimated_replay_buffer_mb(settings: &RecordingSettings, quality: &EffectiveQuality) -> u32 {
+pub(in crate::agent) fn estimated_replay_buffer_mb(
+    settings: &RecordingSettings,
+    quality: &EffectiveQuality,
+) -> u32 {
     let video_kbps = target_bitrate_kbps(quality);
     let audio_kbps = 160_u32;
     let megabytes = u64::from(video_kbps.saturating_add(audio_kbps))
@@ -216,7 +275,7 @@ fn estimated_replay_buffer_mb(settings: &RecordingSettings, quality: &EffectiveQ
     u32::try_from(megabytes.clamp(64, 16_384)).unwrap_or(16_384)
 }
 
-fn gpu_adapter(settings: &RecordingSettings) -> u32 {
+pub(in crate::agent) fn gpu_adapter(settings: &RecordingSettings) -> u32 {
     if settings.gpu == "auto" {
         return 0;
     }
@@ -234,7 +293,7 @@ const GAME_CAPTURE_HOOK_RETRY_INTERVAL: Duration = Duration::from_secs(2);
 const GAME_CAPTURE_HOOK_MAX_RETRIES: u32 = 20;
 
 #[derive(Debug, PartialEq, Eq)]
-enum GameCaptureHookPoll {
+pub(in crate::agent) enum GameCaptureHookPoll {
     Ready,
     Waiting(u32),
     Closed,
@@ -333,7 +392,9 @@ unsafe extern "C" fn game_capture_unhooked(_data: *mut c_void, _cd: *mut CallDat
     GAME_CAPTURE_HOOKED.store(false, Ordering::SeqCst);
 }
 
-fn start_game_capture_hook_wait(game: Option<&DetectedGame>) -> GameCaptureHookWait {
+pub(in crate::agent) fn start_game_capture_hook_wait(
+    game: Option<&DetectedGame>,
+) -> GameCaptureHookWait {
     let target = game_capture_target_name(game);
     let target_window = game_capture_target_window(game)
         .filter(|window| !window.trim().is_empty())
@@ -348,7 +409,7 @@ fn start_game_capture_hook_wait(game: Option<&DetectedGame>) -> GameCaptureHookW
     }
 }
 
-fn game_capture_hook_poll(
+pub(in crate::agent) fn game_capture_hook_poll(
     wait: &GameCaptureHookWait,
     now: Instant,
     hooked: bool,
@@ -371,12 +432,12 @@ fn game_capture_hook_poll(
     )
 }
 
-fn game_capture_hook_timeout_message(game: Option<&DetectedGame>) -> String {
+pub(in crate::agent) fn game_capture_hook_timeout_message(game: Option<&DetectedGame>) -> String {
     let target = game_capture_target_name(game);
     format!("OBS game capture did not hook {target}. Keep the game visible and try again.")
 }
 
-fn game_capture_target_name(game: Option<&DetectedGame>) -> &str {
+pub(in crate::agent) fn game_capture_target_name(game: Option<&DetectedGame>) -> &str {
     let target = game
         .map(|game| game.game.name.as_str())
         .filter(|name| !name.trim().is_empty())
@@ -388,7 +449,10 @@ fn game_capture_target_window(game: Option<&DetectedGame>) -> Option<&str> {
     game.and_then(|game| game.obs_window.as_deref())
 }
 
-unsafe fn game_capture_source_hooked(obs: &LibObs, source: *mut ObsSource) -> bool {
+pub(in crate::agent) unsafe fn game_capture_source_hooked(
+    obs: &LibObs,
+    source: *mut ObsSource,
+) -> bool {
     if GAME_CAPTURE_HOOKED.load(Ordering::SeqCst) {
         return true;
     }
@@ -439,7 +503,7 @@ unsafe fn configure_display_capture_source(
     Ok(())
 }
 
-unsafe fn create_video_graph(
+pub(in crate::agent) unsafe fn create_video_graph(
     obs: &LibObs,
     settings: &RecordingSettings,
     game: Option<&DetectedGame>,
@@ -497,18 +561,18 @@ unsafe fn create_scaled_video_scene(
     })
 }
 
-struct AudioSourceConfig {
-    source_id: &'static str,
-    name: String,
-    selector: String,
-    device_id: Option<String>,
-    window: Option<String>,
-    priority: Option<i64>,
-    volume: f32,
+pub(in crate::agent) struct AudioSourceConfig {
+    pub(in crate::agent) source_id: &'static str,
+    pub(in crate::agent) name: String,
+    pub(in crate::agent) selector: String,
+    pub(in crate::agent) device_id: Option<String>,
+    pub(in crate::agent) window: Option<String>,
+    pub(in crate::agent) priority: Option<i64>,
+    pub(in crate::agent) volume: f32,
 }
 
 impl AudioSourceConfig {
-    fn effective_value(&self) -> &str {
+    pub(in crate::agent) fn effective_value(&self) -> &str {
         self.device_id
             .as_deref()
             .or(self.window.as_deref())
@@ -516,13 +580,13 @@ impl AudioSourceConfig {
     }
 }
 
-const OBS_WINDOW_PRIORITY_EXE: i64 = 2;
+pub(in crate::agent) const OBS_WINDOW_PRIORITY_EXE: i64 = 2;
 
 /// Creates one audio capture source from a resolved selection and applies the
 /// shared mixer and per-source volume. Routing to an output channel is kept
 /// separate so a live update can build every new source before it touches the
 /// active graph.
-unsafe fn create_audio_source(
+pub(in crate::agent) unsafe fn create_audio_source(
     obs: &LibObs,
     config: &AudioSourceConfig,
 ) -> Result<*mut ObsSource, String> {
@@ -549,11 +613,15 @@ unsafe fn create_audio_source(
     Ok(source)
 }
 
-unsafe fn route_audio_source(obs: &LibObs, source: *mut ObsSource, source_index: usize) {
+pub(in crate::agent) unsafe fn route_audio_source(
+    obs: &LibObs,
+    source: *mut ObsSource,
+    source_index: usize,
+) {
     (obs.obs_set_output_source)(AUDIO_OUTPUT_CHANNEL_BASE + source_index as u32, source);
 }
 
-fn validate_audio_source_count(source_count: usize) -> Result<(), String> {
+pub(in crate::agent) fn validate_audio_source_count(source_count: usize) -> Result<(), String> {
     let max_sources = MAX_OUTPUT_CHANNELS - AUDIO_OUTPUT_CHANNEL_BASE as usize;
     if source_count > max_sources {
         return Err(format!(
@@ -563,7 +631,7 @@ fn validate_audio_source_count(source_count: usize) -> Result<(), String> {
     Ok(())
 }
 
-unsafe fn create_audio_graph(
+pub(in crate::agent) unsafe fn create_audio_graph(
     obs: &LibObs,
     settings: &RecordingSettings,
     game: Option<&DetectedGame>,
@@ -601,7 +669,7 @@ unsafe fn create_audio_graph(
     Ok(graph)
 }
 
-fn audio_source_configs(
+pub(in crate::agent) fn audio_source_configs(
     obs: &LibObs,
     settings: &RecordingSettings,
     game: Option<&DetectedGame>,
@@ -746,6 +814,23 @@ fn audio_source_name(prefix: &str, label: &str, target: &str) -> String {
     )
 }
 
+fn file_slug(value: &str) -> String {
+    let slug: String = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    slug.split('-')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
 fn stable_audio_target_hash(target: &str) -> u32 {
     target.bytes().fold(2_166_136_261, |hash, byte| {
         (hash ^ u32::from(byte)).wrapping_mul(16_777_619)
@@ -800,7 +885,7 @@ fn game_capture_mode(game: Option<&DetectedGame>) -> &'static str {
     }
 }
 
-fn source_kind(settings: &RecordingSettings) -> OutputSourceKind {
+pub(in crate::agent) fn source_kind(settings: &RecordingSettings) -> OutputSourceKind {
     if settings.capture_mode == RecordingCaptureMode::Display {
         OutputSourceKind::Display
     } else {
@@ -808,7 +893,7 @@ fn source_kind(settings: &RecordingSettings) -> OutputSourceKind {
     }
 }
 
-fn should_pause_for_focus(
+pub(in crate::agent) fn should_pause_for_focus(
     _settings: &RecordingSettings,
     _game: Option<&DetectedGame>,
     _focused: bool,
@@ -816,7 +901,9 @@ fn should_pause_for_focus(
     false
 }
 
-fn recording_source_from_kind(source_kind: OutputSourceKind) -> RecordingCaptureSource {
+pub(in crate::agent) fn recording_source_from_kind(
+    source_kind: OutputSourceKind,
+) -> RecordingCaptureSource {
     if source_kind == OutputSourceKind::Display {
         RecordingCaptureSource::Display
     } else {
@@ -824,12 +911,13 @@ fn recording_source_from_kind(source_kind: OutputSourceKind) -> RecordingCapture
     }
 }
 
-include!("sidecar_obs_video_config.rs");
-
 /// # Safety
 ///
 /// `output` must be a valid OBS output pointer for this libobs instance.
-unsafe fn output_last_error(obs: &LibObs, output: *mut ObsOutput) -> Option<String> {
+pub(in crate::agent) unsafe fn output_last_error(
+    obs: &LibObs,
+    output: *mut ObsOutput,
+) -> Option<String> {
     let raw = (obs.obs_output_get_last_error)(output);
     if raw.is_null() {
         return None;
@@ -841,5 +929,3 @@ unsafe fn output_last_error(obs: &LibObs, output: *mut ObsOutput) -> Option<Stri
         Some(message)
     }
 }
-
-include!("sidecar_obs_platform.rs");
