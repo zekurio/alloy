@@ -192,7 +192,11 @@ impl Recorder {
             current_capture: self
                 .replay_session
                 .as_ref()
-                .map(|session| session.capture.clone())
+                .map(|session| {
+                    let mut capture = session.capture.clone();
+                    capture.game = self.capture_context_game(&session.capture).cloned();
+                    capture
+                })
                 .or_else(|| self.last_capture.clone()),
             replay_buffer_seconds: settings.replay_buffer_seconds,
             available_gpus: self.cached_gpus.clone(),
@@ -397,21 +401,24 @@ impl Recorder {
         }
 
         let settings = self.settings.clone().unwrap_or_default();
-        let game =
-            self.capture_game_for_mode("No detected game is available for replay buffer.")?;
+        let target_game =
+            self.capture_target_game("No detected game is available for replay buffer.")?;
         let output_folder = self.current_output_folder()?;
         let replay_scratch_folder = self.current_replay_scratch_folder()?;
-        let path = saved_recording_path(&output_folder, self.capture_folder_game(game.as_ref()));
+        let path = saved_recording_path(
+            &output_folder,
+            self.active_game.as_ref().map(|game| &game.game),
+        );
         let capture = self.new_capture(
             &settings,
-            game.as_ref(),
+            target_game.as_ref(),
             RecordingCaptureKind::Replay,
             path.to_string_lossy().into_owned(),
         );
 
         let session = self.start_output(
             &settings,
-            game.as_ref(),
+            target_game.as_ref(),
             capture,
             ReplayBufferConfig {
                 scratch_directory: replay_scratch_folder,
@@ -494,7 +501,7 @@ impl Recorder {
             duration_ms: Some(u64::from(duration_seconds) * 1000),
             width: Some(output_dimensions.width),
             height: Some(output_dimensions.height),
-            game: session.capture.game.clone(),
+            game: self.capture_context_game(&session.capture).cloned(),
             source: session.capture.source,
             kind: RecordingCaptureKind::Replay,
             post_process: saved.post_process,
@@ -636,12 +643,12 @@ impl Recorder {
     fn new_capture(
         &self,
         settings: &RecordingSettings,
-        game: Option<&DetectedGame>,
+        target_game: Option<&DetectedGame>,
         kind: RecordingCaptureKind,
         filename: String,
     ) -> RecordingCapture {
         let source_kind = source_kind(settings);
-        let video_config = obs_video_config(settings, game, source_kind);
+        let video_config = obs_video_config(settings, target_game, source_kind);
         RecordingCapture {
             id: format!("capture-{}", timestamp_millis()),
             filename,
@@ -650,7 +657,7 @@ impl Recorder {
             duration_ms: None,
             width: Some(video_config.output.width),
             height: Some(video_config.output.height),
-            game: game.map(|game| game.game.clone()),
+            game: self.active_game.as_ref().map(|game| game.game.clone()),
             source: recording_source_from_kind(source_kind),
             kind,
             post_process: None,
@@ -749,27 +756,24 @@ impl Recorder {
             .active_game
             .as_ref()
             .map(|game| game.window_key.clone());
-        let game_boundary = if settings.capture_mode == RecordingCaptureMode::Game {
-            if self
-                .active_game
-                .as_ref()
-                .is_some_and(|game| !detected_game_allowed(game, &settings))
-            {
-                self.clear_active_game("no longer passes detection rules");
-                Some(GameBoundaryReason::Disallowed)
-            } else {
-                let active_game = self.active_game.clone();
-                self.observe_game(detect_game_activity(active_game.as_ref(), &settings))
-                    .map(|_| GameBoundaryReason::Closed)
-            }
+        self.active_display = if settings.capture_mode == RecordingCaptureMode::Display {
+            selected_display(&settings)
         } else {
-            let game_boundary = self
-                .clear_active_game("capture mode is no longer game capture")
-                .map(|_| GameBoundaryReason::Changed);
-            self.focused = false;
-            self.missing_game_ticks = 0;
-            self.active_display = selected_display(&settings);
-            game_boundary
+            None
+        };
+        // Game identity organizes captures in both modes. It only controls the
+        // video target and replay lifecycle when game capture is selected.
+        let game_boundary = if self
+            .active_game
+            .as_ref()
+            .is_some_and(|game| !detected_game_allowed(game, &settings))
+        {
+            self.clear_active_game("no longer passes detection rules");
+            Some(GameBoundaryReason::Disallowed)
+        } else {
+            let active_game = self.active_game.clone();
+            self.observe_game(detect_game_activity(active_game.as_ref(), &settings))
+                .map(|_| GameBoundaryReason::Closed)
         };
         let current_game_key = self
             .active_game
@@ -877,6 +881,11 @@ impl Recorder {
         settings: &RecordingSettings,
         reason: GameBoundaryReason,
     ) -> Result<(), String> {
+        // Display capture is continuous. Starting, switching, or closing a
+        // game changes save-time metadata, not the selected display or buffer.
+        if settings.capture_mode == RecordingCaptureMode::Display {
+            return Ok(());
+        }
         if self.replay_session.is_some() {
             if reason == GameBoundaryReason::Closed {
                 self.defer_active_replay_buffer_stop();
@@ -976,7 +985,7 @@ impl Recorder {
         }
     }
 
-    fn capture_game_for_mode(
+    fn capture_target_game(
         &mut self,
         missing_message: &str,
     ) -> Result<Option<DetectedGame>, String> {
@@ -990,15 +999,17 @@ impl Recorder {
         self.refreshed_active_game(missing_message).map(Some)
     }
 
-    fn capture_folder_game<'a>(&self, game: Option<&'a DetectedGame>) -> Option<&'a RecordingGame> {
-        if self
-            .settings
-            .as_ref()
-            .is_some_and(|settings| settings.capture_mode == RecordingCaptureMode::Display)
-        {
-            None
-        } else {
-            game.map(|game| &game.game)
+    fn capture_context_game<'a>(
+        &'a self,
+        capture: &'a RecordingCapture,
+    ) -> Option<&'a RecordingGame> {
+        match capture.source {
+            // A display buffer can outlive several games. Use the current
+            // detected game for both metadata and the destination folder.
+            RecordingCaptureSource::Display => self.active_game.as_ref().map(|game| &game.game),
+            // Keep the recorded game's identity during the post-close grace
+            // period, even when detection has already cleared or changed.
+            RecordingCaptureSource::Game => capture.game.as_ref(),
         }
     }
 

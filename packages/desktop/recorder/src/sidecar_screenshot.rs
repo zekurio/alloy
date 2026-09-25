@@ -199,9 +199,10 @@ impl Recorder {
             .output_folder
             .as_ref()
             .ok_or("Capture folder is unavailable.")?;
+        let game = self.capture_context_game(&session.capture);
         let directory = root
             .join("Screenshots")
-            .join(recording_context_folder(session.capture.game.as_ref()));
+            .join(recording_context_folder(game));
         fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
         let path = directory.join(format!("screenshot-{}.png", timestamp_file_slug()));
         let temporary = path.with_extension("png.tmp");
@@ -219,7 +220,7 @@ impl Recorder {
             duration_ms: None,
             width: Some(width),
             height: Some(height),
-            game: session.capture.game.clone(),
+            game: game.cloned(),
             source: session.capture.source,
             kind: RecordingCaptureKind::Screenshot,
             post_process: None,

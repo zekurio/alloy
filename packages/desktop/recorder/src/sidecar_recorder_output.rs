@@ -409,7 +409,7 @@ impl Recorder {
                     return move_saved_replay_to_output(
                         &path,
                         output_directory,
-                        session.capture.game.as_ref(),
+                        self.capture_context_game(&session.capture),
                         duration_seconds,
                         *replay_seconds,
                     );
@@ -422,7 +422,7 @@ impl Recorder {
             return move_saved_replay_to_output(
                 &replay.path.to_string_lossy(),
                 output_directory,
-                session.capture.game.as_ref(),
+                self.capture_context_game(&session.capture),
                 duration_seconds,
                 *replay_seconds,
             );
@@ -460,7 +460,7 @@ impl Recorder {
         let saved = save_disk_replay_clip(
             scratch_directory,
             output_directory,
-            session.capture.game.as_ref(),
+            self.capture_context_game(&session.capture),
             replay_seconds,
             &segment.path,
         )?;
