@@ -60,7 +60,7 @@ uuid = { version = "1", features = ["v4"] }
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.38"
-windows = "0.61"
+windows = "0.62"
 
 [dev-dependencies]
 tempfile = "3"
