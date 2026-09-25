@@ -4,6 +4,13 @@ The Windows desktop app loads an Alloy server's web UI through Tauri.
 `src-tauri/` contains the native host; `recorder/` contains the separate OBS
 recorder process, `alloy-agent`.
 
+Desktop capture records the selected display while game detection continues.
+Saved clips and screenshots use the detected game's metadata and folder, or
+`Desktop` when no game is detected. The game at save time determines the label
+even if a replay spans a game switch; switching or closing games does not reset
+the display replay buffer. Game capture still follows the game window and keeps
+its game identity for replays saved during the post-close grace period.
+
 ## Run
 
 Requires Windows, Node 24, the pinned pnpm version, Rust, Windows C++ build tools,
@@ -36,6 +43,9 @@ check on Windows:
 - Login, cancellation, session refresh after restart, server switching, and
   incompatible-server rejection.
 - Recording, screenshots, recorder crash recovery, and capture while in the tray.
+- Desktop capture before starting a game, during a detected game, and after
+  switching or closing it. Verify clip/screenshot game metadata and folders while
+  the selected display and replay buffer stay unchanged.
 - H.264, HEVC, and AV1 playback, seeking, editing, export, and upload.
 - Installer setup, updates, and uninstall.
 

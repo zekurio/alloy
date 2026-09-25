@@ -70,6 +70,62 @@ test("canonicalizes a local game group before merging uploaded clips", () => {
   assert.deepEqual(groups[0]?.localKeys, ["valorant"])
 })
 
+test("display captures with game metadata resolve as games, unlike desktop captures", () => {
+  const detected = {
+    ...localValorantCapture(),
+    source: "display" as const,
+  }
+  const noGame = {
+    ...detected,
+    id: "local-desktop",
+    filename: "C:\\Videos\\Alloy\\Clips\\Desktop\\clip.mp4",
+    groupKey: "uncategorized",
+    groupLabel: "Uncategorized",
+    gameName: null,
+  }
+
+  const detectedView = enrichLibraryItem(detected, valorantLookup)
+  const noGameView = enrichLibraryItem(noGame, valorantLookup)
+  assert.equal(detectedView.displayGame, valorant)
+  assert.equal(detectedView.displayGameName, "Valorant")
+  assert.equal(detectedView.gameSlug, "valorant")
+  assert.equal(noGameView.displayGame, null)
+  assert.equal(noGameView.displayGameName, "")
+  assert.equal(noGameView.gameSlug, null)
+
+  const groups = buildLibraryGroups(
+    [
+      enrichLibraryGroup(
+        { ...localValorantGroup(), items: [detected] },
+        valorantLookup,
+      ),
+      {
+        key: "uncategorized",
+        label: "Uncategorized",
+        kind: "desktop",
+        iconUrl: null,
+        totalCount: 1,
+        clipCount: 1,
+        totalSizeBytes: 1,
+        latestAt: noGame.createdAt,
+        items: [noGame],
+      },
+    ],
+    [],
+  )
+  assert.deepEqual(
+    groups.map(({ label, kind, localKeys }) => ({ label, kind, localKeys })),
+    [
+      { label: "Valorant", kind: "game", localKeys: ["valorant"] },
+      {
+        label: "No game",
+        kind: "no-game",
+        localKeys: ["uncategorized"],
+      },
+    ],
+  )
+})
+
 test("source filters include synced clips wherever a copy exists", () => {
   const synced = { ...localValorantCapture(), uploadedClipId: "clip-1" }
   const local = { ...localValorantCapture(), id: "local-2" }

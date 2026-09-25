@@ -94,3 +94,7 @@ include!("sidecar_obs.rs");
 include!("sidecar_screenshot.rs");
 include!("sidecar_notification_sounds.rs");
 include!("sidecar_runtime.rs");
+
+#[cfg(test)]
+#[path = "sidecar_recorder_tests.rs"]
+mod recorder_tests;
