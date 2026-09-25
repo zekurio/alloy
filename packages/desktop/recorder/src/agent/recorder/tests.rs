@@ -1,3 +1,8 @@
+use std::{path::Path, ptr};
+
+use crate::types::{RecordingGameGuess, RecordingGameGuessMatchKind, RecordingGameGuessSource};
+
+use super::replay::recording_context_folder;
 use super::*;
 
 fn detected_game(name: &str) -> DetectedGame {

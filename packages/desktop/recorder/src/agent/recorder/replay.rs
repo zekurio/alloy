@@ -1,28 +1,26 @@
-fn now_iso() -> String {
-    Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
-}
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    thread,
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
 
-fn system_time_iso(value: SystemTime) -> String {
-    DateTime::<Utc>::from(value).to_rfc3339_opts(SecondsFormat::Millis, true)
-}
+use crate::agent::time::timestamp_file_slug;
+use crate::names::file_component;
+use crate::types::{RecordingBufferStorage, RecordingCapturePostProcess, RecordingGame};
 
-fn timestamp_millis() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis())
-        .unwrap_or_default()
-}
+use super::{ActiveSession, ReplayBufferConfig};
 
-fn timestamp_file_slug() -> String {
-    Utc::now().format("%Y%m%d-%H%M%S%.3f").to_string()
-}
+pub(super) const DISK_REPLAY_PREFIX: &str = "alloy-replay-buffer-";
+pub(super) const MEMORY_REPLAY_PREFIX: &str = "alloy-replay-";
+const DISK_REPLAY_SEGMENT_SECONDS: u32 = 15;
 
-fn recording_context_folder(game: Option<&RecordingGame>) -> String {
+pub(super) fn recording_context_folder(game: Option<&RecordingGame>) -> String {
     game.map(|game| file_component(&game.name, "Desktop"))
         .unwrap_or_else(|| "Desktop".to_string())
 }
 
-fn saved_recording_path(output_folder: &Path, game: Option<&RecordingGame>) -> PathBuf {
+pub(super) fn saved_recording_path(output_folder: &Path, game: Option<&RecordingGame>) -> PathBuf {
     let directory = output_folder
         .join("Clips")
         .join(recording_context_folder(game));
@@ -40,22 +38,22 @@ fn unique_recording_path(directory: &Path, prefix: &str) -> PathBuf {
     path
 }
 
-struct DiskReplaySegment {
-    path: PathBuf,
-    modified: SystemTime,
+pub(super) struct DiskReplaySegment {
+    pub(super) path: PathBuf,
+    pub(super) modified: SystemTime,
 }
 
-struct MemoryReplayFile {
-    path: PathBuf,
-    modified: SystemTime,
+pub(super) struct MemoryReplayFile {
+    pub(super) path: PathBuf,
+    pub(super) modified: SystemTime,
 }
 
-struct SavedReplayClip {
-    path: String,
-    post_process: Option<RecordingCapturePostProcess>,
+pub(super) struct SavedReplayClip {
+    pub(super) path: String,
+    pub(super) post_process: Option<RecordingCapturePostProcess>,
 }
 
-fn newest_memory_replay_file(
+pub(super) fn newest_memory_replay_file(
     directory: &Path,
     modified_after: SystemTime,
 ) -> Option<MemoryReplayFile> {
@@ -95,7 +93,7 @@ fn memory_replay_files(directory: &Path) -> Vec<MemoryReplayFile> {
         .collect()
 }
 
-fn replay_file_modified_at_or_after(path: &Path, modified_after: SystemTime) -> bool {
+pub(super) fn replay_file_modified_at_or_after(path: &Path, modified_after: SystemTime) -> bool {
     let Ok(metadata) = fs::metadata(path) else {
         return false;
     };
@@ -108,7 +106,7 @@ fn replay_file_modified_at_or_after(path: &Path, modified_after: SystemTime) -> 
         .unwrap_or(false)
 }
 
-fn newest_disk_replay_segment(directory: &Path) -> Option<DiskReplaySegment> {
+pub(super) fn newest_disk_replay_segment(directory: &Path) -> Option<DiskReplaySegment> {
     disk_replay_segments(directory)
         .into_iter()
         .max_by_key(|segment| segment.modified)
@@ -171,7 +169,7 @@ fn wait_for_stable_file(path: &Path) -> Result<(), String> {
     ))
 }
 
-fn save_disk_replay_clip(
+pub(super) fn save_disk_replay_clip(
     scratch_directory: &Path,
     output_directory: &Path,
     game: Option<&RecordingGame>,
@@ -228,7 +226,7 @@ fn save_disk_replay_clip(
     })
 }
 
-fn move_saved_replay_to_output(
+pub(super) fn move_saved_replay_to_output(
     path: &str,
     output_directory: &Path,
     game: Option<&RecordingGame>,
@@ -304,7 +302,7 @@ fn copy_disk_replay_segment_parts(
         .collect()
 }
 
-fn disk_replay_segment_seconds(replay_seconds: u32) -> u32 {
+pub(super) fn disk_replay_segment_seconds(replay_seconds: u32) -> u32 {
     replay_seconds.clamp(1, DISK_REPLAY_SEGMENT_SECONDS)
 }
 
@@ -313,11 +311,11 @@ fn disk_replay_segment_count(replay_seconds: u32) -> usize {
     usize::try_from(replay_seconds.div_ceil(segment_seconds).saturating_add(1)).unwrap_or(2)
 }
 
-fn replay_buffer_duration(session: &ActiveSession) -> Duration {
+pub(super) fn replay_buffer_duration(session: &ActiveSession) -> Duration {
     Duration::from_secs(u64::from(session.output_config.replay_seconds.max(1)))
 }
 
-fn cleanup_disk_replay_segments(config: &ReplayBufferConfig, keep: Option<&str>) {
+pub(super) fn cleanup_disk_replay_segments(config: &ReplayBufferConfig, keep: Option<&str>) {
     let ReplayBufferConfig {
         scratch_directory,
         output_directory: _,
@@ -341,6 +339,30 @@ fn cleanup_disk_replay_segments(config: &ReplayBufferConfig, keep: Option<&str>)
     }
 }
 
-fn unix_millis_to_system_time(value: u64) -> SystemTime {
-    UNIX_EPOCH + Duration::from_millis(value)
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shorter_clips_request_a_tail_trim() {
+        assert!(matches!(
+            replay_trim_post_process(12, 30),
+            Some(RecordingCapturePostProcess::TrimTail { keep_ms: 12_000 })
+        ));
+        assert!(matches!(
+            replay_trim_post_process(0, 30),
+            Some(RecordingCapturePostProcess::TrimTail { keep_ms: 1_000 })
+        ));
+        assert!(replay_trim_post_process(30, 30).is_none());
+        assert!(replay_trim_post_process(60, 30).is_none());
+    }
+
+    #[test]
+    fn disk_replay_keeps_an_extra_segment_at_the_boundary() {
+        assert_eq!(disk_replay_segment_seconds(0), 1);
+        assert_eq!(disk_replay_segment_seconds(10), 10);
+        assert_eq!(disk_replay_segment_seconds(60), 15);
+        assert_eq!(disk_replay_segment_count(30), 3);
+        assert_eq!(disk_replay_segment_count(31), 4);
+    }
 }

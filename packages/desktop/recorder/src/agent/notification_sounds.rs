@@ -1,4 +1,8 @@
-fn play_notification_sound(params: PlayNotificationSoundParams) -> Result<(), String> {
+use std::{fs, path::PathBuf, thread};
+
+use crate::{protocol::SIDE_CAR_NAME, types::PlayNotificationSoundParams};
+
+pub(super) fn play_notification_sound(params: PlayNotificationSoundParams) -> Result<(), String> {
     let path = PathBuf::from(params.path);
     let volume = params.volume.clamp(0.0, 1.0);
     thread::Builder::new()
@@ -12,10 +16,7 @@ fn play_notification_sound(params: PlayNotificationSoundParams) -> Result<(), St
         .map_err(|error| format!("Failed to start notification sound thread: {error}"))
 }
 
-fn play_notification_sound_blocking(
-    path: PathBuf,
-    volume: f32,
-) -> Result<(), String> {
+fn play_notification_sound_blocking(path: PathBuf, volume: f32) -> Result<(), String> {
     let file = fs::File::open(&path).map_err(|error| {
         format!(
             "Failed to open notification sound {}: {error}",

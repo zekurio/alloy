@@ -1,11 +1,52 @@
+use std::{
+    ffi::{CStr, CString},
+    os::raw::c_char,
+    path::Path,
+    ptr, thread,
+    time::{Duration, Instant, SystemTime},
+};
+
+use crate::agent::{
+    obs::{
+        bindings::{CallData, ProcHandler},
+        configure_video_encoder, create_audio_graph, create_output, create_output_audio_encoder,
+        create_video_encoder, create_video_graph,
+        encoders::{
+            choose_audio_encoder, choose_video_encoder, codec_label, selected_gpu_label,
+            unavailable_video_encoder_message,
+        },
+        estimated_replay_buffer_mb, game_capture_hook_poll, game_capture_hook_timeout_message,
+        game_capture_source_hooked, game_capture_target_name, output_last_error,
+        platform::free_calldata,
+        recording_source_from_kind, release_output_graph, release_video_graph, source_kind,
+        start_game_capture_hook_wait,
+        types::{GameCaptureHookWait, OutputSourceKind},
+        video_config::effective_quality_for_base,
+        GameCaptureHookPoll, LibObs,
+    },
+    platform::{is_detected_game_alive, DetectedGame},
+    time::timestamp_file_slug,
+};
+use crate::protocol::SIDE_CAR_NAME;
+use crate::types::{RecordingBufferStorage, RecordingCapture, RecordingSettings};
+
+use super::{
+    replay::{
+        cleanup_disk_replay_segments, disk_replay_segment_seconds, move_saved_replay_to_output,
+        newest_disk_replay_segment, newest_memory_replay_file, replay_file_modified_at_or_after,
+        save_disk_replay_clip, SavedReplayClip, DISK_REPLAY_PREFIX,
+    },
+    ActiveSession, Recorder, ReplayBufferConfig,
+};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum GameCaptureHookRefresh {
+pub(super) enum GameCaptureHookRefresh {
     Continue,
     TargetClosed,
 }
 
 impl Recorder {
-    fn start_output(
+    pub(super) fn start_output(
         &mut self,
         settings: &RecordingSettings,
         game: Option<&DetectedGame>,
@@ -232,7 +273,7 @@ impl Recorder {
         })
     }
 
-    fn refresh_game_capture_hook(&mut self) -> Result<GameCaptureHookRefresh, String> {
+    pub(super) fn refresh_game_capture_hook(&mut self) -> Result<GameCaptureHookRefresh, String> {
         let Some(session) = self.replay_session.as_ref() else {
             return Ok(GameCaptureHookRefresh::Continue);
         };
@@ -331,7 +372,7 @@ impl Recorder {
         Ok(GameCaptureHookRefresh::Continue)
     }
 
-    unsafe fn stop_output(&self, session: ActiveSession) -> Result<(), String> {
+    pub(super) unsafe fn stop_output(&self, session: ActiveSession) -> Result<(), String> {
         let obs = self
             .obs
             .as_ref()
@@ -361,7 +402,7 @@ impl Recorder {
         Ok(())
     }
 
-    unsafe fn save_replay(
+    pub(super) unsafe fn save_replay(
         &self,
         session: &ActiveSession,
         duration_seconds: u32,

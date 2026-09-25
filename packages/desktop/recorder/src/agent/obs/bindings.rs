@@ -1,119 +1,253 @@
-struct LibObs {
-    screenshots: ScreenshotBindings,
+use std::{
+    ffi::{c_char, c_int, c_void, CStr, CString},
+    path::Path,
+    ptr,
+};
+
+use libloading::Library;
+
+use crate::{
+    agent::obs::types::{ObsEncoderDescriptor, ObsEncoderKind, ObsVideoConfig},
+    protocol::SIDE_CAR_NAME,
+    types::{RecordingAudioDevice, RecordingAudioDeviceKind},
+};
+
+use super::{
+    load_optional_symbol, load_symbol,
+    platform::{
+        cstring_path, libobs_candidates, module_bin_path, platform_audio_input_source_id,
+        platform_audio_output_source_id, platform_graphics_module, platform_modules,
+        sort_audio_devices,
+    },
+    screenshot::ScreenshotBindings,
+};
+
+pub(in crate::agent) const VIDEO_FORMAT_NV12: i32 = 2;
+pub(in crate::agent) const VIDEO_CS_DEFAULT: i32 = 0;
+pub(in crate::agent) const VIDEO_RANGE_DEFAULT: i32 = 0;
+pub(in crate::agent) const OBS_SCALE_BILINEAR: i32 = 3;
+pub(in crate::agent) const OBS_BOUNDS_SCALE_INNER: i32 = 2;
+pub(in crate::agent) const OBS_ALIGN_CENTER: u32 = 0;
+pub(in crate::agent) const SPEAKERS_STEREO: i32 = 2;
+pub(in crate::agent) const AUDIO_OUTPUT_CHANNEL_BASE: u32 = 1;
+pub(in crate::agent) const MAX_OUTPUT_CHANNELS: usize = 64;
+pub(in crate::agent) const AUDIO_MIXER_ZERO: u32 = 1;
+pub(in crate::agent) const OBS_VIDEO_SUCCESS: i32 = 0;
+pub(in crate::agent) const OBS_ENCODER_AUDIO: c_int = 0;
+pub(in crate::agent) const OBS_ENCODER_VIDEO: c_int = 1;
+pub(in crate::agent) const OBS_ENCODER_CAP_DEPRECATED: u32 = 1 << 0;
+pub(in crate::agent) const OBS_ENCODER_CAP_PASS_TEXTURE: u32 = 1 << 1;
+pub(in crate::agent) const OBS_ENCODER_CAP_INTERNAL: u32 = 1 << 3;
+pub(in crate::agent) const GAME_CAPTURE_SOURCE_ID: &str = "game_capture";
+pub(in crate::agent) const OBS_PROPERTY_LIST: i32 = 6;
+pub(in crate::agent) const OBS_COMBO_FORMAT_STRING: i32 = 3;
+
+pub(in crate::agent) type ObsData = c_void;
+pub(in crate::agent) type ObsSource = c_void;
+pub(in crate::agent) type ObsEncoder = c_void;
+pub(in crate::agent) type ObsOutput = c_void;
+pub(in crate::agent) type ObsScene = c_void;
+pub(in crate::agent) type ObsSceneItem = c_void;
+pub(in crate::agent) type ObsProperties = c_void;
+pub(in crate::agent) type ObsProperty = c_void;
+pub(in crate::agent) type ObsVideo = c_void;
+pub(in crate::agent) type ObsAudio = c_void;
+pub(in crate::agent) type ObsModule = c_void;
+pub(in crate::agent) type ProcHandler = c_void;
+pub(in crate::agent) type SignalHandler = c_void;
+pub(in crate::agent) type SignalCallback = unsafe extern "C" fn(*mut c_void, *mut CallData);
+
+#[repr(C)]
+pub(in crate::agent) struct CallData {
+    pub(in crate::agent) stack: *mut u8,
+    pub(in crate::agent) size: usize,
+    pub(in crate::agent) capacity: usize,
+    pub(in crate::agent) fixed: bool,
+}
+
+impl Default for CallData {
+    fn default() -> Self {
+        Self {
+            stack: ptr::null_mut(),
+            size: 0,
+            capacity: 0,
+            fixed: false,
+        }
+    }
+}
+
+#[repr(C)]
+struct ObsVideoInfo {
+    graphics_module: *const c_char,
+    fps_num: u32,
+    fps_den: u32,
+    base_width: u32,
+    base_height: u32,
+    output_width: u32,
+    output_height: u32,
+    output_format: i32,
+    adapter: u32,
+    gpu_conversion: bool,
+    colorspace: i32,
+    range: i32,
+    scale_type: i32,
+}
+
+#[repr(C)]
+struct ObsAudioInfo {
+    samples_per_sec: u32,
+    speakers: i32,
+}
+
+#[repr(C)]
+pub(in crate::agent) struct Vec2 {
+    pub(in crate::agent) x: f32,
+    pub(in crate::agent) y: f32,
+}
+
+pub(in crate::agent) struct LibObs {
+    pub(in crate::agent) screenshots: ScreenshotBindings,
+    // Keep the DLL loaded for as long as any of its function pointers are held.
     _library: Library,
-    obs_startup: unsafe extern "C" fn(*const c_char, *const c_char, *const c_char) -> bool,
-    obs_initialized: unsafe extern "C" fn() -> bool,
-    obs_shutdown: unsafe extern "C" fn(),
-    obs_add_data_path: unsafe extern "C" fn(*const c_char),
-    obs_add_module_path: unsafe extern "C" fn(*const c_char, *const c_char),
-    obs_load_all_modules: unsafe extern "C" fn(),
-    obs_open_module: unsafe extern "C" fn(*mut *mut ObsModule, *const c_char, *const c_char) -> i32,
-    obs_init_module: unsafe extern "C" fn(*mut ObsModule) -> bool,
-    obs_post_load_modules: unsafe extern "C" fn(),
+    pub(in crate::agent) obs_startup:
+        unsafe extern "C" fn(*const c_char, *const c_char, *const c_char) -> bool,
+    pub(in crate::agent) obs_initialized: unsafe extern "C" fn() -> bool,
+    pub(in crate::agent) obs_shutdown: unsafe extern "C" fn(),
+    pub(in crate::agent) obs_add_data_path: unsafe extern "C" fn(*const c_char),
+    pub(in crate::agent) obs_add_module_path: unsafe extern "C" fn(*const c_char, *const c_char),
+    pub(in crate::agent) obs_load_all_modules: unsafe extern "C" fn(),
+    pub(in crate::agent) obs_open_module:
+        unsafe extern "C" fn(*mut *mut ObsModule, *const c_char, *const c_char) -> i32,
+    pub(in crate::agent) obs_init_module: unsafe extern "C" fn(*mut ObsModule) -> bool,
+    pub(in crate::agent) obs_post_load_modules: unsafe extern "C" fn(),
     obs_reset_audio: unsafe extern "C" fn(*const ObsAudioInfo) -> bool,
     obs_reset_video: unsafe extern "C" fn(*mut ObsVideoInfo) -> i32,
-    obs_set_video_levels: Option<unsafe extern "C" fn(f32, f32)>,
-    obs_get_active_fps: Option<unsafe extern "C" fn() -> f64>,
-    obs_get_average_frame_time_ns: Option<unsafe extern "C" fn() -> u64>,
-    obs_get_frame_interval_ns: Option<unsafe extern "C" fn() -> u64>,
-    obs_get_total_frames: Option<unsafe extern "C" fn() -> u32>,
-    obs_get_lagged_frames: Option<unsafe extern "C" fn() -> u32>,
-    obs_get_video: unsafe extern "C" fn() -> *mut ObsVideo,
-    obs_get_audio: unsafe extern "C" fn() -> *mut ObsAudio,
-    obs_enum_encoder_types: unsafe extern "C" fn(usize, *mut *const c_char) -> bool,
-    obs_encoder_get_display_name: unsafe extern "C" fn(*const c_char) -> *const c_char,
-    obs_get_encoder_codec: unsafe extern "C" fn(*const c_char) -> *const c_char,
-    obs_get_encoder_type: unsafe extern "C" fn(*const c_char) -> c_int,
-    obs_get_encoder_caps: unsafe extern "C" fn(*const c_char) -> u32,
-    obs_data_create: unsafe extern "C" fn() -> *mut ObsData,
-    obs_data_release: unsafe extern "C" fn(*mut ObsData),
-    obs_data_set_string: unsafe extern "C" fn(*mut ObsData, *const c_char, *const c_char),
-    obs_data_set_int: unsafe extern "C" fn(*mut ObsData, *const c_char, i64),
-    obs_data_set_bool: unsafe extern "C" fn(*mut ObsData, *const c_char, bool),
-    obs_get_source_properties: unsafe extern "C" fn(*const c_char) -> *mut ObsProperties,
-    obs_properties_destroy: unsafe extern "C" fn(*mut ObsProperties),
-    obs_properties_get:
+    pub(in crate::agent) obs_set_video_levels: Option<unsafe extern "C" fn(f32, f32)>,
+    pub(in crate::agent) obs_get_active_fps: Option<unsafe extern "C" fn() -> f64>,
+    pub(in crate::agent) obs_get_average_frame_time_ns: Option<unsafe extern "C" fn() -> u64>,
+    pub(in crate::agent) obs_get_frame_interval_ns: Option<unsafe extern "C" fn() -> u64>,
+    pub(in crate::agent) obs_get_total_frames: Option<unsafe extern "C" fn() -> u32>,
+    pub(in crate::agent) obs_get_lagged_frames: Option<unsafe extern "C" fn() -> u32>,
+    pub(in crate::agent) obs_get_video: unsafe extern "C" fn() -> *mut ObsVideo,
+    pub(in crate::agent) obs_get_audio: unsafe extern "C" fn() -> *mut ObsAudio,
+    pub(in crate::agent) obs_enum_encoder_types:
+        unsafe extern "C" fn(usize, *mut *const c_char) -> bool,
+    pub(in crate::agent) obs_encoder_get_display_name:
+        unsafe extern "C" fn(*const c_char) -> *const c_char,
+    pub(in crate::agent) obs_get_encoder_codec:
+        unsafe extern "C" fn(*const c_char) -> *const c_char,
+    pub(in crate::agent) obs_get_encoder_type: unsafe extern "C" fn(*const c_char) -> c_int,
+    pub(in crate::agent) obs_get_encoder_caps: unsafe extern "C" fn(*const c_char) -> u32,
+    pub(in crate::agent) obs_data_create: unsafe extern "C" fn() -> *mut ObsData,
+    pub(in crate::agent) obs_data_release: unsafe extern "C" fn(*mut ObsData),
+    pub(in crate::agent) obs_data_set_string:
+        unsafe extern "C" fn(*mut ObsData, *const c_char, *const c_char),
+    pub(in crate::agent) obs_data_set_int: unsafe extern "C" fn(*mut ObsData, *const c_char, i64),
+    pub(in crate::agent) obs_data_set_bool: unsafe extern "C" fn(*mut ObsData, *const c_char, bool),
+    pub(in crate::agent) obs_get_source_properties:
+        unsafe extern "C" fn(*const c_char) -> *mut ObsProperties,
+    pub(in crate::agent) obs_properties_destroy: unsafe extern "C" fn(*mut ObsProperties),
+    pub(in crate::agent) obs_properties_get:
         unsafe extern "C" fn(*mut ObsProperties, *const c_char) -> *mut ObsProperty,
-    obs_property_get_type: unsafe extern "C" fn(*mut ObsProperty) -> i32,
-    obs_property_list_format: unsafe extern "C" fn(*mut ObsProperty) -> i32,
-    obs_property_list_item_count: unsafe extern "C" fn(*mut ObsProperty) -> usize,
-    obs_property_list_item_name:
+    pub(in crate::agent) obs_property_get_type: unsafe extern "C" fn(*mut ObsProperty) -> i32,
+    pub(in crate::agent) obs_property_list_format: unsafe extern "C" fn(*mut ObsProperty) -> i32,
+    pub(in crate::agent) obs_property_list_item_count:
+        unsafe extern "C" fn(*mut ObsProperty) -> usize,
+    pub(in crate::agent) obs_property_list_item_name:
         unsafe extern "C" fn(*mut ObsProperty, usize) -> *const c_char,
-    obs_property_list_item_string:
+    pub(in crate::agent) obs_property_list_item_string:
         unsafe extern "C" fn(*mut ObsProperty, usize) -> *const c_char,
-    obs_source_create: unsafe extern "C" fn(
+    pub(in crate::agent) obs_source_create: unsafe extern "C" fn(
         *const c_char,
         *const c_char,
         *mut ObsData,
         *mut ObsData,
     ) -> *mut ObsSource,
-    obs_source_release: unsafe extern "C" fn(*mut ObsSource),
-    obs_source_remove: unsafe extern "C" fn(*mut ObsSource),
-    obs_source_set_audio_mixers: unsafe extern "C" fn(*mut ObsSource, u32),
-    obs_source_set_volume: unsafe extern "C" fn(*mut ObsSource, f32),
-    obs_source_get_signal_handler: unsafe extern "C" fn(*const ObsSource) -> *mut SignalHandler,
-    obs_source_get_proc_handler: unsafe extern "C" fn(*const ObsSource) -> *mut ProcHandler,
-    signal_handler_connect:
+    pub(in crate::agent) obs_source_release: unsafe extern "C" fn(*mut ObsSource),
+    pub(in crate::agent) obs_source_remove: unsafe extern "C" fn(*mut ObsSource),
+    pub(in crate::agent) obs_source_set_audio_mixers: unsafe extern "C" fn(*mut ObsSource, u32),
+    pub(in crate::agent) obs_source_set_volume: unsafe extern "C" fn(*mut ObsSource, f32),
+    pub(in crate::agent) obs_source_get_signal_handler:
+        unsafe extern "C" fn(*const ObsSource) -> *mut SignalHandler,
+    pub(in crate::agent) obs_source_get_proc_handler:
+        unsafe extern "C" fn(*const ObsSource) -> *mut ProcHandler,
+    pub(in crate::agent) signal_handler_connect:
         unsafe extern "C" fn(*mut SignalHandler, *const c_char, SignalCallback, *mut c_void),
-    signal_handler_disconnect:
+    pub(in crate::agent) signal_handler_disconnect:
         unsafe extern "C" fn(*mut SignalHandler, *const c_char, SignalCallback, *mut c_void),
-    obs_set_output_source: unsafe extern "C" fn(u32, *mut ObsSource),
-    obs_scene_create_private: unsafe extern "C" fn(*const c_char) -> *mut ObsScene,
-    obs_scene_release: unsafe extern "C" fn(*mut ObsScene),
-    obs_scene_get_source: unsafe extern "C" fn(*const ObsScene) -> *mut ObsSource,
-    obs_scene_add: unsafe extern "C" fn(*mut ObsScene, *mut ObsSource) -> *mut ObsSceneItem,
-    obs_sceneitem_set_bounds_type: unsafe extern "C" fn(*mut ObsSceneItem, i32),
-    obs_sceneitem_set_bounds_alignment: unsafe extern "C" fn(*mut ObsSceneItem, u32),
-    obs_sceneitem_set_bounds: unsafe extern "C" fn(*mut ObsSceneItem, *const Vec2),
-    obs_sceneitem_set_scale_filter: unsafe extern "C" fn(*mut ObsSceneItem, i32),
-    obs_video_encoder_create: unsafe extern "C" fn(
+    pub(in crate::agent) obs_set_output_source: unsafe extern "C" fn(u32, *mut ObsSource),
+    pub(in crate::agent) obs_scene_create_private:
+        unsafe extern "C" fn(*const c_char) -> *mut ObsScene,
+    pub(in crate::agent) obs_scene_release: unsafe extern "C" fn(*mut ObsScene),
+    pub(in crate::agent) obs_scene_get_source:
+        unsafe extern "C" fn(*const ObsScene) -> *mut ObsSource,
+    pub(in crate::agent) obs_scene_add:
+        unsafe extern "C" fn(*mut ObsScene, *mut ObsSource) -> *mut ObsSceneItem,
+    pub(in crate::agent) obs_sceneitem_set_bounds_type:
+        unsafe extern "C" fn(*mut ObsSceneItem, i32),
+    pub(in crate::agent) obs_sceneitem_set_bounds_alignment:
+        unsafe extern "C" fn(*mut ObsSceneItem, u32),
+    pub(in crate::agent) obs_sceneitem_set_bounds:
+        unsafe extern "C" fn(*mut ObsSceneItem, *const Vec2),
+    pub(in crate::agent) obs_sceneitem_set_scale_filter:
+        unsafe extern "C" fn(*mut ObsSceneItem, i32),
+    pub(in crate::agent) obs_video_encoder_create: unsafe extern "C" fn(
         *const c_char,
         *const c_char,
         *mut ObsData,
         *mut ObsData,
     ) -> *mut ObsEncoder,
-    obs_audio_encoder_create: unsafe extern "C" fn(
+    pub(in crate::agent) obs_audio_encoder_create: unsafe extern "C" fn(
         *const c_char,
         *const c_char,
         *mut ObsData,
         usize,
         *mut ObsData,
     ) -> *mut ObsEncoder,
-    obs_encoder_set_video: unsafe extern "C" fn(*mut ObsEncoder, *mut ObsVideo),
-    obs_encoder_set_audio: unsafe extern "C" fn(*mut ObsEncoder, *mut ObsAudio),
-    obs_encoder_release: unsafe extern "C" fn(*mut ObsEncoder),
-    obs_output_create: unsafe extern "C" fn(
+    pub(in crate::agent) obs_encoder_set_video:
+        unsafe extern "C" fn(*mut ObsEncoder, *mut ObsVideo),
+    pub(in crate::agent) obs_encoder_set_audio:
+        unsafe extern "C" fn(*mut ObsEncoder, *mut ObsAudio),
+    pub(in crate::agent) obs_encoder_release: unsafe extern "C" fn(*mut ObsEncoder),
+    pub(in crate::agent) obs_output_create: unsafe extern "C" fn(
         *const c_char,
         *const c_char,
         *mut ObsData,
         *mut ObsData,
     ) -> *mut ObsOutput,
-    obs_output_start: unsafe extern "C" fn(*mut ObsOutput) -> bool,
-    obs_output_stop: unsafe extern "C" fn(*mut ObsOutput),
-    obs_output_force_stop: unsafe extern "C" fn(*mut ObsOutput),
-    obs_output_active: unsafe extern "C" fn(*mut ObsOutput) -> bool,
-    obs_output_can_pause: unsafe extern "C" fn(*mut ObsOutput) -> bool,
-    obs_output_pause: unsafe extern "C" fn(*mut ObsOutput, bool) -> bool,
-    obs_output_paused: unsafe extern "C" fn(*mut ObsOutput) -> bool,
-    obs_output_release: unsafe extern "C" fn(*mut ObsOutput),
-    obs_output_get_last_error: unsafe extern "C" fn(*mut ObsOutput) -> *const c_char,
-    obs_output_get_proc_handler: unsafe extern "C" fn(*mut ObsOutput) -> *mut ProcHandler,
-    obs_output_get_total_frames: Option<unsafe extern "C" fn(*mut ObsOutput) -> c_int>,
-    obs_output_get_frames_dropped: Option<unsafe extern "C" fn(*mut ObsOutput) -> c_int>,
-    obs_output_get_total_bytes: Option<unsafe extern "C" fn(*mut ObsOutput) -> u64>,
-    obs_output_set_video_encoder: unsafe extern "C" fn(*mut ObsOutput, *mut ObsEncoder),
-    obs_output_set_audio_encoder: unsafe extern "C" fn(*mut ObsOutput, *mut ObsEncoder, usize),
-    proc_handler_call: unsafe extern "C" fn(*mut ProcHandler, *const c_char, *mut CallData) -> bool,
-    calldata_get_data:
+    pub(in crate::agent) obs_output_start: unsafe extern "C" fn(*mut ObsOutput) -> bool,
+    pub(in crate::agent) obs_output_stop: unsafe extern "C" fn(*mut ObsOutput),
+    pub(in crate::agent) obs_output_force_stop: unsafe extern "C" fn(*mut ObsOutput),
+    pub(in crate::agent) obs_output_active: unsafe extern "C" fn(*mut ObsOutput) -> bool,
+    pub(in crate::agent) obs_output_can_pause: unsafe extern "C" fn(*mut ObsOutput) -> bool,
+    pub(in crate::agent) obs_output_pause: unsafe extern "C" fn(*mut ObsOutput, bool) -> bool,
+    pub(in crate::agent) obs_output_paused: unsafe extern "C" fn(*mut ObsOutput) -> bool,
+    pub(in crate::agent) obs_output_release: unsafe extern "C" fn(*mut ObsOutput),
+    pub(in crate::agent) obs_output_get_last_error:
+        unsafe extern "C" fn(*mut ObsOutput) -> *const c_char,
+    pub(in crate::agent) obs_output_get_proc_handler:
+        unsafe extern "C" fn(*mut ObsOutput) -> *mut ProcHandler,
+    pub(in crate::agent) obs_output_get_total_frames:
+        Option<unsafe extern "C" fn(*mut ObsOutput) -> c_int>,
+    pub(in crate::agent) obs_output_get_frames_dropped:
+        Option<unsafe extern "C" fn(*mut ObsOutput) -> c_int>,
+    pub(in crate::agent) obs_output_get_total_bytes:
+        Option<unsafe extern "C" fn(*mut ObsOutput) -> u64>,
+    pub(in crate::agent) obs_output_set_video_encoder:
+        unsafe extern "C" fn(*mut ObsOutput, *mut ObsEncoder),
+    pub(in crate::agent) obs_output_set_audio_encoder:
+        unsafe extern "C" fn(*mut ObsOutput, *mut ObsEncoder, usize),
+    pub(in crate::agent) proc_handler_call:
+        unsafe extern "C" fn(*mut ProcHandler, *const c_char, *mut CallData) -> bool,
+    pub(in crate::agent) calldata_get_data:
         unsafe extern "C" fn(*const CallData, *const c_char, *mut c_void, usize) -> bool,
-    calldata_get_string:
+    pub(in crate::agent) calldata_get_string:
         unsafe extern "C" fn(*const CallData, *const c_char, *mut *const c_char) -> bool,
-    bfree: unsafe extern "C" fn(*mut c_void),
+    pub(in crate::agent) bfree: unsafe extern "C" fn(*mut c_void),
 }
 
-
 impl LibObs {
-    fn load(runtime_dir: Option<&Path>) -> Result<Self, String> {
+    pub(in crate::agent) fn load(runtime_dir: Option<&Path>) -> Result<Self, String> {
         let mut errors = Vec::new();
         for candidate in libobs_candidates(runtime_dir) {
             let library = match unsafe { Library::new(&candidate) } {
@@ -168,10 +302,7 @@ impl LibObs {
             obs_get_video: load_symbol(&library, b"obs_get_video\0")?,
             obs_get_audio: load_symbol(&library, b"obs_get_audio\0")?,
             obs_enum_encoder_types: load_symbol(&library, b"obs_enum_encoder_types\0")?,
-            obs_encoder_get_display_name: load_symbol(
-                &library,
-                b"obs_encoder_get_display_name\0",
-            )?,
+            obs_encoder_get_display_name: load_symbol(&library, b"obs_encoder_get_display_name\0")?,
             obs_get_encoder_codec: load_symbol(&library, b"obs_get_encoder_codec\0")?,
             obs_get_encoder_type: load_symbol(&library, b"obs_get_encoder_type\0")?,
             obs_get_encoder_caps: load_symbol(&library, b"obs_get_encoder_caps\0")?,
@@ -180,22 +311,13 @@ impl LibObs {
             obs_data_set_string: load_symbol(&library, b"obs_data_set_string\0")?,
             obs_data_set_int: load_symbol(&library, b"obs_data_set_int\0")?,
             obs_data_set_bool: load_symbol(&library, b"obs_data_set_bool\0")?,
-            obs_get_source_properties: load_symbol(
-                &library,
-                b"obs_get_source_properties\0",
-            )?,
+            obs_get_source_properties: load_symbol(&library, b"obs_get_source_properties\0")?,
             obs_properties_destroy: load_symbol(&library, b"obs_properties_destroy\0")?,
             obs_properties_get: load_symbol(&library, b"obs_properties_get\0")?,
             obs_property_get_type: load_symbol(&library, b"obs_property_get_type\0")?,
             obs_property_list_format: load_symbol(&library, b"obs_property_list_format\0")?,
-            obs_property_list_item_count: load_symbol(
-                &library,
-                b"obs_property_list_item_count\0",
-            )?,
-            obs_property_list_item_name: load_symbol(
-                &library,
-                b"obs_property_list_item_name\0",
-            )?,
+            obs_property_list_item_count: load_symbol(&library, b"obs_property_list_item_count\0")?,
+            obs_property_list_item_name: load_symbol(&library, b"obs_property_list_item_name\0")?,
             obs_property_list_item_string: load_symbol(
                 &library,
                 b"obs_property_list_item_string\0",
@@ -203,24 +325,15 @@ impl LibObs {
             obs_source_create: load_symbol(&library, b"obs_source_create\0")?,
             obs_source_release: load_symbol(&library, b"obs_source_release\0")?,
             obs_source_remove: load_symbol(&library, b"obs_source_remove\0")?,
-            obs_source_set_audio_mixers: load_symbol(
-                &library,
-                b"obs_source_set_audio_mixers\0",
-            )?,
+            obs_source_set_audio_mixers: load_symbol(&library, b"obs_source_set_audio_mixers\0")?,
             obs_source_set_volume: load_symbol(&library, b"obs_source_set_volume\0")?,
             obs_source_get_signal_handler: load_symbol(
                 &library,
                 b"obs_source_get_signal_handler\0",
             )?,
-            obs_source_get_proc_handler: load_symbol(
-                &library,
-                b"obs_source_get_proc_handler\0",
-            )?,
+            obs_source_get_proc_handler: load_symbol(&library, b"obs_source_get_proc_handler\0")?,
             signal_handler_connect: load_symbol(&library, b"signal_handler_connect\0")?,
-            signal_handler_disconnect: load_symbol(
-                &library,
-                b"signal_handler_disconnect\0",
-            )?,
+            signal_handler_disconnect: load_symbol(&library, b"signal_handler_disconnect\0")?,
             obs_set_output_source: load_symbol(&library, b"obs_set_output_source\0")?,
             obs_scene_create_private: load_symbol(&library, b"obs_scene_create_private\0")?,
             obs_scene_release: load_symbol(&library, b"obs_scene_release\0")?,
@@ -254,10 +367,7 @@ impl LibObs {
             obs_output_paused: load_symbol(&library, b"obs_output_paused\0")?,
             obs_output_release: load_symbol(&library, b"obs_output_release\0")?,
             obs_output_get_last_error: load_symbol(&library, b"obs_output_get_last_error\0")?,
-            obs_output_get_proc_handler: load_symbol(
-                &library,
-                b"obs_output_get_proc_handler\0",
-            )?,
+            obs_output_get_proc_handler: load_symbol(&library, b"obs_output_get_proc_handler\0")?,
             obs_output_get_total_frames: load_optional_symbol(
                 &library,
                 b"obs_output_get_total_frames\0",
@@ -270,14 +380,8 @@ impl LibObs {
                 &library,
                 b"obs_output_get_total_bytes\0",
             ),
-            obs_output_set_video_encoder: load_symbol(
-                &library,
-                b"obs_output_set_video_encoder\0",
-            )?,
-            obs_output_set_audio_encoder: load_symbol(
-                &library,
-                b"obs_output_set_audio_encoder\0",
-            )?,
+            obs_output_set_video_encoder: load_symbol(&library, b"obs_output_set_video_encoder\0")?,
+            obs_output_set_audio_encoder: load_symbol(&library, b"obs_output_set_audio_encoder\0")?,
             proc_handler_call: load_symbol(&library, b"proc_handler_call\0")?,
             calldata_get_data: load_symbol(&library, b"calldata_get_data\0")?,
             calldata_get_string: load_symbol(&library, b"calldata_get_string\0")?,
@@ -286,7 +390,7 @@ impl LibObs {
         })
     }
 
-    unsafe fn start(
+    pub(in crate::agent) unsafe fn start(
         &self,
         runtime_dir: Option<&Path>,
         video_config: ObsVideoConfig,
@@ -311,7 +415,7 @@ impl LibObs {
         Ok(())
     }
 
-    unsafe fn shutdown(&self) {
+    pub(in crate::agent) unsafe fn shutdown(&self) {
         if (self.obs_initialized)() {
             (self.obs_shutdown)();
         }
@@ -423,7 +527,9 @@ impl LibObs {
             ));
         }
         if loaded_module.is_null() {
-            return Err(format!("OBS module {module} did not return a module handle."));
+            return Err(format!(
+                "OBS module {module} did not return a module handle."
+            ));
         }
         if !(self.obs_init_module)(loaded_module) {
             return Err(format!("OBS module {module} failed to initialize."));
@@ -476,7 +582,7 @@ impl LibObs {
         Ok(())
     }
 
-    unsafe fn enumerate_encoders(&self) -> Vec<ObsEncoderDescriptor> {
+    pub(in crate::agent) unsafe fn enumerate_encoders(&self) -> Vec<ObsEncoderDescriptor> {
         let mut encoders = Vec::new();
         let mut index = 0usize;
         loop {
@@ -516,17 +622,22 @@ impl LibObs {
         encoders
     }
 
-    unsafe fn create_data(&self) -> *mut ObsData {
+    pub(in crate::agent) unsafe fn create_data(&self) -> *mut ObsData {
         (self.obs_data_create)()
     }
 
-    unsafe fn release_data(&self, data: *mut ObsData) {
+    pub(in crate::agent) unsafe fn release_data(&self, data: *mut ObsData) {
         if !data.is_null() {
             (self.obs_data_release)(data);
         }
     }
 
-    unsafe fn set_string(&self, data: *mut ObsData, key: &str, value: &str) -> Result<(), String> {
+    pub(in crate::agent) unsafe fn set_string(
+        &self,
+        data: *mut ObsData,
+        key: &str,
+        value: &str,
+    ) -> Result<(), String> {
         let key =
             CString::new(key).map_err(|_| "OBS setting key contained a nul byte.".to_string())?;
         let value = CString::new(value)
@@ -535,21 +646,33 @@ impl LibObs {
         Ok(())
     }
 
-    unsafe fn set_int(&self, data: *mut ObsData, key: &str, value: i64) -> Result<(), String> {
+    pub(in crate::agent) unsafe fn set_int(
+        &self,
+        data: *mut ObsData,
+        key: &str,
+        value: i64,
+    ) -> Result<(), String> {
         let key =
             CString::new(key).map_err(|_| "OBS setting key contained a nul byte.".to_string())?;
         (self.obs_data_set_int)(data, key.as_ptr(), value);
         Ok(())
     }
 
-    unsafe fn set_bool(&self, data: *mut ObsData, key: &str, value: bool) -> Result<(), String> {
+    pub(in crate::agent) unsafe fn set_bool(
+        &self,
+        data: *mut ObsData,
+        key: &str,
+        value: bool,
+    ) -> Result<(), String> {
         let key =
             CString::new(key).map_err(|_| "OBS setting key contained a nul byte.".to_string())?;
         (self.obs_data_set_bool)(data, key.as_ptr(), value);
         Ok(())
     }
 
-    unsafe fn audio_devices(&self) -> Result<Vec<RecordingAudioDevice>, String> {
+    pub(in crate::agent) unsafe fn audio_devices(
+        &self,
+    ) -> Result<Vec<RecordingAudioDevice>, String> {
         let mut devices = self.audio_devices_for_source(
             platform_audio_output_source_id(),
             RecordingAudioDeviceKind::Output,
@@ -578,8 +701,7 @@ impl LibObs {
         }
 
         let result = (|| {
-            let property =
-                (self.obs_properties_get)(properties, c"device_id".as_ptr());
+            let property = (self.obs_properties_get)(properties, c"device_id".as_ptr());
             if property.is_null()
                 || (self.obs_property_get_type)(property) != OBS_PROPERTY_LIST
                 || (self.obs_property_list_format)(property) != OBS_COMBO_FORMAT_STRING

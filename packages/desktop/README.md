@@ -11,6 +11,27 @@ even if a replay spans a game switch; switching or closing games does not reset
 the display replay buffer. Game capture still follows the game window and keeps
 its game identity for replays saved during the post-close grace period.
 
+## Recorder code
+
+The host imports `recorder/src/{types,protocol,settings,names}.rs`. Keep these
+platform-neutral and keep the JSON wire types in `types.rs`.
+
+The Windows-only process lives under `recorder/src/agent/`:
+
+- `runtime.rs` dispatches requests and publishes status snapshots.
+- `recorder/` owns capture state, output lifetime, replay files, and screenshots.
+  Its state is private; the runtime calls its configure, status, tick, save, and
+  shutdown methods.
+- `obs/` loads libobs and configures sources and encoders. FFI declarations live
+  in `obs/bindings.rs`; it does not depend on recorder state.
+- `platform/` handles Windows discovery, game matching, COM, audio metering, and
+  hotkeys. It does not depend on the recorder or libobs.
+- `events.rs` writes protocol events; `time.rs` holds shared timestamp helpers.
+
+Use Rust modules and explicit imports, not textual `include!` files or a shared
+import prelude. Keep implementation types private to their owning module unless
+a caller needs them.
+
 ## Run
 
 Requires Windows, Node 24, the pinned pnpm version, Rust, Windows C++ build tools,
@@ -33,6 +54,7 @@ pnpm tauri:build
 pnpm tauri:dist:win:installer
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test -p alloy-agent --locked
 pnpm --filter @alloy/desktop test:native
 ```
 
