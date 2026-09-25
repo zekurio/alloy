@@ -884,10 +884,13 @@ fn read_manifest_file(path: &Path) -> CaptureManifest {
     // discard titles, trims, and upload links of every other capture because
     // of one bad record, whether it fails to decode or fails validation.
     #[derive(Deserialize)]
-    struct RawManifest {
+    struct RawManifest<'a> {
         version: u8,
-        #[serde(default)]
-        captures: BTreeMap<String, serde_json::Value>,
+        // Borrow each entry's JSON from the input instead of allocating an
+        // intermediate tree of every field in the library. Decode entries
+        // independently so a malformed record cannot discard healthy ones.
+        #[serde(default, borrow)]
+        captures: BTreeMap<String, &'a serde_json::value::RawValue>,
     }
     let Ok(raw) = serde_json::from_slice::<RawManifest>(&bytes) else {
         return CaptureManifest::default();
@@ -897,7 +900,7 @@ fn read_manifest_file(path: &Path) -> CaptureManifest {
     }
     let mut manifest = CaptureManifest::default();
     for (key, value) in raw.captures {
-        match serde_json::from_value::<ManifestEntry>(value) {
+        match serde_json::from_str::<ManifestEntry>(value.get()) {
             Ok(entry) if validate_manifest_entry(&key, &entry) => {
                 manifest.captures.insert(key, entry);
             }
