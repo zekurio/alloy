@@ -288,6 +288,34 @@ fn display_metadata_moves_capture_to_game_folder() {
     assert!(!source.exists());
 }
 
+#[test]
+fn display_capture_with_detected_game_keeps_source_and_game_group() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let source = temp.path().join("captures/Clips/Test Game/clip.mp4");
+    std::fs::create_dir_all(source.parent().unwrap()).unwrap();
+    std::fs::write(&source, b"not a real mp4").unwrap();
+    let mut record = capture(source.to_str().unwrap(), CaptureKind::Replay);
+    record.source = CaptureSource::Display;
+
+    library.remember_capture(&record).unwrap();
+
+    let snapshot = library.snapshot().unwrap();
+    let item = snapshot.items.first().expect("remembered capture");
+    assert_eq!(item.source, CaptureSource::Display);
+    assert_eq!(item.game_name.as_deref(), Some("Test Game"));
+    assert_eq!(
+        item.game_icon_url.as_deref(),
+        Some("https://example.test/icon.png")
+    );
+    assert_eq!(item.group_key, "test game");
+    assert_eq!(item.group_label, "Test Game");
+    assert_eq!(snapshot.groups.len(), 1);
+    assert_eq!(snapshot.groups[0].key, "test game");
+    assert_eq!(snapshot.groups[0].label, "Test Game");
+    assert_eq!(snapshot.groups[0].kind, "game");
+}
+
 #[tokio::test]
 async fn staged_image_import_commits_with_safe_path() {
     let temp = TempDir::new().expect("temp dir");
