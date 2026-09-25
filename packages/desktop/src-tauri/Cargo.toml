@@ -35,7 +35,7 @@ reqwest = { workspace = true, features = ["json", "stream"] }
 rfd = { version = "0.17", optional = true }
 rustls = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
+serde_json = { workspace = true, features = ["raw_value"] }
 sha2 = { workspace = true }
 tauri = { version = "2", optional = true, features = ["tray-icon"] }
 tauri-plugin-autostart = { version = "2", optional = true }

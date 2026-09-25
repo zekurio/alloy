@@ -21,6 +21,7 @@ use tokio::fs;
 use url::Url;
 
 fn library(temp: &TempDir) -> CaptureLibrary {
+    alloy_desktop::server::install_crypto_provider();
     CaptureLibrary::new(CaptureLibraryConfig::new(
         temp.path().join("captures"),
         temp.path().join("user-data"),
@@ -118,6 +119,47 @@ async fn recorder_game_guesses_survive_manifest_round_trips() {
     let manifest = library.read_manifest();
     assert_eq!(manifest.captures.len(), 1);
     assert!(!manifest.captures.contains_key(&key));
+}
+
+#[tokio::test]
+async fn manifest_keeps_valid_entries_beside_malformed_records() {
+    let temp = TempDir::new().unwrap();
+    let library = library(&temp);
+    let path = temp.path().join("user-data/recording-library.json");
+    let fixture = serde_json::json!({
+        "version": 2,
+        "captures": {
+            "valid.mp4": {
+                "id": "valid-capture-001",
+                "filename": "valid.mp4",
+                "title": "Quoted \"title\" with Unicode: 日本語",
+                "unknownFutureField": {"nested": [1, true, null]}
+            },
+            "null.mp4": null,
+            "array.mp4": [1, 2, 3],
+            "wrong-type.mp4": {"id": 42},
+            "invalid.mp4": {"id": "short", "title": "Invalid ID"}
+        }
+    });
+    fs::write(&path, serde_json::to_vec(&fixture).unwrap())
+        .await
+        .unwrap();
+    let manifest = library.read_manifest();
+    assert_eq!(manifest.captures.len(), 1);
+    assert_eq!(
+        manifest.captures["valid.mp4"].title,
+        "Quoted \"title\" with Unicode: 日本語"
+    );
+    let mut future_version = fixture;
+    future_version["version"] = serde_json::json!(255);
+    fs::write(&path, serde_json::to_vec(&future_version).unwrap())
+        .await
+        .unwrap();
+    assert!(library.read_manifest().captures.is_empty());
+    fs::write(&path, b"{\"version\":2,\"captures\":{")
+        .await
+        .unwrap();
+    assert!(library.read_manifest().captures.is_empty());
 }
 
 #[tokio::test]
@@ -461,6 +503,54 @@ async fn loopback_server_streams_ranges_and_rotates_tokens() {
         response.headers()["access-control-allow-origin"],
         "https://alloy.example"
     );
+    server.shutdown().await;
+}
+
+#[tokio::test]
+async fn loopback_streams_large_files_and_ranges_across_buffer_boundaries() {
+    let temp = TempDir::new().unwrap();
+    let library = library(&temp);
+    let media = temp.path().join("captures/Clips/Desktop/large.mp4");
+    fs::create_dir_all(media.parent().unwrap()).await.unwrap();
+    let bytes: Vec<u8> = (0..3 * 1024 * 1024 + 37)
+        .map(|index| (index % 251) as u8)
+        .collect();
+    fs::write(&media, &bytes).await.unwrap();
+    library
+        .remember_capture(&capture(media.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+    let id = library.snapshot().unwrap().items[0].id.clone();
+    let server = CaptureHttpServer::start(library).await.unwrap();
+    let client = reqwest::Client::new();
+    let url = server.media_url(&id).unwrap();
+    let response = client.get(&url).send().await.unwrap();
+    assert_eq!(response.content_length(), Some(bytes.len() as u64));
+    assert_eq!(response.bytes().await.unwrap().as_ref(), bytes);
+
+    for (range, start, end) in [
+        ("bytes=65530-1048590", 65530, 1048591),
+        ("bytes=-43", bytes.len() - 43, bytes.len()),
+        ("bytes=3145727-", 3145727, bytes.len()),
+        ("bytes=0-0", 0, 1),
+    ] {
+        let response = client.get(&url).header(RANGE, range).send().await.unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::PARTIAL_CONTENT);
+        assert_eq!(response.content_length(), Some((end - start) as u64));
+        assert_eq!(response.bytes().await.unwrap().as_ref(), &bytes[start..end]);
+    }
+    let response = client.head(&url).send().await.unwrap();
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+    assert_eq!(
+        response.headers()["content-length"],
+        bytes.len().to_string()
+    );
+    assert!(response.bytes().await.unwrap().is_empty());
+
+    fs::write(&media, []).await.unwrap();
+    let response = client.get(&url).send().await.unwrap();
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+    assert_eq!(response.content_length(), Some(0));
+    assert!(response.bytes().await.unwrap().is_empty());
     server.shutdown().await;
 }
 

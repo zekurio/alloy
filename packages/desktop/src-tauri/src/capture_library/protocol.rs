@@ -22,6 +22,7 @@ use crate::capture_library::store::CaptureLibrary;
 
 const TOKEN_QUERY: &str = "token";
 const MAX_ID_LENGTH: usize = 64;
+const MEDIA_STREAM_BUFFER_BYTES: u64 = 512 * 1024;
 
 #[derive(Clone)]
 struct HttpState {
@@ -322,7 +323,16 @@ async fn ranged_response(
     if start > 0 {
         file.seek(SeekFrom::Start(start)).await?;
     }
-    let stream = ReaderStream::with_capacity(file.take(length), 4 * 1024 * 1024);
+    // A thumbnail or short seek should not reserve a multi-megabyte buffer.
+    // Bound large transfers too, so concurrent playback stays inexpensive.
+    let capacity = length.clamp(1, MEDIA_STREAM_BUFFER_BYTES) as usize;
+    if length > MEDIA_STREAM_BUFFER_BYTES {
+        // Bound file reads independently of the stream's capacity. The 256 KiB
+        // read batches retain high loopback throughput without multi-megabyte
+        // in-flight chunks (see the desktop performance benchmark).
+        file.set_max_buf_size(capacity / 2);
+    }
+    let stream = ReaderStream::with_capacity(file.take(length), capacity);
     response
         .body(Body::from_stream(stream))
         .map_err(|_| LibraryError::InvalidPath)
