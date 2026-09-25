@@ -54,7 +54,7 @@ export function stageObsHelpers() {
 }
 
 export function pruneObsRuntime() {
-  // Modules loaded by the sidecar (see platform_modules in sidecar_obs_platform.rs).
+  // Modules loaded by the sidecar (see platform_modules in recorder/src/agent/obs/platform.rs).
   const keptObsModules = [
     "obs-ffmpeg",
     "obs-outputs",

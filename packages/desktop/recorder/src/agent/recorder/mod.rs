@@ -1,3 +1,134 @@
+//! Capture state and lifecycle. Child modules share this state; the request
+//! runtime can only configure, inspect, tick, save captures, and shut it down.
+
+mod cache;
+mod output;
+mod replay;
+mod screenshot;
+
+use std::{
+    env, fs,
+    path::PathBuf,
+    time::{Duration, Instant},
+};
+
+use crate::agent::obs::{
+    bindings::{ObsEncoder, ObsOutput},
+    encoders::{available_video_codecs, selected_gpu_adapter, selected_gpu_label},
+    types::{
+        AudioGraph, AudioSource, GameCaptureHookWait, ObsEncoderDescriptor, ObsVideoConfig,
+        OutputSourceKind, VideoGraph,
+    },
+    video_config::{effective_quality, effective_quality_for_base, obs_video_config},
+};
+use crate::agent::{
+    events::emit_event,
+    obs::{
+        audio_source_configs, clear_audio_output_sources, create_audio_source, output_last_error,
+        recording_source_from_kind, release_audio_source, route_audio_source,
+        should_pause_for_focus, source_kind, target_bitrate_kbps, validate_audio_source_count,
+        LibObs,
+    },
+    platform::{
+        detect_game_activity, detected_game_allowed, hotkeys, is_detected_game_alive,
+        refresh_capture_metadata, selected_display, valid_capture_dimensions, DetectedGame,
+        GameDetection,
+    },
+    time::{now_iso, system_time_iso, timestamp_millis, unix_millis_to_system_time},
+};
+use crate::protocol::{CONTENT_TYPE_MP4, SIDE_CAR_NAME};
+use crate::types::{
+    ConfigureParams, RecordingActionResult, RecordingAudioApplicationSelection,
+    RecordingAudioDevice, RecordingBackendState, RecordingBufferStorage, RecordingCapture,
+    RecordingCaptureKind, RecordingCaptureMode, RecordingCodec, RecordingDisplay, RecordingEncoder,
+    RecordingEvent, RecordingGame, RecordingMode, RecordingRunState, RecordingSettings,
+    RecordingStatus, RecordingTelemetry, SaveReplayClipParams, VideoDimensions,
+};
+
+use self::{
+    cache::{
+        active_settings_require_restart, nonnegative_c_int, ns_to_ms, percent, plan_audio_sources,
+    },
+    output::GameCaptureHookRefresh,
+    replay::{cleanup_disk_replay_segments, replay_buffer_duration, saved_recording_path},
+};
+
+/// Codec support cached independently of an active recording.
+#[derive(Clone, Debug, Default)]
+struct CodecCaps {
+    hardware: Vec<RecordingCodec>,
+    software_h264: bool,
+}
+
+/// A cached capability probe is only valid for these inputs.
+#[derive(PartialEq, Eq)]
+struct CodecCapsKey {
+    adapter: u32,
+    gpu_label: Option<String>,
+    runtime_dir: Option<PathBuf>,
+}
+
+#[derive(Default)]
+pub(super) struct Recorder {
+    obs: Option<LibObs>,
+    obs_video_config: Option<ObsVideoConfig>,
+    settings: Option<RecordingSettings>,
+    output_folder: Option<PathBuf>,
+    replay_scratch_folder: Option<PathBuf>,
+    obs_runtime_dir: Option<PathBuf>,
+    available_encoders: Vec<ObsEncoderDescriptor>,
+    available_codecs: Vec<RecordingCodec>,
+    /// Probed independently so the settings UI has codecs while recording is disabled.
+    codec_caps: Option<CodecCaps>,
+    codec_caps_key: Option<CodecCapsKey>,
+    /// Back off failed probes instead of spinning OBS up twice a second.
+    codec_caps_failed_probe: Option<(CodecCapsKey, Instant)>,
+    cached_gpus: Vec<String>,
+    cached_gpus_at: Option<Instant>,
+    cached_audio_devices: Vec<RecordingAudioDevice>,
+    cached_audio_devices_at: Option<Instant>,
+    cached_audio_applications: Vec<RecordingAudioApplicationSelection>,
+    cached_audio_applications_at: Option<Instant>,
+    cached_audio_applications_game_key: Option<String>,
+    replay_session: Option<ActiveSession>,
+    active_display: Option<RecordingDisplay>,
+    active_game: Option<DetectedGame>,
+    focused: bool,
+    missing_game_ticks: u8,
+    last_telemetry_event_at: Option<Instant>,
+    last_capture: Option<RecordingCapture>,
+    last_error: Option<String>,
+}
+
+#[derive(Clone)]
+struct ReplayBufferConfig {
+    scratch_directory: PathBuf,
+    output_directory: PathBuf,
+    storage: RecordingBufferStorage,
+    replay_seconds: u32,
+}
+
+struct ActiveSession {
+    output: *mut ObsOutput,
+    video_encoder: *mut ObsEncoder,
+    /// Reads OBS mixer 0, which contains every audio source.
+    audio_encoder: *mut ObsEncoder,
+    video_encoder_id: String,
+    audio_encoder_id: String,
+    video_codec: RecordingCodec,
+    video_graph: VideoGraph,
+    video_config: ObsVideoConfig,
+    audio_graph: AudioGraph,
+    source_kind: OutputSourceKind,
+    output_config: ReplayBufferConfig,
+    capture: RecordingCapture,
+    target_game_key: Option<String>,
+    game_content_expires_at: Option<Instant>,
+    game_capture_hook_wait: Option<GameCaptureHookWait>,
+    can_pause: bool,
+    paused: bool,
+}
+
 impl Drop for Recorder {
     fn drop(&mut self) {
         self.shutdown();
@@ -10,17 +141,12 @@ const AUDIO_APPLICATION_DISCOVERY_CACHE_TTL: Duration = Duration::from_secs(10);
 /// attempt spins a full OBS instance up and back down.
 const CODEC_PROBE_RETRY_COOLDOWN: Duration = Duration::from_secs(30);
 const TELEMETRY_EVENT_INTERVAL: Duration = Duration::from_secs(10);
-const MIN_VALID_CAPTURE_DIMENSION_SUM: u32 = 1120;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GameBoundaryReason {
     Closed,
     Changed,
     Disallowed,
-}
-
-fn valid_capture_dimensions(dimensions: VideoDimensions) -> bool {
-    dimensions.width.saturating_add(dimensions.height) >= MIN_VALID_CAPTURE_DIMENSION_SUM
 }
 
 fn preserve_capture_dimensions(
@@ -33,9 +159,9 @@ fn preserve_capture_dimensions(
 }
 
 impl Recorder {
-    fn configure(&mut self, params: ConfigureParams) -> Result<RecordingStatus, String> {
+    pub(super) fn configure(&mut self, params: ConfigureParams) -> Result<RecordingStatus, String> {
         let settings = params.settings;
-        sidecar_hotkeys::configure(&settings);
+        hotkeys::configure(&settings);
         let output_folder = if params.output_folder.is_empty() {
             env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
         } else {
@@ -144,7 +270,7 @@ impl Recorder {
         Ok(status)
     }
 
-    fn status(&self) -> RecordingStatus {
+    pub(super) fn status(&self) -> RecordingStatus {
         self.status_with_telemetry(self.current_telemetry())
     }
 
@@ -184,11 +310,7 @@ impl Recorder {
                 .replay_session
                 .as_ref()
                 .map(|session| session.capture.source)
-                .or_else(|| {
-                    self.last_capture
-                        .as_ref()
-                        .map(|capture| capture.source)
-                }),
+                .or_else(|| self.last_capture.as_ref().map(|capture| capture.source)),
             current_capture: self
                 .replay_session
                 .as_ref()
@@ -352,10 +474,11 @@ impl Recorder {
 
         // Commit: unroute the old channels before releasing anything, then
         // route and retune the reconciled graph.
-        let mut existing: Vec<Option<AudioSource>> = std::mem::take(&mut session.audio_graph.sources)
-            .into_iter()
-            .map(Some)
-            .collect();
+        let mut existing: Vec<Option<AudioSource>> =
+            std::mem::take(&mut session.audio_graph.sources)
+                .into_iter()
+                .map(Some)
+                .collect();
         unsafe { clear_audio_output_sources(obs, existing.len()) };
 
         let mut next = Vec::with_capacity(configs.len());
@@ -446,7 +569,10 @@ impl Recorder {
         Ok(())
     }
 
-    fn save_replay_clip(&mut self, params: SaveReplayClipParams) -> RecordingActionResult {
+    pub(super) fn save_replay_clip(
+        &mut self,
+        params: SaveReplayClipParams,
+    ) -> RecordingActionResult {
         if let Err(error) = self.discard_unavailable_replay_buffer() {
             self.last_error = Some(error.clone());
             let result = self.action_error(&error);
@@ -515,7 +641,7 @@ impl Recorder {
         }
     }
 
-    fn shutdown(&mut self) {
+    pub(super) fn shutdown(&mut self) {
         if let Some(session) = self.replay_session.take() {
             unsafe {
                 let _ = self.stop_output(session);
@@ -733,7 +859,7 @@ impl Recorder {
         self.clear_active_game("window and process gone")
     }
 
-    fn tick(&mut self) {
+    pub(super) fn tick(&mut self) {
         self.refresh_discovery_caches();
         if self.settings.is_none() {
             return;

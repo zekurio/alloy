@@ -2,7 +2,16 @@
 /// H.264 when this OBS instance has no encoder for it. Encoder registration
 /// can transiently fail (AMD's AMF helper probe under GPU load), and recording
 /// in a fallback codec beats losing the session.
-fn choose_video_encoder(
+use crate::types::{RecordingCodec, RecordingEncoder, RecordingSettings};
+
+use super::{
+    bindings::{LibObs, OBS_ENCODER_CAP_PASS_TEXTURE},
+    configure_video_encoder, create_video_encoder, gpu_adapter,
+    types::{ObsEncoderDescriptor, ObsEncoderKind},
+    video_config::effective_quality,
+};
+
+pub(in crate::agent) fn choose_video_encoder(
     settings: &RecordingSettings,
     available: &[ObsEncoderDescriptor],
     selected_gpu_label: Option<&str>,
@@ -21,7 +30,7 @@ fn choose_video_encoder(
     })
 }
 
-fn available_video_codecs(
+pub(in crate::agent) fn available_video_codecs(
     obs: &LibObs,
     settings: &RecordingSettings,
     available: &[ObsEncoderDescriptor],
@@ -47,12 +56,8 @@ fn can_create_video_codec(
     codec: &RecordingCodec,
     selected_gpu_label: Option<&str>,
 ) -> bool {
-    let candidates = video_encoder_candidates(
-        &settings.encoder,
-        codec,
-        available,
-        selected_gpu_label,
-    );
+    let candidates =
+        video_encoder_candidates(&settings.encoder, codec, available, selected_gpu_label);
     if candidates.is_empty() {
         return false;
     }
@@ -134,7 +139,10 @@ fn video_encoder_matches(
     }
 }
 
-fn codec_allowed_for_gpu_label(codec: &RecordingCodec, selected_gpu_label: Option<&str>) -> bool {
+pub(in crate::agent) fn codec_allowed_for_gpu_label(
+    codec: &RecordingCodec,
+    selected_gpu_label: Option<&str>,
+) -> bool {
     if codec != &RecordingCodec::Av1 {
         return true;
     }
@@ -142,7 +150,7 @@ fn codec_allowed_for_gpu_label(codec: &RecordingCodec, selected_gpu_label: Optio
     selected_gpu_label.is_none_or(|label| !amd_gpu_label_lacks_av1_encode(label))
 }
 
-fn selected_gpu_label<'a>(
+pub(in crate::agent) fn selected_gpu_label<'a>(
     settings: &'a RecordingSettings,
     available_gpus: &'a [String],
 ) -> Option<&'a str> {
@@ -160,7 +168,10 @@ fn selected_gpu_label<'a>(
     })
 }
 
-fn selected_gpu_adapter(settings: &RecordingSettings, available_gpus: &[String]) -> u32 {
+pub(in crate::agent) fn selected_gpu_adapter(
+    settings: &RecordingSettings,
+    available_gpus: &[String],
+) -> u32 {
     if settings.gpu == "auto" {
         return u32::try_from(preferred_gpu_index(available_gpus)).unwrap_or(0);
     }
@@ -170,13 +181,11 @@ fn selected_gpu_adapter(settings: &RecordingSettings, available_gpus: &[String])
 fn preferred_gpu_index(available_gpus: &[String]) -> usize {
     available_gpus
         .iter()
-        .position(|gpu| {
-            preferred_gpu_label(gpu_setting_label(gpu).unwrap_or(gpu.as_str()))
-        })
+        .position(|gpu| preferred_gpu_label(gpu_setting_label(gpu).unwrap_or(gpu.as_str())))
         .or_else(|| {
-            available_gpus.iter().position(|gpu| {
-                !software_gpu_label(gpu_setting_label(gpu).unwrap_or(gpu.as_str()))
-            })
+            available_gpus
+                .iter()
+                .position(|gpu| !software_gpu_label(gpu_setting_label(gpu).unwrap_or(gpu.as_str())))
         })
         .unwrap_or(0)
 }
@@ -205,7 +214,10 @@ fn gpu_setting_label(value: &str) -> Option<&str> {
     let mut parts = value.splitn(3, ':');
     (parts.next() == Some("adapter")).then_some(())?;
     parts.next()?;
-    parts.next().map(str::trim).filter(|label| !label.is_empty())
+    parts
+        .next()
+        .map(str::trim)
+        .filter(|label| !label.is_empty())
 }
 
 fn amd_gpu_label_lacks_av1_encode(label: &str) -> bool {
@@ -255,10 +267,7 @@ fn normalize_gpu_label_tokens(label: &str) -> String {
 }
 
 fn leading_u32(value: &str) -> Option<u32> {
-    let digits: String = value
-        .chars()
-        .take_while(|ch| ch.is_ascii_digit())
-        .collect();
+    let digits: String = value.chars().take_while(|ch| ch.is_ascii_digit()).collect();
     (!digits.is_empty())
         .then(|| digits.parse::<u32>().ok())
         .flatten()
@@ -314,7 +323,7 @@ fn gpu_encoder_family(label: &str) -> Vec<&'static str> {
     Vec::new()
 }
 
-fn has_software_h264_encoder(available: &[ObsEncoderDescriptor]) -> bool {
+pub(in crate::agent) fn has_software_h264_encoder(available: &[ObsEncoderDescriptor]) -> bool {
     available.iter().any(is_software_h264_encoder)
 }
 
@@ -346,7 +355,7 @@ fn is_aac_codec(codec: &str) -> bool {
     codec.trim().eq_ignore_ascii_case("aac")
 }
 
-fn unavailable_video_encoder_message(settings: &RecordingSettings) -> String {
+pub(in crate::agent) fn unavailable_video_encoder_message(settings: &RecordingSettings) -> String {
     format!(
         "{} is not available for the selected {} encoder. Choose a supported codec or switch encoders.",
         codec_label(&settings.codec),
@@ -354,7 +363,7 @@ fn unavailable_video_encoder_message(settings: &RecordingSettings) -> String {
     )
 }
 
-fn codec_label(codec: &RecordingCodec) -> &'static str {
+pub(in crate::agent) fn codec_label(codec: &RecordingCodec) -> &'static str {
     match codec {
         RecordingCodec::H264 => "H.264",
         RecordingCodec::Hevc => "HEVC",
@@ -369,7 +378,7 @@ fn encoder_label(encoder: &RecordingEncoder) -> &'static str {
     }
 }
 
-fn choose_audio_encoder(available: &[ObsEncoderDescriptor]) -> Option<String> {
+pub(in crate::agent) fn choose_audio_encoder(available: &[ObsEncoderDescriptor]) -> Option<String> {
     available
         .iter()
         .find(|encoder| {

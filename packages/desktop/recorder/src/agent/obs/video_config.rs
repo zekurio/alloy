@@ -1,12 +1,23 @@
+use crate::{
+    agent::{
+        obs::types::{ObsVideoConfig, OutputSourceKind},
+        platform::{selected_display_dimensions, DetectedGame},
+    },
+    types::{
+        RecordingBitrate, RecordingQualityProfile, RecordingQualitySettings, RecordingResolution,
+        RecordingSettings, VideoDimensions,
+    },
+};
+
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct EffectiveQuality {
-    width: u32,
-    height: u32,
-    fps: u32,
-    bitrate: RecordingBitrate,
+pub(in crate::agent) struct EffectiveQuality {
+    pub(in crate::agent) width: u32,
+    pub(in crate::agent) height: u32,
+    pub(in crate::agent) fps: u32,
+    pub(in crate::agent) bitrate: RecordingBitrate,
 }
 
-const DEFAULT_VIDEO_DIMENSIONS: VideoDimensions = VideoDimensions {
+pub(in crate::agent) const DEFAULT_VIDEO_DIMENSIONS: VideoDimensions = VideoDimensions {
     width: 1920,
     height: 1080,
 };
@@ -32,11 +43,11 @@ fn selected_quality_settings(settings: &RecordingSettings) -> RecordingQualitySe
     }
 }
 
-fn effective_quality(settings: &RecordingSettings) -> EffectiveQuality {
+pub(in crate::agent) fn effective_quality(settings: &RecordingSettings) -> EffectiveQuality {
     effective_quality_with_source_dimensions(settings, None)
 }
 
-fn effective_quality_for_base(
+pub(in crate::agent) fn effective_quality_for_base(
     settings: &RecordingSettings,
     base_dimensions: VideoDimensions,
 ) -> EffectiveQuality {
@@ -75,8 +86,8 @@ fn output_dimensions_for_height(
         return (fallback_width, target_height);
     };
 
-    let scaled_width = u64::from(target_height) * u64::from(dimensions.width)
-        / u64::from(dimensions.height);
+    let scaled_width =
+        u64::from(target_height) * u64::from(dimensions.width) / u64::from(dimensions.height);
     (even_dimension(scaled_width), target_height)
 }
 
@@ -85,7 +96,7 @@ fn even_dimension(value: u64) -> u32 {
     clamped - (clamped % 2)
 }
 
-fn obs_video_config(
+pub(in crate::agent) fn obs_video_config(
     settings: &RecordingSettings,
     game: Option<&DetectedGame>,
     source_kind: OutputSourceKind,
