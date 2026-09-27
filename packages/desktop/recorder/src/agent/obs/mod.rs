@@ -1,5 +1,6 @@
 pub(in crate::agent) mod bindings;
 pub(in crate::agent) mod encoders;
+mod logging;
 pub(in crate::agent) mod platform;
 pub(in crate::agent) mod screenshot;
 pub(in crate::agent) mod types;
