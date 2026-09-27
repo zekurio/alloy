@@ -274,6 +274,7 @@ impl LibObs {
     }
 
     unsafe fn from_library(library: Library) -> Result<Self, String> {
+        super::logging::install(&library)?;
         Ok(Self {
             screenshots: ScreenshotBindings::load(&library)?,
             obs_startup: load_symbol(&library, b"obs_startup\0")?,
