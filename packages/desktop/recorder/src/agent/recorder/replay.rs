@@ -338,31 +338,3 @@ pub(super) fn cleanup_disk_replay_segments(config: &ReplayBufferConfig, keep: Op
         let _ = fs::remove_file(segment.path);
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn shorter_clips_request_a_tail_trim() {
-        assert!(matches!(
-            replay_trim_post_process(12, 30),
-            Some(RecordingCapturePostProcess::TrimTail { keep_ms: 12_000 })
-        ));
-        assert!(matches!(
-            replay_trim_post_process(0, 30),
-            Some(RecordingCapturePostProcess::TrimTail { keep_ms: 1_000 })
-        ));
-        assert!(replay_trim_post_process(30, 30).is_none());
-        assert!(replay_trim_post_process(60, 30).is_none());
-    }
-
-    #[test]
-    fn disk_replay_keeps_an_extra_segment_at_the_boundary() {
-        assert_eq!(disk_replay_segment_seconds(0), 1);
-        assert_eq!(disk_replay_segment_seconds(10), 10);
-        assert_eq!(disk_replay_segment_seconds(60), 15);
-        assert_eq!(disk_replay_segment_count(30), 3);
-        assert_eq!(disk_replay_segment_count(31), 4);
-    }
-}

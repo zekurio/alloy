@@ -59,9 +59,12 @@ Don't hand-format. Run the root commands:
 ```bash
 pnpm fmt        # format
 pnpm lint       # lint (type-aware; no-console is an error)
-pnpm test       # discover and run every test
 pnpm typecheck  # tsc --noEmit across packages
 ```
+
+Unit tests have been removed in preparation for E2E testing. Until the E2E
+suite is available, manually validate affected workflows and describe that
+validation in the PR. Native integration tests and the Nix security test remain.
 
 ## Submitting a PR
 

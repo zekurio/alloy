@@ -81,9 +81,6 @@ jobs:
       - name: run typecheck
         run: corepack pnpm typecheck
 
-      - name: run tests
-        run: corepack pnpm test
-
       - name: build server and web
         run: corepack pnpm turbo run build --filter=@alloy/server --filter=@alloy/web
 

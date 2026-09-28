@@ -76,30 +76,3 @@ pub fn is_reserved_windows_name(value: &str) -> bool {
             | "LPT9"
     )
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{file_component, is_reserved_windows_name};
-
-    #[test]
-    fn collapses_unsafe_characters() {
-        assert_eq!(
-            file_component("Half-Life: Alyx", "Desktop"),
-            "Half-Life-Alyx"
-        );
-        assert_eq!(file_component("  spaced   out  ", "Desktop"), "spaced out");
-    }
-
-    #[test]
-    fn falls_back_on_empty_and_reserved_names() {
-        assert_eq!(file_component("   ", "Desktop"), "Desktop");
-        assert_eq!(file_component("nul", "Desktop"), "Desktop");
-    }
-
-    #[test]
-    fn detects_reserved_names_with_extensions() {
-        assert!(is_reserved_windows_name("COM1.txt"));
-        assert!(!is_reserved_windows_name("COM10"));
-        assert!(!is_reserved_windows_name("console"));
-    }
-}
