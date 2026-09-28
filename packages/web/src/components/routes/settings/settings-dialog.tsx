@@ -47,6 +47,7 @@ import {
   SettingsSaveProvider,
   useSettingsSaveState,
 } from "@/components/routes/settings/settings-save-context"
+import { searchSettingsCategories } from "@/components/routes/settings/settings-search"
 import { SettingsSectionNav } from "@/components/routes/settings/settings-section-nav"
 import { SettingsSectionsProvider } from "@/components/routes/settings/settings-sections-context"
 
@@ -204,30 +205,10 @@ function SettingsDialogContent({
     onNavigate(sectionId)
   }
   const [query, setQuery] = useState("")
-  const normalized = query.trim().toLowerCase()
-  const matches = useMemo<
-    { category: SettingsCategory; hint: string | null }[]
-  >(() => {
-    if (!normalized) {
-      return categories.map((category) => ({ category, hint: null }))
-    }
-    return categories.flatMap((category) => {
-      const inLabel = `${category.label} ${category.title ?? ""}`
-        .toLowerCase()
-        .includes(normalized)
-      const inDescription = (category.description ?? "")
-        .toLowerCase()
-        .includes(normalized)
-      const matchedKeyword =
-        category.keywords?.find((keyword) =>
-          keyword.toLowerCase().includes(normalized),
-        ) ?? null
-      if (!inLabel && !inDescription && !matchedKeyword) return []
-      // Surface the matched option when the tab's own name didn't match, so it
-      // is clear why the tab appears.
-      return [{ category, hint: inLabel ? null : matchedKeyword }]
-    })
-  }, [categories, normalized])
+  const matches = useMemo(
+    () => searchSettingsCategories(categories, query),
+    [categories, query],
+  )
 
   return (
     <SettingsSectionsProvider>
@@ -279,7 +260,7 @@ function SettingsDialogContent({
                       <span className="flex min-w-0 flex-col">
                         <span className="truncate">{category.label}</span>
                         {hint ? (
-                          <span className="text-foreground-faint truncate text-xs font-normal capitalize">
+                          <span className="text-foreground-faint truncate text-xs font-normal">
                             {hint}
                           </span>
                         ) : null}
@@ -287,7 +268,7 @@ function SettingsDialogContent({
                     </button>
                     {/* Searching filters the list down to what matched; the
                         subsections of one tab would only bury that. */}
-                    {isActive && !normalized ? (
+                    {isActive && !query.trim() ? (
                       <SettingsSectionNav scrollRef={scrollRef} />
                     ) : null}
                   </div>

@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@babel/parser": "7.29.8",
+    "@babel/types": "7.29.8",
     "tsx": "4.23.13",
     "typescript": "7.0.2"
   }

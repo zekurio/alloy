@@ -1,5 +1,5 @@
 import type { PublicAuthProvider } from "@alloy/api"
-import { t } from "@alloy/i18n"
+import { message, t } from "@alloy/i18n"
 import { useState } from "react"
 
 import { OAuthButton } from "@/components/auth/oauth-button"
@@ -24,11 +24,19 @@ export function OAuthSignIn({ provider, redirectTo }: OAuthSignInProps) {
         callbackURL: authCallbackUrl(redirectTo ?? "/"),
       })
       if (error) {
-        toastAuthAttemptFailure("OAuth sign-in", "OAuth sign-in failed", error)
+        toastAuthAttemptFailure(
+          "OAuth sign-in",
+          message("OAuth sign-in failed"),
+          error,
+        )
         setPending(false)
       }
     } catch (cause) {
-      toastAuthAttemptFailure("OAuth sign-in", "OAuth sign-in failed", cause)
+      toastAuthAttemptFailure(
+        "OAuth sign-in",
+        message("OAuth sign-in failed"),
+        cause,
+      )
       setPending(false)
     }
   }
