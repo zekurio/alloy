@@ -28,18 +28,25 @@ jobs:
   audit:
     name: cargo dependency audit
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      contents: read
 
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: audit dependencies
-        uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
+
+      - name: set up rust
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with:
+          toolchain: stable
+
+      - name: install cargo audit
+        run: cargo install cargo-audit --locked --version 0.22.2
+
+      # Report in CI on every trigger, without creating issues or separate checks.
+      # Vulnerabilities fail the job; informational advisories remain warnings.
+      - name: audit dependencies
+        run: cargo audit --file Cargo.lock
 
   # Lint and test are split from packaging: the two jobs compile different
   # profiles, and a lint failure should not wait behind the release link and
