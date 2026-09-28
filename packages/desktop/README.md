@@ -54,11 +54,11 @@ pnpm tauri:build
 pnpm tauri:dist:win:installer
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test -p alloy-agent --locked
 pnpm --filter @alloy/desktop test:native
 ```
 
-Builds bundle the recorder, OBS, and FFmpeg. `test:native` tests only the host.
+Builds bundle the recorder, OBS, and FFmpeg. `test:native` runs the host's
+integration tests. Unit tests have been removed; E2E testing is not configured yet.
 A successful build does not validate recording or playback. For affected flows,
 check on Windows:
 

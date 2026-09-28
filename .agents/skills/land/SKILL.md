@@ -43,9 +43,8 @@ reconfirmation.
 - Run `pnpm verify` (fmt check, lint, typecheck; source: root `package.json`
   `verify` script, also required by `.github/CONTRIBUTING.md` "Submitting a
   PR").
-- Run `pnpm test` for affected areas, e.g.
-  `pnpm test packages/server/src/path/to/file.test.ts` (source: root
-  `package.json` `test` script → `vitest run`).
+- Unit tests have been removed and E2E testing is not configured yet.
+  Manually validate affected workflows and document the results in the PR.
 - Rust changes (`packages/desktop/recorder`, `packages/desktop/src-tauri`)
   build only on Windows; when `cargo` is unavailable locally, leave Rust
   validation to the `tauri desktop` CI workflow and say so in the PR's

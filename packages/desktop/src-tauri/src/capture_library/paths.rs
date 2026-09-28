@@ -150,29 +150,3 @@ pub fn now_rfc3339() -> String {
         .format(&time::format_description::well_known::Rfc3339)
         .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{safe_component, safe_file_stem};
-
-    #[test]
-    fn matches_the_recorder_sanitizer() {
-        // The recorder trims separators from both ends and collapses runs, so
-        // the host lands in the same folder for the same game title.
-        assert_eq!(
-            safe_component(Some("-Half-Life: Alyx "), "x"),
-            "Half-Life-Alyx"
-        );
-        assert_eq!(safe_component(Some(".hidden"), "x"), "hidden");
-        assert_eq!(safe_component(Some("  "), "Uncategorized"), "Uncategorized");
-        assert_eq!(safe_component(None, "Uncategorized"), "Uncategorized");
-        assert_eq!(safe_component(Some("COM1"), "clip"), "clip");
-        assert_eq!(safe_component(Some("nul.mp4"), "clip"), "clip");
-    }
-
-    #[test]
-    fn file_stem_is_capped_at_128_characters() {
-        let long = "a".repeat(200);
-        assert_eq!(safe_file_stem(Some(&long), "import").chars().count(), 128);
-    }
-}

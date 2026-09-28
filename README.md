@@ -76,11 +76,12 @@ also starts the desktop shell, which builds only on Windows; see
 ```bash
 pnpm fmt                         # format the repository
 pnpm lint                        # run type-aware linting
-pnpm test                        # run every test once
-pnpm test packages/server        # run tests matching a path
 pnpm typecheck                   # check every TypeScript package
 pnpm verify                      # format check, lint, and typecheck
 ```
+
+Unit tests have been removed in preparation for E2E testing. The E2E suite
+is not configured yet. Native integration tests and the Nix security test remain.
 
 Run `pnpm verify` before opening a pull request. The
 [contributing guide](.github/CONTRIBUTING.md) covers branch, commit, and PR

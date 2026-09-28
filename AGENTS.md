@@ -12,9 +12,9 @@ Leave unrelated working-tree changes alone.
 
 - Use Node 24 and `pnpm@11.24.0`, not npm, Yarn, or Bun. Prefer root scripts;
   use `pnpm --filter @alloy/<package> <script>` for package-specific work.
-- Run `pnpm verify` before completing code changes and `pnpm test [path]`
-  for relevant tests. Test observable, regression-prone behavior, not internals
-  or framework behavior.
+- Run `pnpm verify` before completing code changes. Unit tests have been
+  removed; E2E testing is planned but not configured yet. Validate affected
+  workflows manually until E2E coverage is available.
 - For Rust changes, run these checks from the repo root. Both desktop crates
   require Windows to build and run Clippy:
   `cargo fmt --all --check` and

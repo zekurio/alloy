@@ -33,26 +33,3 @@ impl RecorderProgress {
         now.saturating_duration_since(completed_at) >= self.timeout
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use std::time::{Duration, Instant};
-
-    use super::RecorderProgress;
-
-    #[test]
-    fn detects_a_stall_after_progress_stops_without_renewing_on_reads() {
-        let start = Instant::now();
-        let progress = RecorderProgress::new(start, Duration::from_secs(90));
-        // Healthy recorder work can run for much longer than one deadline.
-        for seconds in [60, 120, 180] {
-            let now = start + Duration::from_secs(seconds);
-            assert!(!progress.stalled(now));
-            progress.completed(now);
-        }
-        // The I/O thread can still answer requests while recorder work blocks.
-        assert!(!progress.stalled(start + Duration::from_secs(269)));
-        assert!(progress.stalled(start + Duration::from_secs(270)));
-        assert!(progress.stalled(start + Duration::from_secs(300)));
-    }
-}

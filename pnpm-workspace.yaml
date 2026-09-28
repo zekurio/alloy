@@ -3,7 +3,6 @@ packages:
 
 catalog:
   vite: 8.3.0
-  vitest: 5.0.0
 
 allowBuilds:
   esbuild: true
@@ -28,4 +27,3 @@ overrides:
   tar: 7.5.21
   undici: 7.29.0
   vite: "catalog:"
-  vitest: "catalog:"

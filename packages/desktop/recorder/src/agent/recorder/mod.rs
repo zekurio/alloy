@@ -6,9 +6,6 @@ mod output;
 mod replay;
 mod screenshot;
 
-#[cfg(test)]
-mod tests;
-
 use std::{
     env, fs,
     path::PathBuf,

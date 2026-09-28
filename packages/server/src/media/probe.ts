@@ -135,8 +135,7 @@ const AUDIO_CODEC_NAME_TO_RFC6381 = new Map<string, string>([
  * rendition audio remains ffmpeg AAC-LC. Non-AAC audio falls back to its
  * (mapped) ffprobe codec name so the string still fails `canPlayType` in
  * browsers lacking the codec — dropping it entirely would make an
- * H.264+AC-3 source look fully playable and play silently. Exported for
- * unit tests.
+ * H.264+AC-3 source look fully playable and play silently.
  */
 function buildAudioCodecString(
   stream: Pick<FfprobeStream, "codec_name" | "profile">,

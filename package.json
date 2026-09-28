@@ -25,8 +25,6 @@
     "lint": "oxlint",
     "lint:github": "pnpm lint",
     "typecheck": "turbo run typecheck",
-    "test": "vitest run",
-    "test:i18n": "vitest run packages/i18n",
     "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck"
   },
   "devDependencies": {
@@ -37,8 +35,7 @@
     "oxlint-tsgolint": "7.0.2001",
     "turbo": "2.10.12",
     "typescript": "7.0.2",
-    "vite": "catalog:",
-    "vitest": "catalog:"
+    "vite": "catalog:"
   },
   "engines": {
     "node": ">=24"
