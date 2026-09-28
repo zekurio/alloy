@@ -32,7 +32,7 @@ import {
   RadioIcon,
   Volume2Icon,
 } from "lucide-react"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import type { ReactNode } from "react"
 
 import { GameIcon } from "@/components/game/game-icon"
@@ -41,7 +41,8 @@ import {
   type RecordingAudioDeviceView,
   toggleAudioDevice,
 } from "@/lib/audio-device-selection"
-import { alloyDesktop, type AlloyTauriDesktop } from "@/lib/desktop"
+import { alloyDesktop } from "@/lib/desktop"
+import { useOpenSettings } from "@/lib/use-open-settings"
 
 import { bottomLeftAppCornerAnchor } from "./corner-anchors"
 import { DisplayPickerDialog } from "./recording-display-picker"
@@ -72,7 +73,6 @@ export function DesktopRecordingStatus() {
             ? (state.status?.activeGameDetail ?? null)
             : null
         }
-        desktop={desktop}
         displays={state.displays}
         label={statusLabel(state.settings, state.status)}
         settings={state.settings}
@@ -99,7 +99,6 @@ export function DesktopRecordingStatus() {
 function RecordingStatusPopover({
   indicator,
   activeGame,
-  desktop,
   displays,
   label,
   settings,
@@ -109,7 +108,6 @@ function RecordingStatusPopover({
 }: {
   indicator: RecordingStatusIndicator
   activeGame: RecordingStatus["activeGameDetail"] | null
-  desktop: AlloyTauriDesktop
   displays: RecordingDisplay[]
   label: string
   settings: RecordingSettings | null
@@ -117,6 +115,8 @@ function RecordingStatusPopover({
   onOpenDisplayPicker: () => void
   onSave: SaveRecordingSettings
 }) {
+  const [open, setOpen] = useState(false)
+  const openSettings = useOpenSettings("desktop")
   // The trigger never shows a bare gamepad: that glyph belongs to the Games
   // nav item. An armed-but-idle capture (or capture off) reads as a radio
   // broadcast instead; only a real captured game shows cover art.
@@ -134,7 +134,7 @@ function RecordingStatusPopover({
     )
   const statusText = t("Capture status: {label}", { label })
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <AppSidebarItemTooltip
         label={statusText}
         render={
@@ -173,10 +173,13 @@ function RecordingStatusPopover({
       >
         <RecordingStatusContent
           displays={displays}
-          desktop={desktop}
           settings={settings}
           status={status}
           onOpenDisplayPicker={onOpenDisplayPicker}
+          onOpenSettings={() => {
+            setOpen(false)
+            openSettings()
+          }}
           onSave={onSave}
         />
       </PopoverContent>
@@ -186,17 +189,17 @@ function RecordingStatusPopover({
 
 function RecordingStatusContent({
   displays,
-  desktop,
   settings,
   status,
   onOpenDisplayPicker,
+  onOpenSettings,
   onSave,
 }: {
   displays: RecordingDisplay[]
-  desktop: AlloyTauriDesktop
   settings: RecordingSettings | null
   status: RecordingStatus | null
   onOpenDisplayPicker: () => void
+  onOpenSettings: () => void
   onSave: SaveRecordingSettings
 }) {
   return (
@@ -233,7 +236,7 @@ function RecordingStatusContent({
           variant="ghost"
           size="sm"
           className="h-8 w-full justify-between px-2 text-sm font-medium"
-          onClick={() => void desktop.openSettings()}
+          onClick={onOpenSettings}
         >
           <span>{t("Capture settings")}</span>
           <ArrowRightIcon className="text-foreground-dim size-4" />

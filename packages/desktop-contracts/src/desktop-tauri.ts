@@ -52,6 +52,8 @@ export interface AlloyTauriDesktop {
   closeWindow(): Promise<void>
   openConnect(): Promise<void>
   openSettings(): Promise<void>
+  /** Handles native settings requests without reloading. Absent on older hosts. */
+  onOpenSettings?(listener: () => void): () => void
   /**
    * Opens the host's log directory. Rejects if logging could not start.
    * Absent on older contract-1 hosts.

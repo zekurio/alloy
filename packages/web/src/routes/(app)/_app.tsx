@@ -5,7 +5,7 @@ import {
   useNavigate,
   useRouterState,
 } from "@tanstack/react-router"
-import { lazy, memo, Suspense, useCallback } from "react"
+import { lazy, memo, Suspense, useCallback, useEffect } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
 import { WelcomeProfileDialog } from "@/components/auth/welcome-profile-dialog"
@@ -24,7 +24,9 @@ import { UploadFlow } from "@/components/upload/upload-flow"
 import { useWebUploadActionContext } from "@/components/upload/upload-flow-context"
 import { UploadFlowProvider } from "@/components/upload/upload-flow-controls"
 import { type AppSearch, parseAppSearch } from "@/lib/app-search"
+import { alloyDesktop } from "@/lib/desktop"
 import { useSuspenseSession } from "@/lib/session-suspense"
+import { useOpenSettings } from "@/lib/use-open-settings"
 
 const loadLibraryEditorPage = async () => {
   const module = await import("@/components/routes/library/library-editor-page")
@@ -44,6 +46,15 @@ function AppLayout() {
   const { clip, settings, welcome } = Route.useSearch()
   const session = useSuspenseSession()
   const navigate = useNavigate()
+  const openDesktopSettings = useOpenSettings("desktop")
+
+  useEffect(() => {
+    if (!session) return
+    return alloyDesktop()?.onOpenSettings?.(() => {
+      // Keep an already-open section and its unsaved edits intact.
+      if (!settings) openDesktopSettings()
+    })
+  }, [session, settings, openDesktopSettings])
 
   const handleCloseClipModal = () => {
     void navigate({

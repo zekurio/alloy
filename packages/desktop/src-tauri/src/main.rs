@@ -534,9 +534,11 @@ async fn desktop_shell(
 }
 
 fn open_settings(window: &WebviewWindow) -> Result<(), String> {
+    // A mounted web app handles this through its router. Older web builds (or
+    // pages outside the app layout) retain the navigation fallback.
     window
         .eval(
-            "(() => { const url = new URL(window.location.href); url.pathname = '/'; url.search = '?settings=desktop'; window.location.assign(url.href); })()",
+            "(() => { if (!window.dispatchEvent(new Event('alloy:open-settings', { cancelable: true }))) return; const url = new URL(window.location.href); url.pathname = '/'; url.search = '?settings=desktop'; window.location.assign(url.href); })()",
         )
         .map_err(|_| "Could not open Alloy settings.".to_string())
 }
