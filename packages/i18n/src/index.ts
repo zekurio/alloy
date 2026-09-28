@@ -1,15 +1,14 @@
-import { DE_MESSAGES } from "./messages"
+import {
+  LOCALES,
+  SUPPORTED_LOCALES,
+  type Locale,
+  type TranslationCatalog,
+} from "./locales"
 
-export const SUPPORTED_LOCALES = ["en", "de"] as const
-export type Locale = (typeof SUPPORTED_LOCALES)[number]
+export { LOCALE_LABELS, SUPPORTED_LOCALES, type Locale } from "./locales"
 
 export const DEFAULT_LOCALE: Locale = "en"
 export const LOCALE_STORAGE_KEY = "alloy.locale"
-
-export const LOCALE_LABELS = {
-  de: "Deutsch",
-  en: "English",
-} satisfies Record<Locale, string>
 
 type TranslationValue = boolean | number | string | null | undefined
 export type TranslationValues = Record<string, TranslationValue>
@@ -23,13 +22,15 @@ export function normalizeLocale(
 ): Locale | null {
   if (!value) return null
   const locale = value.trim().toLowerCase()
-  if (locale === "de" || locale.startsWith("de-")) return "de"
-  if (locale === "en" || locale.startsWith("en-")) return "en"
-  return null
+  return (
+    SUPPORTED_LOCALES.find(
+      (supported) => locale === supported || locale.startsWith(`${supported}-`),
+    ) ?? null
+  )
 }
 
 export function localeToLanguageTag(locale: Locale): string {
-  return locale === "de" ? "de-DE" : "en-US"
+  return LOCALES[locale].languageTag
 }
 
 export function detectLocale(
@@ -103,13 +104,14 @@ export function translate(
   key: string,
   values?: TranslationValues,
 ): string {
-  const template =
-    locale === "de" && isGermanMessageKey(key) ? DE_MESSAGES[key] : key
+  const catalog: TranslationCatalog = LOCALES[locale].messages
+  const template = Object.hasOwn(catalog, key) ? (catalog[key] ?? key) : key
   return interpolate(template, values)
 }
 
-function isGermanMessageKey(key: string): key is keyof typeof DE_MESSAGES {
-  return Object.hasOwn(DE_MESSAGES, key)
+/** Mark source text that will be translated later, such as search keywords. */
+export function message(key: string): string {
+  return key
 }
 
 export function t(key: string, values?: TranslationValues): string {
@@ -137,7 +139,9 @@ export function tp(
 }
 
 export function hasTranslation(locale: Locale, key: string): boolean {
-  return locale === "en" || Object.hasOwn(DE_MESSAGES, key)
+  return (
+    locale === DEFAULT_LOCALE || Object.hasOwn(LOCALES[locale].messages, key)
+  )
 }
 
 function pluralForm(locale: Locale, count: number): PluralForm {

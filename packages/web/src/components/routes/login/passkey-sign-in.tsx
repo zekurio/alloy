@@ -1,5 +1,5 @@
 import { AUTH_ERROR_CODES } from "@alloy/contracts"
-import { t } from "@alloy/i18n"
+import { message, t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { KeyRoundIcon } from "lucide-react"
@@ -36,7 +36,7 @@ export function PasskeySignIn({
         } else {
           toastAuthAttemptFailure(
             "passkey sign-in",
-            "Passkey sign-in failed",
+            message("Passkey sign-in failed"),
             error,
           )
         }
@@ -53,7 +53,7 @@ export function PasskeySignIn({
     } catch (cause) {
       toastAuthAttemptFailure(
         "passkey sign-in",
-        "Passkey sign-in failed",
+        message("Passkey sign-in failed"),
         cause,
       )
       setPending(false)

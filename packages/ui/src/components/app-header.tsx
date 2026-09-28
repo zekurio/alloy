@@ -253,7 +253,7 @@ function useIsMacPlatform() {
 
 function DefaultSearchHint() {
   const isMac = useIsMacPlatform()
-  return isMac ? <>⌘K</> : <>Ctrl K</>
+  return isMac ? "⌘K" : t("Ctrl K")
 }
 
 /**

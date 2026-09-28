@@ -1,4 +1,4 @@
-import { t } from "@alloy/i18n"
+import { message, t } from "@alloy/i18n"
 import { useForm } from "@tanstack/react-form"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { ArrowRightIcon, KeyRoundIcon, UserIcon } from "lucide-react"
@@ -54,7 +54,7 @@ function usePasskeySignUpSubmit({ redirectTo = "/" }: PasskeySignUpFormProps) {
         if (error) {
           toastAuthAttemptFailure(
             "passkey sign-up",
-            "Couldn't create your passkey account",
+            message("Couldn't create your passkey account"),
             error,
           )
           return
@@ -70,7 +70,7 @@ function usePasskeySignUpSubmit({ redirectTo = "/" }: PasskeySignUpFormProps) {
       } catch (cause) {
         toastAuthAttemptFailure(
           "passkey sign-up",
-          "Couldn't finish passkey account setup",
+          message("Couldn't finish passkey account setup"),
           cause,
         )
       }

@@ -16,8 +16,8 @@ test("server-rendered pages follow the browser's language ranking", async () => 
 
   assert.equal(await localeFor("de-DE,de;q=0.9,en;q=0.8"), "de")
   assert.equal(await localeFor("en-GB;q=0.4,de;q=0.9"), "de")
-  assert.equal(await localeFor("fr-FR,de;q=0.7"), "de")
-  assert.equal(await localeFor("fr-FR"), "en")
+  assert.equal(await localeFor("x-unsupported,de;q=0.7"), "de")
+  assert.equal(await localeFor("x-unsupported"), "en")
   assert.equal(await localeFor("de;q=0"), "en")
   assert.equal(await localeFor(undefined), "en")
 })

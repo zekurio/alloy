@@ -26,6 +26,7 @@
     "lint:github": "pnpm lint",
     "typecheck": "turbo run typecheck",
     "test": "vitest run",
+    "test:i18n": "vitest run packages/i18n",
     "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck"
   },
   "devDependencies": {

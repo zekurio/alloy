@@ -54,42 +54,24 @@ import {
   SettingsSections,
   SettingsSubsection,
 } from "@/components/routes/settings/settings-panel"
+import {
+  settingsSearchCategories,
+  type SettingsCategoryId,
+  type SettingsGroup,
+  type SettingsSearchCategory,
+} from "@/components/routes/settings/settings-search"
 import { ThemeSettings } from "@/components/routes/settings/theme-settings"
 import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
 
-export type SettingsGroup = "account" | "desktop" | "admin"
+export type { SettingsGroup } from "@/components/routes/settings/settings-search"
 
 type SettingsPanelComponent = ComponentType | LazyExoticComponent<ComponentType>
 
-export interface SettingsCategory {
-  id: string
-  /** Short label shown in the sidebar nav. */
-  label: string
-  /** Heading shown above the panel content. Defaults to `label`. */
-  title?: string
-  description?: string
-  /**
-   * Names of the individual options inside this panel, so the settings search
-   * can surface a tab by the controls it contains (e.g. "codec", "passkeys"),
-   * not just by its label.
-   */
-  keywords?: string[]
+export interface SettingsCategory extends SettingsSearchCategory {
   icon: LucideIcon
-  group: SettingsGroup
   Panel: SettingsPanelComponent
 }
-
-type SettingsCategoryDraft = Omit<SettingsCategory, "group">
-type SettingsCategorySpec = readonly [
-  id: string,
-  label: string,
-  title: string | null,
-  description: string,
-  keywords: string[],
-  icon: LucideIcon,
-  Panel: SettingsPanelComponent,
-]
 
 export const SETTINGS_GROUPS: { id: SettingsGroup; label: string }[] = [
   { id: "account", label: t("Settings") },
@@ -164,30 +146,6 @@ const AdminWebhooksPanel = lazy(() =>
     default: module.AdminWebhooksPanel,
   })),
 )
-
-function withSettingsGroup(
-  group: SettingsGroup,
-  categories: SettingsCategoryDraft[],
-): SettingsCategory[] {
-  return categories.map((category) => ({ ...category, group }))
-}
-
-function categoryDrafts(
-  specs: readonly SettingsCategorySpec[],
-): SettingsCategoryDraft[] {
-  return specs.map(([id, label, title, description, keywords, icon, Panel]) => {
-    const category: SettingsCategoryDraft = {
-      id,
-      label,
-      description,
-      keywords,
-      icon,
-      Panel,
-    }
-    if (title !== null) category.title = title
-    return category
-  })
-}
 
 function ProfilePanel() {
   const session = useRequireAuthStrict()
@@ -335,291 +293,32 @@ function PreferencesPanel() {
   )
 }
 
-const ACCOUNT_CATEGORIES = categoryDrafts([
-  [
-    "profile",
-    t("Profile"),
-    null,
-    t("Edit your username, avatar, and sign-in methods."),
-    [
-      "username",
-      "avatar",
-      "profile picture",
-      "banner",
-      "passkeys",
-      "linked accounts",
-      "connected accounts",
-      "oauth",
-      "sign-in methods",
-    ],
-    UserIcon,
-    ProfilePanel,
-  ],
-  [
-    "personal-appearance",
-    t("Appearance"),
-    t("Appearance"),
-    t("Color mode and theme palettes."),
-    [
-      "theme",
-      "appearance",
-      "light",
-      "dark",
-      "system",
-      "color scheme",
-      "palette",
-      "catppuccin",
-      "frappe",
-      "macchiato",
-      "mocha",
-      "latte",
-      "nord",
-      "one dark",
-      "one light",
-      "rose pine",
-      "moon",
-      "gruvbox",
-    ],
-    PaletteIcon,
-    AppearancePanel,
-  ],
-  [
-    "preferences",
-    t("General"),
-    t("General"),
-    t("Language and announcement settings."),
-    [
-      "language",
-      "locale",
-      "settings",
-      "preferences",
-      "general",
-      "announcements",
-      "announce clips",
-      "webhooks",
-      "discord",
-    ],
-    LanguagesIcon,
-    PreferencesPanel,
-  ],
-  [
-    "account",
-    t("Account & data"),
-    null,
-    t("Review storage, manage your clips, or disable and delete your account."),
-    [
-      "storage usage",
-      "quota",
-      "download clips",
-      "delete clips",
-      "export data",
-      "disable account",
-      "deactivate",
-      "delete account",
-      "danger zone",
-    ],
-    DatabaseIcon,
-    AccountDataPanel,
-  ],
-])
+const CATEGORY_PANELS = {
+  profile: { icon: UserIcon, Panel: ProfilePanel },
+  "personal-appearance": { icon: PaletteIcon, Panel: AppearancePanel },
+  preferences: { icon: LanguagesIcon, Panel: PreferencesPanel },
+  account: { icon: DatabaseIcon, Panel: AccountDataPanel },
+  desktop: { icon: VideoIcon, Panel: DesktopCapturePanel },
+  "desktop-quality": {
+    icon: SlidersHorizontalIcon,
+    Panel: DesktopQualitySettings,
+  },
+  "desktop-audio": { icon: Volume2Icon, Panel: DesktopAudioSettings },
+  "desktop-app": { icon: ServerIcon, Panel: DesktopAppPanel },
+  appearance: { icon: PaletteIcon, Panel: AdminAppearancePanel },
+  authentication: { icon: KeyRoundIcon, Panel: AdminAuthPanel },
+  transcoding: { icon: FilmIcon, Panel: AdminTranscodingPanel },
+  users: { icon: UsersIcon, Panel: AdminUsersPanel },
+  games: { icon: Gamepad2Icon, Panel: AdminGamesPanel },
+  webhooks: { icon: WebhookIcon, Panel: AdminWebhooksPanel },
+} satisfies Record<
+  SettingsCategoryId,
+  { icon: LucideIcon; Panel: SettingsPanelComponent }
+>
 
-const DESKTOP_CATEGORIES = categoryDrafts([
-  [
-    "desktop",
-    t("Capture"),
-    t("Capture"),
-    t("Game detection, hotkeys, sounds, and where clips are saved."),
-    [
-      "desktop app",
-      "recording",
-      "replay buffer",
-      "save hotkey",
-      "long recordings",
-      "desktop capture",
-      "game detection",
-      "manual overrides",
-      "notification sounds",
-      "sound effect",
-      "capture folder",
-      "disk usage",
-      "storage",
-      "free space",
-      "clips folder",
-    ],
-    VideoIcon,
-    DesktopCapturePanel,
-  ],
-  [
-    "desktop-quality",
-    t("Quality"),
-    t("Quality"),
-    t("Resolution, frame rate, encoder, and replay buffer."),
-    [
-      "quality",
-      "resolution",
-      "frame rate",
-      "fps",
-      "bitrate",
-      "codec",
-      "encoder",
-      "gpu",
-      "replay buffer",
-    ],
-    SlidersHorizontalIcon,
-    DesktopQualitySettings,
-  ],
-  [
-    "desktop-audio",
-    t("Audio"),
-    t("Audio"),
-    t("Devices, microphones, application streams, and volumes."),
-    [
-      "audio",
-      "output devices",
-      "input devices",
-      "microphone",
-      "speakers",
-      "volume",
-      "applications",
-    ],
-    Volume2Icon,
-    DesktopAudioSettings,
-  ],
-  [
-    "desktop-app",
-    t("App"),
-    t("App"),
-    t("Manage servers, startup behavior, and desktop updates."),
-    [
-      "desktop servers",
-      "autostart",
-      "startup",
-      "launch at login",
-      "start with windows",
-      "switch server",
-      "saved servers",
-      "updates",
-    ],
-    ServerIcon,
-    DesktopAppPanel,
-  ],
-])
-
-const ADMIN_CATEGORIES = categoryDrafts([
-  [
-    "appearance",
-    t("Appearance"),
-    t("Appearance"),
-    t("The generated login backdrop."),
-    [
-      "login backdrop",
-      "splash",
-      "blur",
-      "darkening",
-      "custom backdrop",
-      "regenerate",
-      "branding",
-    ],
-    PaletteIcon,
-    AdminAppearancePanel,
-  ],
-  [
-    "authentication",
-    t("Authentication"),
-    t("Authentication"),
-    t("Registration, passkeys, browsing access, and OAuth sign-in providers."),
-    [
-      "auth",
-      "authentication",
-      "oauth",
-      "oidc",
-      "sso",
-      "registrations",
-      "registration",
-      "passkey",
-      "passkeys",
-      "open registrations",
-      "require sign-in",
-      "providers",
-    ],
-    KeyRoundIcon,
-    AdminAuthPanel,
-  ],
-  [
-    "transcoding",
-    t("Transcoding"),
-    t("Transcoding"),
-    t(
-      "Video codec, hardware acceleration, quality, audio, and the rendition ladder for new uploads.",
-    ),
-    [
-      "renditions",
-      "transcoding",
-      "rendition ladder",
-      "quality",
-      "codec",
-      "h264",
-      "hevc",
-      "av1",
-      "hardware acceleration",
-      "nvenc",
-      "quick sync",
-      "qsv",
-      "vaapi",
-      "videotoolbox",
-      "ffmpeg",
-      "jellyfin",
-      "audio bitrate",
-      "1080p",
-      "720p",
-      "480p",
-      "re-encode",
-    ],
-    FilmIcon,
-    AdminTranscodingPanel,
-  ],
-  [
-    "users",
-    t("Users"),
-    null,
-    t("Edit user accounts, roles, and moderation state."),
-    ["user accounts", "roles", "moderation", "ban", "storage quota"],
-    UsersIcon,
-    AdminUsersPanel,
-  ],
-  [
-    "games",
-    t("Games"),
-    null,
-    t("Create custom games and manage their artwork."),
-    ["games", "custom games", "artwork", "cover", "hero", "logo", "icon"],
-    Gamepad2Icon,
-    AdminGamesPanel,
-  ],
-  [
-    "webhooks",
-    t("Webhooks"),
-    null,
-    t("Announce published clips to Discord or your own endpoint."),
-    [
-      "webhooks",
-      "discord",
-      "announcements",
-      "announce clips",
-      "integrations",
-      "signing secret",
-      "hmac",
-    ],
-    WebhookIcon,
-    AdminWebhooksPanel,
-  ],
-])
-
-const ALL_CATEGORIES: SettingsCategory[] = [
-  ...withSettingsGroup("account", ACCOUNT_CATEGORIES),
-  ...withSettingsGroup("desktop", DESKTOP_CATEGORIES),
-  ...withSettingsGroup("admin", ADMIN_CATEGORIES),
-]
+const ALL_CATEGORIES: SettingsCategory[] = settingsSearchCategories().map(
+  (category) => ({ ...category, ...CATEGORY_PANELS[category.id] }),
+)
 
 /** The default category opened when the dialog is opened without a section. */
 export const DEFAULT_SETTINGS_SECTION = "profile"
