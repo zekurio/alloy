@@ -111,6 +111,14 @@
     closeWindow: () => shell("closeWindow"),
     openConnect: () => shell("openConnect"),
     openSettings: () => shell("openSettings"),
+    onOpenSettings: (listener) => {
+      const handle = (event) => {
+        event.preventDefault()
+        listener()
+      }
+      window.addEventListener("alloy:open-settings", handle)
+      return () => window.removeEventListener("alloy:open-settings", handle)
+    },
     openLogsFolder: () => shell("openLogsFolder"),
     reloadApp: () => shell("reloadApp"),
     servers: Object.freeze({
