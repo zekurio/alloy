@@ -28,12 +28,12 @@
     "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck"
   },
   "devDependencies": {
-    "@oxlint/plugins": "1.83.0",
-    "@types/node": "26.5.1",
-    "oxfmt": "0.68.0",
-    "oxlint": "1.83.0",
-    "oxlint-tsgolint": "7.0.2001",
-    "turbo": "2.10.12",
+    "@oxlint/plugins": "1.85.0",
+    "@types/node": "26.6.2",
+    "oxfmt": "0.70.0",
+    "oxlint": "1.85.0",
+    "oxlint-tsgolint": "7.0.2003",
+    "turbo": "2.11.4",
     "typescript": "7.0.2",
     "vite": "catalog:"
   },
