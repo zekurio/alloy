@@ -1,5 +1,5 @@
 import { t } from "@alloy/i18n"
-import { Spinner } from "@alloy/ui/components/spinner"
+import { LoadingState } from "@alloy/ui/components/loading-state"
 
 import {
   SettingsSections,
@@ -19,12 +19,7 @@ export function DesktopQualitySettings() {
 
   if (!settings || !status) {
     if (error) return <DesktopRecordingNotice />
-    return (
-      <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
-        <Spinner />
-        {t("Loading quality settings")}
-      </div>
-    )
+    return <LoadingState variant="panel" />
   }
 
   return (

@@ -10,6 +10,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@alloy/ui/components/input-group"
+import { LoadingState } from "@alloy/ui/components/loading-state"
 import { MediaCard, MediaCardGrid } from "@alloy/ui/components/media-card"
 import {
   Section,
@@ -17,7 +18,6 @@ import {
   SectionHeader,
   SectionTitle,
 } from "@alloy/ui/components/section"
-import { Spinner } from "@alloy/ui/components/spinner"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { ImageIcon, SearchIcon, Trash2Icon } from "lucide-react"
 import { useMemo, useState } from "react"
@@ -56,7 +56,9 @@ export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
         : t("{count} games", { count: games.length })
       : null
 
-  const body = (
+  const body = isPending ? (
+    <LoadingState variant="panel" />
+  ) : (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {hideHeader ? (
@@ -88,8 +90,6 @@ export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
         <Callout tone="destructive">
           {errorMessage(error, t("Couldn't load games"))}
         </Callout>
-      ) : isPending ? (
-        <Spinner className="size-5" />
       ) : games.length === 0 ? (
         <ListEmpty title={t("No games yet")} />
       ) : filteredGames.length === 0 ? (

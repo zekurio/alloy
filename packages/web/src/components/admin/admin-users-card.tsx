@@ -7,6 +7,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@alloy/ui/components/input-group"
+import { LoadingState } from "@alloy/ui/components/loading-state"
 import {
   Section,
   SectionContent,
@@ -15,7 +16,7 @@ import {
 } from "@alloy/ui/components/section"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { SearchIcon, XIcon } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { ListEmpty } from "@/components/feedback/empty-state"
 
@@ -36,6 +37,13 @@ export function AdminUsersCard({
   const [search, setSearch] = useState("")
   const normalizedSearch = search.trim()
   const adminUsers = useAdminUsers(currentUserId, normalizedSearch)
+  const loadSettled = adminUsers.users !== null || !!adminUsers.loadError
+  const [initialLoadSettled, setInitialLoadSettled] = useState(loadSettled)
+  const initialLoading = !initialLoadSettled && !loadSettled
+  // Search and cache expiry must not unmount controls after the first load.
+  useEffect(() => {
+    if (loadSettled) setInitialLoadSettled(true)
+  }, [loadSettled])
 
   const list = adminUsers.loadError ? (
     <Callout tone="destructive">{adminUsers.loadError}</Callout>
@@ -72,7 +80,9 @@ export function AdminUsersCard({
     </>
   )
 
-  const content = (
+  const content = initialLoading ? (
+    <LoadingState variant="panel" />
+  ) : (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-foreground-muted text-sm tabular-nums">

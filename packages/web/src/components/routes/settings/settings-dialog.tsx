@@ -11,6 +11,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@alloy/ui/components/input-group"
+import { LoadingState } from "@alloy/ui/components/loading-state"
 import {
   Select,
   SelectContent,
@@ -20,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
-import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
 import { useBlocker } from "@tanstack/react-router"
 import { SearchIcon, XIcon } from "lucide-react"
@@ -363,7 +363,7 @@ function SettingsDialogContent({
               : "max-md:pb-[max(1.5rem,env(safe-area-inset-bottom))]",
           )}
         >
-          <Suspense fallback={<PanelLoading />}>
+          <Suspense fallback={<LoadingState variant="panel" />}>
             <ActivePanel />
           </Suspense>
           <SettingsBuildInfo className="mt-8 md:hidden" />
@@ -372,13 +372,5 @@ function SettingsDialogContent({
         <SettingsSaveBar />
       </div>
     </SettingsSectionsProvider>
-  )
-}
-
-function PanelLoading() {
-  return (
-    <div className="text-foreground-muted flex h-32 items-center justify-center">
-      <Spinner />
-    </div>
   )
 }

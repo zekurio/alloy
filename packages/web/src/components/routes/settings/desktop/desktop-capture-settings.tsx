@@ -1,8 +1,8 @@
 import { t } from "@alloy/i18n"
 import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
+import { LoadingState } from "@alloy/ui/components/loading-state"
 import { SettingRow } from "@alloy/ui/components/setting-row"
-import { Spinner } from "@alloy/ui/components/spinner"
 import { RefreshCcwIcon } from "lucide-react"
 import { useState } from "react"
 
@@ -22,21 +22,12 @@ import {
 } from "./desktop-recording-context"
 import { DesktopStorageSettings } from "./desktop-storage-settings"
 
-export function DesktopCaptureSettings() {
-  const { settings, status, busy, error, save, restartBackend } =
-    useDesktopRecording()
+function DesktopCaptureSettings() {
+  const { settings, status, busy, save, restartBackend } = useDesktopRecording()
   const restartFeedback = useActionFeedback()
   const [restartDialogOpen, setRestartDialogOpen] = useState(false)
 
-  if (!settings || !status) {
-    if (error) return <DesktopRecordingNotice />
-    return (
-      <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
-        <Spinner />
-        {t("Loading capture settings")}
-      </div>
-    )
-  }
+  if (!settings || !status) return null
 
   return (
     <>
@@ -101,6 +92,12 @@ export function DesktopCaptureSettings() {
 }
 
 export function DesktopCapturePanel() {
+  const { settings, status, storageInfo, error } = useDesktopRecording()
+  if (!settings || !status || !storageInfo) {
+    if (error) return <DesktopRecordingNotice />
+    return <LoadingState variant="panel" />
+  }
+
   return (
     <SettingsSections>
       <DesktopCaptureSettings />
@@ -111,24 +108,8 @@ export function DesktopCapturePanel() {
           "Choose where clips are saved and review local disk usage.",
         )}
       >
-        <DesktopStoragePanel />
+        <DesktopStorageSettings />
       </SettingsSubsection>
     </SettingsSections>
   )
-}
-
-export function DesktopStoragePanel() {
-  const { settings, storageInfo, error } = useDesktopRecording()
-
-  if (!settings || !storageInfo) {
-    if (error) return <DesktopRecordingNotice />
-    return (
-      <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
-        <Spinner />
-        {t("Loading storage settings")}
-      </div>
-    )
-  }
-
-  return <DesktopStorageSettings />
 }
