@@ -1,5 +1,6 @@
 import type { AdminRuntimeConfig } from "@alloy/api"
 import { Callout } from "@alloy/ui/components/callout"
+import { LoadingState } from "@alloy/ui/components/loading-state"
 import type { ReactNode } from "react"
 
 import { AdminGamesCard } from "@/components/admin/admin-games-card"
@@ -23,7 +24,7 @@ function withAdminConfig(render: (config: AdminRuntimeConfig) => ReactNode) {
   return function AdminConfigPanel() {
     const ctx = useAdminConfigContext()
     if (ctx.loadError) return <AdminLoadError message={ctx.loadError} />
-    if (!ctx.config) return null
+    if (!ctx.config) return <LoadingState variant="panel" />
     return <>{render(ctx.config)}</>
   }
 }

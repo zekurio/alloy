@@ -8,6 +8,7 @@ import {
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Checkbox } from "@alloy/ui/components/checkbox"
+import { LoadingState } from "@alloy/ui/components/loading-state"
 import {
   Select,
   SelectContent,
@@ -17,7 +18,6 @@ import {
 } from "@alloy/ui/components/select"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Slider } from "@alloy/ui/components/slider"
-import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn, sliderValue } from "@alloy/ui/lib/utils"
 import {
@@ -153,12 +153,7 @@ export function DesktopAudioSettings() {
 
   if (!settings || !status) {
     if (error) return <DesktopRecordingNotice />
-    return (
-      <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
-        <Spinner />
-        {t("Loading audio settings")}
-      </div>
-    )
+    return <LoadingState variant="panel" />
   }
 
   const applications = mergeAudioApplications(

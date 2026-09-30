@@ -7,13 +7,13 @@ import { Callout } from "@alloy/ui/components/callout"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { List, ListItem } from "@alloy/ui/components/list"
+import { LoadingState } from "@alloy/ui/components/loading-state"
 import {
   Section,
   SectionContent,
   SectionHeader,
   SectionTitle,
 } from "@alloy/ui/components/section"
-import { Spinner } from "@alloy/ui/components/spinner"
 import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -41,7 +41,9 @@ export function AdminWebhooksCard({ hideHeader }: { hideHeader?: boolean }) {
     error,
   } = useQuery(adminWebhooksQueryOptions())
 
-  const body = (
+  const body = isPending ? (
+    <LoadingState variant="panel" />
+  ) : (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-foreground-muted text-sm">
@@ -56,8 +58,6 @@ export function AdminWebhooksCard({ hideHeader }: { hideHeader?: boolean }) {
         <Callout tone="destructive">
           {errorMessage(error, t("Couldn't load webhooks"))}
         </Callout>
-      ) : isPending ? (
-        <Spinner className="size-5" />
       ) : webhooks.length === 0 ? (
         <ListEmpty title={t("No webhooks yet")} />
       ) : (

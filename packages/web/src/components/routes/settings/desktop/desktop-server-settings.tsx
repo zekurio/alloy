@@ -6,6 +6,7 @@ import { Callout } from "@alloy/ui/components/callout"
 import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { Input } from "@alloy/ui/components/input"
+import { LoadingState } from "@alloy/ui/components/loading-state"
 import { SettingRows } from "@alloy/ui/components/setting-row"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
@@ -36,7 +37,7 @@ type Phase = "idle" | "loading" | "connecting"
 
 type ServerApi = NonNullable<ReturnType<typeof alloyDesktop>>["servers"]
 
-export function DesktopServerSettings() {
+export function DesktopAppPanel() {
   const desktop = alloyDesktop()
   const serverApi = desktop?.servers
   const [url, setUrl] = useState("")
@@ -111,8 +112,9 @@ export function DesktopServerSettings() {
   }
 
   const busy = connectingServerUrl !== null
+  if (phase === "loading") return <LoadingState variant="panel" />
 
-  return (
+  const serverSettings = (
     <div className="flex flex-col gap-4">
       {error ? (
         <Callout tone="destructive" className="text-xs">
@@ -130,7 +132,6 @@ export function DesktopServerSettings() {
 
       <div className="border-border border-t pt-4">
         <SavedServerList
-          phase={phase}
           servers={servers}
           currentServerUrl={currentServerUrl}
           connectingServerUrl={connectingServerUrl}
@@ -185,9 +186,7 @@ export function DesktopServerSettings() {
       />
     </div>
   )
-}
 
-export function DesktopAppPanel() {
   return (
     <SettingsSections>
       <SettingsSubsection
@@ -197,7 +196,7 @@ export function DesktopAppPanel() {
           "Add, switch between, or forget connected Alloy servers.",
         )}
       >
-        <DesktopServerSettings />
+        {serverSettings}
       </SettingsSubsection>
       <SettingsSubsection
         id="startup"
@@ -309,7 +308,6 @@ function ServerConnectForm({
 }
 
 function SavedServerList({
-  phase,
   servers,
   currentServerUrl,
   connectingServerUrl,
@@ -317,7 +315,6 @@ function SavedServerList({
   connectTo,
   forgetServer,
 }: {
-  phase: Phase
   servers: DesktopSavedServer[]
   currentServerUrl: string | null
   connectingServerUrl: string | null
@@ -325,15 +322,6 @@ function SavedServerList({
   connectTo: (serverUrl: string) => Promise<void>
   forgetServer: (serverUrl: string) => void
 }) {
-  if (phase === "loading") {
-    return (
-      <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
-        <Spinner />
-        {t("Loading servers")}
-      </div>
-    )
-  }
-
   if (servers.length === 0) {
     return (
       <p className="text-foreground-dim text-xs">
