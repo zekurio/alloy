@@ -174,7 +174,6 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     const head = await clipHead(
       pathname,
       Number.isSafeInteger(timestamp) && timestamp > 0 ? timestamp : undefined,
-      c.req.header("user-agent"),
     )
     if (
       configStore.get("requireAuthToBrowse") &&
@@ -189,7 +188,6 @@ export async function mountWeb(app: Hono): Promise<Hono> {
 
     c.header("Content-Type", "text/html; charset=utf-8")
     c.header("Cache-Control", "no-cache")
-    c.header("Vary", "User-Agent", { append: true })
     if (c.req.method === "HEAD") return c.body(null)
     const nonce = c.get("secureHeadersNonce")
     if (!nonce) {
