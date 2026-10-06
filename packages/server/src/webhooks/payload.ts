@@ -69,7 +69,7 @@ export function buildClipPublishedPayload(
     timestamp: announcedAt.toISOString(),
     clip: {
       id: row.id,
-      url: clipShareUrl(row.id, origin, announcedAt.getTime()),
+      url: clipShareUrl(row.id, origin),
       title: row.title,
       description: row.description,
       game: clipGameName(row),
@@ -90,7 +90,7 @@ export function buildClipPublishedPayload(
 
 /**
  * Message webhooks receive the bare permalink so Discord or Fluxer can unfurl
- * the clip page's OpenGraph tags into a playable preview.
+ * the clip page's metadata into a link preview.
  */
 export function messageWebhookContent(payload: ClipPublishedPayload): string {
   return payload.clip.url

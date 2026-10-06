@@ -170,12 +170,7 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     if (pathname === "/health" || pathname.startsWith("/api/")) {
       return c.notFound()
     }
-    const timestamp = Number(c.req.query("t"))
-    const head = await clipHead(
-      pathname,
-      Number.isSafeInteger(timestamp) && timestamp > 0 ? timestamp : undefined,
-      c.req.header("user-agent"),
-    )
+    const head = await clipHead(pathname)
     if (
       configStore.get("requireAuthToBrowse") &&
       !PUBLIC_WEB_PATHS.has(pathname) &&
@@ -189,7 +184,6 @@ export async function mountWeb(app: Hono): Promise<Hono> {
 
     c.header("Content-Type", "text/html; charset=utf-8")
     c.header("Cache-Control", "no-cache")
-    c.header("Vary", "User-Agent", { append: true })
     if (c.req.method === "HEAD") return c.body(null)
     const nonce = c.get("secureHeadersNonce")
     if (!nonce) {

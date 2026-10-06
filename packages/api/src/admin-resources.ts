@@ -10,6 +10,7 @@ import type {
   AdminWebhookRow,
   AdminWebhookTestResult,
   GameAssetRole,
+  SteamGridDBArtworkResponse,
 } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
@@ -22,6 +23,7 @@ import {
   validateAdminWebhookRow,
   validateAdminWebhookRows,
   validateAdminWebhookTestResult,
+  validateSteamGridDBArtworkResponse,
 } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 import { readDeletedJson, readSuccessJson } from "./mutations"
@@ -138,6 +140,18 @@ export async function deleteGame(
     param: { id: gameId },
   })
   await readDeletedJson(res)
+}
+
+export async function fetchGameArtwork(
+  context: ApiContext,
+  gameId: string,
+  role: GameAssetRole,
+): Promise<SteamGridDBArtworkResponse> {
+  const res = await context.rpc.api.admin.games[":id"].artwork.$get({
+    param: { id: gameId },
+    query: { role },
+  })
+  return readJsonOrThrow(res, validateSteamGridDBArtworkResponse)
 }
 
 export async function uploadGameAsset(

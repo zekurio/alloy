@@ -36,18 +36,6 @@ export function setAdminGameCacheRow(
       ? old.map((item) => (item.id === game.id ? game : item))
       : [game, ...old]
   })
-}
-
-/**
- * Cache update for artwork changes. The admin row carries the new cache-busted
- * URLs, but the public game queries (lists, detail, search, combobox) embed
- * them too, so they must be refetched or they keep serving the stale artwork.
- */
-export function setAdminGameArtworkRow(
-  queryClient: QueryClient,
-  game: AdminGameRow,
-): void {
-  setAdminGameCacheRow(queryClient, game)
   void invalidateGameQueries(queryClient)
 }
 
@@ -58,6 +46,7 @@ export function removeAdminGameCacheRow(
   queryClient.setQueryData<AdminGameRow[]>(adminKeys.games(), (old) =>
     old?.filter((game) => game.id !== gameId),
   )
+  void invalidateGameQueries(queryClient)
 }
 
 export function dateInputValue(releaseDate: string | null): string {

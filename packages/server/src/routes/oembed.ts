@@ -1,4 +1,3 @@
-import { userDisplayLabel } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { selectEmbeddableClip } from "@alloy/server/clips/access"
 import { clipIdFromPermalink } from "@alloy/server/clips/permalink"
@@ -8,18 +7,7 @@ import { Hono } from "hono"
 
 import { tbValidator } from "./validation"
 
-/**
- * oEmbed document for a clip.
- *
- * This is what puts the bold author line above the title in a Discord unfurl —
- * the slot YouTube fills with the channel name. OpenGraph has no equivalent, so
- * without this the embed starts with the title. Provider fields are omitted so
- * previews lead with the author rather than a separate site label.
- *
- * Deliberately `type: "link"` with no `html`: returning `type: "video"` with an
- * iframe would make Discord embed the iframe instead of the native `og:video`
- * mp4, which plays inline and is the better experience for short clips.
- */
+// A link-only preview with a clickable Alloy provider, without author or media.
 const OembedQuery = t.object({
   url: t.string().min(1),
   format: t.enum(["json"]).optional(),
@@ -46,14 +34,8 @@ export const oembedRoute = new Hono().get(
       type: "link",
       version: "1.0",
       title: row.title,
-      author_name: userDisplayLabel({
-        username: row.authorUsername,
-        displayName: row.authorDisplayName,
-      }),
-      author_url: new URL(
-        `/u/${encodeURIComponent(row.authorUsername)}`,
-        origin,
-      ).toString(),
+      provider_name: "alloy",
+      provider_url: new URL("/", origin).toString(),
     })
   },
 )

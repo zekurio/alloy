@@ -15,7 +15,7 @@ const SHAREABLE_CLIP_VIEW_RE = new RegExp(
   String.raw`^/api/clips/${CLIP_ID}/view$`,
   "i",
 )
-// The oEmbed document, which supplies the embed's author line. The handler
+// The oEmbed document, which supplies the embed's site link. The handler
 // validates the url query itself and only ever resolves our own permalinks.
 const SHAREABLE_OEMBED_RE = /^\/api\/oembed\/?$/
 

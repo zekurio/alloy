@@ -23,7 +23,5 @@ export function absoluteClipHref(
   clipId: string,
   origin: string,
 ): string {
-  const url = new URL(clipHref(steamgriddbId, clipId), origin)
-  url.searchParams.set("t", String(Date.now()))
-  return url.toString()
+  return new URL(clipHref(steamgriddbId, clipId), origin).toString()
 }
