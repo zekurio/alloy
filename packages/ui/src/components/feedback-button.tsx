@@ -55,7 +55,10 @@ function FeedbackButton({
       data-feedback-state={state}
       aria-live="polite"
       variant={state === "success" || state === "error" ? "outline" : variant}
-      className={cn(state === "success" && "disabled:opacity-100", className)}
+      className={cn(
+        (state === "pending" || state === "success") && "disabled:opacity-100",
+        className,
+      )}
       disabled={disabled || state === "pending" || state === "success"}
       {...props}
     >
