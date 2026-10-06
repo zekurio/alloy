@@ -1,8 +1,12 @@
-import { type ClipGameRef, type GameRow } from "@alloy/contracts"
+import {
+  type ClipGameRef,
+  type GameRow,
+  type SteamGridDBGameDetail,
+} from "@alloy/contracts"
 import { game } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
-import { eq, inArray, like, or } from "drizzle-orm"
+import { and, eq, inArray, like, or } from "drizzle-orm"
 
 import {
   gameSelection,
@@ -70,28 +74,28 @@ export function clipGameName(row: {
   return clipGameRefFromSnapshot({ id: row.gameId, name: row.game }).name
 }
 
-async function availableGameSlug(
+export async function availableGameSlug(
   name: string,
-  steamgriddbId: number,
+  exclude: { gameId?: string | null; steamgriddbId?: number | null } = {},
 ): Promise<string> {
   const base = gameSlug(name)
   const rows = await db
     .select({
+      id: game.id,
       steamgriddbId: game.steamgriddb_id,
       slug: game.slug,
     })
     .from(game)
-    .where(
-      or(
-        eq(game.steamgriddb_id, steamgriddbId),
-        eq(game.slug, base),
-        like(game.slug, `${base}-%`),
-      ),
-    )
+    .where(or(eq(game.slug, base), like(game.slug, `${base}-%`)))
 
   const reserved = new Set(
     rows
-      .filter((row) => row.steamgriddbId !== steamgriddbId)
+      .filter(
+        (row) =>
+          row.id !== exclude.gameId &&
+          (exclude.steamgriddbId == null ||
+            row.steamgriddbId !== exclude.steamgriddbId),
+      )
       .map((row) => row.slug),
   )
   if (!reserved.has(base)) return base
@@ -101,34 +105,6 @@ async function availableGameSlug(
 
   for (let suffix = 2; suffix < 10_000; suffix += 1) {
     const candidate = `${base}-variant-${suffix}`
-    if (!reserved.has(candidate)) return candidate
-  }
-
-  return `${base}-${crypto.randomUUID().slice(0, 8)}`
-}
-
-/**
- * Unique slug for an admin-authored custom game. Mirrors `availableGameSlug`
- * but excludes by surrogate id (custom games have no SteamGridDB id), so
- * editing a game keeps its own slug available.
- */
-export async function availableCustomGameSlug(
-  name: string,
-  excludeGameId: string | null,
-): Promise<string> {
-  const base = gameSlug(name)
-  const rows = await db
-    .select({ id: game.id, slug: game.slug })
-    .from(game)
-    .where(or(eq(game.slug, base), like(game.slug, `${base}-%`)))
-
-  const reserved = new Set(
-    rows.filter((row) => row.id !== excludeGameId).map((row) => row.slug),
-  )
-  if (!reserved.has(base)) return base
-
-  for (let suffix = 2; suffix < 10_000; suffix += 1) {
-    const candidate = `${base}-${suffix}`
     if (!reserved.has(candidate)) return candidate
   }
 
@@ -190,80 +166,119 @@ async function selectCachedGameRefBySlug(
   return row ?? null
 }
 
-async function loadSteamGridDBGameRef(
+type SteamGridDBSnapshot = {
+  detail: SteamGridDBGameDetail
+  assets: Awaited<ReturnType<typeof getGameAssets>>
+}
+
+async function fetchSteamGridDBSnapshot(
   steamgriddbId: number,
-): Promise<GameRow | null> {
-  const [previous, detail, assets] = await Promise.all([
-    selectCachedGameRef(steamgriddbId),
+): Promise<SteamGridDBSnapshot | null> {
+  const [detail, assets] = await Promise.all([
     getGameById(steamgriddbId),
     getGameAssets(steamgriddbId),
   ])
-  if (!detail) return null
-  const releaseDate =
-    detail.release_date != null ? new Date(detail.release_date * 1000) : null
-  const slug = await availableGameSlug(detail.name, detail.id)
+  return detail ? { detail, assets } : null
+}
 
-  const values = {
+function steamGridDBGameColumns(input: {
+  snapshot: SteamGridDBSnapshot
+  slug: string
+  previous: CachedGameMetadataRow | null
+}): typeof game.$inferInsert {
+  const { detail, assets } = input.snapshot
+  return {
     steamgriddb_id: detail.id,
-    source: "steamgriddb" as const,
+    source: "steamgriddb",
     name: detail.name,
-    slug,
-    release_date: releaseDate,
+    slug: input.slug,
+    release_date:
+      detail.release_date != null ? new Date(detail.release_date * 1000) : null,
     hero_url: assets.heroUrl,
     hero_blur_hash:
-      assets.heroUrl === previous?.heroUrl
-        ? (assets.heroBlurHash ?? previous.heroBlurHash)
+      assets.heroUrl === input.previous?.heroUrl
+        ? (assets.heroBlurHash ?? input.previous.heroBlurHash)
         : assets.heroBlurHash,
     grid_url: assets.gridUrl,
     grid_blur_hash:
-      assets.gridUrl === previous?.gridUrl
-        ? (assets.gridBlurHash ?? previous.gridBlurHash)
+      assets.gridUrl === input.previous?.gridUrl
+        ? (assets.gridBlurHash ?? input.previous.gridBlurHash)
         : assets.gridBlurHash,
     logo_url: assets.logoUrl,
     icon_url: assets.iconUrl,
     updated_at: new Date(),
   }
-  const updateValues = {
-    name: values.name,
-    slug: values.slug,
-    release_date: values.release_date,
-    hero_url: values.hero_url,
-    hero_blur_hash: values.hero_blur_hash,
-    grid_url: values.grid_url,
-    grid_blur_hash: values.grid_blur_hash,
-    logo_url: values.logo_url,
-    icon_url: values.icon_url,
-    updated_at: values.updated_at,
-  }
+}
+
+async function insertSteamGridDBGameRef(
+  steamgriddbId: number,
+): Promise<GameRow | null> {
+  const snapshot = await fetchSteamGridDBSnapshot(steamgriddbId)
+  if (!snapshot) return null
+  const slug = await availableGameSlug(snapshot.detail.name, { steamgriddbId })
 
   const [row] = await db
     .insert(game)
-    .values(values)
-    .onConflictDoUpdate({
-      target: game.steamgriddb_id,
-      set: updateValues,
-    })
+    .values(steamGridDBGameColumns({ snapshot, slug, previous: null }))
+    .onConflictDoNothing({ target: game.steamgriddb_id })
     .returning(gameSelection)
+  if (row) return serialiseGameRow(row)
 
-  return row ? serialiseGameRow(row) : null
+  const existing = await selectCachedGameRef(steamgriddbId)
+  return existing ? serialiseGameRow(existing) : null
 }
 
-function loadSteamGridDBGameRefOnce(
+// Refresh only the original row. An in-flight fetch must neither recreate a
+// deleted game nor overwrite a row that an admin has customized.
+async function updateSteamGridDBGameRef(
+  gameId: string,
+  steamgriddbId: number,
+): Promise<GameRow | null> {
+  const [previous, snapshot] = await Promise.all([
+    selectCachedGameRefById(gameId),
+    fetchSteamGridDBSnapshot(steamgriddbId),
+  ])
+  if (!previous || !snapshot) return null
+  const slug = await availableGameSlug(snapshot.detail.name, {
+    gameId,
+    steamgriddbId: snapshot.detail.id,
+  })
+
+  const [row] = await db
+    .update(game)
+    .set(steamGridDBGameColumns({ snapshot, slug, previous }))
+    .where(and(eq(game.id, gameId), eq(game.source, "steamgriddb")))
+    .returning(gameSelection)
+  if (row) return serialiseGameRow(row)
+
+  const current = await selectCachedGameRefById(gameId)
+  return current ? serialiseGameRow(current) : null
+}
+
+function insertSteamGridDBGameRefOnce(
   steamgriddbId: number,
 ): Promise<GameRow | null> {
   const pending = pendingGameLoads.get(steamgriddbId)
   if (pending) return pending
 
-  const load = loadSteamGridDBGameRef(steamgriddbId).finally(() => {
+  const load = insertSteamGridDBGameRef(steamgriddbId).finally(() => {
     pendingGameLoads.delete(steamgriddbId)
   })
   pendingGameLoads.set(steamgriddbId, load)
   return load
 }
 
-function refreshCachedGameRef(steamgriddbId: number): void {
-  void loadSteamGridDBGameRefOnce(steamgriddbId).catch((err) => {
-    logger.warn(`failed to refresh game ${steamgriddbId}:`, err)
+const pendingGameRefreshes = new Map<string, Promise<GameRow | null>>()
+
+function refreshCachedGameRef(gameId: string, steamgriddbId: number): void {
+  const refresh =
+    pendingGameRefreshes.get(gameId) ??
+    updateSteamGridDBGameRef(gameId, steamgriddbId).finally(() => {
+      pendingGameRefreshes.delete(gameId)
+    })
+  pendingGameRefreshes.set(gameId, refresh)
+  void refresh.catch((err) => {
+    logger.warn(`failed to refresh game ${gameId}:`, err)
   })
 }
 
@@ -272,11 +287,13 @@ export async function getSteamGridDBGameRef(
 ): Promise<GameRow | null> {
   const cached = await selectCachedGameRef(steamgriddbId)
   if (cached) {
-    if (shouldRefresh(cached)) refreshCachedGameRef(steamgriddbId)
+    if (shouldBackgroundRefresh(cached) && cached.steamgriddbId !== null) {
+      refreshCachedGameRef(cached.id, cached.steamgriddbId)
+    }
     return serialiseGameRow(cached)
   }
 
-  return loadSteamGridDBGameRefOnce(steamgriddbId)
+  return insertSteamGridDBGameRefOnce(steamgriddbId)
 }
 
 /**
@@ -288,7 +305,7 @@ export async function getGameRefById(gameId: string): Promise<GameRow | null> {
   const cached = await selectCachedGameRefById(gameId)
   if (!cached) return null
   if (shouldBackgroundRefresh(cached) && cached.steamgriddbId !== null) {
-    refreshCachedGameRef(cached.steamgriddbId)
+    refreshCachedGameRef(cached.id, cached.steamgriddbId)
   }
   return serialiseGameRow(cached)
 }
@@ -300,7 +317,7 @@ export async function getGameRefsByIds(
   const refs = new Map<string, GameRow>()
   for (const row of rows) {
     if (shouldBackgroundRefresh(row) && row.steamgriddbId !== null) {
-      refreshCachedGameRef(row.steamgriddbId)
+      refreshCachedGameRef(row.id, row.steamgriddbId)
     }
     refs.set(row.id, serialiseGameRow(row))
   }
@@ -313,7 +330,7 @@ export async function getSteamGridDBGameRefBySlug(
   const cached = await selectCachedGameRefBySlug(slug)
   if (cached) {
     if (shouldBackgroundRefresh(cached) && cached.steamgriddbId !== null) {
-      refreshCachedGameRef(cached.steamgriddbId)
+      refreshCachedGameRef(cached.id, cached.steamgriddbId)
     }
     return serialiseGameRow(cached)
   }

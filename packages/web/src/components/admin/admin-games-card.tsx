@@ -1,6 +1,5 @@
 import type { AdminGameRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
 import { Card } from "@alloy/ui/components/card"
@@ -11,7 +10,6 @@ import {
   InputGroupInput,
 } from "@alloy/ui/components/input-group"
 import { LoadingState } from "@alloy/ui/components/loading-state"
-import { MediaCard, MediaCardGrid } from "@alloy/ui/components/media-card"
 import {
   Section,
   SectionContent,
@@ -19,7 +17,7 @@ import {
   SectionTitle,
 } from "@alloy/ui/components/section"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { ImageIcon, SearchIcon, Trash2Icon } from "lucide-react"
+import { SearchIcon, Trash2Icon } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { ListEmpty } from "@/components/feedback/empty-state"
@@ -28,12 +26,7 @@ import { adminGamesQueryOptions } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 
-import {
-  GAME_ASSET_FIELDS,
-  GAME_ASSET_ROLES,
-  GAME_ASSET_URL,
-  removeAdminGameCacheRow,
-} from "./admin-game-data"
+import { removeAdminGameCacheRow } from "./admin-game-data"
 import { CreateGameDialog, EditGameDialog } from "./admin-game-dialogs"
 
 export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
@@ -67,7 +60,7 @@ export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
           </span>
         ) : (
           <p className="text-foreground-muted text-sm">
-            {t("Create and manage custom games and their artwork.")}
+            {t("Manage games and their artwork.")}
           </p>
         )}
         <div className="flex w-full items-center gap-2 sm:w-auto">
@@ -95,11 +88,11 @@ export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
       ) : filteredGames.length === 0 ? (
         <ListEmpty title={t("No games found")} />
       ) : (
-        <MediaCardGrid>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,360px),1fr))] gap-3">
           {filteredGames.map((game) => (
             <AdminGameCard key={game.id} game={game} />
           ))}
-        </MediaCardGrid>
+        </div>
       )}
     </div>
   )
@@ -117,33 +110,35 @@ export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
 }
 
 function AdminGameCard({ game }: { game: AdminGameRow }) {
-  const isCustom = game.source === "custom"
-
   return (
-    <MediaCard
-      media={
+    <Card className="flex-row items-center gap-4 p-4">
+      <div className="flex h-16 w-20 shrink-0 items-center justify-center">
         <GameIcon
-          // The grid asset is the portrait cover; the others are square or wide
-          // and only stand in when a game has no cover yet.
-          src={game.gridUrl ?? game.logoUrl ?? game.iconUrl}
+          src={game.logoUrl ?? game.iconUrl}
           name={game.name}
-          className="size-full rounded-none text-3xl [&_img]:object-cover"
+          className="size-full rounded-none bg-transparent text-3xl [&_img]:object-contain"
         />
-      }
-      badge={
-        <Badge variant={isCustom ? "accent" : "secondary"} size="text">
-          {isCustom ? t("Custom") : t("SteamGridDB")}
-        </Badge>
-      }
-      actions={isCustom ? <CustomGameActions game={game} /> : null}
-      title={game.name}
-      subtitle={game.slug}
-      meta={`${game.clipCount} ${game.clipCount === 1 ? t("clip") : t("clips")}`}
-    />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-base font-semibold" title={game.name}>
+          {game.name}
+        </div>
+        <div
+          className="text-foreground-muted truncate text-sm"
+          title={game.slug}
+        >
+          {game.slug}
+        </div>
+        <div className="text-foreground-faint mt-1 text-xs tabular-nums">
+          {game.clipCount} {game.clipCount === 1 ? t("clip") : t("clips")}
+        </div>
+      </div>
+      <GameActions game={game} />
+    </Card>
   )
 }
 
-function CustomGameActions({ game }: { game: AdminGameRow }) {
+function GameActions({ game }: { game: AdminGameRow }) {
   const queryClient = useQueryClient()
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -165,13 +160,20 @@ function CustomGameActions({ game }: { game: AdminGameRow }) {
   }
 
   return (
-    <div className="flex items-center">
+    <div className="flex shrink-0 items-center gap-1.5">
       <EditGameDialog game={game} />
       <Button
         type="button"
         variant="ghost"
-        size="icon-sm"
+        size="icon"
+        className="text-danger hover:text-danger"
         aria-label={t("Delete game")}
+        disabled={game.clipCount > 0}
+        title={
+          game.clipCount > 0
+            ? t("Only games without clips can be deleted.")
+            : t("Delete game")
+        }
         onClick={() => setDeleteOpen(true)}
       >
         <Trash2Icon className="size-3.5" />
@@ -184,7 +186,7 @@ function CustomGameActions({ game }: { game: AdminGameRow }) {
         }}
         title={t("Delete this game?")}
         description={t(
-          "Its artwork is removed and any clips lose their game tag. This can't be undone.",
+          "The game and its artwork will be removed. This can't be undone.",
         )}
         confirmLabel={t("Delete")}
         pendingLabel={t("Deleting")}
@@ -218,42 +220,6 @@ function DeleteGamePreview({ game }: { game: AdminGameRow }) {
             {game.slug} · {clipCount}
           </div>
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        {GAME_ASSET_ROLES.map((role) => {
-          // SAFETY: GAME_ASSET_URL maps only to nullable URL fields.
-          const currentUrl = game[GAME_ASSET_URL[role]] as string | null
-
-          return (
-            <div
-              key={role}
-              className="border-border bg-surface-sunken flex items-center gap-2 rounded-md border p-2"
-            >
-              <div className="border-border/70 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded border">
-                {currentUrl ? (
-                  <GameIcon
-                    src={currentUrl}
-                    name={`${game.name} ${GAME_ASSET_FIELDS[role].label}`}
-                    className="size-full rounded-none"
-                  />
-                ) : (
-                  <ImageIcon
-                    className="text-foreground-faint size-4"
-                    aria-hidden
-                  />
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="truncate text-xs font-semibold">
-                  {GAME_ASSET_FIELDS[role].label}
-                </div>
-                <div className="text-foreground-faint truncate text-xs">
-                  {currentUrl ? t("Uploaded") : t("Not set")}
-                </div>
-              </div>
-            </div>
-          )
-        })}
       </div>
     </Card>
   )

@@ -30,11 +30,11 @@ import {
   GAME_ASSET_ROLES,
   GAME_ASSET_URL,
   releaseDatePayload,
-  setAdminGameArtworkRow,
   setAdminGameCacheRow,
 } from "./admin-game-data"
 import { GameArtworkStencil } from "./game-artwork-stencil"
 import type { GameArtworkSlot } from "./game-artwork-stencil"
+import { SteamGridDBArtworkPicker } from "./steamgriddb-artwork-picker"
 
 export function CreateGameDialog() {
   const queryClient = useQueryClient()
@@ -146,12 +146,14 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(game.name)
+  const [slug, setSlug] = useState(game.slug)
   const [releaseDate, setReleaseDate] = useState(
     dateInputValue(game.releaseDate),
   )
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [artworkError, setArtworkError] = useState<string | null>(null)
+  const [pickingArtwork, setPickingArtwork] = useState(false)
   // Artwork applies immediately, and slots are independent: a logo upload can
   // still be in flight while a hero crop applies, so busy is tracked per role.
   const [busyRoles, setBusyRoles] = useState<ReadonlySet<GameAssetRole>>(
@@ -174,7 +176,7 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
     setArtworkError(null)
     setRoleBusy(role, true)
     try {
-      setAdminGameArtworkRow(
+      setAdminGameCacheRow(
         queryClient,
         await api.admin.uploadGameAsset(game.id, role, file),
       )
@@ -192,7 +194,7 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
     setArtworkError(null)
     setRoleBusy(role, true)
     try {
-      setAdminGameArtworkRow(
+      setAdminGameCacheRow(
         queryClient,
         await api.admin.deleteGameAsset(game.id, role),
       )
@@ -206,12 +208,13 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
   const handleSave = async (event: FormEvent) => {
     event.preventDefault()
     const trimmed = name.trim()
-    if (!trimmed || saving) return
+    if (!trimmed || !slug.trim() || saving) return
     setSaveError(null)
     setSaving(true)
     try {
       const updated = await api.admin.updateGame(game.id, {
         name: trimmed,
+        slug: slug.trim(),
         releaseDate: releaseDatePayload(releaseDate),
       })
       setAdminGameCacheRow(queryClient, updated)
@@ -224,13 +227,25 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
   }
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={setOpen}>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen) {
+          setName(game.name)
+          setSlug(game.slug)
+          setReleaseDate(dateInputValue(game.releaseDate))
+          setSaveError(null)
+          setArtworkError(null)
+        }
+        setOpen(nextOpen)
+      }}
+    >
       <ResponsiveDialogTrigger
         render={
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             aria-label={t("Edit game")}
           >
             <PencilIcon className="size-3.5" />
@@ -243,6 +258,13 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
           <ResponsiveDialogDescription>{game.slug}</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
         <ResponsiveDialogBody className="flex flex-col gap-4 md:max-h-[70vh] md:overflow-y-auto">
+          {game.steamgriddbId !== null ? (
+            <p className="text-foreground-muted text-xs">
+              {t(
+                "Customizations stop automatic SteamGridDB updates for this game.",
+              )}
+            </p>
+          ) : null}
           <form onSubmit={handleSave} className="flex flex-col gap-4">
             <GameDetailFields
               nameId={`game-name-${game.id}`}
@@ -252,13 +274,29 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
               releaseDate={releaseDate}
               onReleaseDateChange={setReleaseDate}
             />
+            <Field>
+              <FieldLabel htmlFor={`game-slug-${game.id}`}>
+                {t("Slug")}
+              </FieldLabel>
+              <Input
+                id={`game-slug-${game.id}`}
+                value={slug}
+                onChange={(event) => setSlug(event.target.value)}
+                maxLength={64}
+                required
+                autoCapitalize="none"
+                spellCheck={false}
+              />
+            </Field>
             <FieldError>{saveError}</FieldError>
             <FeedbackButton
               type="submit"
               state={saving ? "pending" : saveError ? "error" : "idle"}
               pendingLabel={t("Saving…")}
               errorLabel={t("Try again")}
-              disabled={saving || name.trim().length === 0}
+              disabled={
+                saving || name.trim().length === 0 || slug.trim().length === 0
+              }
               className="self-end"
             >
               {t("Save")}
@@ -267,13 +305,13 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
 
           <GameArtworkSection
             className="border-border flex flex-col gap-3 border-t pt-4"
-            hint={t("Click a slot to replace or remove what's live.")}
+            hint={t("Artwork changes are saved immediately.")}
             name={name}
             releaseDate={releaseDate}
             slot={(role) => ({
               // SAFETY: GAME_ASSET_URL maps only to nullable URL fields.
               src: game[GAME_ASSET_URL[role]] as string | null,
-              busy: busyRoles.has(role),
+              busy: pickingArtwork || busyRoles.has(role),
               // Returned, not fired and forgotten: the crop dialog stays on
               // "Applying…" until the upload lands.
               onSelect: (file) => uploadAsset(role, file),
@@ -281,6 +319,11 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
             })}
           />
           <FieldError>{artworkError}</FieldError>
+          <SteamGridDBArtworkPicker
+            game={game}
+            disabled={busyRoles.size > 0}
+            onBusyChange={setPickingArtwork}
+          />
         </ResponsiveDialogBody>
         <ResponsiveDialogFooter>
           <ResponsiveDialogClose

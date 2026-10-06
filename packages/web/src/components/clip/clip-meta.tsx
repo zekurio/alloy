@@ -123,7 +123,7 @@ function ClipMeta({
   const handleShare = useCallback(async () => {
     await shareFeedback.run(async () => {
       if (privacy === "private") throw new Error(t("Clip link is disabled"))
-      const url = clipShareUrl(clipId, publicOrigin(), Date.now())
+      const url = clipShareUrl(clipId, publicOrigin())
       const result = await shareUrlWithFallback(url, {
         title,
         action: "share clip link",

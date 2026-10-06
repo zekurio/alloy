@@ -11,11 +11,11 @@ import type { DbTransaction } from "@alloy/server/db/transaction"
 import { withGameAssetMutation } from "@alloy/server/games/game-asset-activity"
 import { gameAssetDeletionIntents } from "@alloy/server/games/game-asset-deletion"
 import {
-  availableCustomGameSlug,
+  availableGameSlug,
   gameSelection,
   serialiseGameRow,
 } from "@alloy/server/games/ref"
-import { badRequest, notFound } from "@alloy/server/runtime/http-response"
+import { notFound } from "@alloy/server/runtime/http-response"
 import { prewriteAssetDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import {
   cancelStorageDeletion,
@@ -49,42 +49,46 @@ const GAME_ASSET_INPUT_COLUMN = {
   icon: "iconUrl",
 } as const
 
-export async function selectCustomGame(
+export async function selectGame(
   c: Context,
   gameId: string,
-): Promise<{ row: { id: string } } | { response: Response }> {
+): Promise<
+  { row: { id: string; steamgriddbId: number | null } } | { response: Response }
+> {
   const [row] = await db
-    .select({ id: game.id, source: game.source })
+    .select({ id: game.id, steamgriddbId: game.steamgriddb_id })
     .from(game)
     .where(eq(game.id, gameId))
     .limit(1)
   if (!row) return { response: notFound(c, "Unknown game") }
-  if (row.source !== "custom") {
-    return { response: badRequest(c, "Only custom games can be edited") }
-  }
-  return { row: { id: row.id } }
+  return { row }
 }
 
-type AdminGameResult =
-  | { ok: true; game: AdminGameRow }
-  | { ok: false; status: ContentfulStatusCode; error: string }
+type AdminGameFailure = {
+  ok: false
+  status: ContentfulStatusCode
+  error: string
+}
 
-type LockedCustomGame = typeof game.$inferSelect
+type AdminGameResult = { ok: true; game: AdminGameRow } | AdminGameFailure
+type GameDeleteResult = { ok: true } | AdminGameFailure
 
-async function lockCustomGame(
+type LockedGame = typeof game.$inferSelect
+
+async function lockGame(
   tx: DbTransaction,
   gameId: string,
-): Promise<LockedCustomGame | null> {
+): Promise<LockedGame | null> {
   const [row] = await tx
     .select({ row: getTableColumns(game) })
     .from(game)
     .where(eq(game.id, gameId))
     .limit(1)
     .for("update")
-  return row?.row.source === "custom" ? row.row : null
+  return row?.row ?? null
 }
 
-const missingGameResult = (): AdminGameResult => ({
+const missingGameResult = (): AdminGameFailure => ({
   ok: false,
   status: 404,
   error: "Unknown game",
@@ -192,31 +196,33 @@ export async function createCustomGame(input: {
   }
 }
 
-type UpdateCustomGameInput = Parameters<typeof urlAssetColumns>[0] & {
+type UpdateGameInput = Parameters<typeof urlAssetColumns>[0] & {
   name?: string
   slug?: string
   releaseDate?: string | null
 }
 
-export async function updateCustomGame(
+export async function updateGame(
   gameId: string,
-  body: UpdateCustomGameInput,
+  body: UpdateGameInput,
 ): Promise<AdminGameResult> {
   const assetColumns = await urlAssetColumns(body)
   const slug =
     body.slug === undefined
       ? undefined
-      : await availableCustomGameSlug(body.slug, gameId)
+      : await availableGameSlug(body.slug, { gameId })
   const hasAssetUpdate = GAME_ASSET_ROLES.some(
     (role) => body[GAME_ASSET_INPUT_COLUMN[role]] !== undefined,
   )
 
   const mutate = async () => {
     const transactionResult = await db.transaction(async (tx) => {
-      const locked = await lockCustomGame(tx, gameId)
+      const locked = await lockGame(tx, gameId)
       if (!locked) return { result: missingGameResult(), queued: 0 }
       const patch: Partial<typeof game.$inferInsert> = {
         updated_at: new Date(),
+        // Admin changes stop automatic SteamGridDB refreshes for this row.
+        source: "custom",
         ...assetColumns,
       }
       if (body.name !== undefined) patch.name = body.name
@@ -262,35 +268,51 @@ export async function updateCustomGame(
   return transactionResult.result
 }
 
-export async function deleteCustomGame(gameId: string): Promise<void> {
-  const queued = await withGameAssetMutation(gameId, () =>
+export async function deleteGame(gameId: string): Promise<GameDeleteResult> {
+  const transactionResult = await withGameAssetMutation(gameId, () =>
     db.transaction(async (tx) => {
-      const locked = await lockCustomGame(tx, gameId)
-      if (!locked) return 0
+      const locked = await lockGame(tx, gameId)
+      if (!locked) return { result: missingGameResult(), queued: 0 }
+
+      // The row lock also blocks the foreign-key check for attaching clips.
+      const [usage] = await tx
+        .select({ clipCount: sql<number>`count(*)::int` })
+        .from(clip)
+        .where(eq(clip.game_id, gameId))
+      if ((usage?.clipCount ?? 0) > 0) {
+        const result: AdminGameFailure = {
+          ok: false,
+          status: 409,
+          error: "Only games without clips can be deleted.",
+        }
+        return { result, queued: 0 }
+      }
+
       const intents = GAME_ASSET_ROLES.flatMap((role) =>
         gameAssetDeletionIntents({
           gameId,
           role,
           previousUrl: locked[GAME_ASSET_URL_COLUMN[role]],
-          reason: "custom game deleted",
+          reason: "game deleted",
           source: { type: "game-asset", id: gameId },
         }),
       )
       await enqueueStorageDeletions(intents, { tx })
       await tx.delete(game).where(eq(game.id, gameId))
-      return intents.length
+      return { result: { ok: true as const }, queued: intents.length }
     }),
   )
-  if (queued > 0) wakeStorageDeletionWorker()
+  if (transactionResult.queued > 0) wakeStorageDeletionWorker()
+  return transactionResult.result
 }
 
-export async function removeCustomGameAsset(
+export async function removeGameAsset(
   gameId: string,
   role: GameAssetRole,
 ): Promise<AdminGameResult> {
   return withGameAssetMutation(gameId, async () => {
     const transactionResult = await db.transaction(async (tx) => {
-      const locked = await lockCustomGame(tx, gameId)
+      const locked = await lockGame(tx, gameId)
       if (!locked) return { result: missingGameResult(), queued: 0 }
       const intents = gameAssetDeletionIntents({
         gameId,
@@ -301,7 +323,7 @@ export async function removeCustomGameAsset(
       })
       await tx
         .update(game)
-        .set(clearedGameAssetColumns(role))
+        .set({ ...clearedGameAssetColumns(role), source: "custom" })
         .where(eq(game.id, gameId))
       await enqueueStorageDeletions(intents, { tx })
       return { result: null, queued: intents.length }
@@ -332,7 +354,7 @@ export async function uploadGameAsset(
         try {
           await assetStorage.put(key, prepared.bytes, GAME_ASSET_CONTENT_TYPE)
           const transactionResult = await db.transaction(async (tx) => {
-            const locked = await lockCustomGame(tx, gameId)
+            const locked = await lockGame(tx, gameId)
             if (!locked) {
               await enqueueStorageDeletion(
                 prewriteAssetDeletionIntent({
@@ -350,6 +372,7 @@ export async function uploadGameAsset(
               .update(game)
               .set({
                 updated_at: updatedAt,
+                source: "custom",
                 ...gameAssetColumns(role, key, prepared, updatedAt),
               })
               .where(eq(game.id, gameId))
@@ -386,7 +409,7 @@ export async function uploadGameAsset(
   }
 }
 
-const badGamePersistenceResult = (): AdminGameResult => ({
+const badGamePersistenceResult = (): AdminGameFailure => ({
   ok: false,
   status: 500,
   error: "Game did not persist",

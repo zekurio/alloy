@@ -177,7 +177,7 @@ export function ClipEditorDetails({
   const visibilityFeedback = useActionFeedback()
   const activeVisibilityIntent = useRef<VisibilityIntent | null>(null)
   const saving = saveMutation.isPending
-  const visibilityPending = visibilityMutation.isPending
+  const visibilityPending = visibilityFeedback.feedback.state === "pending"
 
   const copyClipLink = async (clip: ClipRow = row) => {
     return copyTextToClipboard(

@@ -1,4 +1,8 @@
-import type { SteamGridDBSearchResult } from "@alloy/contracts"
+import type {
+  GameAssetRole,
+  SteamGridDBAsset,
+  SteamGridDBSearchResult,
+} from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { imageBlurHash } from "@alloy/server/media/blurhash"
 
@@ -7,6 +11,7 @@ import {
   getFirstHero,
   getFirstIcon,
   getFirstLogo,
+  listGameAssets,
   searchSteamGridDBGames,
 } from "./steamgriddb-client"
 export { getGameById, SteamGridDBError } from "./steamgriddb-client"
@@ -158,6 +163,21 @@ export async function enrichSearchResultsWithIcons(
     })),
     ...tail.map((r) => ({ ...r, iconUrl: null, logoUrl: null })),
   ]
+}
+
+const GAME_ARTWORK_MAX = 60
+
+/**
+ * Selectable SteamGridDB artwork for one role, powering the admin artwork
+ * picker. Upstream failures propagate (unlike ingestion, which degrades) so the
+ * route can answer 502/503 instead of showing an empty picker.
+ */
+export async function browseGameArtwork(
+  steamgriddbId: number,
+  role: GameAssetRole,
+): Promise<SteamGridDBAsset[]> {
+  const assets = await listGameAssets(steamgriddbId, role)
+  return assets.slice(0, GAME_ARTWORK_MAX)
 }
 
 export async function getGameAssets(steamgriddbId: number): Promise<{

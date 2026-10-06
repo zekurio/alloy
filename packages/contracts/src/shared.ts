@@ -19,9 +19,10 @@ export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]
 export const USER_ROLES = ["user", "admin"] as const
 export type UserRole = (typeof USER_ROLES)[number]
 
-// Where a game's identity comes from. SteamGridDB games are populated lazily
-// from the API and kept fresh on a TTL; custom games are admin-authored and
-// have no `steamgriddbId`.
+// Who owns a game's metadata. `steamgriddb` rows are populated lazily from the
+// API and kept fresh on a TTL; `custom` rows are admin-authored. An admin edit
+// of a SteamGridDB game moves the row to `custom` (keeping its
+// `steamgriddbId`) so later refreshes cannot overwrite the override.
 export const GAME_SOURCE = ["steamgriddb", "custom"] as const
 export type GameSource = (typeof GAME_SOURCE)[number]
 

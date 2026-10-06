@@ -1,4 +1,5 @@
 import type {
+  GameAssetRole,
   SteamGridDBAsset,
   SteamGridDBGameDetail,
   SteamGridDBSearchResult,
@@ -13,6 +14,19 @@ const STEAMGRIDDB_API_PATH = "/api/v2"
 
 const HERO_DIMENSIONS = "1920x620,3840x1240"
 const GRID_DIMENSIONS = "600x900,342x482,660x930"
+
+// One listing per artwork role. Heroes and grids are filtered to the frames
+// Alloy renders so every selectable asset works as page header or box art;
+// logos and icons keep their own aspect ratios.
+const ASSET_LISTS = {
+  hero: { path: "heroes", query: { dimensions: HERO_DIMENSIONS } },
+  grid: { path: "grids", query: { dimensions: GRID_DIMENSIONS } },
+  logo: { path: "logos", query: {} },
+  icon: { path: "icons", query: {} },
+} as const satisfies Record<
+  GameAssetRole,
+  { path: string; query: Record<string, string> }
+>
 
 const REQUEST_TIMEOUT_MS = 10_000
 
@@ -157,44 +171,45 @@ export async function getGameById(
   return await sgdbFetch(`/games/id/${steamgriddbId}`, GameDetailSchema)
 }
 
+/**
+ * Every asset SteamGridDB lists for one artwork role, in upstream order. Lazy
+ * game ingestion caches the first entry; the admin artwork picker offers the
+ * whole list. NSFW and humor assets are excluded explicitly so what the picker
+ * shows does not depend on upstream defaults.
+ */
+export async function listGameAssets(
+  steamgriddbId: number,
+  role: GameAssetRole,
+): Promise<SteamGridDBAsset[]> {
+  const request = ASSET_LISTS[role]
+  const data = await sgdbFetch(
+    `/${request.path}/game/${steamgriddbId}`,
+    t.array(AssetSchema),
+    { ...request.query, nsfw: "false", humor: "false" },
+  )
+  return data ?? []
+}
+
 export async function getFirstHero(
   steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
-  const data = await sgdbFetch(
-    `/heroes/game/${steamgriddbId}`,
-    t.array(AssetSchema),
-    { dimensions: HERO_DIMENSIONS },
-  )
-  return data?.[0] ?? null
+  return (await listGameAssets(steamgriddbId, "hero"))[0] ?? null
 }
 
 export async function getFirstGrid(
   steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
-  const data = await sgdbFetch(
-    `/grids/game/${steamgriddbId}`,
-    t.array(AssetSchema),
-    { dimensions: GRID_DIMENSIONS },
-  )
-  return data?.[0] ?? null
+  return (await listGameAssets(steamgriddbId, "grid"))[0] ?? null
 }
 
 export async function getFirstLogo(
   steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
-  const data = await sgdbFetch(
-    `/logos/game/${steamgriddbId}`,
-    t.array(AssetSchema),
-  )
-  return data?.[0] ?? null
+  return (await listGameAssets(steamgriddbId, "logo"))[0] ?? null
 }
 
 export async function getFirstIcon(
   steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
-  const data = await sgdbFetch(
-    `/icons/game/${steamgriddbId}`,
-    t.array(AssetSchema),
-  )
-  return data?.[0] ?? null
+  return (await listGameAssets(steamgriddbId, "icon"))[0] ?? null
 }
