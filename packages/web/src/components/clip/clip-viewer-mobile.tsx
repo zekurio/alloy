@@ -139,7 +139,7 @@ function MobileClipViewerBody({
   /* ---- handlers ---- */
   const handleShare = useCallback(async () => {
     await shareFeedback.run(async () => {
-      const url = clipShareUrl(row.id, publicOrigin(), Date.now())
+      const url = clipShareUrl(row.id, publicOrigin())
       const result = await shareUrlWithFallback(url, {
         title: row.title,
         action: "share clip link",
