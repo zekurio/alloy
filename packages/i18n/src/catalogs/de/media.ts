@@ -84,18 +84,14 @@ export const MEDIA_MESSAGES = {
   "Couldn't open image": "Bild konnte nicht geöffnet werden",
   "Couldn't prepare clip": "Clip konnte nicht vorbereitet werden",
   "Couldn't read that file": "Diese Datei konnte nicht gelesen werden",
-  "Couldn't remove artwork": "Artwork konnte nicht entfernt werden",
   "Couldn't search": "Suche fehlgeschlagen",
   "Couldn't share clip": "Clip konnte nicht geteilt werden",
   "Couldn't trim the clip": "Clip konnte nicht zugeschnitten werden",
   "Couldn't update the poster": "Poster konnte nicht aktualisiert werden",
   "Couldn't update visibility": "Sichtbarkeit konnte nicht aktualisiert werden",
-  "Couldn't upload artwork": "Artwork konnte nicht hochgeladen werden",
   "Couldn’t load games": "Spiele konnten nicht geladen werden",
   "Couldn’t reach SteamGridDB": "SteamGridDB konnte nicht erreicht werden",
   Cover: "Cover",
-  "Cover and icon stand in for the game in lists and search.":
-    "Cover und Symbol stehen in Listen und der Suche für das Spiel.",
   "Create Link": "Link erstellen",
   "Create and manage custom games and their artwork.":
     "Eigene Spiele und ihr Artwork erstellen und verwalten.",
@@ -171,8 +167,6 @@ export const MEDIA_MESSAGES = {
   "More upload options": "Weitere Upload-Optionen",
   "Move trim window": "Trimmfenster verschieben",
   Mute: "Stumm",
-  "Name the game and attach its artwork in one step.":
-    "Benenne das Spiel und füge sein Artwork in einem Schritt hinzu.",
   "Network error while loading the video.":
     "Netzwerkfehler beim Laden des Videos.",
   "New custom game": "Neues eigenes Spiel",
@@ -307,7 +301,6 @@ export const MEDIA_MESSAGES = {
   Unpost: "Zurückziehen",
   "Unposting...": "Wird zurückgezogen...",
   Untitled: "Ohne Titel",
-  "Untitled game": "Unbenanntes Spiel",
   Upload: "Hochladen",
   "Upload a clip and pick a game to seed this list.":
     "Lade einen Clip hoch und wähle ein Spiel, um diese Liste zu füllen.",

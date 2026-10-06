@@ -17,8 +17,6 @@ export const ADMIN_MESSAGES = {
   "Announce published clips to Discord or your own endpoint.":
     "Kündige veröffentlichte Clips auf Discord oder deinem eigenen Endpunkt an.",
   "Apple VideoToolbox": "Apple VideoToolbox",
-  "Artwork changes are saved immediately.":
-    "Änderungen an Bildern werden sofort gespeichert.",
   Authentication: "Authentifizierung",
   "Authentication setting saved": "Authentifizierungseinstellung gespeichert",
   "Authorization URL": "Autorisierungs-URL",
@@ -43,7 +41,6 @@ export const ADMIN_MESSAGES = {
   "Configure external OIDC and OAuth sign-in providers.":
     "Konfiguriere externe OIDC- und OAuth-Anbieter für die Anmeldung.",
   "Copy callback URL": "Callback-URL kopieren",
-  "Couldn't apply artwork": "Bild konnte nicht übernommen werden",
   "Couldn't complete setup": "Einrichtung konnte nicht abgeschlossen werden",
   "Couldn't copy callback URL": "Callback-URL konnte nicht kopiert werden",
   "Couldn't create user": "Nutzer konnte nicht erstellt werden",
@@ -185,13 +182,9 @@ export const ADMIN_MESSAGES = {
   "Only games without clips can be deleted.":
     "Nur Spiele ohne Clips können gelöscht werden.",
   "Open registrations": "Offene Registrierungen",
-  "Optional — click a slot to fill it in.":
-    "Optional — klicke ein Feld an, um es zu füllen.",
   PKCE: "PKCE",
   "PNG, JPEG, WebP, or SVG up to 2 MB, stored on this server and shown on the sign-in button.":
     "PNG, JPEG, WebP oder SVG bis 2 MB, auf diesem Server gespeichert und auf dem Anmeldebutton angezeigt.",
-  "Pick artwork instead of uploading a file.":
-    "Wähle ein Bild aus, statt eine Datei hochzuladen.",
   Provider: "Anbieter",
   "Provider ID": "Anbieter-ID",
   "Provider secrets are write-only and never shown after saving.":
@@ -284,6 +277,7 @@ export const ADMIN_MESSAGES = {
   "Unban {username}?": "{username} entsperren?",
   Unchanged: "Unverändert",
   Unlimited: "Unbegrenzt",
+  Unsaved: "Nicht gespeichert",
   "Update role and storage quota for {username}.":
     "Aktualisiere Rolle und Speicherkontingent für {username}.",
   "Upload icon": "Symbol hochladen",
