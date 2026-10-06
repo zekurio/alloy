@@ -69,7 +69,7 @@ export function buildClipPublishedPayload(
     timestamp: announcedAt.toISOString(),
     clip: {
       id: row.id,
-      url: clipShareUrl(row.id, origin, announcedAt.getTime()),
+      url: clipShareUrl(row.id, origin),
       title: row.title,
       description: row.description,
       game: clipGameName(row),

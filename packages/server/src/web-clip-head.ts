@@ -12,25 +12,31 @@ type MetadataClip = NonNullable<
   Awaited<ReturnType<typeof selectEmbeddableClip>>
 >
 
-export async function clipHead(
-  pathname: string,
-  timestamp?: number,
-): Promise<string> {
+/**
+ * Metadata for a clip permalink, injected into the app shell for crawlers.
+ *
+ * Deliberately link-only: the head carries no author, image or video tags, and
+ * the oEmbed document supplies only the clickable provider. The canonical link
+ * is always `/clips/:id`, so the bare and game-scoped permalinks unfurl
+ * identically, and the `t` query string older links may carry is ignored — the
+ * request path alone selects the clip.
+ */
+export async function clipHead(pathname: string): Promise<string> {
   const clipId = clipIdFromPath(pathname)
   if (!clipId) return ""
 
   try {
     const row = await selectEmbeddableClip(clipId)
-    return row ? buildClipHead(row, timestamp) : ""
+    return row ? buildClipHead(row) : ""
   } catch (error) {
     logger.error("failed to build clip metadata:", error)
     return ""
   }
 }
 
-function buildClipHead(row: MetadataClip, timestamp?: number): string {
+function buildClipHead(row: MetadataClip): string {
   const origin = env.PUBLIC_SERVER_URL
-  const permalink = clipShareUrl(row.id, origin, timestamp)
+  const permalink = clipShareUrl(row.id, origin)
   const oembedUrl = new URL("/api/oembed", origin)
   oembedUrl.searchParams.set("url", permalink)
 
