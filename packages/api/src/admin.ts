@@ -33,6 +33,7 @@ import {
   deleteGameAsset,
   deleteUser,
   deleteWebhook,
+  fetchGameArtwork,
   fetchGames,
   fetchUsers,
   fetchWebhooks,
@@ -76,6 +77,8 @@ export type {
   HardwareAcceleration,
   RenditionTierConfig,
   RuntimeConfig,
+  SteamGridDBAsset,
+  SteamGridDBArtworkResponse,
   TranscodingCapabilities,
   TranscodingConfig,
   TranscodingEncoderProbe,
@@ -118,6 +121,8 @@ export function createAdminApi(context: ApiContext) {
     deleteUser: (userId: string) => deleteUser(context, userId),
     fetchGames: () => fetchGames(context),
     createGame: (input: AdminCreateGameInput) => createGame(context, input),
+    fetchGameArtwork: (gameId: string, role: GameAssetRole) =>
+      fetchGameArtwork(context, gameId, role),
     updateGame: (gameId: string, input: AdminUpdateGameInput) =>
       updateGame(context, gameId, input),
     deleteGame: (gameId: string) => deleteGame(context, gameId),

@@ -2,28 +2,35 @@ import {
   type AdminGameRow,
   GAME_ASSET_ROLES,
   type GameAssetRole,
+  type SteamGridDBArtworkResponse,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { clip, game } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import {
-  availableCustomGameSlug,
+  availableGameSlug,
   gameSelection,
   serialiseGameRow,
 } from "@alloy/server/games/ref"
-import { deleted, errorResult } from "@alloy/server/runtime/http-response"
+import { browseGameArtwork } from "@alloy/server/games/steamgriddb"
+import {
+  badRequest,
+  deleted,
+  errorResult,
+} from "@alloy/server/runtime/http-response"
 import { eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { prepareGameAsset, type PreparedGameAsset } from "./admin-game-assets"
 import {
   createCustomGame,
-  deleteCustomGame,
-  removeCustomGameAsset,
-  selectCustomGame,
-  updateCustomGame,
+  deleteGame,
+  removeGameAsset,
+  selectGame,
+  updateGame,
   uploadGameAsset,
 } from "./admin-games-store"
+import { steamgriddbErrorResponse } from "./games-helpers"
 import { requiredTrimmedString, tbValidator } from "./validation"
 
 export { gameAssetsRoute } from "./admin-game-assets"
@@ -64,6 +71,7 @@ const GameAssetParam = t.object({
   id: t.uuid(),
   role: t.enum(GAME_ASSET_ROLES),
 })
+const GameArtworkQuery = t.object({ role: t.enum(GAME_ASSET_ROLES) })
 const GameAssetUploadForm = t.object({
   file: t.instanceof(File, { message: "Expected an uploaded image file" }),
 })
@@ -92,7 +100,7 @@ export const adminGamesRoute = new Hono()
       assets.push({ role, prepared })
     }
 
-    const slug = await availableCustomGameSlug(body.name, null)
+    const slug = await availableGameSlug(body.name)
     const result = await createCustomGame({
       name: body.name,
       slug,
@@ -109,28 +117,49 @@ export const adminGamesRoute = new Hono()
       const { id } = c.req.valid("param")
       const body = c.req.valid("json")
 
-      const existing = await selectCustomGame(c, id)
+      const existing = await selectGame(c, id)
       if ("response" in existing) return existing.response
 
-      const result = await updateCustomGame(existing.row.id, body)
+      const result = await updateGame(existing.row.id, body)
       return result.ok ? c.json(result.game) : errorResult(c, result)
     },
   )
   .delete("/games/:id", tbValidator("param", GameIdParam), async (c) => {
     const { id } = c.req.valid("param")
-    const existing = await selectCustomGame(c, id)
-    if ("response" in existing) return existing.response
-
-    await deleteCustomGame(existing.row.id)
-    return deleted(c)
+    const result = await deleteGame(id)
+    return result.ok ? deleted(c) : errorResult(c, result)
   })
+  // SteamGridDB artwork the admin can apply to a game by role. Only meaningful
+  // for games that still carry a SteamGridDB id.
+  .get(
+    "/games/:id/artwork",
+    tbValidator("param", GameIdParam),
+    tbValidator("query", GameArtworkQuery),
+    async (c) => {
+      const { id } = c.req.valid("param")
+      const { role } = c.req.valid("query")
+
+      const existing = await selectGame(c, id)
+      if ("response" in existing) return existing.response
+      if (existing.row.steamgriddbId === null) {
+        return badRequest(c, "This game has no SteamGridDB artwork")
+      }
+
+      try {
+        const assets = await browseGameArtwork(existing.row.steamgriddbId, role)
+        return c.json({ assets } satisfies SteamGridDBArtworkResponse)
+      } catch (err) {
+        return errorResult(c, steamgriddbErrorResponse(err))
+      }
+    },
+  )
   .post(
     "/games/:id/assets/:role",
     tbValidator("param", GameAssetParam),
     tbValidator("form", GameAssetUploadForm),
     async (c) => {
       const { id, role } = c.req.valid("param")
-      const existing = await selectCustomGame(c, id)
+      const existing = await selectGame(c, id)
       if ("response" in existing) return existing.response
 
       const result = await uploadGameAsset(
@@ -146,10 +175,10 @@ export const adminGamesRoute = new Hono()
     tbValidator("param", GameAssetParam),
     async (c) => {
       const { id, role } = c.req.valid("param")
-      const existing = await selectCustomGame(c, id)
+      const existing = await selectGame(c, id)
       if ("response" in existing) return existing.response
 
-      const result = await removeCustomGameAsset(existing.row.id, role)
+      const result = await removeGameAsset(existing.row.id, role)
       return result.ok ? c.json(result.game) : errorResult(c, result)
     },
   )

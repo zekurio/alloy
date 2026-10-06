@@ -24,6 +24,7 @@ export type {
   GameRow,
   ProfileGameRow,
   SteamGridDBAsset,
+  SteamGridDBArtworkResponse,
   SteamGridDBGameDetail,
   SteamGridDBSearchResult,
   TagGamesResponse,

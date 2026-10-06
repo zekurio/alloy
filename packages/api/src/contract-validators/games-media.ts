@@ -8,9 +8,12 @@ import {
   validateNullablePositiveInteger,
   validateNullableUrlString,
   validateNumber,
+  validateOptionalUrlString,
   validatePositiveInteger,
   validateRequiredString,
+  validateString,
   validateStringArray,
+  validateUrlString,
 } from "@alloy/api/runtime-validation"
 import {
   type AdminGameRow,
@@ -18,6 +21,8 @@ import {
   type GameListRow,
   type GameNameLookupResponse,
   type GameRow,
+  type SteamGridDBAsset,
+  type SteamGridDBArtworkResponse,
   type SteamGridDBSearchResult,
 } from "@alloy/contracts"
 
@@ -179,4 +184,67 @@ export function validateAdminReEncodeResponse(value: ApiJsonInput): {
   hasMore: boolean
 } {
   return validateBatchProgress(value, "re-encode", "enqueued")
+}
+
+function validateSteamGridDBAsset(value: ApiJsonInput): SteamGridDBAsset {
+  const asset = objectRecord(value, "game artwork")
+  validatePositiveInteger(
+    asset.id,
+    "Invalid game artwork response: id must be a positive integer",
+  )
+  validateUrlString(
+    asset.url,
+    "Invalid game artwork response: url must be a URL",
+  )
+  validateOptionalUrlString(
+    asset.thumb,
+    "Invalid game artwork response: thumb must be a URL",
+  )
+  // SteamGridDB reports 0x0 for assets it could not measure, so these stay
+  // non-negative rather than positive.
+  if (asset.width !== undefined) {
+    validateNonNegativeInteger(
+      asset.width,
+      "Invalid game artwork response: width must be a non-negative integer",
+    )
+  }
+  if (asset.height !== undefined) {
+    validateNonNegativeInteger(
+      asset.height,
+      "Invalid game artwork response: height must be a non-negative integer",
+    )
+  }
+  if (asset.style !== undefined) {
+    validateString(
+      asset.style,
+      "Invalid game artwork response: style must be a string",
+    )
+  }
+  if (asset.nsfw !== undefined) {
+    validateBoolean(
+      asset.nsfw,
+      "Invalid game artwork response: nsfw must be boolean",
+    )
+  }
+  if (asset.humor !== undefined) {
+    validateBoolean(
+      asset.humor,
+      "Invalid game artwork response: humor must be boolean",
+    )
+  }
+  // SAFETY: Every field above validated against the SteamGridDBAsset contract.
+  return value as SteamGridDBAsset
+}
+
+export function validateSteamGridDBArtworkResponse(
+  value: ApiJsonInput,
+): SteamGridDBArtworkResponse {
+  const response = objectRecord(value, "game artwork")
+  const assets = validateArray(
+    response.assets,
+    "Invalid game artwork response: assets must be an array",
+  )
+  for (const asset of assets) validateSteamGridDBAsset(asset)
+  // SAFETY: The assets array and every entry validated against the contract.
+  return value as SteamGridDBArtworkResponse
 }

@@ -73,6 +73,15 @@ export interface SteamGridDBAsset {
   humor?: boolean
 }
 
+/**
+ * Selectable SteamGridDB artwork for one role, as returned by
+ * `GET /api/admin/games/:id/artwork`. The admin applies one by sending its
+ * `url` in `AdminUpdateGameInput` for the requested role.
+ */
+export interface SteamGridDBArtworkResponse {
+  assets: SteamGridDBAsset[]
+}
+
 export interface GameRow {
   id: string
   steamgriddbId: number | null
