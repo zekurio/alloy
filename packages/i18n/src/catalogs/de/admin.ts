@@ -17,6 +17,8 @@ export const ADMIN_MESSAGES = {
   "Announce published clips to Discord or your own endpoint.":
     "Kündige veröffentlichte Clips auf Discord oder deinem eigenen Endpunkt an.",
   "Apple VideoToolbox": "Apple VideoToolbox",
+  "Artwork changes are saved immediately.":
+    "Änderungen an Bildern werden sofort gespeichert.",
   Authentication: "Authentifizierung",
   "Authentication setting saved": "Authentifizierungseinstellung gespeichert",
   "Authorization URL": "Autorisierungs-URL",
@@ -41,11 +43,14 @@ export const ADMIN_MESSAGES = {
   "Configure external OIDC and OAuth sign-in providers.":
     "Konfiguriere externe OIDC- und OAuth-Anbieter für die Anmeldung.",
   "Copy callback URL": "Callback-URL kopieren",
+  "Couldn't apply artwork": "Bild konnte nicht übernommen werden",
   "Couldn't complete setup": "Einrichtung konnte nicht abgeschlossen werden",
   "Couldn't copy callback URL": "Callback-URL konnte nicht kopiert werden",
   "Couldn't create user": "Nutzer konnte nicht erstellt werden",
   "Couldn't create webhook": "Webhook konnte nicht erstellt werden",
   "Couldn't delete webhook": "Webhook konnte nicht gelöscht werden",
+  "Couldn't load SteamGridDB artwork":
+    "SteamGridDB-Bilder konnten nicht geladen werden",
   "Couldn't load accounts": "Konten konnten nicht geladen werden",
   "Couldn't load webhooks": "Webhooks konnten nicht geladen werden",
   "Couldn't reannounce clip": "Clip konnte nicht erneut angekündigt werden",
@@ -65,6 +70,8 @@ export const ADMIN_MESSAGES = {
   "Couldn't update webhook": "Webhook konnte nicht aktualisiert werden",
   "Create the admin account": "Admin-Konto erstellen",
   "Create user": "Nutzer erstellen",
+  "Customizations stop automatic SteamGridDB updates for this game.":
+    "Anpassungen stoppen automatische SteamGridDB-Aktualisierungen für dieses Spiel.",
   "Default ({codec})": "Standard ({codec})",
   "Default codec for every rendition. Individual tiers in the ladder can override it.":
     "Standard-Codec für jede Qualitätsstufe. Einzelne Stufen der Leiter können ihn überschreiben.",
@@ -157,6 +164,7 @@ export const ADMIN_MESSAGES = {
   Logo: "Logo",
   "Lowercase letters, numbers, and hyphens only.":
     "Nur Kleinbuchstaben, Zahlen und Bindestriche.",
+  "Manage games and their artwork.": "Spiele und ihre Bilder verwalten.",
   "Managed by environment variable": "Durch Umgebungsvariable verwaltet",
   "Max FPS": "Max. FPS",
   "Max FPS must be from 1 to 240.": "Max. FPS muss zwischen 1 und 240 liegen.",
@@ -170,14 +178,20 @@ export const ADMIN_MESSAGES = {
   "No active jobs": "Keine aktiven Aufgaben",
   "No users yet": "Noch keine Nutzer",
   "No webhooks yet": "Noch keine Webhooks",
+  "No {label} artwork on SteamGridDB.":
+    "Keine Bilder für {label} auf SteamGridDB.",
   "OAuth providers": "OAuth-Anbieter",
   "OAuth providers saved": "OAuth-Anbieter gespeichert",
+  "Only games without clips can be deleted.":
+    "Nur Spiele ohne Clips können gelöscht werden.",
   "Open registrations": "Offene Registrierungen",
   "Optional — click a slot to fill it in.":
     "Optional — klicke ein Feld an, um es zu füllen.",
   PKCE: "PKCE",
   "PNG, JPEG, WebP, or SVG up to 2 MB, stored on this server and shown on the sign-in button.":
     "PNG, JPEG, WebP oder SVG bis 2 MB, auf diesem Server gespeichert und auf dem Anmeldebutton angezeigt.",
+  "Pick artwork instead of uploading a file.":
+    "Wähle ein Bild aus, statt eine Datei hochzuladen.",
   Provider: "Anbieter",
   "Provider ID": "Anbieter-ID",
   "Provider secrets are write-only and never shown after saving.":
@@ -223,9 +237,11 @@ export const ADMIN_MESSAGES = {
   "Show the backdrop": "Hintergrund anzeigen",
   "Sign-in button": "Anmeldebutton",
   "Signing secret": "Signatur-Secret",
+  Slug: "Slug",
   "Software (CPU)": "Software (CPU)",
   "Source clips count toward your quota. Encoded copies do not.":
     "Quell-Clips zählen zu deinem Kontingent. Kodierte Kopien nicht.",
+  "SteamGridDB artwork": "SteamGridDB-Bilder",
   "Stereo AAC bitrate applied to every rendition.":
     "Stereo-AAC-Bitrate, die auf jede Qualitätsstufe angewendet wird.",
   Storage: "Speicher",
@@ -235,6 +251,8 @@ export const ADMIN_MESSAGES = {
   "Test delivered": "Test zugestellt",
   "Test sound": "Sound testen",
   "Test {title} sound": "{title}-Sound testen",
+  "The game and its artwork will be removed. This can't be undone.":
+    "Das Spiel und seine Bilder werden gelöscht. Das kann nicht rückgängig gemacht werden.",
   "The generated login backdrop.": "Der generierte Login-Hintergrund.",
   "The generated wall of clip thumbnails behind the login form.":
     "Die generierte Wand aus Clip-Vorschaubildern hinter dem Anmeldeformular.",
@@ -248,6 +266,8 @@ export const ADMIN_MESSAGES = {
     "Dieser ffmpeg-Build hat keinen {backend}-Encoder für {codec}. Wähle ein anderes Backend oder installiere jellyfin-ffmpeg.",
   "This first account will be assigned the admin role.":
     "Diesem ersten Konto wird die Admin-Rolle zugewiesen.",
+  "This game has no SteamGridDB artwork":
+    "Dieses Spiel hat keine SteamGridDB-Bilder",
   "This immediately deletes every linked account for this provider. Users will need to link the provider again if it is added back.":
     "Dadurch werden sofort alle verknüpften Konten dieses Anbieters gelöscht. Wenn der Anbieter erneut hinzugefügt wird, müssen Nutzer ihre Konten erneut verknüpfen.",
   "Tiers must differ in height, max FPS, or codec.":
@@ -268,6 +288,7 @@ export const ADMIN_MESSAGES = {
     "Aktualisiere Rolle und Speicherkontingent für {username}.",
   "Upload icon": "Symbol hochladen",
   "Use the theme color": "Theme-Farbe verwenden",
+  "Use this {label} artwork": "Dieses Bild für {label} verwenden",
   "Used to sign each payload so your endpoint can verify it.":
     "Wird verwendet, um jede Nutzlast zu signieren, damit dein Endpunkt sie verifizieren kann.",
   "User info URL": "Userinfo-URL",
