@@ -54,7 +54,13 @@ function FeedbackButton({
     <Button
       data-feedback-state={state}
       aria-live="polite"
-      variant={state === "success" || state === "error" ? "outline" : variant}
+      variant={
+        (state === "success" || state === "error") &&
+        variant !== "ghost" &&
+        variant !== "link"
+          ? "outline"
+          : variant
+      }
       className={cn(
         (state === "pending" || state === "success") && "disabled:opacity-100",
         className,
