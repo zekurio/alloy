@@ -62,16 +62,11 @@ With [devenv](https://devenv.sh/), which provides Node, pnpm, PostgreSQL,
 ffmpeg, and Rust:
 
 ```bash
-nix profile install nixpkgs#devenv
-devenv shell
+nix profile install nixpkgs#devenv nixpkgs#direnv
+direnv allow
 pnpm install
 pnpm dev
 ```
-
-Enter `devenv shell` explicitly for each development session; the repository
-does not load it automatically through direnv. For a single command, use
-`devenv shell -- pnpm verify`. Batch related commands to share shell startup:
-`devenv shell -- sh -c 'pnpm install && pnpm verify'`.
 
 Without Nix: install Node 24 and pnpm 11, provide a PostgreSQL database, copy
 `.env.example` to `.env`, then run `pnpm install && pnpm dev`. `pnpm dev:all`

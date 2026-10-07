@@ -17,15 +17,11 @@ the repository map in [AGENTS.md](../AGENTS.md).
 Nix users get the complete toolchain (Node, pnpm, PostgreSQL, ffmpeg, Rust) plus a repo-local Postgres via devenv:
 
 ```bash
-nix profile install nixpkgs#devenv
-devenv shell
+nix profile install nixpkgs#devenv nixpkgs#direnv
+direnv allow
 pnpm install
 pnpm dev
 ```
-
-Enter the shell explicitly for each development session. For a single command,
-use `devenv shell -- pnpm verify`; the repository does not automatically load
-devenv through direnv.
 
 For non-Nix setups, install Node 24 and pnpm 11 (the repo pins
 `pnpm@11.24.0` via `packageManager`, so `corepack enable` is enough), provide
