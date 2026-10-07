@@ -10,13 +10,6 @@ Leave unrelated working-tree changes alone.
 
 ## Development
 
-- Enter devenv explicitly; do not add automatic shell entry via `.envrc`.
-  Use file tools and ordinary commands for inspection without loading devenv.
-  When using Nix, run toolchain-dependent commands from the repo root with
-  `devenv shell -- <command>` unless already inside the dev shell. Batch related
-  commands into one invocation, for example
-  `devenv shell -- sh -c 'pnpm install && pnpm verify'`.
-  For an interactive development session, enter `devenv shell` once.
 - Use Node 24 and `pnpm@11.24.0`, not npm, Yarn, or Bun. Prefer root scripts;
   use `pnpm --filter @alloy/<package> <script>` for package-specific work.
 - Run `pnpm verify` before completing code changes. Unit tests have been
