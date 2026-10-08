@@ -1,6 +1,7 @@
 import { t, tp } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
+import { Card } from "@alloy/ui/components/card"
 import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import {
@@ -9,7 +10,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
-import { MediaCard, MediaCardGrid } from "@alloy/ui/components/media-card"
+import { Progress } from "@alloy/ui/components/progress"
+import { cn } from "@alloy/ui/lib/utils"
 import {
   MoreVerticalIcon,
   PencilIcon,
@@ -20,8 +22,9 @@ import {
 } from "lucide-react"
 import { memo, useState } from "react"
 
+import { formatUsage, quotaToneClasses } from "@/components/storage-quota"
 import { errorMessage } from "@/lib/error-message"
-import { formatBytes } from "@/lib/storage-format"
+import { storageUsagePercent, storageUsageTone } from "@/lib/storage-format"
 import { displayName, userAvatar } from "@/lib/user-display"
 
 import type { AdminUserEditableFields, AdminUserRow } from "./admin-user-data"
@@ -45,7 +48,7 @@ export function UsersList({
   onDelete,
 }: UsersListProps) {
   return (
-    <MediaCardGrid>
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,360px),1fr))] gap-3">
       {users.map((user) => (
         <UserCard
           key={user.id}
@@ -57,7 +60,7 @@ export function UsersList({
           onDelete={onDelete}
         />
       ))}
-    </MediaCardGrid>
+    </div>
   )
 }
 
@@ -90,16 +93,14 @@ const UserCard = memo(function UserCard({
   const isBanned = adminUserIsBanned(user)
   const name = displayName(user)
   const avatar = userAvatar(user)
-  const storage =
-    user.storageQuotaBytes === null
-      ? formatBytes(user.storageUsedBytes)
-      : `${formatBytes(user.storageUsedBytes)} ${t("of")} ${formatBytes(user.storageQuotaBytes)}`
+  const tone = quotaToneClasses(
+    storageUsageTone(user.storageUsedBytes, user.storageQuotaBytes),
+  )
 
   return (
-    <MediaCard
-      aspect="square"
-      media={
-        avatar.src ? (
+    <Card className="flex-row items-center gap-4 p-4">
+      <div className="bg-surface-sunken size-16 shrink-0 overflow-hidden rounded-md">
+        {avatar.src ? (
           <img
             src={avatar.src}
             alt=""
@@ -114,84 +115,105 @@ const UserCard = memo(function UserCard({
           >
             <UserIcon className="size-1/2" />
           </div>
-        )
-      }
-      badge={
-        isDisabled ? (
-          <Badge
-            variant="destructive"
-            size="text"
-            className="border-danger bg-danger text-white shadow-sm"
-          >
-            {isBanned ? t("Banned") : t("Disabled")}
-          </Badge>
-        ) : null
-      }
-      actions={
-        <>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("User actions")}
-                  disabled={busy}
-                >
-                  <MoreVerticalIcon className="size-3.5" />
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="end" sideOffset={6}>
-              <DropdownMenuItem onClick={() => setOpenDialog("edit")}>
-                <PencilIcon /> {t("Edit user")}
-              </DropdownMenuItem>
-              {/* Locking yourself out of the instance is never the intent. */}
-              <DropdownMenuItem
-                disabled={isSelf}
-                onClick={() => setOpenDialog("status")}
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-base font-semibold" title={name}>
+            {name}
+          </span>
+          {isDisabled ? (
+            <Badge variant="danger" size="text" className="shrink-0">
+              {isBanned ? t("Banned") : t("Disabled")}
+            </Badge>
+          ) : null}
+        </div>
+        <div
+          className="text-foreground-muted truncate text-sm"
+          title={user.username}
+        >
+          {user.username}
+        </div>
+        <div className="text-foreground-faint mt-1 flex items-center justify-between gap-2 text-xs tabular-nums">
+          <span className="shrink-0">
+            {user.clipCount} {tp(user.clipCount, "clip", "clips")}
+          </span>
+          <span className={cn("truncate transition-colors", tone.text)}>
+            {formatUsage(user.storageUsedBytes, user.storageQuotaBytes)}
+          </span>
+        </div>
+        {user.storageQuotaBytes === null ? null : (
+          <Progress
+            className="mt-1.5"
+            value={storageUsagePercent(
+              user.storageUsedBytes,
+              user.storageQuotaBytes,
+            )}
+            indicatorClassName={tone.indicator}
+            aria-label={t("Storage")}
+          />
+        )}
+      </div>
+      <div className="shrink-0">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t("User actions")}
+                disabled={busy}
               >
-                {isBanned ? <UserCheckIcon /> : <UserXIcon />}
-                {isBanned ? t("Unban user") : t("Ban user")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                disabled={isSelf}
-                onClick={() => setOpenDialog("delete")}
-              >
-                <Trash2Icon /> {t("Delete user")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <MoreVerticalIcon className="size-3.5" />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end" sideOffset={6}>
+            <DropdownMenuItem onClick={() => setOpenDialog("edit")}>
+              <PencilIcon /> {t("Edit user")}
+            </DropdownMenuItem>
+            {/* Locking yourself out of the instance is never the intent. */}
+            <DropdownMenuItem
+              disabled={isSelf}
+              onClick={() => setOpenDialog("status")}
+            >
+              {isBanned ? <UserCheckIcon /> : <UserXIcon />}
+              {isBanned ? t("Unban user") : t("Ban user")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={isSelf}
+              onClick={() => setOpenDialog("delete")}
+            >
+              <Trash2Icon /> {t("Delete user")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-          <EditUserDialog
-            user={user}
-            busy={busy}
-            open={openDialog === "edit"}
-            onOpenChange={(next) => setOpenDialog(next ? "edit" : null)}
-            onUpdate={onUpdate}
-          />
-          <ToggleUserStatusDialog
-            user={user}
-            busy={busy}
-            open={openDialog === "status"}
-            onOpenChange={(next) => setOpenDialog(next ? "status" : null)}
-            onToggleStatus={onToggleStatus}
-          />
-          <DeleteUserDialog
-            user={user}
-            busy={busy}
-            open={openDialog === "delete"}
-            onOpenChange={(next) => setOpenDialog(next ? "delete" : null)}
-            onDelete={onDelete}
-          />
-        </>
-      }
-      title={name}
-      subtitle={user.username}
-      meta={`${user.clipCount} ${tp(user.clipCount, "clip", "clips")} · ${storage}`}
-    />
+        <EditUserDialog
+          user={user}
+          busy={busy}
+          open={openDialog === "edit"}
+          onOpenChange={(next) => setOpenDialog(next ? "edit" : null)}
+          onUpdate={onUpdate}
+        />
+        <ToggleUserStatusDialog
+          user={user}
+          busy={busy}
+          open={openDialog === "status"}
+          onOpenChange={(next) => setOpenDialog(next ? "status" : null)}
+          onToggleStatus={onToggleStatus}
+        />
+        <DeleteUserDialog
+          user={user}
+          busy={busy}
+          open={openDialog === "delete"}
+          onOpenChange={(next) => setOpenDialog(next ? "delete" : null)}
+          onDelete={onDelete}
+        />
+      </div>
+    </Card>
   )
 })
 

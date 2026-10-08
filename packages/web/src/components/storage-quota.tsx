@@ -23,13 +23,13 @@ function useStorageUsage({
   })
 }
 
-function formatUsage(usedBytes: number, quotaBytes: number | null) {
+export function formatUsage(usedBytes: number, quotaBytes: number | null) {
   return quotaBytes === null
     ? t("{used} used", { used: formatBytes(usedBytes) })
     : `${formatBytes(usedBytes)} / ${formatBytes(quotaBytes)}`
 }
 
-function quotaToneClasses(tone: StorageUsageTone) {
+export function quotaToneClasses(tone: StorageUsageTone) {
   switch (tone) {
     case "danger":
       return {
