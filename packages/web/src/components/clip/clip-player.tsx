@@ -235,6 +235,7 @@ function VideoClipPlayer({
       ? selection
       : { clipId, name: LOCAL_QUALITY_ID, pinned: false }
   const selectedQualityId = scopedSelection.name
+  const qualityPinned = scopedSelection.pinned
   const pinQuality = useCallback(
     (name: string) => setSelection({ clipId, name, pinned: true }),
     [clipId],
@@ -309,11 +310,11 @@ function VideoClipPlayer({
   const renditionPlayback = useMemo(
     (): RenditionPlayback => ({
       sources,
-      selected: scopedSelection.name,
-      pinned: scopedSelection.pinned,
+      selected: selectedQualityId,
+      pinned: qualityPinned,
       onFallback: fallbackQuality,
     }),
-    [fallbackQuality, scopedSelection, sources],
+    [fallbackQuality, qualityPinned, selectedQualityId, sources],
   )
 
   const { playable, active } = useMemo(

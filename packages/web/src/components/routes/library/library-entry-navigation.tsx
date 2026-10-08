@@ -4,7 +4,7 @@ import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useEffectEvent, useMemo } from "react"
 
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
@@ -215,8 +215,8 @@ export function useLibraryEditorShortcuts({
   togglePlayback: () => void
 }) {
   const navigateToEntry = useNavigateToLibraryEntry()
-  const actionsRef = useRef({ onDelete, togglePlayback })
-  actionsRef.current = { onDelete, togglePlayback }
+  const deleteEntry = useEffectEvent(onDelete)
+  const toggleEntryPlayback = useEffectEvent(togglePlayback)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -229,10 +229,10 @@ export function useLibraryEditorShortcuts({
         navigateToEntry(nextEntry)
       } else if (event.key === "Delete") {
         event.preventDefault()
-        actionsRef.current.onDelete()
+        deleteEntry()
       } else if (event.key === " ") {
         event.preventDefault()
-        actionsRef.current.togglePlayback()
+        toggleEntryPlayback()
       }
     }
     window.addEventListener("keydown", onKeyDown)

@@ -87,9 +87,11 @@ export function ChromeBar({
   onSelectQuality?: (qualityId: string) => void
 }) {
   const [fullscreenSupported, setFullscreenSupported] = useState(false)
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  // The player container while it is the fullscreen element, else null.
+  const [fullscreenContainer, setFullscreenContainer] =
+    useState<HTMLDivElement | null>(null)
+  const isFullscreen = fullscreenContainer !== null
   const isCoarsePointer = useMediaQuery("(pointer: coarse)")
-  const portalContainer = containerRef.current ?? undefined
 
   useEffect(() => {
     if (!globalThis.document) return
@@ -97,7 +99,8 @@ export function ChromeBar({
   }, [])
 
   const onFullscreenChange = useCallback(() => {
-    setIsFullscreen(isFullscreenElement(containerRef.current))
+    const container = containerRef.current
+    setFullscreenContainer(isFullscreenElement(container) ? container : null)
   }, [containerRef])
 
   useEffect(() => {
@@ -161,7 +164,8 @@ export function ChromeBar({
 
           <ChromeTrailingControls
             size={size}
-            portalContainer={portalContainer}
+            popoverContainer={containerRef}
+            sheetContainer={fullscreenContainer}
             isCoarsePointer={isCoarsePointer}
             fullscreenSupported={fullscreenSupported}
             isFullscreen={isFullscreen}
@@ -265,7 +269,8 @@ const ChromeTimeline = memo(function ChromeTimeline({
 
 const ChromeTrailingControls = memo(function ChromeTrailingControls({
   size,
-  portalContainer,
+  popoverContainer,
+  sheetContainer,
   isCoarsePointer,
   fullscreenSupported,
   isFullscreen,
@@ -275,7 +280,8 @@ const ChromeTrailingControls = memo(function ChromeTrailingControls({
   onSelectQuality,
 }: {
   size: ChromeBarSize
-  portalContainer: HTMLDivElement | undefined
+  popoverContainer: RefObject<HTMLDivElement | null>
+  sheetContainer: HTMLDivElement | null
   isCoarsePointer: boolean
   fullscreenSupported: boolean
   isFullscreen: boolean
@@ -290,8 +296,8 @@ const ChromeTrailingControls = memo(function ChromeTrailingControls({
         <QualitySettingsControl
           size={size}
           sheet={isCoarsePointer}
-          sheetContainer={isFullscreen ? portalContainer : undefined}
-          popoverContainer={portalContainer}
+          sheetContainer={sheetContainer}
+          popoverContainer={popoverContainer}
           options={qualityOptions}
           selectedId={selectedQualityId}
           onSelect={onSelectQuality}
@@ -328,8 +334,8 @@ function QualitySettingsControl({
 }: {
   size: ChromeBarSize
   sheet: boolean
-  sheetContainer: HTMLDivElement | undefined
-  popoverContainer: HTMLDivElement | undefined
+  sheetContainer: HTMLDivElement | null
+  popoverContainer: RefObject<HTMLDivElement | null>
   options: QualityOption[]
   selectedId: string | undefined
   onSelect: (qualityId: string) => void

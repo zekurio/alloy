@@ -143,24 +143,13 @@ export function CreateGameDialog() {
               }
             />
           </GameEditorBody>
-          <ResponsiveDialogFooter>
-            <ResponsiveDialogClose
-              render={
-                <Button type="button" variant="ghost" disabled={saving}>
-                  {t("Cancel")}
-                </Button>
-              }
-            />
-            <FeedbackButton
-              type="submit"
-              state={saving ? "pending" : submitError ? "error" : "idle"}
-              pendingLabel={t("Creating…")}
-              errorLabel={t("Try again")}
-              disabled={saving || name.trim().length === 0}
-            >
-              {t("Create")}
-            </FeedbackButton>
-          </ResponsiveDialogFooter>
+          <GameDialogFooter
+            saving={saving}
+            failed={Boolean(submitError)}
+            canSubmit={name.trim().length > 0}
+            label={t("Create")}
+            pendingLabel={t("Creating…")}
+          />
         </form>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
@@ -355,24 +344,13 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
               )}
             </GameArtworkEditor>
           </GameEditorBody>
-          <ResponsiveDialogFooter>
-            <ResponsiveDialogClose
-              render={
-                <Button type="button" variant="ghost" disabled={saving}>
-                  {t("Cancel")}
-                </Button>
-              }
-            />
-            <FeedbackButton
-              type="submit"
-              state={saving ? "pending" : saveError ? "error" : "idle"}
-              pendingLabel={t("Saving…")}
-              errorLabel={t("Try again")}
-              disabled={saving || !trimmedName || !trimmedSlug || !dirty}
-            >
-              {t("Save")}
-            </FeedbackButton>
-          </ResponsiveDialogFooter>
+          <GameDialogFooter
+            saving={saving}
+            failed={Boolean(saveError)}
+            canSubmit={Boolean(trimmedName && trimmedSlug && dirty)}
+            label={t("Save")}
+            pendingLabel={t("Saving…")}
+          />
         </form>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
@@ -400,6 +378,42 @@ function GameEditorBody({
         <FieldError className="px-4 pb-3 md:px-6">{error}</FieldError>
       ) : null}
     </>
+  )
+}
+
+/** Cancel and submit, shared by both game dialogs. */
+function GameDialogFooter({
+  saving,
+  failed,
+  canSubmit,
+  label,
+  pendingLabel,
+}: {
+  saving: boolean
+  failed: boolean
+  canSubmit: boolean
+  label: string
+  pendingLabel: string
+}) {
+  return (
+    <ResponsiveDialogFooter>
+      <ResponsiveDialogClose
+        render={
+          <Button type="button" variant="ghost" disabled={saving}>
+            {t("Cancel")}
+          </Button>
+        }
+      />
+      <FeedbackButton
+        type="submit"
+        state={saving ? "pending" : failed ? "error" : "idle"}
+        pendingLabel={pendingLabel}
+        errorLabel={t("Try again")}
+        disabled={saving || !canSubmit}
+      >
+        {label}
+      </FeedbackButton>
+    </ResponsiveDialogFooter>
   )
 }
 

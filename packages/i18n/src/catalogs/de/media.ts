@@ -326,6 +326,7 @@ export const MEDIA_MESSAGES = {
   "Vertical box art": "Vertikales Box-Artwork",
   "Video loading was aborted.": "Das Laden des Videos wurde abgebrochen.",
   "Video playback failed.": "Die Videowiedergabe ist fehlgeschlagen.",
+  "Video player": "Videoplayer",
   "Videos and images": "Videos und Bilder",
   "Visibility updated, but couldn't copy the link":
     "Sichtbarkeit aktualisiert, aber der Link konnte nicht kopiert werden",

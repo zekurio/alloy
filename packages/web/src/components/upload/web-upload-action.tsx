@@ -57,11 +57,12 @@ export function useWebUploadAction(
   const [publishError, setPublishError] = useState<string | null>(null)
   const [linkToCopy, setLinkToCopy] = useState<string | null>(null)
   const selection = useWebUploadSelection(publishing)
+  const { clear: clearSelection, discard: discardSelection } = selection
   const clear = useCallback(() => {
     setPublishError(null)
     setLinkToCopy(null)
-    selection.clear()
-  }, [selection.clear])
+    clearSelection()
+  }, [clearSelection])
   const publish = usePublishSelectedFile(
     publishClip,
     selection.selected,
@@ -82,8 +83,8 @@ export function useWebUploadAction(
   const discard = useCallback(() => {
     setPublishError(null)
     setLinkToCopy(null)
-    selection.discard()
-  }, [selection.discard])
+    discardSelection()
+  }, [discardSelection])
 
   return {
     available: Boolean(globalThis.File),
@@ -105,22 +106,28 @@ function useWebUploadSelection(publishing: boolean) {
   const [selected, setSelected] = useState<SelectedFile | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // Keep the latest URL available to the unmount-only cleanup.
+  // Owns the live object URL. Written only where the URL is created or
+  // revoked, so a render that never commits cannot change what gets revoked.
   const previewUrlRef = useRef<string | null>(null)
-  previewUrlRef.current = previewUrl
-  useEffect(
-    () => () => revokeObjectUrl(previewUrlRef.current, "upload preview URL"),
-    [],
-  )
+  const mountedRef = useRef(false)
+  const revokePreviewUrl = useCallback(() => {
+    revokeObjectUrl(previewUrlRef.current, "upload preview URL")
+    previewUrlRef.current = null
+  }, [])
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      revokePreviewUrl()
+    }
+  }, [revokePreviewUrl])
 
   const clear = useCallback(() => {
     setError(null)
     setSelected(null)
-    setPreviewUrl((current) => {
-      revokeObjectUrl(current, "upload preview URL")
-      return null
-    })
-  }, [])
+    revokePreviewUrl()
+    setPreviewUrl(null)
+  }, [revokePreviewUrl])
   const select = useCallback(
     async (file: File | null) => {
       if (!file || picking || publishing || selected) return
@@ -128,15 +135,20 @@ function useWebUploadSelection(publishing: boolean) {
       setPicking(true)
       try {
         const prepared = await prepareSelectedClipFile(file)
+        // Unmounted while preparing: nothing would ever revoke a new URL.
+        if (!mountedRef.current) return
+        revokePreviewUrl()
+        const url = createObjectUrl(prepared.file, "upload preview URL")
+        previewUrlRef.current = url
         setSelected(prepared)
-        setPreviewUrl(createObjectUrl(prepared.file, "upload preview URL"))
+        setPreviewUrl(url)
       } catch (cause) {
         setError(errorMessage(cause, t("Could not prepare clip.")))
       } finally {
         setPicking(false)
       }
     },
-    [picking, publishing, selected],
+    [picking, publishing, selected, revokePreviewUrl],
   )
   const discard = useCallback(() => {
     if (publishing) return

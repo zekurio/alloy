@@ -163,6 +163,7 @@ export function invalidateAuthConfig(): void {
 
 export function useSuspenseSession(): SessionData {
   const routeSession = useRouteSession()
+  const { data } = useSession()
   if (routeSession.found) return routeSession.data
 
   if (!globalThis.window) {
@@ -170,7 +171,6 @@ export function useSuspenseSession(): SessionData {
   }
 
   use(sessionInitializedPromise())
-  const { data } = useSession()
   return data
 }
 

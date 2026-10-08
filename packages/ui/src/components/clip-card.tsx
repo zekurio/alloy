@@ -117,6 +117,33 @@ function ClipCard({
       {titleContent ?? title}
     </ClipCardTitleButton>
   )
+  const smallAuthor = (
+    <>
+      <ClipCardAvatar
+        author={author}
+        authorImage={authorImage}
+        authorAvatarBg={authorAvatarBg}
+        authorAvatarFg={authorAvatarFg}
+        href={authorHref}
+        renderLink={renderAuthorLink}
+        size="sm"
+        className="flex size-5 shrink-0"
+      />
+      <AuthorLabel
+        author={author}
+        href={authorHref}
+        renderLink={renderAuthorLink}
+      />
+    </>
+  )
+  const gameLabel = game ? (
+    <GameLabel
+      game={game}
+      icon={gameIcon}
+      href={gameHref}
+      renderLink={renderGameLink}
+    />
+  ) : null
   const gallery = metaVariant === "gallery"
   const compact = metaVariant === "compact"
   const showAttributionRow = Boolean(author || game)
@@ -168,21 +195,7 @@ function ClipCard({
           <div className="flex min-w-0 items-center gap-1.5 text-xs leading-5">
             {author ? (
               <div className="flex min-w-0 items-center gap-1.5">
-                <ClipCardAvatar
-                  author={author}
-                  authorImage={authorImage}
-                  authorAvatarBg={authorAvatarBg}
-                  authorAvatarFg={authorAvatarFg}
-                  href={authorHref}
-                  renderLink={renderAuthorLink}
-                  size="sm"
-                  className="flex size-5 shrink-0"
-                />
-                <AuthorLabel
-                  author={author}
-                  href={authorHref}
-                  renderLink={renderAuthorLink}
-                />
+                {smallAuthor}
               </div>
             ) : null}
             {author && game ? (
@@ -193,14 +206,7 @@ function ClipCard({
                 ·
               </span>
             ) : null}
-            {game ? (
-              <GameLabel
-                game={game}
-                icon={gameIcon}
-                href={gameHref}
-                renderLink={renderGameLink}
-              />
-            ) : null}
+            {gameLabel}
           </div>
           <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 overflow-hidden text-xs leading-4 whitespace-nowrap tabular-nums">
             <span className="shrink-0">
@@ -225,21 +231,7 @@ function ClipCard({
             <div className="flex min-w-0 items-center gap-2 text-xs">
               {author ? (
                 <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                  <ClipCardAvatar
-                    author={author}
-                    authorImage={authorImage}
-                    authorAvatarBg={authorAvatarBg}
-                    authorAvatarFg={authorAvatarFg}
-                    href={authorHref}
-                    renderLink={renderAuthorLink}
-                    size="sm"
-                    className="flex size-5 shrink-0"
-                  />
-                  <AuthorLabel
-                    author={author}
-                    href={authorHref}
-                    renderLink={renderAuthorLink}
-                  />
+                  {smallAuthor}
                 </span>
               ) : null}
               {author && game ? (
@@ -247,14 +239,7 @@ function ClipCard({
                   ·
                 </span>
               ) : null}
-              {game ? (
-                <GameLabel
-                  game={game}
-                  icon={gameIcon}
-                  href={gameHref}
-                  renderLink={renderGameLink}
-                />
-              ) : null}
+              {gameLabel}
             </div>
           ) : null}
           <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs leading-4 text-white/70 [&_span]:text-inherit">
@@ -307,22 +292,12 @@ function ClipCard({
                       <span className="text-foreground-faint shrink-0">
                         {"·"}
                       </span>
-                      <GameLabel
-                        game={game}
-                        icon={gameIcon}
-                        href={gameHref}
-                        renderLink={renderGameLink}
-                      />
+                      {gameLabel}
                     </>
                   ) : null}
                 </span>
               ) : (
-                <GameLabel
-                  game={game}
-                  icon={gameIcon}
-                  href={gameHref}
-                  renderLink={renderGameLink}
-                />
+                gameLabel
               )}
             </div>
           ) : null}

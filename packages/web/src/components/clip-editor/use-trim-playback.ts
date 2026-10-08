@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
 
 import type { VideoPlayerHandle } from "@/components/video/video-player-types"
 
@@ -81,8 +81,20 @@ export function useTrimPlayback({
     }
   }, [])
   const getCurrentMs = useCallback(() => currentMsRef.current, [])
-  const trimRef = useRef(trim)
-  trimRef.current = trim
+
+  // Reads the latest committed trim without restarting the frame loop.
+  const followPlayer = useEffectEvent(() => {
+    const player = playerRef.current
+    if (!player) return
+    const sourceMs = player.getCurrentTime() * 1000
+    const { startMs, endMs } = trim
+    if (endMs > startMs && sourceMs >= endMs - 10) {
+      player.seek(startMs / 1000)
+      setCurrentMs(startMs)
+    } else {
+      setCurrentMs(sourceMs)
+    }
+  })
 
   // While playing, an animation-frame loop follows the player and loops
   // playback back to the trim start when it runs past the trim end.
@@ -90,17 +102,7 @@ export function useTrimPlayback({
     if (!playing) return
     let raf = 0
     const tick = () => {
-      const player = playerRef.current
-      if (player) {
-        const sourceMs = player.getCurrentTime() * 1000
-        const { startMs, endMs } = trimRef.current
-        if (endMs > startMs && sourceMs >= endMs - 10) {
-          player.seek(startMs / 1000)
-          setCurrentMs(startMs)
-        } else {
-          setCurrentMs(sourceMs)
-        }
-      }
+      followPlayer()
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)

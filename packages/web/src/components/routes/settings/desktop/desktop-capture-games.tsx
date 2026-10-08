@@ -5,6 +5,7 @@ import type {
 } from "@alloy/desktop-contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import {
   Dialog,
   DialogBody,
@@ -24,13 +25,14 @@ import {
   AppWindowIcon,
   BanIcon,
   CheckIcon,
+  CircleAlertIcon,
   Gamepad2Icon,
   PlusIcon,
   RefreshCwIcon,
   SearchIcon,
   XIcon,
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { mobileSurfaceCloseButtonClassName } from "@/components/app/mobile-close-button"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
@@ -49,7 +51,7 @@ export function AllowedGamesSection({
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
 }) {
-  const { listGameProcesses } = useDesktopRecording()
+  const { listGameProcesses, error } = useDesktopRecording()
   const [pickerMode, setPickerMode] = useState<RuleMode | null>(null)
   const [processes, setProcesses] = useState<RecordingGameProcess[]>([])
   const [query, setQuery] = useState("")
@@ -73,19 +75,21 @@ export function AllowedGamesSection({
     )
   }, [processes, query])
 
-  async function loadProcesses() {
+  // `listGameProcesses` reports failures through the recording context and
+  // resolves to an empty list, so this never rejects.
+  const loadProcesses = useCallback(async () => {
     setLoadingProcesses(true)
     try {
       setProcesses(await listGameProcesses())
     } finally {
       setLoadingProcesses(false)
     }
-  }
+  }, [listGameProcesses])
 
   useEffect(() => {
     if (!pickerOpen || processes.length > 0) return
     void loadProcesses()
-  }, [pickerOpen, processes.length])
+  }, [loadProcesses, pickerOpen, processes.length])
 
   async function addGame(game: RecordingAllowedGame, mode: RuleMode) {
     if (mode === "allow") {
@@ -221,6 +225,13 @@ export function AllowedGamesSection({
               </Button>
             </div>
 
+            {error ? (
+              <Callout tone="destructive">
+                <CircleAlertIcon />
+                <span>{error}</span>
+              </Callout>
+            ) : null}
+
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {loadingProcesses && processes.length === 0 ? (
                 <div className="text-foreground-muted flex h-full items-center justify-center gap-2 text-sm">
@@ -284,7 +295,7 @@ export function AllowedGamesSection({
                     )
                   })}
                 </List>
-              ) : (
+              ) : error && processes.length === 0 ? null : (
                 <div className="text-foreground-dim flex h-full items-center justify-center px-4 text-center text-sm">
                   {t("No matching processes found.")}
                 </div>

@@ -27,7 +27,7 @@ import {
   XIcon,
   type LucideIcon,
 } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
 import {
@@ -599,18 +599,21 @@ function peakMeterFraction(peak: number): number {
 
 function AudioLevelMeter({ peak, active }: { peak: number; active: boolean }) {
   const fraction = active ? peakMeterFraction(peak) : 0
-  // Peak-hold marker: keeps the loudest recent position visible so transients
-  // between samples still register. Ref mutation during render is safe here —
-  // the computation is idempotent for a given sample.
+  // Update the peak only after a render commits. Equal peaks extend the hold;
+  // a lower sample replaces it after the hold time passes.
   const hold = useRef({ fraction: 0, at: 0 })
-  const now = Date.now()
-  if (
-    fraction >= hold.current.fraction ||
-    now - hold.current.at > METER_PEAK_HOLD_MS ||
-    !active
-  ) {
-    hold.current = { fraction, at: now }
-  }
+  const [held, setHeld] = useState(0)
+  useLayoutEffect(() => {
+    const now = Date.now()
+    if (
+      fraction >= hold.current.fraction ||
+      now - hold.current.at > METER_PEAK_HOLD_MS ||
+      !active
+    ) {
+      hold.current = { fraction, at: now }
+      if (fraction !== held) setHeld(fraction)
+    }
+  })
 
   return (
     <div
@@ -635,10 +638,10 @@ function AudioLevelMeter({ peak, active }: { peak: number; active: boolean }) {
           clipPath: `inset(0 ${((1 - fraction) * 100).toFixed(2)}% 0 0)`,
         }}
       />
-      {hold.current.fraction > 0 ? (
+      {held > 0 ? (
         <div
           className="bg-foreground/70 absolute inset-y-0 w-px"
-          style={{ left: `${(hold.current.fraction * 100).toFixed(2)}%` }}
+          style={{ left: `${(held * 100).toFixed(2)}%` }}
         />
       ) : null}
     </div>
