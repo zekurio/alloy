@@ -494,6 +494,7 @@ impl CaptureLibrary {
                 if value != entry.uploaded_clip_id {
                     entry.uploaded_clip_source_start_ms = None;
                     entry.uploaded_clip_source_duration_ms = None;
+                    entry.uploaded_clip_media_version = None;
                 }
                 entry.uploaded_clip_id = value;
             }
@@ -713,13 +714,15 @@ impl CaptureLibrary {
 
     /// Registers a completed server download after its temporary file has
     /// been moved into the library. The caller must pass a supported content
-    /// type and a path below the configured output folder.
+    /// type and a path below the configured output folder. `media_version` is
+    /// the server's version of the downloaded media, when it reported one.
     pub fn register_download(
         &self,
         request: &crate::capture_library::types::DownloadRequest,
         path: &Path,
         content_type: &str,
         size_bytes: u64,
+        media_version: Option<&str>,
     ) -> Result<String> {
         validate_download_request(request)?;
         let path = ensure_media_in_output(&self.inner.config.output_folder, path)?;
@@ -763,6 +766,7 @@ impl CaptureLibrary {
                     created_at: now.clone(),
                     updated_at: now,
                     uploaded_clip_id: Some(request.clip_id.clone()),
+                    uploaded_clip_media_version: media_version.map(str::to_string),
                     ..ManifestEntry::default()
                 },
             );
@@ -1098,6 +1102,8 @@ fn add_item(
         uploaded_clip_source_start_ms: entry.and_then(|value| value.uploaded_clip_source_start_ms),
         uploaded_clip_source_duration_ms: entry
             .and_then(|value| value.uploaded_clip_source_duration_ms),
+        uploaded_clip_media_version: entry
+            .and_then(|value| value.uploaded_clip_media_version.clone()),
         trim_start_ms,
         trim_end_ms,
         created_at,
@@ -1166,6 +1172,7 @@ fn manifest_entry_from_item(item: &LibraryItem) -> ManifestEntry {
         uploaded_clip_id: item.uploaded_clip_id.clone(),
         uploaded_clip_source_start_ms: item.uploaded_clip_source_start_ms,
         uploaded_clip_source_duration_ms: item.uploaded_clip_source_duration_ms,
+        uploaded_clip_media_version: item.uploaded_clip_media_version.clone(),
         trim_start_ms: item.trim_start_ms,
         trim_end_ms: item.trim_end_ms,
     }

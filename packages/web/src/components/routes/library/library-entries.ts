@@ -1,6 +1,7 @@
 import { type ClipRow, type GameNameLookupResult } from "@alloy/api"
 import type { MediaFilter } from "@alloy/contracts"
 
+import { compareLibraryItemNewestFirst } from "@/components/clip/use-local-clip-playback"
 import type {
   RecordingLibraryItem,
   RecordingLibrarySnapshot,
@@ -29,7 +30,12 @@ export type LibraryEntry =
       createdAt: string
       status: "cloud" | "synced"
       row: ClipRow
-      /** The on-disk capture backing this clip (uploaded from / downloaded). */
+      /**
+       * Every on-disk capture linked to this clip (uploaded from /
+       * downloaded), newest first.
+       */
+      localItems: RecordingLibraryItem[]
+      /** The newest linked capture, standing in for the clip's local copy. */
       localItem: RecordingLibraryItem | null
     }
 
@@ -130,10 +136,16 @@ export function buildLibraryEntries({
     const serverId = libraryServerIdForItem(item)
     return !(serverId && cloudIds.has(serverId))
   })
-  const localByClipId = new Map<string, RecordingLibraryItem>()
+  const localByClipId = new Map<string, RecordingLibraryItem[]>()
   for (const item of snapshot?.items ?? []) {
     const serverId = libraryServerIdForItem(item)
-    if (serverId && cloudIds.has(serverId)) localByClipId.set(serverId, item)
+    if (!serverId || !cloudIds.has(serverId)) continue
+    const linked = localByClipId.get(serverId)
+    if (linked) linked.push(item)
+    else localByClipId.set(serverId, [item])
+  }
+  for (const linked of localByClipId.values()) {
+    linked.sort(compareLibraryItemNewestFirst)
   }
 
   const localVisible = source !== "server"
@@ -162,13 +174,15 @@ export function buildLibraryEntries({
   )
     .filter((row) => source !== "local" || localByClipId.has(row.id))
     .map((row) => {
-      const localItem = localByClipId.get(row.id) ?? null
+      const linked = localByClipId.get(row.id) ?? []
+      const localItem = linked[0] ?? null
       return {
         type: "cloud",
         key: `cloud:${row.id}`,
         createdAt: row.createdAt,
         status: localItem ? "synced" : "cloud",
         row,
+        localItems: linked,
         localItem,
       }
     })

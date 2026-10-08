@@ -24,11 +24,14 @@ export function DeleteServerBackedDialog({
   localItem: RecordingLibraryItem | null
   onConfirm: (deleteLocal: boolean) => void
 }) {
-  const [deleteLocal, setDeleteLocal] = useState(Boolean(localItem))
+  const hasLocalItem = localItem !== null
+  const [deleteLocal, setDeleteLocal] = useState(hasLocalItem)
 
+  // Keyed on presence, not identity: a library refresh while the dialog is
+  // open must not re-tick a checkbox the user cleared.
   useEffect(() => {
-    if (open) setDeleteLocal(Boolean(localItem))
-  }, [localItem, open])
+    if (open) setDeleteLocal(hasLocalItem)
+  }, [hasLocalItem, open])
 
   const deleteTitle =
     noun === "clip"

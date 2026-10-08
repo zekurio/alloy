@@ -40,13 +40,19 @@ export interface RecordingLibraryItem {
   /** Server/client clip id this capture is being or has been published as. */
   uploadedClipId: string | null
   /**
-   * Position in this local file that corresponds to time zero of the uploaded
-   * server source. Missing from older manifests. Null for links and server
-   * downloads that only keep the final cut.
+   * Start of the range of this recording that was uploaded as the clip's
+   * server source; that position is time zero of the server source. Null for
+   * downloads and for links without a recorded range.
    */
-  uploadedClipSourceStartMs?: number | null
-  /** Duration of the uploaded server source within this local file. */
-  uploadedClipSourceDurationMs?: number | null
+  uploadedClipSourceStartMs: number | null
+  /** Length of the uploaded range within this recording. */
+  uploadedClipSourceDurationMs: number | null
+  /**
+   * Server media version of this file's bytes, recorded when the file was
+   * downloaded. Equals `ClipRow.sourceVersion` while the server still
+   * publishes those bytes. Null for recordings.
+   */
+  uploadedClipMediaVersion: string | null
   /**
    * Persisted non-destructive trim range in source time, or null when the
    * capture is untrimmed. The source file is never rewritten; exports and
@@ -106,10 +112,11 @@ export interface RecordingLibraryMetaPatch {
   tags?: string | null
   mentions?: RecordingCaptureMention[]
   privacy?: ClipPrivacy | null
+  /** Changing the linked clip clears the recorded range and media version. */
   uploadedClipId?: string | null
-  /** Local source position that maps to time zero of the uploaded source. */
+  /** Start of the uploaded range within the recording. */
   uploadedClipSourceStartMs?: number | null
-  /** Duration of the uploaded source within the local capture. */
+  /** Length of the uploaded range within the recording. */
   uploadedClipSourceDurationMs?: number | null
 }
 
@@ -139,11 +146,11 @@ export interface RecordingLibraryExport {
   width: number | null
   height: number | null
   /**
-   * Milliseconds of extra leading material included because the packet-copy
-   * cut snapped to the preceding keyframe; the requested range begins at
-   * this offset within the exported file (0 for full-file exports).
+   * Range of the capture this export contains, in capture time. A whole-file
+   * export reports 0 and the capture's duration.
    */
-  startOffsetMs: number
+  sourceStartMs: number
+  sourceEndMs: number
 }
 
 export interface RecordingLibraryImportResult {

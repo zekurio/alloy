@@ -138,6 +138,7 @@ export function VolumeControl({
           data-dragging={dragging || undefined}
           role="slider"
           aria-label={t("Volume")}
+          aria-orientation="vertical"
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(effective * 100)}

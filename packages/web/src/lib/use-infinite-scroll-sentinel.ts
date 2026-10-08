@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useEffectEvent, useRef } from "react"
 
 /**
  * Returns a ref to attach to a sentinel element near the end of a list. When
@@ -6,32 +6,27 @@ import { useEffect, useRef } from "react"
  * lands before the user hits the bottom) the supplied `fetchNextPage` runs,
  * unless a fetch is already in flight or there are no more pages.
  *
- * Latest values are tracked through refs so the observer is created once and
- * never re-subscribes as query state changes.
+ * The intersection handler is an effect event, so it reads the latest values
+ * while the observer is created once and never re-subscribes as query state
+ * changes.
  */
 export function useInfiniteScrollSentinel<Result>(
   fetchNextPage: () => Promise<Result>,
   hasNextPage: boolean,
   isFetchingNextPage: boolean,
 ) {
-  const fetchNextRef = useRef(fetchNextPage)
-  fetchNextRef.current = fetchNextPage
-  const hasNextRef = useRef(hasNextPage)
-  hasNextRef.current = hasNextPage
-  const isFetchingNextRef = useRef(isFetchingNextPage)
-  isFetchingNextRef.current = isFetchingNextPage
+  const onIntersect = useEffectEvent((entries: IntersectionObserverEntry[]) => {
+    if (!entries[0]?.isIntersecting) return
+    if (isFetchingNextPage || !hasNextPage) return
+    void fetchNextPage()
+  })
 
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const el = sentinelRef.current
     if (!el || !globalThis.IntersectionObserver) return
     const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0]
-        if (!entry?.isIntersecting) return
-        if (isFetchingNextRef.current || !hasNextRef.current) return
-        void fetchNextRef.current()
-      },
+      (entries) => onIntersect(entries),
       { rootMargin: "800px" },
     )
     observer.observe(el)

@@ -2,7 +2,7 @@ import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 import { UserXIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
 import { BlockedGate } from "@/components/routes/profile/blocked-gate"
@@ -49,13 +49,13 @@ function UserProfileLayout() {
       }
     : null
   const profileError = profileQuery.error ?? null
-  const [revealed, setRevealed] = useState(false)
-
-  // Reset the reveal gate on navigation between profiles — the query
-  // layer handles data caching and the old per-profile refetch.
-  useEffect(() => {
-    setRevealed(false)
-  }, [username])
+  // Reset the reveal gate on navigation between profiles. Comparing during
+  // render keeps the next profile gated from its first frame.
+  const [reveal, setReveal] = useState({ username, revealed: false })
+  if (reveal.username !== username) {
+    setReveal({ username, revealed: false })
+  }
+  const revealed = reveal.username === username && reveal.revealed
 
   const isBlockedView = !!(viewer && !viewer.isSelf && viewer.isBlocked)
   const gated = isBlockedView && !revealed
@@ -91,7 +91,7 @@ function UserProfileLayout() {
       <BlockedGate
         open={gated}
         handle={username}
-        onReveal={() => setRevealed(true)}
+        onReveal={() => setReveal({ username, revealed: true })}
         onCancel={() => {
           void navigate({ to: "/" })
         }}

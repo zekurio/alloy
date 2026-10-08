@@ -29,8 +29,6 @@ type CapturePublishInput = {
   desktop: AlloyTauriDesktop
   item: LibraryItemView
   trim: { startMs: number; endMs: number }
-  /** Whether `trim` is a real sub-range of the source (editor `trimmed`). */
-  trimmed: boolean
   /** Already normalized and non-empty. */
   title: string
   description: string
@@ -115,23 +113,11 @@ async function prepareCapturePublishPayload(
     sizeBytes: selected.sizeBytes,
     mentionedUserIds: input.mentions.map((mention) => mention.id),
     localCaptureId: input.item.id,
+    // The export is already the exact cut, so the upload carries no trim.
     localClipSource: {
-      startMs: Math.max(
-        0,
-        Math.round(input.trim.startMs - exported.startOffsetMs),
-      ),
-      durationMs: Math.max(1, Math.round(selected.durationMs)),
+      startMs: exported.sourceStartMs,
+      durationMs: exported.sourceEndMs - exported.sourceStartMs,
     },
-    // Exports report the keyframe-snap offset; sending the exact
-    // file-relative range lets the server cut the requested frames out of
-    // the slightly longer packet-copy file. Full-range publishes send none.
-    // Rounded at this boundary because the initiate schema requires integers.
-  }
-  if (input.trimmed) {
-    payload.trimStartMs = Math.round(exported.startOffsetMs)
-    payload.trimEndMs = Math.round(
-      exported.startOffsetMs + input.trim.endMs - input.trim.startMs,
-    )
   }
   return payload
 }

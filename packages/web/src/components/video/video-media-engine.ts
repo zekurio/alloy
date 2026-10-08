@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { RefObject } from "react"
 
-import { canPlaySource } from "@/lib/media-capability"
+import { canPlayContainer, canPlaySource } from "@/lib/media-capability"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
 import type { MediaPlaybackRange } from "./video-player-types"
@@ -10,8 +10,11 @@ import type { SourceSpec } from "./video-source"
 export interface RenditionSource {
   name: string
   url: string
-  /** RFC 6381 codec string; empty when unknown (assumed playable). */
-  codecs: string
+  /**
+   * RFC 6381 codec string. Null for a local file, whose codecs are unknown:
+   * its container alone decides whether it is offered.
+   */
+  codecs: string | null
   /** Container MIME type, e.g. "video/mp4". */
   contentType: string
 }
@@ -48,7 +51,9 @@ const SEEK_GRACE_MS = 1_000
  */
 export function resolvePlayback(sources: RenditionSource[], selected: string) {
   const playable = sources.filter((source) =>
-    canPlaySource(source.contentType, source.codecs),
+    source.codecs === null
+      ? canPlayContainer(source.contentType)
+      : canPlaySource(source.contentType, source.codecs),
   )
   const active =
     playable.find((source) => source.name === selected) ?? playable[0] ?? null

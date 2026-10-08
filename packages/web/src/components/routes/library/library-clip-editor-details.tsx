@@ -19,7 +19,7 @@ import {
   Link2OffIcon,
   SaveIcon,
 } from "lucide-react"
-import { useRef } from "react"
+import { useState } from "react"
 import type { ComponentType } from "react"
 
 import { useClipMetadataDraft } from "@/components/clip-editor/use-clip-metadata-draft"
@@ -175,7 +175,8 @@ export function ClipEditorDetails({
   const librarySearch = useLibrarySearch()
   const saveFeedback = useActionFeedback()
   const visibilityFeedback = useActionFeedback()
-  const activeVisibilityIntent = useRef<VisibilityIntent | null>(null)
+  const [activeVisibilityIntent, setActiveVisibilityIntent] =
+    useState<VisibilityIntent | null>(null)
   const saving = saveMutation.isPending
   const visibilityPending = visibilityFeedback.feedback.state === "pending"
 
@@ -193,7 +194,7 @@ export function ClipEditorDetails({
   const updateVisibility = (intent: VisibilityIntent) => {
     const action = VISIBILITY_ACTIONS[intent]
     if (visibilityPending || action.privacy === row.privacy) return
-    activeVisibilityIntent.current = intent
+    setActiveVisibilityIntent(intent)
     void visibilityFeedback.run(async () => {
       const updated = await visibilityMutation.mutateAsync({
         clipId: row.id,
@@ -233,7 +234,7 @@ export function ClipEditorDetails({
     VISIBILITY_ACTIONS[
       visibilityFeedbackIntent(
         row.privacy,
-        activeVisibilityIntent.current,
+        activeVisibilityIntent,
         visibilityFeedback.feedback.state !== "idle",
       )
     ]

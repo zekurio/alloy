@@ -1,64 +1,78 @@
 import type { ClipRow } from "@alloy/api"
 import type { RecordingLibraryItem } from "@alloy/desktop-contracts"
 
-const SOURCE_DURATION_TOLERANCE_MS = 1_500
-const FINAL_COPY_DURATION_TOLERANCE_MS = 100
+/**
+ * Slack between a recorded range and a probed duration. Exports are exact
+ * cuts, so the two differ by at most a frame or an audio packet.
+ */
+const RANGE_TOLERANCE_MS = 100
 
-type FinalClipTimeline = Pick<
+/** Mirrors the exporter's rule for uploading a recording whole. */
+const WHOLE_FILE_TOLERANCE_MS = 50
+
+type PublishedClip = Pick<
   ClipRow,
-  "id" | "durationMs" | "trimStartMs" | "trimEndMs"
+  "id" | "sourceVersion" | "trimStartMs" | "trimEndMs"
 >
-type ClipTimeline = FinalClipTimeline & Pick<ClipRow, "sourceDurationMs">
+type SourceClip = PublishedClip & Pick<ClipRow, "sourceDurationMs">
 
 export interface LocalClipMediaWindow {
   startMs: number
   endMs: number
 }
 
-/** Whether this local file already contains the final published clip. */
-export function localClipIsFinalCut(
-  item: Pick<
-    RecordingLibraryItem,
-    | "uploadedClipId"
-    | "uploadedClipSourceStartMs"
-    | "uploadedClipSourceDurationMs"
-    | "durationMs"
-  >,
-  clip: FinalClipTimeline,
-): boolean {
-  if (item.uploadedClipId !== clip.id) return false
-  const trimmed = clip.trimStartMs !== null || clip.trimEndMs !== null
-  if (
-    trimmed &&
-    (item.uploadedClipSourceStartMs != null ||
-      item.uploadedClipSourceDurationMs != null)
-  ) {
-    return false
-  }
-  const tolerance = trimmed
-    ? FINAL_COPY_DURATION_TOLERANCE_MS
-    : SOURCE_DURATION_TOLERANCE_MS
-  return durationMatches(item.durationMs, clip.durationMs, tolerance)
+export interface LocalClipSource {
+  item: RecordingLibraryItem
+  window: LocalClipMediaWindow
 }
 
 /**
- * Local range that represents the server's uncut uploaded source. The editor
- * uses this mapping so its time zero stays aligned after a keyframe snap.
+ * The linked local file whose whole content is the clip's published media.
+ * A download qualifies while the server still publishes the version it was
+ * saved from. A recording qualifies when it was uploaded whole and the clip
+ * is untrimmed; a recording uploaded as a cut never does.
  */
-export function localClipSourceWindow(
-  item: RecordingLibraryItem,
-  clip: ClipTimeline,
-): LocalClipMediaWindow | null {
-  if (item.uploadedClipId !== clip.id) return null
+export function localClipPublishedCopy(
+  items: readonly RecordingLibraryItem[],
+  clip: PublishedClip,
+): RecordingLibraryItem | null {
+  const untrimmed = !clipTrimmed(clip)
+  return (
+    items.find(
+      (item) =>
+        item.uploadedClipId === clip.id &&
+        (isCurrentDownload(item, clip) || (untrimmed && uploadedWhole(item))),
+    ) ?? null
+  )
+}
 
-  const source = linkedSourceWindow(item, clip)
-  if (source) return source
-  if (clip.trimStartMs !== null || clip.trimEndMs !== null) return null
-
-  const sourceDurationMs = positiveMs(clip.sourceDurationMs ?? clip.durationMs)
-  if (!sourceDurationMs) return null
-  if (!durationMatches(item.durationMs, sourceDurationMs)) return null
-  return boundedWindow(0, sourceDurationMs, item.durationMs)
+/**
+ * The linked local file range that holds the clip's uncut server source, so
+ * the editor's time zero is the source's. Recordings map through their
+ * uploaded range. A download only holds the source while the clip is
+ * untrimmed. Before the server has probed the source, the uploaded range
+ * stands in for its duration.
+ */
+export function localClipSource(
+  items: readonly RecordingLibraryItem[],
+  clip: SourceClip,
+): LocalClipSource | null {
+  const linked = items.filter((item) => item.uploadedClipId === clip.id)
+  for (const item of linked) {
+    const window = recordingSourceWindow(item, clip)
+    if (window) return { item, window }
+  }
+  if (clipTrimmed(clip)) return null
+  for (const item of linked) {
+    if (!isCurrentDownload(item, clip)) continue
+    const window = fitWindow(
+      0,
+      positiveMs(clip.sourceDurationMs) ?? positiveMs(item.durationMs),
+      item.durationMs,
+    )
+    if (window) return { item, window }
+  }
+  return null
 }
 
 export function mediaWindowSeconds(window: LocalClipMediaWindow) {
@@ -74,99 +88,62 @@ export function versionedLocalMediaUrl(
   return url.href
 }
 
-function linkedSourceWindow(
+function clipTrimmed(clip: PublishedClip): boolean {
+  return clip.trimStartMs !== null || clip.trimEndMs !== null
+}
+
+function isCurrentDownload(
   item: RecordingLibraryItem,
-  clip: ClipTimeline,
-): LocalClipMediaWindow | null {
-  return mappedSourceWindow(item, clip) ?? legacySourceWindow(item, clip)
-}
-
-function mappedSourceWindow(
-  item: RecordingLibraryItem,
-  clip: ClipTimeline,
-): LocalClipMediaWindow | null {
-  const startMs = nonnegativeMs(item.uploadedClipSourceStartMs)
-  const linkedDurationMs = positiveMs(item.uploadedClipSourceDurationMs)
-  if (startMs === null || !linkedDurationMs) return null
-
-  const sourceDurationMs = positiveMs(clip.sourceDurationMs) ?? linkedDurationMs
-  if (!durationMatches(linkedDurationMs, sourceDurationMs)) return null
-  return boundedWindow(startMs, sourceDurationMs, item.durationMs)
-}
-
-/**
- * Older links have no explicit source offset. A saved local trim can recover
- * it when both trim ranges still describe the same final clip.
- */
-function legacySourceWindow(
-  item: RecordingLibraryItem,
-  clip: ClipTimeline,
-): LocalClipMediaWindow | null {
-  const localStartMs = nonnegativeMs(item.trimStartMs)
-  const localEndMs = positiveMs(item.trimEndMs)
-  const clipStartMs = nonnegativeMs(clip.trimStartMs)
-  const clipEndMs = positiveMs(clip.trimEndMs)
-  const sourceDurationMs = positiveMs(clip.sourceDurationMs)
-  if (
-    localStartMs === null ||
-    localEndMs === null ||
-    clipStartMs === null ||
-    clipEndMs === null ||
-    !sourceDurationMs
-  ) {
-    return null
-  }
-  if (localEndMs <= localStartMs || clipEndMs <= clipStartMs) return null
-  if (
-    !durationMatches(
-      localEndMs - localStartMs,
-      clipEndMs - clipStartMs,
-      FINAL_COPY_DURATION_TOLERANCE_MS,
-    )
-  ) {
-    return null
-  }
-
-  const sourceStartMs = localStartMs - clipStartMs
-  if (sourceStartMs < 0) return null
-  if (
-    Math.abs(sourceStartMs + sourceDurationMs - localEndMs) >
-    FINAL_COPY_DURATION_TOLERANCE_MS
-  ) {
-    return null
-  }
-  return boundedWindow(sourceStartMs, sourceDurationMs, item.durationMs)
-}
-
-function boundedWindow(
-  startMs: number,
-  durationMs: number,
-  localDurationMs: number | null,
-): LocalClipMediaWindow | null {
-  const localDuration = positiveMs(localDurationMs)
-  if (!localDuration || startMs >= localDuration) return null
-  const endMs = Math.min(startMs + durationMs, localDuration)
-  if (
-    !durationMatches(endMs - startMs, durationMs, SOURCE_DURATION_TOLERANCE_MS)
-  ) {
-    return null
-  }
-  return { startMs, endMs }
-}
-
-function durationMatches(
-  leftMs: number | null,
-  rightMs: number | null,
-  toleranceMs = SOURCE_DURATION_TOLERANCE_MS,
+  clip: PublishedClip,
 ): boolean {
-  const left = positiveMs(leftMs)
-  const right = positiveMs(rightMs)
-  return Boolean(left && right && Math.abs(left - right) <= toleranceMs)
+  return (
+    Boolean(item.uploadedClipMediaVersion) &&
+    item.uploadedClipMediaVersion === clip.sourceVersion
+  )
 }
 
-function nonnegativeMs(value: number | null | undefined): number | null {
-  if (value === null || value === undefined) return null
-  return Number.isFinite(value) && value >= 0 ? value : null
+function uploadedRange(
+  item: RecordingLibraryItem,
+): LocalClipMediaWindow | null {
+  const startMs = item.uploadedClipSourceStartMs
+  const durationMs = positiveMs(item.uploadedClipSourceDurationMs)
+  if (startMs === null || !(startMs >= 0) || durationMs === null) return null
+  return { startMs, endMs: startMs + durationMs }
+}
+
+function uploadedWhole(item: RecordingLibraryItem): boolean {
+  const range = uploadedRange(item)
+  const fileDurationMs = positiveMs(item.durationMs)
+  if (!range || fileDurationMs === null) return false
+  return (
+    range.startMs <= WHOLE_FILE_TOLERANCE_MS &&
+    range.endMs >= fileDurationMs - WHOLE_FILE_TOLERANCE_MS
+  )
+}
+
+function recordingSourceWindow(
+  item: RecordingLibraryItem,
+  clip: SourceClip,
+): LocalClipMediaWindow | null {
+  const range = uploadedRange(item)
+  if (!range) return null
+  const uploadedMs = range.endMs - range.startMs
+  const sourceMs = positiveMs(clip.sourceDurationMs) ?? uploadedMs
+  if (Math.abs(sourceMs - uploadedMs) > RANGE_TOLERANCE_MS) return null
+  return fitWindow(range.startMs, sourceMs, item.durationMs)
+}
+
+/** The window of `lengthMs` at `startMs`, when the file is long enough. */
+function fitWindow(
+  startMs: number,
+  lengthMs: number | null,
+  fileDurationMs: number | null,
+): LocalClipMediaWindow | null {
+  const fileMs = positiveMs(fileDurationMs)
+  if (lengthMs === null || fileMs === null || startMs >= fileMs) return null
+  const endMs = Math.min(startMs + lengthMs, fileMs)
+  if (endMs - startMs < lengthMs - RANGE_TOLERANCE_MS) return null
+  return { startMs, endMs }
 }
 
 function positiveMs(value: number | null | undefined): number | null {

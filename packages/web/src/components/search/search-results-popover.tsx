@@ -277,6 +277,7 @@ function useLocalClipSearch(
 function useSearchInputA11y(
   bridgeRef: RefObject<HTMLSpanElement | null>,
   showPopover: boolean,
+  hasListbox: boolean,
   listboxId: string,
   activeOptionId: string | undefined,
 ): void {
@@ -292,7 +293,9 @@ function useSearchInputA11y(
     input.setAttribute("aria-haspopup", "listbox")
     input.setAttribute("aria-expanded", showPopover ? "true" : "false")
 
-    if (showPopover) input.setAttribute("aria-controls", listboxId)
+    // The listbox only exists while there are results; the loading, error,
+    // and empty states render a status message instead.
+    if (hasListbox) input.setAttribute("aria-controls", listboxId)
     else input.removeAttribute("aria-controls")
 
     if (activeOptionId) {
@@ -307,7 +310,7 @@ function useSearchInputA11y(
       input.removeAttribute("aria-controls")
       input.removeAttribute("aria-activedescendant")
     }
-  }, [activeOptionId, bridgeRef, listboxId, showPopover])
+  }, [activeOptionId, bridgeRef, hasListbox, listboxId, showPopover])
 }
 
 export function SearchResultsPopover() {
@@ -343,8 +346,8 @@ export function SearchResultsPopover() {
   } = useSearchPopoverState(flat, open, clear, setOpen)
 
   const showPopover = open && trimmedQuery.length > 0
-  const activeOptionId =
-    showPopover && flat.length > 0 ? flat[activeIndex]?.optionId : undefined
+  const hasListbox = showPopover && flat.length > 0
+  const activeOptionId = hasListbox ? flat[activeIndex]?.optionId : undefined
 
   // Pending covers both the debounce/deferral gap (the live query hasn't
   // reached `deferredQuery` yet) and an in-flight request for the settled
@@ -352,17 +355,21 @@ export function SearchResultsPopover() {
   // before the search has even started.
   const pending = isFetching || local.pending || trimmedQuery !== deferredQuery
 
-  useSearchInputA11y(bridgeRef, showPopover, listboxId, activeOptionId)
+  useSearchInputA11y(
+    bridgeRef,
+    showPopover,
+    hasListbox,
+    listboxId,
+    activeOptionId,
+  )
 
   return (
     <>
       <span ref={bridgeRef} hidden />
       {showPopover ? (
         <div
-          id={listboxId}
           ref={rootRef}
-          role="listbox"
-          aria-label={t("Search results")}
+          role="presentation"
           className={cn(
             "absolute top-[calc(100%+0.5rem)] right-0 left-0 z-50",
             "alloy-blur overflow-hidden rounded-md border",
@@ -378,6 +385,7 @@ export function SearchResultsPopover() {
         >
           {pending ? <SearchLoadingBar /> : null}
           <SearchResultsBody
+            listboxId={listboxId}
             query={deferredQuery}
             pending={pending}
             error={error}
@@ -396,6 +404,7 @@ export function SearchResultsPopover() {
 }
 
 type SearchResultsBodyProps = {
+  listboxId: string
   query: string
   pending: boolean
   error: Error | null
@@ -409,6 +418,7 @@ type SearchResultsBodyProps = {
 }
 
 function SearchResultsBody({
+  listboxId,
   query,
   pending,
   error,
@@ -427,25 +437,27 @@ function SearchResultsBody({
   // never tears the list down. Skeletons and the empty/error states are
   // reserved for when there is genuinely nothing to display.
   if (!hasResults) {
-    if (pending) return <SearchResultsSkeleton />
-    if (error) {
-      return (
-        <EmptyBlock
-          icon={<SearchIcon />}
-          title={t("Couldn't search")}
-          hint={errorMessage(error, t("Search failed"))}
-        />
-      )
-    }
     return (
-      <EmptyBlock
-        icon={<SearchIcon />}
-        title={t("No matches")}
-        hint={t(
-          "Nothing found for {query}. Try a different title, game, file, or user.",
-          { query: quote(query) },
+      <output className="block">
+        {pending ? (
+          <SearchResultsSkeleton />
+        ) : error ? (
+          <EmptyBlock
+            icon={<SearchIcon />}
+            title={t("Couldn't search")}
+            hint={errorMessage(error, t("Search failed"))}
+          />
+        ) : (
+          <EmptyBlock
+            icon={<SearchIcon />}
+            title={t("No matches")}
+            hint={t(
+              "Nothing found for {query}. Try a different title, game, file, or user.",
+              { query: quote(query) },
+            )}
+          />
         )}
-      />
+      </output>
     )
   }
 
@@ -461,6 +473,9 @@ function SearchResultsBody({
 
   return (
     <div
+      id={listboxId}
+      role="listbox"
+      aria-label={t("Search results")}
       className={cn(
         "flex max-h-[70vh] flex-col overflow-y-auto pt-0.5",
         // Subtle header-row typographic style used across the app.
@@ -468,13 +483,13 @@ function SearchResultsBody({
       )}
     >
       {games.length > 0 ? (
-        <section>
+        <section role="group" aria-label={t("Games")}>
           <GroupLabel icon={<GamepadIcon />}>{t("Games")}</GroupLabel>
-          <ul>
+          <ul role="presentation">
             {games.map((item, localIdx) => {
               const globalIdx = localIdx
               return (
-                <li key={item.id}>
+                <li key={item.id} role="presentation">
                   <GameRowItem
                     id={item.optionId}
                     row={item.row}
@@ -489,13 +504,13 @@ function SearchResultsBody({
         </section>
       ) : null}
       {users.length > 0 ? (
-        <section>
+        <section role="group" aria-label={t("Users")}>
           <GroupLabel icon={<UserIcon />}>{t("Users")}</GroupLabel>
-          <ul>
+          <ul role="presentation">
             {users.map((item, localIdx) => {
               const globalIdx = firstUserIndex + localIdx
               return (
-                <li key={item.id}>
+                <li key={item.id} role="presentation">
                   <UserRowItem
                     id={item.optionId}
                     row={item.row}
@@ -510,13 +525,13 @@ function SearchResultsBody({
         </section>
       ) : null}
       {clips.length > 0 ? (
-        <section>
+        <section role="group" aria-label={t("Clips")}>
           <GroupLabel icon={<FilmIcon />}>{t("Clips")}</GroupLabel>
-          <ul>
+          <ul role="presentation">
             {clips.map((item, localIdx) => {
               const globalIdx = firstClipIndex + localIdx
               return (
-                <li key={item.id}>
+                <li key={item.id} role="presentation">
                   {item.kind === "clip" ? (
                     <ClipRowItem
                       id={item.optionId}

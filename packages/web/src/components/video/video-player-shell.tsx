@@ -1,3 +1,4 @@
+import { t } from "@alloy/i18n"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { CLIP_MEDIA_BACKGROUND_CLASS } from "@alloy/ui/lib/media-frame"
@@ -167,6 +168,8 @@ export function ChromeShell({
       data-playing={playing ? "true" : "false"}
       data-chrome="visible"
       data-fullscreen={isFullscreen ? "true" : "false"}
+      role="group"
+      aria-label={t("Video player")}
       tabIndex={0}
       onKeyDown={onKeyDown}
       onPointerDown={onPointerDown}

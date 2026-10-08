@@ -29,10 +29,10 @@ import {
 import { VideoPlayer } from "@/components/video/video-player"
 import { apiOrigin } from "@/lib/env"
 import {
-  localClipIsFinalCut,
+  localClipPublishedCopy,
   versionedLocalMediaUrl,
 } from "@/lib/local-clip-media"
-import { canPlaySource } from "@/lib/media-capability"
+import { canPlayContainer } from "@/lib/media-capability"
 
 import { useLocalClipPlayback } from "./use-local-clip-playback"
 
@@ -235,6 +235,7 @@ function VideoClipPlayer({
       ? selection
       : { clipId, name: LOCAL_QUALITY_ID, pinned: false }
   const selectedQualityId = scopedSelection.name
+  const qualityPinned = scopedSelection.pinned
   const pinQuality = useCallback(
     (name: string) => setSelection({ clipId, name, pinned: true }),
     [clipId],
@@ -247,9 +248,9 @@ function VideoClipPlayer({
   const localPlayback = useLocalClipPlayback(clipId)
   const remotelyPlayable = Boolean(playbackContentType || renditions.length > 0)
 
-  // A local file is eligible only when it already contains the final cut.
-  // Otherwise the server's materialized cut wins; the player never simulates
-  // a trim by hiding a window within the original capture.
+  // A local file is eligible only when its whole content is the clip's
+  // published media. Otherwise the server's media wins; the player never
+  // simulates a trim by hiding a window within the original capture.
   const sources = useMemo((): RenditionSource[] => {
     const remoteSources = [
       {
@@ -273,29 +274,29 @@ function VideoClipPlayer({
 
     if (!remotelyPlayable) return remoteSources
     if (!localPlayback.settled) return remoteSources
-    const localItem = localPlayback.items.find(
-      (item) =>
-        canPlaySource(contentTypeForFile(item.fileName), "") &&
-        localClipIsFinalCut(item, {
-          id: clipId,
-          durationMs,
-          trimStartMs,
-          trimEndMs,
-        }),
+    const localItem = localClipPublishedCopy(
+      localPlayback.items.filter((item) =>
+        canPlayContainer(contentTypeForFile(item.fileName)),
+      ),
+      {
+        id: clipId,
+        sourceVersion: sourceVersion ?? null,
+        trimStartMs,
+        trimEndMs,
+      },
     )
     if (!localItem) return remoteSources
     return [
       {
         name: LOCAL_QUALITY_ID,
         url: versionedLocalMediaUrl(localItem),
-        codecs: "",
+        codecs: null,
         contentType: contentTypeForFile(localItem.fileName),
       },
       ...remoteSources,
     ]
   }, [
     clipId,
-    durationMs,
     localPlayback,
     playbackContentType,
     remotelyPlayable,
@@ -309,11 +310,11 @@ function VideoClipPlayer({
   const renditionPlayback = useMemo(
     (): RenditionPlayback => ({
       sources,
-      selected: scopedSelection.name,
-      pinned: scopedSelection.pinned,
+      selected: selectedQualityId,
+      pinned: qualityPinned,
       onFallback: fallbackQuality,
     }),
-    [fallbackQuality, scopedSelection, sources],
+    [fallbackQuality, qualityPinned, selectedQualityId, sources],
   )
 
   const { playable, active } = useMemo(
