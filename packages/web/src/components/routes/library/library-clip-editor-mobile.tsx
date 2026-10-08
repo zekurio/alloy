@@ -368,6 +368,7 @@ function MobileClipVideo({
         playback.seek(playback.getCurrentMs())
       }}
       onEnded={playback.handleEnded}
+      onPlaybackError={media.onPlaybackError}
     />
   )
 }

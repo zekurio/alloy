@@ -43,7 +43,7 @@ import {
   mediaWindowSeconds,
   versionedLocalMediaUrl,
 } from "@/lib/local-clip-media"
-import { canPlaySource } from "@/lib/media-capability"
+import { canPlayContainer, canPlaySource } from "@/lib/media-capability"
 import { useMediaWaveform } from "@/lib/media-waveform"
 import { useActionFeedback } from "@/lib/use-action-feedback"
 
@@ -98,14 +98,21 @@ export function useClipEditorMedia(
   const localMediaSrc = localMediaItem
     ? versionedLocalMediaUrl(localMediaItem)
     : null
-  // Only a ready clip has a server preview to prefer over a local file the
-  // WebView cannot play.
+  // Only a ready clip has a server preview to prefer over a local file whose
+  // container the WebView cannot play, or that failed to decode.
+  const [failedLocalSrc, setFailedLocalSrc] = useState<string | null>(null)
   const localPlaybackSrc =
     localMediaItem &&
     (processing ||
-      canPlaySource(contentTypeForFile(localMediaItem.fileName), ""))
+      (localMediaSrc !== failedLocalSrc &&
+        canPlayContainer(contentTypeForFile(localMediaItem.fileName))))
       ? localMediaSrc
       : null
+  // Other sources keep the player's own error state.
+  const onPlaybackError =
+    !processing && localPlaybackSrc && previewSrc
+      ? () => setFailedLocalSrc(localPlaybackSrc)
+      : undefined
   // The preview timeline spans the uncut source: a local source window stands
   // in for its length until the server has probed it, and a whole local file
   // is as long as the file.
@@ -204,6 +211,7 @@ export function useClipEditorMedia(
       durationHintMs !== null && durationHintMs > 0
         ? durationHintMs / 1000
         : undefined,
+    onPlaybackError,
     playbackRange,
     playbackSrc,
     poster,
@@ -278,6 +286,7 @@ export function ClipEditorStage({
             onPlayingChange={playback.setPlaying}
             onFrameReady={() => media.setCloudFrameReady(true)}
             onEnded={playback.handleEnded}
+            onPlaybackError={media.onPlaybackError}
           />
         ) : (
           <ClipEditorPreviewPlaceholder media={media} />

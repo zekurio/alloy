@@ -16,7 +16,7 @@ import {
   localClipPublishedCopy,
   versionedLocalMediaUrl,
 } from "@/lib/local-clip-media"
-import { canPlaySource } from "@/lib/media-capability"
+import { canPlayContainer } from "@/lib/media-capability"
 
 import { useClipCardGameLink } from "../../clip/clip-card-links"
 import { type LibraryItemView } from "./library-data"
@@ -180,7 +180,7 @@ export function UploadedClipCard({
   const gameUrl = gameId ? gameHref(gameId) : null
   const localPreviewItem = localClipPublishedCopy(
     localItems.filter((item) =>
-      canPlaySource(contentTypeForFile(item.fileName), ""),
+      canPlayContainer(contentTypeForFile(item.fileName)),
     ),
     row,
   )

@@ -32,7 +32,7 @@ import {
   localClipPublishedCopy,
   versionedLocalMediaUrl,
 } from "@/lib/local-clip-media"
-import { canPlaySource } from "@/lib/media-capability"
+import { canPlayContainer } from "@/lib/media-capability"
 
 import { useLocalClipPlayback } from "./use-local-clip-playback"
 
@@ -276,7 +276,7 @@ function VideoClipPlayer({
     if (!localPlayback.settled) return remoteSources
     const localItem = localClipPublishedCopy(
       localPlayback.items.filter((item) =>
-        canPlaySource(contentTypeForFile(item.fileName), ""),
+        canPlayContainer(contentTypeForFile(item.fileName)),
       ),
       {
         id: clipId,
@@ -290,7 +290,7 @@ function VideoClipPlayer({
       {
         name: LOCAL_QUALITY_ID,
         url: versionedLocalMediaUrl(localItem),
-        codecs: "",
+        codecs: null,
         contentType: contentTypeForFile(localItem.fileName),
       },
       ...remoteSources,
