@@ -299,6 +299,10 @@ export const clipsPlaybackRoutes = new Hono()
     c.header("Content-Length", String(resolved.size))
     c.header("Content-Disposition", contentDisposition(selected.filename))
     c.header("Cache-Control", dlCacheControl)
+    // Same version as the row's `sourceVersion`; the desktop app stores it
+    // with the saved file to tell whether the copy is still the published
+    // media.
+    c.header("ETag", `"src-${clipAssetVersion(selected.key)}"`)
     if (c.req.method === "HEAD") return c.body(null)
 
     const body = resolved.stream()

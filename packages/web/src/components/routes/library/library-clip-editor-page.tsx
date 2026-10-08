@@ -123,9 +123,10 @@ function ClipEditorBody({
     row,
     disabled: !isOwner || processing || row.mediaKind !== "image",
   })
-  // Before first publish, the stage plays the raw local capture. The
-  // persisted trim bounds describe the exported upload's timeline, so
-  // applying them to the raw file would seek the preview past its real start.
+  // Until the clip is ready, the stage previews the linked local file, and a
+  // link that records no uploaded range plays that file whole. Persisted trim
+  // bounds are in the server source's timeline, so applying them to the whole
+  // file would seek the preview past its real start.
   const initialTrim =
     !mediaPending && row.trimStartMs !== null && row.trimEndMs !== null
       ? { startMs: row.trimStartMs, endMs: row.trimEndMs }

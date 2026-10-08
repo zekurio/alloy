@@ -13,7 +13,7 @@ import { toClipCardData } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
 import type { RecordingLibraryItem } from "@/lib/desktop"
 import {
-  localClipIsFinalCut,
+  localClipPublishedCopy,
   versionedLocalMediaUrl,
 } from "@/lib/local-clip-media"
 import { canPlaySource } from "@/lib/media-capability"
@@ -142,12 +142,15 @@ function LibraryCardMeta({
 /** Grid card for a clip that already lives on the server. */
 export function UploadedClipCard({
   row,
+  localItems,
   localItem,
   transfer,
   onOpen,
   onIntent,
 }: {
   row: ClipRow
+  /** Every local file linked to the clip; the hover preview picks from these. */
+  localItems: readonly RecordingLibraryItem[]
   localItem?: RecordingLibraryItem | null
   transfer?: QueueItem
   onOpen: () => void
@@ -175,10 +178,11 @@ export function UploadedClipCard({
   const gameId = card.gameRef?.slug ?? null
   const renderGameLink = useClipCardGameLink(gameId)
   const gameUrl = gameId ? gameHref(gameId) : null
-  const localPreview = Boolean(
-    localItem &&
-    canPlaySource(contentTypeForFile(localItem.fileName), "") &&
-    localClipIsFinalCut(localItem, row),
+  const localPreviewItem = localClipPublishedCopy(
+    localItems.filter((item) =>
+      canPlaySource(contentTypeForFile(item.fileName), ""),
+    ),
+    row,
   )
   return (
     <ClipCard
@@ -197,8 +201,8 @@ export function UploadedClipCard({
       thumbnailFallbackBlurHash={localThumbnailBlurHash}
       fallbackSeed={card.fallbackSeed}
       streamUrl={
-        localPreview && localItem
-          ? versionedLocalMediaUrl(localItem)
+        localPreviewItem
+          ? versionedLocalMediaUrl(localPreviewItem)
           : card.streamUrl
       }
       thumbnailLabel={t("Edit {title}", { title: card.title })}

@@ -40,12 +40,12 @@ export function clipBrowserDownloadActionSupported(row: ClipRow): boolean {
   return row.status === "ready" && Boolean(row.playbackContentType)
 }
 
-function useClipDownloadAction(row: ClipRow, alreadyLocal = false) {
+function useClipDownloadAction(row: ClipRow) {
   const download = useClipDownload(row.id)
   const [error, setError] = useState<string | null>(null)
   const supported = clipDownloadActionSupported(row)
   const downloading = download?.status === "downloading"
-  const saved = alreadyLocal || download?.status === "completed"
+  const saved = download?.status === "completed"
   const progress =
     download?.status === "downloading" && download.totalBytes
       ? Math.min(
@@ -71,14 +71,8 @@ function useClipDownloadAction(row: ClipRow, alreadyLocal = false) {
 }
 
 /** Dropdown menu item variant for clip action menus. */
-export function ClipDownloadMenuItem({
-  row,
-  alreadyLocal = false,
-}: {
-  row: ClipRow
-  alreadyLocal?: boolean
-}) {
-  const action = useClipDownloadAction(row, alreadyLocal)
+export function ClipDownloadMenuItem({ row }: { row: ClipRow }) {
+  const action = useClipDownloadAction(row)
   if (!action.supported) return null
 
   return (

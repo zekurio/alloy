@@ -709,6 +709,203 @@ async fn concurrent_downloads_with_one_title_keep_separate_files() {
 }
 
 #[tokio::test]
+async fn downloads_store_the_media_version_from_the_etag() {
+    let version = "0123456789abcdef";
+    let longest = "a".repeat(64);
+    // Clip id, the ETag its download answers with, and the version the
+    // library must store. A server without media versions sends no ETag.
+    let cases = [
+        (
+            "strong",
+            Some(format!("\"src-{version}\"")),
+            Some(version.to_string()),
+        ),
+        (
+            "weak",
+            Some(format!("W/\"src-{version}\"")),
+            Some(version.to_string()),
+        ),
+        (
+            "longest",
+            Some(format!("\"src-{longest}\"")),
+            Some(longest.clone()),
+        ),
+        ("absent", None, None),
+        ("other-prefix", Some(format!("\"rnd-{version}\"")), None),
+        ("unquoted", Some(format!("src-{version}")), None),
+        ("half-quoted", Some(format!("\"src-{version}")), None),
+        ("empty", Some("\"src-\"".to_string()), None),
+        ("oversized", Some(format!("\"src-{longest}a\"")), None),
+        ("symbols", Some("\"src-0123_4567.89\"".to_string()), None),
+    ];
+    let (shutdown, signal) = tokio::sync::oneshot::channel();
+    let mut app = Router::new();
+    for (clip_id, etag, _) in &cases {
+        let etag = etag.clone();
+        app = app.route(
+            &format!("/api/clips/{clip_id}/download"),
+            get(move || async move {
+                let mut response = Response::builder()
+                    .status(StatusCode::OK)
+                    .header("Content-Type", "video/mp4")
+                    .header("Content-Length", "4");
+                if let Some(etag) = etag {
+                    response = response.header("ETag", etag);
+                }
+                response
+                    .body(Body::from("clip"))
+                    .expect("download response")
+            }),
+        );
+    }
+    let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, app)
+            .with_graceful_shutdown(async {
+                let _ = signal.await;
+            })
+            .await;
+    });
+
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let manager = DownloadManager::new(library.clone()).unwrap();
+    manager
+        .set_selected_server(
+            Url::parse(&format!("http://127.0.0.1:{port}")).unwrap(),
+            None,
+        )
+        .unwrap();
+    for (clip_id, _, _) in &cases {
+        manager
+            .start(DownloadRequest {
+                clip_id: clip_id.to_string(),
+                title: clip_id.to_string(),
+                size_bytes: None,
+                duration_ms: None,
+                width: None,
+                height: None,
+                game_name: None,
+            })
+            .unwrap();
+    }
+    for _ in 0..200 {
+        if manager
+            .list()
+            .iter()
+            .all(|state| state.library_item_id.is_some())
+        {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    let states = manager.list();
+    for (clip_id, _, expected) in &cases {
+        let state = states
+            .iter()
+            .find(|state| state.clip_id == *clip_id)
+            .expect("download state");
+        let id = state
+            .library_item_id
+            .as_deref()
+            .expect("download completed");
+        let item = library.find_item(id).expect("downloaded item");
+        assert_eq!(item.uploaded_clip_id.as_deref(), Some(*clip_id));
+        assert_eq!(item.uploaded_clip_media_version, *expected, "{clip_id}");
+    }
+    manager.cancel_all();
+    let _ = shutdown.send(());
+}
+
+#[tokio::test]
+async fn downloaded_copies_keep_the_media_version_until_the_clip_link_changes() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let folder = temp.path().join("captures/Clips/Uncategorized");
+    fs::create_dir_all(&folder).await.unwrap();
+    let version = "0123456789abcdef";
+    let register = |name: &str, media_version: Option<&str>| {
+        let media = folder.join(name);
+        std::fs::write(&media, b"not a real mp4").unwrap();
+        library
+            .register_download(
+                &DownloadRequest {
+                    clip_id: "clip-123".to_string(),
+                    title: "Saved clip".to_string(),
+                    size_bytes: None,
+                    duration_ms: Some(2_000),
+                    width: None,
+                    height: None,
+                    game_name: None,
+                },
+                &media,
+                "video/mp4",
+                14,
+                media_version,
+            )
+            .unwrap()
+    };
+    let patch = |value: serde_json::Value| {
+        library
+            .update_metadata(serde_json::from_value(value).unwrap())
+            .unwrap();
+    };
+
+    let kept = register("kept.mp4", Some(version));
+    let item = library.find_item(&kept).unwrap();
+    assert_eq!(item.uploaded_clip_id.as_deref(), Some("clip-123"));
+    assert_eq!(item.uploaded_clip_media_version.as_deref(), Some(version));
+    assert_eq!(
+        serde_json::to_value(&item).unwrap()["uploadedClipMediaVersion"],
+        version
+    );
+    let unversioned = register("unversioned.mp4", None);
+    let item = library.find_item(&unversioned).unwrap();
+    assert_eq!(item.uploaded_clip_id.as_deref(), Some("clip-123"));
+    assert!(item.uploaded_clip_media_version.is_none());
+
+    // Only a download writes the version. A renderer patch that names it, or
+    // that repeats the current clip link, leaves it alone.
+    patch(serde_json::json!({
+        "id": kept,
+        "title": "Renamed",
+        "uploadedClipId": "clip-123",
+        "uploadedClipMediaVersion": "ffffffffffffffff"
+    }));
+    let item = library.find_item(&kept).unwrap();
+    assert_eq!(item.title, "Renamed");
+    assert_eq!(item.uploaded_clip_media_version.as_deref(), Some(version));
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &fs::read(temp.path().join("user-data/recording-library.json"))
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let stored = manifest["captures"]
+        .as_object()
+        .unwrap()
+        .values()
+        .find(|entry| entry["id"] == kept)
+        .unwrap();
+    assert_eq!(stored["uploadedClipMediaVersion"], version);
+
+    let relinked = register("relinked.mp4", Some(version));
+    patch(serde_json::json!({ "id": relinked, "uploadedClipId": "clip-456" }));
+    let item = library.find_item(&relinked).unwrap();
+    assert_eq!(item.uploaded_clip_id.as_deref(), Some("clip-456"));
+    assert!(item.uploaded_clip_media_version.is_none());
+
+    let unlinked = register("unlinked.mp4", Some(version));
+    patch(serde_json::json!({ "id": unlinked, "uploadedClipId": null }));
+    let item = library.find_item(&unlinked).unwrap();
+    assert!(item.uploaded_clip_id.is_none());
+    assert!(item.uploaded_clip_media_version.is_none());
+}
+
+#[tokio::test]
 async fn ffmpeg_exports_and_finalizes_recordings() {
     let temp = TempDir::new().expect("temp dir");
     let ffmpeg = which("ffmpeg");
@@ -774,6 +971,8 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     .unwrap();
     assert_eq!(result.content_type, "video/mp4");
     assert!(result.size_bytes > 0);
+    assert_eq!((result.source_start_ms, result.source_end_ms), (250, 1_500));
+    assert_eq!(result.duration_ms, 1_250);
     let first_export = library.export_path(&id, &result.id).unwrap();
     assert!(first_export.is_file());
     assert!(library.find_export_path(&result.id).unwrap().is_file());
@@ -800,6 +999,27 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     assert!(library.export_path(&id, &second.id).unwrap().is_file());
     assert!(!first_export.exists());
     assert!(library.find_export_path(&result.id).is_err());
+
+    // A selection that reaches both edges exports the whole file and reports
+    // the capture's full range, not the few milliseconds short it asked for.
+    let source_duration = meta.duration_ms.unwrap();
+    let whole = export(
+        &library,
+        ExportRequest {
+            id: id.clone(),
+            segments: vec![ExportSegment {
+                start_ms: 20,
+                end_ms: source_duration - 20,
+            }],
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        (whole.source_start_ms, whole.source_end_ms),
+        (0, source_duration)
+    );
+    assert_eq!(whole.duration_ms, source_duration);
 
     let first_segment = media.with_file_name("first-segment.mp4");
     fs::copy(&media, &first_segment).await.unwrap();

@@ -32,9 +32,8 @@ const CUT_FALLBACK_FPS = 30
 /**
  * Cut `[startMs, endMs]` out of `sourcePath` with a frame-exact re-encode:
  * `-ss` before `-i` plus an output duration is sample-accurate under a
- * re-encode, unlike the keyframe-snapped packet copy this replaces. Desktop
- * uploads arrive as keyframe-snapped supersets whose ingest trim fields carry
- * the exact range; this cut applies that range against the stored original.
+ * re-encode. The range is a web upload's ingest trim or a later re-trim, and
+ * applies against the stored original.
  *
  * The cut is conceptually a source-resolution rendition, so it reuses the
  * rendition arg/hardware-accel/fallback machinery with a source-shaped step.

@@ -159,6 +159,13 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
     }
     let full_source =
         segment.start_ms <= 50 && segment.end_ms.saturating_add(50) >= source_duration;
+    // A whole-file export contains the entire capture, including the few
+    // milliseconds the requested segment may have left out at either edge.
+    let (source_start_ms, source_end_ms) = if full_source {
+        (0, source_duration)
+    } else {
+        (segment.start_ms, segment.end_ms)
+    };
     let export_key = format!(
         "export:{}:{}:{}:{}",
         item.filename, item.modified_at, segment.start_ms, segment.end_ms
@@ -166,7 +173,6 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
     let export_id = crate::capture_library::paths::capture_id(export_key.as_str());
     let output = library.export_path(&item.id, &export_id)?;
     tokio::fs::create_dir_all(output.parent().ok_or(LibraryError::InvalidPath)?).await?;
-    let mut start_offset_ms = 0;
     if full_source && extension(&source).as_deref() == Some("mp4") {
         assert_upload_mp4(library, &source).await?;
         if !output.exists() {
@@ -183,11 +189,7 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
         }
     } else if !output.exists() || tokio::fs::metadata(&output).await?.len() == 0 {
         let temp = temporary_media_path(&output);
-        let result = if full_source {
-            transcode_range(library, &source, &temp, 0, source_duration).await
-        } else {
-            transcode_range(library, &source, &temp, segment.start_ms, segment.end_ms).await
-        };
+        let result = transcode_range(library, &source, &temp, source_start_ms, source_end_ms).await;
         if let Err(error) = result {
             let _ = tokio::fs::remove_file(&temp).await;
             return Err(error);
@@ -196,10 +198,6 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
             let _ = tokio::fs::remove_file(&temp).await;
             return Err(error);
         }
-    } else if !full_source {
-        // This implementation transcodes exact cuts, so no keyframe offset is
-        // needed when a cached export is reused.
-        start_offset_ms = 0;
     }
     // The editor only ever plays the export it just asked for, so the capture
     // keeps one render instead of one per trim the user tried.
@@ -212,10 +210,11 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
         file_name: export_file_name(&item.file_name, segment, full_source),
         content_type: CONTENT_TYPE_MP4.to_string(),
         size_bytes,
-        duration_ms: total_ms,
+        duration_ms: source_end_ms - source_start_ms,
         width: item.width,
         height: item.height,
-        start_offset_ms,
+        source_start_ms,
+        source_end_ms,
     })
 }
 

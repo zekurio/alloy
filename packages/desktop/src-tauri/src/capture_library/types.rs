@@ -54,6 +54,9 @@ pub struct ManifestEntry {
     pub uploaded_clip_id: Option<String>,
     pub uploaded_clip_source_start_ms: Option<u64>,
     pub uploaded_clip_source_duration_ms: Option<u64>,
+    /// The server media version this file is a downloaded copy of. Only the
+    /// download path writes it.
+    pub uploaded_clip_media_version: Option<String>,
     pub trim_start_ms: Option<u64>,
     pub trim_end_ms: Option<u64>,
 }
@@ -105,6 +108,7 @@ pub struct LibraryItem {
     pub uploaded_clip_id: Option<String>,
     pub uploaded_clip_source_start_ms: Option<u64>,
     pub uploaded_clip_source_duration_ms: Option<u64>,
+    pub uploaded_clip_media_version: Option<String>,
     pub trim_start_ms: Option<u64>,
     pub trim_end_ms: Option<u64>,
     pub created_at: String,
@@ -203,7 +207,9 @@ pub struct LibraryExport {
     pub duration_ms: u64,
     pub width: Option<u32>,
     pub height: Option<u32>,
-    pub start_offset_ms: u64,
+    /// The range of the capture this export contains, in capture time.
+    pub source_start_ms: u64,
+    pub source_end_ms: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

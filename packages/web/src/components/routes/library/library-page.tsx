@@ -410,6 +410,7 @@ function LibraryBody({
           <UploadedClipCard
             key={entry.key}
             row={entry.row}
+            localItems={entry.localItems}
             localItem={entry.localItem}
             transfer={transferByClipId.get(entry.row.id)}
             onOpen={() => onOpenCloud(entry.row)}

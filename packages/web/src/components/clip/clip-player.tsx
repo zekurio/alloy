@@ -29,7 +29,7 @@ import {
 import { VideoPlayer } from "@/components/video/video-player"
 import { apiOrigin } from "@/lib/env"
 import {
-  localClipIsFinalCut,
+  localClipPublishedCopy,
   versionedLocalMediaUrl,
 } from "@/lib/local-clip-media"
 import { canPlaySource } from "@/lib/media-capability"
@@ -248,9 +248,9 @@ function VideoClipPlayer({
   const localPlayback = useLocalClipPlayback(clipId)
   const remotelyPlayable = Boolean(playbackContentType || renditions.length > 0)
 
-  // A local file is eligible only when it already contains the final cut.
-  // Otherwise the server's materialized cut wins; the player never simulates
-  // a trim by hiding a window within the original capture.
+  // A local file is eligible only when its whole content is the clip's
+  // published media. Otherwise the server's media wins; the player never
+  // simulates a trim by hiding a window within the original capture.
   const sources = useMemo((): RenditionSource[] => {
     const remoteSources = [
       {
@@ -274,15 +274,16 @@ function VideoClipPlayer({
 
     if (!remotelyPlayable) return remoteSources
     if (!localPlayback.settled) return remoteSources
-    const localItem = localPlayback.items.find(
-      (item) =>
-        canPlaySource(contentTypeForFile(item.fileName), "") &&
-        localClipIsFinalCut(item, {
-          id: clipId,
-          durationMs,
-          trimStartMs,
-          trimEndMs,
-        }),
+    const localItem = localClipPublishedCopy(
+      localPlayback.items.filter((item) =>
+        canPlaySource(contentTypeForFile(item.fileName), ""),
+      ),
+      {
+        id: clipId,
+        sourceVersion: sourceVersion ?? null,
+        trimStartMs,
+        trimEndMs,
+      },
     )
     if (!localItem) return remoteSources
     return [
@@ -296,7 +297,6 @@ function VideoClipPlayer({
     ]
   }, [
     clipId,
-    durationMs,
     localPlayback,
     playbackContentType,
     remotelyPlayable,

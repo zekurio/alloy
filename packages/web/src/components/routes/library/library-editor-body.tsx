@@ -334,7 +334,6 @@ function LocalEditorBody({
         item,
         screenshotEdit: isImage ? screenshotEdit : undefined,
         trim: { startMs: trim.startMs, endMs: trim.endMs },
-        trimmed,
         title: normalizedTitle,
         description,
         tags: formatTags(tags),

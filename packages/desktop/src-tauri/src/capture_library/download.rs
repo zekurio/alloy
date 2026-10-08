@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
-use reqwest::header::{CONTENT_LENGTH, CONTENT_TYPE, COOKIE, HeaderValue, LOCATION};
+use reqwest::header::{CONTENT_LENGTH, CONTENT_TYPE, COOKIE, ETAG, HeaderValue, LOCATION};
 use reqwest::{Client, StatusCode};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::broadcast;
@@ -21,6 +21,7 @@ const PROGRESS_INTERVAL: Duration = Duration::from_millis(200);
 const DOWNLOAD_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_TITLE_LENGTH: usize = 256;
 const MAX_NAME_ATTEMPTS: u32 = 10_000;
+const MAX_MEDIA_VERSION_LENGTH: usize = 64;
 
 #[derive(Clone)]
 pub struct DownloadManager {
@@ -265,6 +266,14 @@ impl DownloadManager {
         if let Some(size) = response_length {
             self.set_total(&request.clip_id, size);
         }
+        // The tag names the media version being saved. Writing the body
+        // consumes the response, so it is read here.
+        let media_version = response
+            .headers()
+            .get(ETAG)
+            .and_then(|value| value.to_str().ok())
+            .and_then(media_version_from_etag)
+            .map(str::to_string);
 
         let collection = if response_type.starts_with("image/") {
             "Screenshots"
@@ -317,10 +326,13 @@ impl DownloadManager {
             let _ = tokio::fs::remove_file(&destination).await;
             return Err(LibraryError::DownloadCancelled);
         }
-        match self
-            .library
-            .register_download(request, &destination, &response_type, received)
-        {
+        match self.library.register_download(
+            request,
+            &destination,
+            &response_type,
+            received,
+            media_version.as_deref(),
+        ) {
             Ok(id) => Ok(id),
             Err(error) => {
                 let _ = tokio::fs::remove_file(&destination).await;
@@ -434,6 +446,22 @@ fn normalize_origin(origin: Url) -> Result<Url> {
         ));
     }
     Ok(origin)
+}
+
+/// Reads the media version from the `ETag` of a clip download, which the
+/// server sends as `"src-<version>"`. A proxy may have weakened the tag to
+/// `W/"src-<version>"`. Every other shape yields `None`, as does a server
+/// that sends no tag.
+fn media_version_from_etag(etag: &str) -> Option<&str> {
+    let version = etag
+        .strip_prefix("W/")
+        .unwrap_or(etag)
+        .strip_prefix('"')?
+        .strip_suffix('"')?
+        .strip_prefix("src-")?;
+    ((1..=MAX_MEDIA_VERSION_LENGTH).contains(&version.len())
+        && version.bytes().all(|byte| byte.is_ascii_alphanumeric()))
+    .then_some(version)
 }
 
 /// Claims a free destination name by creating its `.part` file exclusively.

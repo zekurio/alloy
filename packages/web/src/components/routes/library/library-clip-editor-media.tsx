@@ -23,6 +23,7 @@ import {
 import { TrimTransportControls } from "@/components/clip-editor/transport-controls"
 import { TrimBar } from "@/components/clip-editor/trim-bar"
 import { useTrimPlayback } from "@/components/clip-editor/use-trim-playback"
+import { useLocalClipPlayback } from "@/components/clip/use-local-clip-playback"
 import {
   encodeStageLabel,
   QueueProgressBar,
@@ -38,7 +39,7 @@ import { useSetClipPosterMutation } from "@/lib/clip-queries"
 import type { RecordingLibraryItem } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
 import {
-  localClipSourceWindow,
+  localClipSource,
   mediaWindowSeconds,
   versionedLocalMediaUrl,
 } from "@/lib/local-clip-media"
@@ -89,46 +90,44 @@ export function useClipEditorMedia(
           playableRendition.version,
         )
       : null
-  const localSourceWindow =
-    !processing && localItem ? localClipSourceWindow(localItem, row) : null
-  const localMediaSrc = localItem ? versionedLocalMediaUrl(localItem) : null
+  const linkedLocalItems = useLocalClipPlayback(row.id).items
+  const localSource = localClipSource(linkedLocalItems, row)
+  // Until the clip is ready, a linked file without a source window previews
+  // whole.
+  const localMediaItem = localSource?.item ?? (processing ? localItem : null)
+  const localMediaSrc = localMediaItem
+    ? versionedLocalMediaUrl(localMediaItem)
+    : null
+  // Only a ready clip has a server preview to prefer over a local file the
+  // WebView cannot play.
   const localPlaybackSrc =
-    localItem &&
-    localMediaSrc &&
-    localSourceWindow &&
-    canPlaySource(contentTypeForFile(localItem.fileName), "")
+    localMediaItem &&
+    (processing ||
+      canPlaySource(contentTypeForFile(localMediaItem.fileName), ""))
       ? localMediaSrc
       : null
+  // The preview timeline spans the uncut source: a local source window stands
+  // in for its length until the server has probed it, and a whole local file
+  // is as long as the file.
+  const durationHintMs = localSource
+    ? (row.sourceDurationMs ??
+      localSource.window.endMs - localSource.window.startMs)
+    : (localMediaItem?.durationMs ?? row.sourceDurationMs ?? row.durationMs)
   const serverWaveformSrc = row.waveformVersion
     ? clipWaveformFileUrl(row.id, apiOrigin(), row.waveformVersion)
     : null
-  const waveformSrc = processing
-    ? localMediaSrc
-    : localSourceWindow && localMediaSrc
-      ? localMediaSrc
-      : serverWaveformSrc
-  const waveformRange =
-    !processing && localSourceWindow
-      ? {
-          startMs: localSourceWindow.startMs,
-          endMs: localSourceWindow.endMs,
-        }
-      : undefined
+  const waveformSrc = localMediaSrc ?? (processing ? null : serverWaveformSrc)
   const waveform = useMediaWaveform(
     row.mediaKind === "image" ? null : waveformSrc,
-    processing
-      ? localItem
-        ? `desktop:${localItem.id}:${localItem.modifiedAt}:${localItem.sizeBytes}:${localItem.mediaUrl}`
-        : null
-      : localSourceWindow && localItem
-        ? `desktop-clip:${localItem.id}:${localItem.modifiedAt}:${localItem.sizeBytes}:${localSourceWindow.startMs}:${localSourceWindow.endMs}`
-        : waveformSrc
-          ? `clip:${row.id}:${waveformSrc}`
-          : null,
-    processing
-      ? (localItem?.durationMs ?? row.sourceDurationMs ?? row.durationMs ?? 0)
-      : (row.sourceDurationMs ?? row.durationMs ?? 0),
-    waveformRange,
+    localMediaItem
+      ? localSource
+        ? `desktop-clip:${localMediaItem.id}:${localMediaItem.modifiedAt}:${localMediaItem.sizeBytes}:${localSource.window.startMs}:${localSource.window.endMs}`
+        : `desktop:${localMediaItem.id}:${localMediaItem.modifiedAt}:${localMediaItem.sizeBytes}:${localMediaItem.mediaUrl}`
+      : waveformSrc
+        ? `clip:${row.id}:${waveformSrc}`
+        : null,
+    durationHintMs ?? 0,
+    localSource?.window,
   )
   const serverPoster = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
@@ -152,16 +151,11 @@ export function useClipEditorMedia(
     serverPoster ?? localPoster ?? localItem?.thumbnailUrl ?? queuePoster
   const posterBlurHash = row.thumbBlurHash ?? localItem?.thumbBlurHash ?? null
   const fallbackSeed = row.gameId ?? localItem?.groupLabel ?? row.id
-  const playbackSrc = processing
-    ? localMediaSrc
-    : (localPlaybackSrc ?? previewSrc)
+  const playbackSrc = localPlaybackSrc ?? (processing ? null : previewSrc)
   const playbackRange =
-    !processing && localPlaybackSrc && localSourceWindow
-      ? mediaWindowSeconds(localSourceWindow)
+    localPlaybackSrc && localSource
+      ? mediaWindowSeconds(localSource.window)
       : undefined
-  const durationHintMs = processing
-    ? (localItem?.durationMs ?? row.sourceDurationMs ?? row.durationMs)
-    : (row.sourceDurationMs ?? row.durationMs)
   const previewUnavailable =
     !processing &&
     Boolean(row.sourceContentType || row.renditions.length > 0) &&
@@ -203,8 +197,8 @@ export function useClipEditorMedia(
     waveform,
     handoffPoster,
     mediaVersion:
-      localPlaybackSrc && localItem
-        ? `${mediaVersion}:local:${localItem.modifiedAt}:${localItem.sizeBytes}`
+      localPlaybackSrc && localMediaItem
+        ? `${mediaVersion}:local:${localMediaItem.modifiedAt}:${localMediaItem.sizeBytes}`
         : mediaVersion,
     durationHint:
       durationHintMs !== null && durationHintMs > 0

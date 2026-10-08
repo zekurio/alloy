@@ -40,9 +40,8 @@ export interface PublishPayload {
   sizeBytes: number
   /**
    * Kept source range in the uploaded file's timeline; the server derives
-   * the cut at ingest. Desktop publishes of a trimmed capture send the exact
-   * range within the exported (keyframe-snapped) file. Absent when the whole
-   * file is kept.
+   * the cut at ingest. Absent when the whole file is kept, which includes
+   * desktop publishes: they upload an already-cut export.
    */
   trimStartMs?: number
   trimEndMs?: number
@@ -55,8 +54,8 @@ export interface PublishPayload {
    */
   localCaptureId?: string
   /**
-   * Range in the local capture that represents the uploaded server source.
-   * Server source time zero maps to `startMs` in the local file.
+   * Range of the local capture that this upload contains. Server source time
+   * zero maps to `startMs` in the local file.
    */
   localClipSource?: { startMs: number; durationMs: number }
 }

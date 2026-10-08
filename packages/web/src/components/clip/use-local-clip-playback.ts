@@ -27,7 +27,8 @@ export function useLocalClipPlayback(clipId: string): {
   )
 }
 
-function compareLibraryItemNewestFirst(
+/** Most recently modified first; ids break ties so the order is stable. */
+export function compareLibraryItemNewestFirst(
   a: RecordingLibraryItem,
   b: RecordingLibraryItem,
 ): number {
