@@ -157,6 +157,7 @@ export const ADMIN_MESSAGES = {
   "Login backdrop": "Login-Hintergrund",
   "Login backdrop disabled": "Login-Hintergrund deaktiviert",
   "Login backdrop enabled": "Login-Hintergrund aktiviert",
+  "Login page": "Anmeldeseite",
   "Login page preview": "Vorschau der Login-Seite",
   Logo: "Logo",
   "Lowercase letters, numbers, and hyphens only.":

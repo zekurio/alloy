@@ -234,8 +234,8 @@ const CATEGORIES = [
   {
     id: "appearance",
     group: "admin",
-    label: message("Appearance"),
-    title: message("Appearance"),
+    label: message("Login page"),
+    title: message("Login page"),
     description: message("The generated login backdrop."),
     options: [
       message("Login"),
@@ -244,6 +244,7 @@ const CATEGORIES = [
       message("Blur"),
     ],
     aliases: [
+      alias("appearance", message("Appearance")),
       alias("splash", message("Login backdrop")),
       alias("darkening", message("Login backdrop")),
       alias("custom backdrop", message("Login backdrop")),
