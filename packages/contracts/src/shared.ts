@@ -1,3 +1,4 @@
+import { DEFAULT_UPLOAD_LIMITS } from "./upload-limits"
 // Scalar and vocabulary declarations the desktop contracts need as well live
 // in @alloy/primitives; re-exported here so this package keeps one surface.
 export {
@@ -61,8 +62,10 @@ export const MEDIA_KINDS = ["video", "image"] as const
 export type MediaKind = (typeof MEDIA_KINDS)[number]
 export const MEDIA_FILTERS = ["all", ...MEDIA_KINDS] as const
 export type MediaFilter = (typeof MEDIA_FILTERS)[number]
-export const SCREENSHOT_MAX_BYTES = 50 * 1024 * 1024
-export const SCREENSHOT_MAX_PIXELS = 64_000_000
+/** @deprecated Use the selected server's uploadLimits. */
+export const SCREENSHOT_MAX_BYTES = DEFAULT_UPLOAD_LIMITS.screenshotMaxBytes
+/** @deprecated Use the selected server's uploadLimits. */
+export const SCREENSHOT_MAX_PIXELS = DEFAULT_UPLOAD_LIMITS.screenshotMaxPixels
 
 export type UploadTicketStrategy =
   | { type: "single" }

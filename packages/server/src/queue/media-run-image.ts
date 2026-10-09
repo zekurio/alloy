@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises"
 
-import { SCREENSHOT_MAX_BYTES } from "@alloy/contracts"
+import { configStore } from "@alloy/server/config/store"
 import { prepareScreenshot } from "@alloy/server/media/screenshot"
 import { join } from "@alloy/server/runtime/path"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
@@ -36,11 +36,15 @@ export async function runImageProcessing(
         await downloadStagedUploadToFile(key, path)
       }
       await ensureStillPresent(store, id, runId, signal)
-      if ((await stat(path)).size > SCREENSHOT_MAX_BYTES)
-        throw new Error("Screenshot exceeds 50 MiB")
+      const limits = configStore.get("uploadLimits")
+      if ((await stat(path)).size > limits.screenshotMaxBytes)
+        throw new Error(
+          `Screenshot exceeds ${limits.screenshotMaxBytes / 1024 / 1024} MiB`,
+        )
       const image = await prepareScreenshot(
         await readFile(path),
         row.sourceContentType ?? "",
+        limits,
       )
       await ensureStillPresent(store, id, runId, signal)
       const sourceKey = runScopedSourceKey(id, runId)

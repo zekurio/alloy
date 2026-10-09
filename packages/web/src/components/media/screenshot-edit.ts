@@ -1,5 +1,8 @@
-import { SCREENSHOT_MAX_PIXELS } from "@alloy/contracts"
+import type { UploadLimits } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
+
+import { api } from "@/lib/api"
+import { formatBytes } from "@/lib/storage-format"
 
 export type ScreenshotEdit = {
   rotation: number
@@ -164,7 +167,9 @@ export function drawScreenshot(
 export async function exportScreenshot(
   file: File,
   edit: ScreenshotEdit,
+  uploadLimits?: UploadLimits,
 ): Promise<File> {
+  const limits = uploadLimits ?? (await api.serverInfo.fetch()).uploadLimits
   const image = await createImageBitmap(file)
   try {
     const dimensions = screenshotDimensions(
@@ -172,7 +177,7 @@ export async function exportScreenshot(
       image.height,
       edit.rotation,
     )
-    if (dimensions.width * dimensions.height > SCREENSHOT_MAX_PIXELS)
+    if (dimensions.width * dimensions.height > limits.screenshotMaxPixels)
       throw new Error(t("Rotated image dimensions are too large"))
     const canvas = document.createElement("canvas")
     drawScreenshot(canvas, image, edit)
@@ -206,6 +211,12 @@ export async function exportScreenshot(
     canvas.width = canvas.height = 0
     output.width = output.height = 0
     if (!blob) throw new Error(t("Could not export screenshot"))
+    if (blob.size > limits.screenshotMaxBytes)
+      throw new Error(
+        t("Screenshot exceeds {limit}", {
+          limit: formatBytes(limits.screenshotMaxBytes),
+        }),
+      )
     return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".png", {
       type: "image/png",
     })

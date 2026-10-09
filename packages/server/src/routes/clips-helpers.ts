@@ -1,6 +1,5 @@
 import {
   ACCEPTED_MEDIA_CONTENT_TYPES,
-  SCREENSHOT_MAX_BYTES,
   type MediaFilter,
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_TAG_MAX_LENGTH,
@@ -15,6 +14,7 @@ import {
   resolveTrimRange,
   TRIM_MIN_RANGE_MS,
 } from "@alloy/server/clips/trim-range"
+import { configStore } from "@alloy/server/config/store"
 import { requiredSql } from "@alloy/server/db/sql"
 import { isoDate } from "@alloy/server/runtime/date"
 import { and, desc, eq, isNull, lt, or, type SQL, sql } from "drizzle-orm"
@@ -205,16 +205,33 @@ export const InitiateBody = t
   })
   .superRefine((body, ctx) => {
     if (body.contentType.startsWith("image/")) {
+      const limits = configStore.get("uploadLimits")
+      if (body.sizeBytes > limits.screenshotMaxBytes) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Screenshot exceeds ${limits.screenshotMaxBytes / 1024 / 1024} MiB`,
+          path: ["sizeBytes"],
+        })
+      }
       if (
-        body.sizeBytes > SCREENSHOT_MAX_BYTES ||
+        body.width &&
+        body.height &&
+        body.width * body.height > limits.screenshotMaxPixels
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Image dimensions are too large",
+          path: ["width"],
+        })
+      }
+      if (
         body.durationMs !== undefined ||
         body.trimStartMs !== undefined ||
         body.trimEndMs !== undefined
       ) {
         ctx.addIssue({
           code: "custom",
-          message:
-            "Screenshots must be at most 50 MiB and cannot contain video timeline fields",
+          message: "Screenshots cannot contain video timeline fields",
           path: ["contentType"],
         })
       }

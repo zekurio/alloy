@@ -1,5 +1,7 @@
 import {
   AppearanceConfigSchema,
+  DEFAULT_UPLOAD_LIMITS,
+  UploadLimitsSchema,
   managedOAuthProviderIconKey,
   RUNTIME_CONFIG_VERSION,
   TranscodingConfigSchema,
@@ -54,8 +56,13 @@ const DEFAULT_APPEARANCE: AppearanceConfig = AppearanceConfigSchema.parse({
 })
 const DEFAULT_TRANSCODING: TranscodingConfig = TranscodingConfigSchema.parse({})
 
-type DbOwnedConfigKey = "setupComplete" | "appearance" | "transcoding"
+type DbOwnedConfigKey =
+  | "setupComplete"
+  | "appearance"
+  | "transcoding"
+  | "uploadLimits"
 
+let uploadLimitsSetting = deepFreeze(DEFAULT_UPLOAD_LIMITS)
 let setupSetting = deepFreeze(DEFAULT_SETUP)
 let authSetting = deepFreeze(DEFAULT_AUTH)
 let oauthProvidersSetting: readonly OAuthProviderConfig[] = deepFreeze([])
@@ -87,6 +94,7 @@ function buildRuntimeConfig(): RuntimeConfig {
       env.authEnv.requireAuthToBrowse ?? authSetting.requireAuthToBrowse,
     oauthProviders: env.authEnv.oauthProviders ?? [...oauthProvidersSetting],
     limits: env.limits,
+    uploadLimits: uploadLimitsSetting,
     storage: env.storage,
     appearance: appearanceSetting,
     transcoding: transcodingSetting,
@@ -307,6 +315,7 @@ export async function initializeConfigStore(): Promise<void> {
     oauthClientSecretsValue,
     appearanceValue,
     transcodingValue,
+    uploadLimitsValue,
   ] = await Promise.all([
     readSetting("setup"),
     readSetting("auth"),
@@ -314,8 +323,12 @@ export async function initializeConfigStore(): Promise<void> {
     readSetting("oauthClientSecrets"),
     readSetting("appearance"),
     readSetting("transcoding"),
+    readSetting("uploadLimits"),
   ])
 
+  uploadLimitsSetting = deepFreeze(
+    UploadLimitsSchema.parse(uploadLimitsValue ?? {}),
+  )
   setupSetting = deepFreeze(SetupSettingSchema.parse(setupValue ?? {}))
   authSetting = deepFreeze(AuthTogglesSchema.parse(authValue ?? {}))
   oauthProvidersSetting = deepFreeze(
@@ -339,7 +352,8 @@ function assertDbOwnedKey(
   if (
     key !== "setupComplete" &&
     key !== "appearance" &&
-    key !== "transcoding"
+    key !== "transcoding" &&
+    key !== "uploadLimits"
   ) {
     throw new Error(
       `Runtime config key "${String(key)}" is declarative and must be set with environment variables or Nix options.`,
@@ -378,6 +392,14 @@ export const configStore: ConfigStore = {
       const nextAppearance = AppearanceConfigSchema.parse(value)
       await writeSetting("appearance", nextAppearance)
       appearanceSetting = deepFreeze(nextAppearance)
+      refreshState()
+      return
+    }
+
+    if (key === "uploadLimits") {
+      const next = UploadLimitsSchema.parse(value)
+      await writeSetting("uploadLimits", next)
+      uploadLimitsSetting = deepFreeze(next)
       refreshState()
       return
     }

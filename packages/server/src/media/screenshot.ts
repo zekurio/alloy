@@ -1,14 +1,21 @@
-import { SCREENSHOT_MAX_BYTES, SCREENSHOT_MAX_PIXELS } from "@alloy/contracts"
+import type { UploadLimits } from "@alloy/contracts"
+import { configStore } from "@alloy/server/config/store"
 import sharp from "sharp"
 
 import { imageBlurHashFromBytes } from "./blurhash"
 
 /** Decode before publishing; headers and client dimensions are only hints. */
-export async function prepareScreenshot(bytes: Buffer, contentType: string) {
-  if (bytes.length > SCREENSHOT_MAX_BYTES)
-    throw new Error("Screenshot exceeds 50 MiB")
+export async function prepareScreenshot(
+  bytes: Buffer,
+  contentType: string,
+  limits: UploadLimits = configStore.get("uploadLimits"),
+) {
+  if (bytes.length > limits.screenshotMaxBytes)
+    throw new Error(
+      `Screenshot exceeds ${limits.screenshotMaxBytes / 1024 / 1024} MiB`,
+    )
   const image = sharp(bytes, {
-    limitInputPixels: SCREENSHOT_MAX_PIXELS,
+    limitInputPixels: limits.screenshotMaxPixels,
     failOn: "warning",
   })
   const metadata = await image.metadata()
@@ -30,8 +37,10 @@ export async function prepareScreenshot(bytes: Buffer, contentType: string) {
     .rotate()
     .png()
     .toBuffer({ resolveWithObject: true })
-  if (source.data.length > SCREENSHOT_MAX_BYTES)
-    throw new Error("Processed screenshot exceeds 50 MiB")
+  if (source.data.length > limits.screenshotMaxBytes)
+    throw new Error(
+      `Processed screenshot exceeds ${limits.screenshotMaxBytes / 1024 / 1024} MiB`,
+    )
   const thumbnail = await sharp(source.data)
     .resize({
       width: 960,

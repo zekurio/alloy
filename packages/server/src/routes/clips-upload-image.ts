@@ -1,9 +1,9 @@
-import { SCREENSHOT_MAX_BYTES } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { clip } from "@alloy/db/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { clipAssetVersion } from "@alloy/server/clips/asset-version"
 import { publishClipUpsert } from "@alloy/server/clips/events"
+import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { prepareScreenshot } from "@alloy/server/media/screenshot"
 import {
@@ -16,9 +16,9 @@ import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 import { enqueueUnownedMediaAssets } from "@alloy/server/storage/media-deletion"
+import { imageBodyLimit } from "@alloy/server/uploads/image-body-limit"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
-import { bodyLimit } from "hono/body-limit"
 
 import { IdParam } from "./clips-helpers"
 import {
@@ -35,10 +35,11 @@ const ImageEditForm = t.object({
 export const clipsUploadImageRoutes = new Hono().post(
   "/:id/image",
   requireSession,
-  bodyLimit({ maxSize: SCREENSHOT_MAX_BYTES + 16 * 1024 }),
+  imageBodyLimit("screenshotMaxBytes"),
   tbValidator("param", IdParam),
   tbValidator("form", ImageEditForm),
   async (c) => {
+    const limits = configStore.get("uploadLimits")
     const { id } = c.req.valid("param")
     const { file, sourceVersion } = c.req.valid("form")
     const access = await selectClipForMutation(c, {
@@ -58,14 +59,18 @@ export const clipsUploadImageRoutes = new Hono().post(
     if (
       file.type !== "image/png" ||
       file.size === 0 ||
-      file.size > SCREENSHOT_MAX_BYTES
+      file.size > limits.screenshotMaxBytes
     )
-      return badRequest(c, "Expected a PNG image up to 50 MiB")
+      return badRequest(
+        c,
+        `Expected a PNG image up to ${limits.screenshotMaxBytes / 1024 / 1024} MiB`,
+      )
     let image
     try {
       image = await prepareScreenshot(
         Buffer.from(await file.arrayBuffer()),
         file.type,
+        limits,
       )
     } catch {
       return badRequest(c, "Invalid screenshot")

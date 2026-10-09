@@ -56,6 +56,14 @@ applies its database migrations on start. See
 [`.env.example`](.env.example) for authentication, storage, and transcoding
 options.
 
+Admins can change image upload limits under **Settings → Administration →
+Upload limits**. Defaults are 50 MiB and 64 megapixels for screenshots,
+5 MiB for avatars, 10 MiB for profile banners and game artwork, and 2 MiB for
+sign-in provider icons. Settings are stored in PostgreSQL and apply without
+a restart. Screenshot limits also apply to edits and to queued screenshots
+when processing starts; the size limit covers the stored PNG as well as the
+original upload. These settings do not change local desktop capture limits.
+
 ### Development
 
 With [devenv](https://devenv.sh/), which provides Node, pnpm, PostgreSQL,

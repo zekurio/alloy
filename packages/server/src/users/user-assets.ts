@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto"
 import { userAssetImagePath, type PublicUser } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
+import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
@@ -27,8 +28,6 @@ import {
 
 const logger = createLogger("users")
 
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
-const MAX_BANNER_BYTES = 10 * 1024 * 1024 // 10 MB
 const USER_ASSET_CONTENT_TYPE = "image/webp"
 // The active-write fence provides correctness. This short delay merely avoids
 // waking the worker during the normal small-image upload/attach path.
@@ -61,10 +60,12 @@ async function rejectUserAssetUpload(
   return { result, queuedDeletions: 1 }
 }
 
-export const USER_ASSET_LIMITS = {
-  avatar: { label: "Avatar", maxBytes: MAX_AVATAR_BYTES },
-  banner: { label: "Banner", maxBytes: MAX_BANNER_BYTES },
-} satisfies Record<UserAssetRole, { label: string; maxBytes: number }>
+export function userAssetLimit(role: UserAssetRole) {
+  const limits = configStore.get("uploadLimits")
+  return role === "avatar"
+    ? { label: "Avatar", maxBytes: limits.avatarMaxBytes }
+    : { label: "Banner", maxBytes: limits.bannerMaxBytes }
+}
 
 export const EXT_FOR_CONTENT_TYPE = {
   "image/jpeg": ".jpg",
@@ -103,7 +104,7 @@ export async function uploadUserAsset(input: {
     revision: string
   }
 }): Promise<UserAssetUpdateResult> {
-  const limit = USER_ASSET_LIMITS[input.role]
+  const limit = userAssetLimit(input.role)
   const buf = Buffer.from(input.bytes)
   if (buf.byteLength === 0) {
     return { ok: false, status: 400, error: "Empty image data" }

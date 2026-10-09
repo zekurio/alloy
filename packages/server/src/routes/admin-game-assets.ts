@@ -3,6 +3,7 @@ import { Buffer } from "node:buffer"
 import { gameAssetImagePath, type GameAssetRole } from "@alloy/contracts"
 import { game } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
+import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { GAME_ASSET_ROUTE_KEY_RE } from "@alloy/server/games/game-asset-deletion"
 import {
@@ -21,7 +22,6 @@ import { immutableImageAssetsRoute } from "./immutable-image-assets"
 
 const logger = createLogger("admin-games")
 
-const GAME_ASSET_MAX_BYTES = 10 * 1024 * 1024 // 10 MB
 const GAME_ASSET_CONTENT_TYPE = "image/webp"
 const EXT_FOR_CONTENT_TYPE = {
   "image/jpeg": ".jpg",
@@ -64,14 +64,15 @@ export async function prepareGameAsset(
   role: GameAssetRole,
   file: File,
 ): Promise<PreparedGameAsset> {
+  const maxBytes = configStore.get("uploadLimits").gameAssetMaxBytes
   if (file.size === 0) {
     return { ok: false, status: 400, error: "Empty image data" }
   }
-  if (file.size > GAME_ASSET_MAX_BYTES) {
+  if (file.size > maxBytes) {
     return {
       ok: false,
       status: 413,
-      error: `Image too large. Max ${GAME_ASSET_MAX_BYTES / 1024 / 1024} MB`,
+      error: `Image too large. Max ${maxBytes / 1024 / 1024} MB`,
     }
   }
   if (!Object.hasOwn(EXT_FOR_CONTENT_TYPE, file.type)) {

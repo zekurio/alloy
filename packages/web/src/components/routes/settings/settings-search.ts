@@ -278,6 +278,24 @@ const CATEGORIES = [
     ],
   },
   {
+    id: "upload-limits",
+    group: "admin",
+    label: message("Upload limits"),
+    description: message(
+      "Screenshot size and resolution, profile images, game artwork, and sign-in provider icons.",
+    ),
+    options: [
+      message("Screenshots"),
+      message("Screenshot size (MiB)"),
+      message("Screenshot resolution (megapixels)"),
+      message("Avatar size (MiB)"),
+      message("Profile banner size (MiB)"),
+      message("Game artwork size (MiB)"),
+      message("Sign-in provider icon size (MiB)"),
+    ],
+    aliases: [alias("image limits"), alias("file size"), alias("megapixels")],
+  },
+  {
     id: "transcoding",
     group: "admin",
     label: message("Transcoding"),

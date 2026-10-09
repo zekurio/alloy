@@ -1,5 +1,6 @@
 import { user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
+import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
 import { parseImageBytes } from "@alloy/server/media/image-validation"
@@ -46,7 +47,10 @@ export async function syncOAuthAvatar(
       profile.avatarUrl,
       "oauth avatar",
       undefined,
-      { redirect: allowPrivate ? "follow" : "error" },
+      {
+        redirect: allowPrivate ? "follow" : "error",
+        maxBytes: configStore.get("uploadLimits").avatarMaxBytes,
+      },
     )
     const parsed = parseImageBytes(bytes)
     if (!parsed) {

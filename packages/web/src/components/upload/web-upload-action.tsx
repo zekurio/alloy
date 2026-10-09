@@ -269,7 +269,11 @@ export async function prepareWebUploadPayload(
       throw new Error(t("This server does not support screenshot uploads yet."))
     if (metadata.screenshotEdit)
       selected = await prepareSelectedClipFile(
-        await exportScreenshot(selected.file, metadata.screenshotEdit),
+        await exportScreenshot(
+          selected.file,
+          metadata.screenshotEdit,
+          server.uploadLimits,
+        ),
       )
   }
   return {

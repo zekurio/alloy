@@ -3,12 +3,13 @@ import { requireSession } from "@alloy/server/auth/require-session"
 import { errorResult } from "@alloy/server/runtime/http-response"
 import type { UserAssetRole } from "@alloy/server/storage/driver"
 import { assetStorage } from "@alloy/server/storage/index"
+import { imageBodyLimit } from "@alloy/server/uploads/image-body-limit"
 import { USER_ASSET_ROUTE_KEY_RE } from "@alloy/server/users/user-asset-deletion"
 import {
   EXT_FOR_CONTENT_TYPE,
   removeUserAsset,
   uploadUserAsset,
-  USER_ASSET_LIMITS,
+  userAssetLimit,
   type UserAssetUpdateResult,
 } from "@alloy/server/users/user-assets"
 import { type Context, Hono } from "hono"
@@ -25,7 +26,7 @@ function validateUserAssetFile(
   role: UserAssetRole,
   file: File,
 ): UserAssetUpdateResult | null {
-  const limit = USER_ASSET_LIMITS[role]
+  const limit = userAssetLimit(role)
   if (file.size === 0) {
     return { ok: false, status: 400, error: "Empty image data" }
   }
@@ -92,12 +93,14 @@ export const usersUploadRoute = new Hono<{
   .post(
     "/me/avatar/upload",
     requireSession,
+    imageBodyLimit("avatarMaxBytes"),
     tbValidator("form", UserAssetUploadForm),
     uploadUserAssetHandler("avatar"),
   )
   .post(
     "/me/banner/upload",
     requireSession,
+    imageBodyLimit("bannerMaxBytes"),
     tbValidator("form", UserAssetUploadForm),
     uploadUserAssetHandler("banner"),
   )
