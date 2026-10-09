@@ -109,10 +109,7 @@ function DrawerOverlay({
     <Drawer.Backdrop
       data-slot="drawer-overlay"
       forceRender={forceRender}
-      className={cn(
-        "fixed inset-0 z-50 bg-[oklch(12%_0.01_250)]/50",
-        className,
-      )}
+      className={cn("fixed inset-0 z-50 bg-black/50", className)}
       {...props}
     />
   )
