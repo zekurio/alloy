@@ -100,7 +100,7 @@ reconfirmation.
   `[abc1234](<commit-url>) · [CI passed](<ci-run-url>)`.
 - `status: "failure"` for a failed attempt or genuine blocker, e.g.
   `Blocked by CI` with `[Tests failed](<ci-run-url>) for
-[abc1234](<commit-url>). Not landed.` A prepared commit, pushed branch, or
+  [abc1234](<commit-url>). Not landed.` A prepared commit, pushed branch, or
   open PR is not success. Keep questions in the conversation, not the status
   event. Failure is not terminal — continue safe recovery when permitted and
   report the verified outcome.
