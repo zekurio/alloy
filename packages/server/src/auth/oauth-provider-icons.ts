@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer"
 
 import { createLogger } from "@alloy/logging"
+import { configStore } from "@alloy/server/config/store"
 import {
   MAX_IMAGE_PIXELS,
   parseImageBytes,
@@ -15,7 +16,6 @@ import sharp from "sharp"
 
 const logger = createLogger("oauth-provider-icons")
 
-export const OAUTH_PROVIDER_ICON_MAX_BYTES = 2 * 1024 * 1024 // 2 MB
 export const OAUTH_PROVIDER_ICON_CONTENT_TYPE = "image/webp"
 
 // Login-button icons render at ~16-32 px; 128 px keeps them crisp on HiDPI
@@ -52,15 +52,16 @@ export type PreparedOAuthProviderIcon =
 export async function prepareOAuthProviderIcon(
   input: Uint8Array,
 ): Promise<PreparedOAuthProviderIcon> {
+  const maxBytes = configStore.get("uploadLimits").oauthProviderIconMaxBytes
   const bytes = Buffer.from(input)
   if (bytes.byteLength === 0) {
     return { ok: false, status: 400, error: "Empty image data" }
   }
-  if (bytes.byteLength > OAUTH_PROVIDER_ICON_MAX_BYTES) {
+  if (bytes.byteLength > maxBytes) {
     return {
       ok: false,
       status: 413,
-      error: `Icon too large. Max ${OAUTH_PROVIDER_ICON_MAX_BYTES / 1024 / 1024} MB`,
+      error: `Icon too large. Max ${maxBytes / 1024 / 1024} MB`,
     }
   }
 
@@ -127,7 +128,7 @@ export async function fetchOAuthProviderIconFromUrl(
   try {
     ;({ bytes } = await fetchRemoteImage(url, "provider icon", undefined, {
       redirect: "error",
-      maxBytes: OAUTH_PROVIDER_ICON_MAX_BYTES,
+      maxBytes: configStore.get("uploadLimits").oauthProviderIconMaxBytes,
     }))
   } catch (cause) {
     return {

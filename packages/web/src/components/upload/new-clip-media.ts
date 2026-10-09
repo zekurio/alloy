@@ -1,6 +1,6 @@
-import { SCREENSHOT_MAX_BYTES, SCREENSHOT_MAX_PIXELS } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 
+import { api } from "@/lib/api"
 import { formatMediaDurationMs } from "@/lib/media-time"
 import { requireObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 import { formatBytes } from "@/lib/storage-format"
@@ -74,12 +74,17 @@ export function probeFile(file: File): Promise<ProbedFile> {
 }
 
 async function probeImage(file: File): Promise<ProbedFile> {
-  if (file.size > SCREENSHOT_MAX_BYTES)
-    throw new Error(t("Screenshot exceeds 50 MiB"))
+  const { uploadLimits: limits } = await api.serverInfo.fetch()
+  if (file.size > limits.screenshotMaxBytes)
+    throw new Error(
+      t("Screenshot exceeds {limit}", {
+        limit: formatBytes(limits.screenshotMaxBytes),
+      }),
+    )
   const image = await createImageBitmap(file)
   try {
     const { width, height } = image
-    if (width * height > SCREENSHOT_MAX_PIXELS)
+    if (width * height > limits.screenshotMaxPixels)
       throw new Error(t("Image dimensions are too large"))
     return {
       file,

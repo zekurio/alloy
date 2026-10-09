@@ -18,6 +18,7 @@ import {
   deleted,
   errorResult,
 } from "@alloy/server/runtime/http-response"
+import { imageBodyLimit } from "@alloy/server/uploads/image-body-limit"
 import { eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -78,37 +79,42 @@ const GameAssetUploadForm = t.object({
 
 export const adminGamesRoute = new Hono()
   .get("/games", async (c) => c.json(await listAdminGames()))
-  .post("/games", tbValidator("form", CreateGameForm), async (c) => {
-    const body = c.req.valid("form")
+  .post(
+    "/games",
+    imageBodyLimit("gameAssetMaxBytes", GAME_ASSET_ROLES.length),
+    tbValidator("form", CreateGameForm),
+    async (c) => {
+      const body = c.req.valid("form")
 
-    // Validate and process every provided artwork upfront so a bad image
-    // fails the request before the game row exists.
-    const assets: {
-      role: GameAssetRole
-      prepared: Extract<PreparedGameAsset, { ok: true }>
-    }[] = []
-    for (const role of GAME_ASSET_ROLES) {
-      const file = body[role]
-      if (!file) continue
-      const prepared = await prepareGameAsset(role, file)
-      if (!prepared.ok) {
-        return errorResult(c, {
-          status: prepared.status,
-          error: `${role}: ${prepared.error}`,
-        })
+      // Validate and process every provided artwork upfront so a bad image
+      // fails the request before the game row exists.
+      const assets: {
+        role: GameAssetRole
+        prepared: Extract<PreparedGameAsset, { ok: true }>
+      }[] = []
+      for (const role of GAME_ASSET_ROLES) {
+        const file = body[role]
+        if (!file) continue
+        const prepared = await prepareGameAsset(role, file)
+        if (!prepared.ok) {
+          return errorResult(c, {
+            status: prepared.status,
+            error: `${role}: ${prepared.error}`,
+          })
+        }
+        assets.push({ role, prepared })
       }
-      assets.push({ role, prepared })
-    }
 
-    const slug = await availableGameSlug(body.name)
-    const result = await createCustomGame({
-      name: body.name,
-      slug,
-      releaseDate: body.releaseDate ? new Date(body.releaseDate) : null,
-      assets,
-    })
-    return result.ok ? c.json(result.game, 201) : errorResult(c, result)
-  })
+      const slug = await availableGameSlug(body.name)
+      const result = await createCustomGame({
+        name: body.name,
+        slug,
+        releaseDate: body.releaseDate ? new Date(body.releaseDate) : null,
+        assets,
+      })
+      return result.ok ? c.json(result.game, 201) : errorResult(c, result)
+    },
+  )
   .patch(
     "/games/:id",
     tbValidator("param", GameIdParam),
@@ -156,6 +162,7 @@ export const adminGamesRoute = new Hono()
   .post(
     "/games/:id/assets/:role",
     tbValidator("param", GameAssetParam),
+    imageBodyLimit("gameAssetMaxBytes"),
     tbValidator("form", GameAssetUploadForm),
     async (c) => {
       const { id, role } = c.req.valid("param")

@@ -8,6 +8,7 @@ import {
 } from "@alloy/contracts"
 
 import packageJson from "../../../package.json" with { type: "json" }
+import { configStore } from "./config/store"
 
 /**
  * Public, unauthenticated server metadata for desktop compatibility.
@@ -22,6 +23,7 @@ export function buildServerInfo(): ServerInfo {
     // Copy the policy array so callers cannot mutate the shared declaration.
     httpContracts: [...DESKTOP_HTTP_CONTRACT_IDS],
     desktopTauriBridgeContracts: [...TAURI_DESKTOP_BRIDGE_CONTRACT_IDS],
+    uploadLimits: { ...configStore.get("uploadLimits") },
     capabilities: {
       screenshots: 1,
       auth: { ...DESKTOP_HTTP_CAPABILITIES.auth },

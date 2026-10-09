@@ -124,6 +124,12 @@ const AdminAuthPanel = lazy(() =>
   })),
 )
 
+const AdminUploadLimitsPanel = lazy(() =>
+  import("@/components/routes/settings/admin-tab-content").then((module) => ({
+    default: module.AdminUploadLimitsPanel,
+  })),
+)
+
 const AdminTranscodingPanel = lazy(() =>
   import("@/components/routes/settings/admin-tab-content").then((module) => ({
     default: module.AdminTranscodingPanel,
@@ -308,6 +314,10 @@ const CATEGORY_PANELS = {
   "desktop-app": { icon: ServerIcon, Panel: DesktopAppPanel },
   appearance: { icon: LogInIcon, Panel: AdminAppearancePanel },
   authentication: { icon: KeyRoundIcon, Panel: AdminAuthPanel },
+  "upload-limits": {
+    icon: SlidersHorizontalIcon,
+    Panel: AdminUploadLimitsPanel,
+  },
   transcoding: { icon: FilmIcon, Panel: AdminTranscodingPanel },
   users: { icon: UsersIcon, Panel: AdminUsersPanel },
   games: { icon: Gamepad2Icon, Panel: AdminGamesPanel },

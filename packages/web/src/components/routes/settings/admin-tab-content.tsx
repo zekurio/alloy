@@ -12,6 +12,8 @@ import { useAdminConfigContext } from "@/components/routes/settings/admin-config
 import { TranscodingSettingsContent } from "@/components/routes/settings/admin-transcoding-settings"
 import { useRequireAuthStrict } from "@/lib/auth-hooks"
 
+import { UploadLimitsSettingsContent } from "./admin-upload-limits-settings"
+
 function AdminLoadError({ message }: { message: string }) {
   return <Callout tone="destructive">{message}</Callout>
 }
@@ -35,6 +37,10 @@ export const AdminAppearancePanel = withAdminConfig((config) => (
 
 export const AdminAuthPanel = withAdminConfig((config) => (
   <AuthSettingsContent config={config} />
+))
+
+export const AdminUploadLimitsPanel = withAdminConfig((config) => (
+  <UploadLimitsSettingsContent config={config} />
 ))
 
 export const AdminTranscodingPanel = withAdminConfig((config) => (

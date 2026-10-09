@@ -7,6 +7,7 @@ import type {
   AdminWebhookInput,
   AdminWebhookPatch,
   GameAssetRole,
+  UploadLimits,
 } from "@alloy/contracts"
 
 import type {
@@ -22,6 +23,7 @@ import {
   updateOAuthProviders,
   updateRuntimeConfig,
   updateTranscodingConfig,
+  updateUploadLimits,
   uploadOAuthProviderIcon,
 } from "./admin-config"
 import type { AdminCreateUserInput } from "./admin-resources"
@@ -94,6 +96,8 @@ export {
 
 export function createAdminApi(context: ApiContext) {
   return {
+    updateUploadLimits: (limits: UploadLimits) =>
+      updateUploadLimits(context, limits),
     fetchRuntimeConfig: () => fetchRuntimeConfig(context),
     updateRuntimeConfig: (input: RuntimeConfigPatch) =>
       updateRuntimeConfig(context, input),

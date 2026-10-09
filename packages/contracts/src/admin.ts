@@ -5,6 +5,7 @@ import {
 } from "./admin-auth"
 import { t } from "./schema"
 import type { UserStatus } from "./shared"
+import { DEFAULT_UPLOAD_LIMITS, UploadLimitsSchema } from "./upload-limits"
 
 export {
   AdminOAuthProviderSchema,
@@ -279,8 +280,8 @@ export const RUNTIME_CONFIG_VERSION = 1
 
 /**
  * Secret-free server configuration as exposed through admin responses. Most
- * fields are deploy-time env/Nix config; DB-backed instance settings currently
- * cover setup completion and login appearance.
+ * fields are deploy-time env/Nix config; DB-backed settings include setup,
+ * authentication, appearance, transcoding, and image upload limits.
  */
 export const RuntimeConfigSchema = t.looseObject({
   runtimeConfigVersion: PositiveIntegerSchema.refine(
@@ -293,6 +294,7 @@ export const RuntimeConfigSchema = t.looseObject({
   requireAuthToBrowse: t.boolean(),
   oauthProviders: t.array(OAuthProviderConfigSchema),
   limits: AdminLimitsConfigSchema,
+  uploadLimits: UploadLimitsSchema.$default(DEFAULT_UPLOAD_LIMITS),
   storage: StorageConfigSchema,
   appearance: AppearanceConfigSchema,
   transcoding: TranscodingConfigSchema,
@@ -315,6 +317,7 @@ export const AdminRuntimeConfigSchema = t.looseObject({
   requireAuthToBrowse: t.boolean(),
   oauthProviders: t.array(AdminOAuthProviderSchema),
   limits: AdminLimitsConfigSchema,
+  uploadLimits: UploadLimitsSchema.$default(DEFAULT_UPLOAD_LIMITS),
   storage: StorageConfigSchema,
   appearance: AppearanceConfigSchema,
   transcoding: TranscodingConfigSchema,

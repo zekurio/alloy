@@ -251,7 +251,7 @@ export const MEDIA_MESSAGES = {
   "Saves the current game or display as a PNG.":
     "Speichert das aktuelle Spiel oder den Bildschirm als PNG.",
   Screenshot: "Screenshot",
-  "Screenshot exceeds 50 MiB": "Der Screenshot ist größer als 50 MiB",
+  "Screenshot exceeds {limit}": "Der Screenshot ist größer als {limit}",
   "Screenshot preview": "Screenshot-Vorschau",
   "Screenshot shortcut": "Screenshot-Tastenkürzel",
   Screenshots: "Screenshots",

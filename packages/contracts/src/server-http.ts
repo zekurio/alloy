@@ -1,6 +1,7 @@
 import type { ContractJsonInput } from "./json-value"
 import { isFiniteNumberValue, isStringValue } from "./object"
 import { t } from "./schema"
+import { DEFAULT_UPLOAD_LIMITS, UploadLimitsSchema } from "./upload-limits"
 
 /** Stable discriminator for the public server-info document. */
 export const SERVER_INFO_SCHEMA = "alloy.server-info" as const
@@ -108,6 +109,7 @@ export const ServerInfoSchema = t.looseObject({
   /** Tauri shell contracts understood by the server-hosted web app. */
   desktopTauriBridgeContracts: t.array(PositiveSafeIntegerSchema),
   capabilities: DesktopHttpCapabilitiesSchema,
+  uploadLimits: UploadLimitsSchema.$default(DEFAULT_UPLOAD_LIMITS),
 })
 
 export type ServerInfo = t.infer<typeof ServerInfoSchema>

@@ -6,6 +6,7 @@ import type {
   RenditionTierConfig,
   TranscodingCapabilities,
   VideoCodec,
+  UploadLimits,
 } from "@alloy/contracts"
 import {
   AdminRuntimeConfigSchema,
@@ -117,4 +118,14 @@ export async function fetchTranscodingCapabilities(
   return readJsonOrThrow(res, (value) =>
     TranscodingCapabilitiesSchema.parse(value),
   )
+}
+
+export async function updateUploadLimits(
+  context: ApiContext,
+  limits: UploadLimits,
+): Promise<AdminRuntimeConfig> {
+  const res = await context.rpc.api.admin["upload-limits"].$put({
+    json: limits,
+  })
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }

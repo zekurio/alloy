@@ -1,11 +1,11 @@
 import {
   HardwareAccelerationSchema,
+  UploadLimitsSchema,
   RenditionTierConfigSchema,
   VideoCodecSchema,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { withAdminAccessChange } from "@alloy/server/auth/admin-access"
-import { OAUTH_PROVIDER_ICON_MAX_BYTES } from "@alloy/server/auth/oauth-provider-icons"
 import { requireAdmin } from "@alloy/server/auth/session"
 import { signInConfigError } from "@alloy/server/auth/sign-in-config"
 import {
@@ -27,8 +27,8 @@ import {
   errorResult,
 } from "@alloy/server/runtime/http-response"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
+import { imageBodyLimit } from "@alloy/server/uploads/image-body-limit"
 import { Hono } from "hono"
-import { bodyLimit } from "hono/body-limit"
 
 import { adminGamesRoute } from "./admin-games"
 import { adminRuntimeConfigResponse } from "./admin-helpers"
@@ -134,6 +134,10 @@ export const adminRoute = new Hono()
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     },
   )
+  .put("/upload-limits", tbValidator("json", UploadLimitsSchema), async (c) => {
+    await configStore.set("uploadLimits", c.req.valid("json"))
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+  })
   .patch("/auth-config", tbValidator("json", AuthConfigPatch), async (c) => {
     const patch = c.req.valid("json")
     const locks = authEnvLocks()
@@ -229,7 +233,7 @@ export const adminRoute = new Hono()
   )
   .post(
     "/oauth-providers/:providerId/icon",
-    bodyLimit({ maxSize: OAUTH_PROVIDER_ICON_MAX_BYTES + 16 * 1024 }),
+    imageBodyLimit("oauthProviderIconMaxBytes"),
     tbValidator("param", OAuthProviderIconParam),
     tbValidator("form", OAuthProviderIconForm),
     async (c) => {

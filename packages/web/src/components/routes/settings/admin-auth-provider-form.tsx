@@ -417,7 +417,7 @@ function ProviderIconField({
       </div>
       <FieldDescription>
         {t(
-          "PNG, JPEG, WebP, or SVG up to 2 MB, stored on this server and shown on the sign-in button.",
+          "PNG, JPEG, WebP, or SVG, stored on this server and shown on the sign-in button. Size is controlled by Upload limits.",
         )}
       </FieldDescription>
       <input

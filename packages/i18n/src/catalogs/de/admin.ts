@@ -17,10 +17,15 @@ export const ADMIN_MESSAGES = {
   "Announce published clips to Discord or your own endpoint.":
     "Kündige veröffentlichte Clips auf Discord oder deinem eigenen Endpunkt an.",
   "Apple VideoToolbox": "Apple VideoToolbox",
+  "Applies to uploaded avatars and avatars synced from sign-in providers.":
+    "Gilt für hochgeladene Avatare und mit Anmeldeanbietern synchronisierte Avatare.",
+  "Applies to uploaded provider icons and icons imported from a URL.":
+    "Gilt für hochgeladene Anbietersymbole und über eine URL importierte Symbole.",
   Authentication: "Authentifizierung",
   "Authentication setting saved": "Authentifizierungseinstellung gespeichert",
   "Authorization URL": "Autorisierungs-URL",
   "Avatar claim": "Avatar-Claim",
+  "Avatar size (MiB)": "Avatar-Größe (MiB)",
   Ban: "Sperren",
   "Ban user": "Nutzer sperren",
   "Ban {username}?": "{username} sperren?",
@@ -29,6 +34,8 @@ export const ADMIN_MESSAGES = {
   "Button text color": "Button-Textfarbe",
   "Callback URL": "Callback-URL",
   "Callback URL copied": "Callback-URL kopiert",
+  "Changes apply immediately to new uploads, screenshot edits, and queued screenshots when processing starts.":
+    "Änderungen gelten sofort für neue Uploads, Screenshot-Bearbeitungen und wartende Screenshots, sobald deren Verarbeitung beginnt.",
   "Changes apply to new uploads. Existing clips re-encode in the background and keep playing their current renditions until replacements are ready.":
     "Änderungen gelten für neue Uploads. Vorhandene Clips werden im Hintergrund neu codiert und spielen ihre aktuellen Renditionen weiter ab, bis die neuen bereit sind.",
   "Client ID": "Client-ID",
@@ -112,6 +119,8 @@ export const ADMIN_MESSAGES = {
   "Encoding {tier} ({index}/{count})": "{tier} wird codiert ({index}/{count})",
   "Endpoint URL": "Endpunkt-URL",
   "Enter a VA-API render node path.": "Gib einen VA-API-Render-Node-Pfad an.",
+  "Enter positive limits up to {size} MiB or {pixels} megapixels.":
+    "Gib positive Limits bis zu {size} MiB oder {pixels} Megapixeln ein.",
   "Every public clip is announced once per webhook. Authors can opt out in their preferences.":
     "Jeder öffentliche Clip wird pro Webhook einmal angekündigt. Autoren können dies in ihren Einstellungen abwählen.",
   "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the selected link preview tier powers social embeds.":
@@ -120,9 +129,12 @@ export const ADMIN_MESSAGES = {
   Fade: "Ausblendung",
   "Failed to load users": "Nutzer konnten nicht geladen werden",
   "Failing since {time}": "Fehlerhaft seit {time}",
+  "File size limits before resizing. These images also have a 24-megapixel decoding limit.":
+    "Dateigrößenlimits vor der Größenanpassung. Für diese Bilder gilt außerdem ein Dekodierungslimit von 24 Megapixeln.",
   "Finalizing the instance state.": "Instanzstatus wird abgeschlossen.",
   "Finishing setup": "Einrichtung wird abgeschlossen",
   Fluxer: "Fluxer",
+  "Game artwork size (MiB)": "Spielgrafik-Größe (MiB)",
   Generic: "Generisch",
   "H.264 (AVC)": "H.264 (AVC)",
   "HEVC (H.265)": "HEVC (H.265)",
@@ -169,6 +181,14 @@ export const ADMIN_MESSAGES = {
   "Max bitrate": "Max. Bitrate",
   "Max bitrate must be from 100 to 100000 kbps.":
     "Die max. Bitrate muss zwischen 100 und 100000 kbps liegen.",
+  "Maximum size of an uploaded profile banner.":
+    "Maximale Größe eines hochgeladenen Profilbanners.",
+  "Maximum size of an uploaded screenshot and its stored PNG.":
+    "Maximale Größe eines hochgeladenen Screenshots und der gespeicherten PNG-Datei.",
+  "Maximum size of each uploaded game cover, hero, logo, or icon.":
+    "Maximale Größe jedes hochgeladenen Spielcovers, Titelbilds, Logos oder Symbols.",
+  "Maximum width × height, including rotated screenshot edits.":
+    "Maximales Produkt aus Breite und Höhe, auch bei gedrehten Screenshots.",
   "NVIDIA NVENC": "NVIDIA NVENC",
   "Never used": "Nie verwendet",
   "New webhook": "Neuer Webhook",
@@ -184,8 +204,10 @@ export const ADMIN_MESSAGES = {
     "Nur Spiele ohne Clips können gelöscht werden.",
   "Open registrations": "Offene Registrierungen",
   PKCE: "PKCE",
-  "PNG, JPEG, WebP, or SVG up to 2 MB, stored on this server and shown on the sign-in button.":
-    "PNG, JPEG, WebP oder SVG bis 2 MB, auf diesem Server gespeichert und auf dem Anmeldebutton angezeigt.",
+  "PNG, JPEG, WebP, or SVG, stored on this server and shown on the sign-in button. Size is controlled by Upload limits.":
+    "PNG, JPEG, WebP oder SVG, auf diesem Server gespeichert und auf der Anmeldeschaltfläche angezeigt. Die Größe wird unter Upload-Limits festgelegt.",
+  "Profile banner size (MiB)": "Profilbanner-Größe (MiB)",
+  "Profile images & artwork": "Profilbilder & Grafiken",
   Provider: "Anbieter",
   "Provider ID": "Anbieter-ID",
   "Provider secrets are write-only and never shown after saving.":
@@ -222,6 +244,10 @@ export const ADMIN_MESSAGES = {
   Role: "Rolle",
   "Role claim": "Rollen-Claim",
   Scopes: "Scopes",
+  "Screenshot resolution (megapixels)": "Screenshot-Auflösung (Megapixel)",
+  "Screenshot size (MiB)": "Screenshot-Größe (MiB)",
+  "Screenshot size and resolution, profile images, game artwork, and sign-in provider icons.":
+    "Screenshot-Größe und -Auflösung, Profilbilder, Spielgrafiken und Anmeldeanbieter-Symbole.",
   "Secure the authorization flow with Proof Key for Code Exchange.":
     "Sichere den Autorisierungsablauf mit Proof Key for Code Exchange ab.",
   "Send test": "Test senden",
@@ -230,6 +256,7 @@ export const ADMIN_MESSAGES = {
     "Zeig hinter dem Login-Formular eine schräge, scrollende Wand aus zufälligen Vorschaubildern öffentlicher Clips.",
   "Show the backdrop": "Hintergrund anzeigen",
   "Sign-in button": "Anmeldebutton",
+  "Sign-in provider icon size (MiB)": "Anmeldeanbieter-Symbolgröße (MiB)",
   "Signing secret": "Signatur-Secret",
   Slug: "Slug",
   "Software (CPU)": "Software (CPU)",
@@ -282,6 +309,7 @@ export const ADMIN_MESSAGES = {
   "Update role and storage quota for {username}.":
     "Aktualisiere Rolle und Speicherkontingent für {username}.",
   "Upload icon": "Symbol hochladen",
+  "Upload limits": "Upload-Limits",
   "Use the theme color": "Theme-Farbe verwenden",
   "Use this {label} artwork": "Dieses Bild für {label} verwenden",
   "Used to sign each payload so your endpoint can verify it.":
