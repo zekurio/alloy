@@ -31,6 +31,7 @@ import {
   ResponsiveDialogTrigger,
 } from "@alloy/ui/components/responsive-dialog"
 import { Spinner } from "@alloy/ui/components/spinner"
+import { Switch } from "@alloy/ui/components/switch"
 import { cn } from "@alloy/ui/lib/utils"
 import {
   CircleAlertIcon,
@@ -149,6 +150,16 @@ function ProviderRow({
 }) {
   const [editing, setEditing] = useState(false)
 
+  async function toggleEnabled(enabled: boolean) {
+    await onSave(
+      providers.map((current, index) =>
+        index === providerIndex
+          ? { ...providerToInput(current), enabled }
+          : providerToInput(current),
+      ),
+    )
+  }
+
   async function deleteProvider() {
     await onSave(
       providers
@@ -185,20 +196,48 @@ function ProviderRow({
         <span className="text-md truncate font-semibold sm:text-base">
           {provider.displayName}
         </span>
-        <span className="text-foreground-dim truncate text-sm sm:text-xs">
-          <span className="font-mono">{provider.providerId}</span>
-          {provider.enabled ? null : ` · ${t("Disabled")}`}
+        <span className="text-foreground-dim truncate font-mono text-sm sm:text-xs">
+          {provider.providerId}
         </span>
       </span>
     </>
   )
 
+  const enabledSwitch = (className?: string) => (
+    <Switch
+      className={className}
+      checked={provider.enabled}
+      disabled={readOnly || pending}
+      onCheckedChange={(enabled) => void toggleEnabled(enabled)}
+      aria-label={t("Enabled")}
+    />
+  )
+
   // Providers set through the environment can be read here, not changed.
-  if (readOnly) return <ListItem>{summary}</ListItem>
+  if (readOnly) {
+    return (
+      <ListItem>
+        {summary}
+        {enabledSwitch()}
+      </ListItem>
+    )
+  }
 
   return (
     <>
-      <ListItemButton onClick={() => setEditing(true)}>
+      <ListItemButton
+        onClick={() => setEditing(true)}
+        actions={
+          <>
+            {enabledSwitch("mr-1.5")}
+            <DeleteProviderButton
+              pending={pending}
+              error={error}
+              onDelete={deleteProvider}
+            />
+          </>
+        }
+      >
         {summary}
       </ListItemButton>
       <ProviderDialog
@@ -210,14 +249,13 @@ function ProviderRow({
         authBaseURL={authBaseURL}
         pending={pending}
         error={error}
-        onDelete={deleteProvider}
         onSave={onSave}
       />
     </>
   )
 }
 
-function DeleteProviderRow({
+function DeleteProviderButton({
   pending,
   error,
   onDelete,
@@ -227,51 +265,49 @@ function DeleteProviderRow({
   onDelete: () => Promise<void>
 }) {
   return (
-    <List>
-      <AlertDialog>
-        <AlertDialogTrigger
-          render={
-            <ListItemButton
-              className="text-danger min-h-12 py-2"
-              trailing={<Trash2Icon className="size-4 shrink-0" />}
-              disabled={pending}
-            />
-          }
-        >
-          <span className="min-w-0 flex-1 text-base font-medium">
-            {t("Delete provider")}
-          </span>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("Delete OAuth provider?")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t(
-                "This immediately deletes every linked account for this provider. Users will need to link the provider again if it is added back.",
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {error ? (
-            <Callout tone="destructive" className="text-xs">
-              <CircleAlertIcon />
-              <span>{error}</span>
-            </Callout>
-          ) : null}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>
-              {t("Cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={onDelete}
-              disabled={pending}
-            >
-              {pending ? t("Deleting") : t("Delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </List>
+    <AlertDialog>
+      <AlertDialogTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t("Delete provider")}
+            disabled={pending}
+          >
+            <Trash2Icon />
+          </Button>
+        }
+      />
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("Delete OAuth provider?")}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {t(
+              "This immediately deletes every linked account for this provider. Users will need to link the provider again if it is added back.",
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {error ? (
+          <Callout tone="destructive" className="text-xs">
+            <CircleAlertIcon />
+            <span>{error}</span>
+          </Callout>
+        ) : null}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={pending}>
+            {t("Cancel")}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            onClick={onDelete}
+            disabled={pending}
+          >
+            {pending ? t("Deleting") : t("Delete")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
@@ -320,7 +356,6 @@ function ProviderDialog({
   authBaseURL,
   pending,
   error,
-  onDelete,
   onSave,
 }: {
   open: boolean
@@ -333,8 +368,6 @@ function ProviderDialog({
   authBaseURL: string
   pending: boolean
   error: string | null
-  /** Offered at the end of the form when editing an existing provider. */
-  onDelete?: () => Promise<void>
   onSave: SaveProviders
 }) {
   const [advancedOpen, setAdvancedOpen] = useState(false)
@@ -401,13 +434,6 @@ function ProviderDialog({
                 <CircleAlertIcon />
                 <span>{error}</span>
               </Callout>
-            ) : null}
-            {onDelete ? (
-              <DeleteProviderRow
-                pending={pending}
-                error={error}
-                onDelete={onDelete}
-              />
             ) : null}
           </ResponsiveDialogBody>
           <ResponsiveDialogFooter>
