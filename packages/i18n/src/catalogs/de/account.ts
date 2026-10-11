@@ -73,6 +73,7 @@ export const ACCOUNT_MESSAGES = {
   "Don't have an account?": "Noch kein Konto?",
   "Edit avatar": "Avatar bearbeiten",
   "Edit banner": "Banner bearbeiten",
+  "Edit profile": "Profil bearbeiten",
   "Edit your username, avatar, and sign-in methods.":
     "Bearbeite deinen Benutzernamen, Avatar und Anmeldemethoden.",
   "Give this passkey a name so you can recognise it later.":

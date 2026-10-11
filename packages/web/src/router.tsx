@@ -39,4 +39,8 @@ declare module "@tanstack/react-router" {
   interface Register {
     router: ReturnType<typeof getRouter>
   }
+  interface HistoryState {
+    /** The entry below this one is the settings overview that opened it. */
+    settingsFromOverview?: boolean
+  }
 }

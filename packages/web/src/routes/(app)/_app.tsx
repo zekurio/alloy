@@ -17,6 +17,7 @@ import {
 import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav"
+import { SETTINGS_OVERVIEW_SECTION } from "@/components/routes/settings/settings-categories"
 import { SettingsDialog } from "@/components/routes/settings/settings-dialog"
 import { AppSearchProvider } from "@/components/search/app-search"
 import { UploadCenter } from "@/components/upload/upload-center"
@@ -47,6 +48,9 @@ function AppLayout() {
   const session = useSuspenseSession()
   const navigate = useNavigate()
   const openDesktopSettings = useOpenSettings("desktop")
+  const settingsFromOverview = useRouterState({
+    select: (state) => state.location.state.settingsFromOverview === true,
+  })
 
   useEffect(() => {
     if (!session) return
@@ -117,6 +121,38 @@ function AppLayout() {
     [navigate],
   )
 
+  // The phone overview opens a section as its own history entry, marked so
+  // the way back can pop it. The same entry is what lets the browser's back
+  // gesture return to the overview.
+  const handleOpenSettingsSection = useCallback(
+    (section: string) => {
+      void navigate({
+        to: ".",
+        search: (prev: AppSearch) => ({ ...prev, settings: section }),
+        state: { settingsFromOverview: true },
+        resetScroll: false,
+      })
+    },
+    [navigate],
+  )
+
+  const handleSettingsBack = useCallback(() => {
+    if (settingsFromOverview) {
+      window.history.back()
+      return
+    }
+    // Opened straight on a section (a link, a reload from elsewhere): there
+    // is no overview entry to pop, so this entry becomes the overview.
+    void navigate({
+      to: ".",
+      search: (prev: AppSearch) => ({
+        ...prev,
+        settings: SETTINGS_OVERVIEW_SECTION,
+      }),
+      replace: true,
+    })
+  }, [navigate, settingsFromOverview])
+
   return (
     <AppSearchProvider>
       <UploadFlowProvider>
@@ -130,6 +166,8 @@ function AppLayout() {
       <SettingsDialog
         section={session ? (settings ?? null) : null}
         onNavigate={handleNavigateSettings}
+        onOpenSection={handleOpenSettingsSection}
+        onBack={handleSettingsBack}
         onClose={handleCloseSettings}
       />
       <WelcomeProfileDialog

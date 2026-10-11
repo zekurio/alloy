@@ -6,6 +6,7 @@ import type {
 import { WEBHOOK_PROVIDERS, type WebhookProvider } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import {
   Field,
@@ -14,6 +15,7 @@ import {
   FieldLabel,
 } from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
+import { List, ListItem, ListItemButton } from "@alloy/ui/components/list"
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
@@ -32,15 +34,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { Switch } from "@alloy/ui/components/switch"
+import { toast } from "@alloy/ui/lib/toast"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { PencilIcon, PlusIcon } from "lucide-react"
+import {
+  CheckIcon,
+  CircleAlertIcon,
+  PlusIcon,
+  SendIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { useEffect, useState } from "react"
 import type { FormEvent, ReactElement, ReactNode } from "react"
 
+import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 
 import {
+  removeAdminWebhookCacheRow,
   setAdminWebhookCacheRow,
   WEBHOOK_PROVIDER_LABELS,
   WEBHOOK_URL_PLACEHOLDERS,
@@ -92,8 +106,9 @@ export function CreateWebhookDialog() {
       open={open}
       onOpenChange={setOpen}
       trigger={
-        <Button type="button" size="icon" aria-label={t("Add webhook")}>
+        <Button type="button">
           <PlusIcon />
+          {t("Add webhook")}
         </Button>
       }
       title={t("New webhook")}
@@ -168,9 +183,16 @@ export function CreateWebhookDialog() {
   )
 }
 
-export function EditWebhookDialog({ webhook }: { webhook: AdminWebhookRow }) {
+export function EditWebhookDialog({
+  webhook,
+  open,
+  onOpenChange: setOpen,
+}: {
+  webhook: AdminWebhookRow
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
   const [name, setName] = useState(webhook.name)
   const [url, setUrl] = useState("")
   const [secret, setSecret] = useState("")
@@ -210,16 +232,6 @@ export function EditWebhookDialog({ webhook }: { webhook: AdminWebhookRow }) {
     <WebhookDialog
       open={open}
       onOpenChange={setOpen}
-      trigger={
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={t("Edit webhook")}
-        >
-          <PencilIcon />
-        </Button>
-      }
       title={t("Edit webhook")}
       description={
         <>
@@ -241,7 +253,9 @@ export function EditWebhookDialog({ webhook }: { webhook: AdminWebhookRow }) {
           id="edit-webhook-url"
           value={url}
           onChange={(event) => setUrl(event.target.value)}
-          placeholder={WEBHOOK_URL_PLACEHOLDERS[webhook.provider]}
+          // The row no longer shows the stored URL and a phone hides the
+          // dialog description, so the empty field is where it stays visible.
+          placeholder={webhook.url}
           type="url"
         />
         <FieldDescription>
@@ -260,7 +274,128 @@ export function EditWebhookDialog({ webhook }: { webhook: AdminWebhookRow }) {
           }
         />
       ) : null}
+      <WebhookActions webhook={webhook} />
     </WebhookDialog>
+  )
+}
+
+/**
+ * What the list row used to carry. These act on the stored webhook right away
+ * and are independent of the form's Save.
+ */
+function WebhookActions({ webhook }: { webhook: AdminWebhookRow }) {
+  const queryClient = useQueryClient()
+  const sendTestFeedback = useActionFeedback()
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const enabledId = `edit-webhook-enabled-${webhook.id}`
+
+  const toggle = useMutation({
+    mutationFn: (enabled: boolean) =>
+      api.admin.updateWebhook(webhook.id, { enabled }),
+    onSuccess: (updated) => setAdminWebhookCacheRow(queryClient, updated),
+    onError: (cause) =>
+      toast.error(errorMessage(cause, t("Couldn't update webhook"))),
+  })
+
+  const sendTest = useMutation({
+    mutationFn: async () => {
+      const result = await api.admin.testWebhook(webhook.id)
+      if (!result.ok) throw new Error(result.error ?? t("Couldn't send test"))
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: adminKeys.webhooks() })
+    },
+    onError: (cause) =>
+      toast.error(errorMessage(cause, t("Couldn't send test"))),
+  })
+
+  const remove = useMutation({
+    mutationFn: () => api.admin.deleteWebhook(webhook.id),
+    // Dropping the row from the cache unmounts it, and this editor with it.
+    onSuccess: () => removeAdminWebhookCacheRow(queryClient, webhook.id),
+  })
+  const deleteError = remove.error
+    ? errorMessage(remove.error, t("Couldn't delete webhook"))
+    : null
+
+  const testState = sendTestFeedback.feedback.state
+
+  return (
+    <>
+      <List>
+        <ListItem className="min-h-12 py-2">
+          <label
+            htmlFor={enabledId}
+            className="min-w-0 flex-1 text-base font-medium"
+          >
+            {t("Enabled")}
+          </label>
+          <Switch
+            id={enabledId}
+            checked={webhook.enabled}
+            disabled={toggle.isPending}
+            onCheckedChange={(next) => toggle.mutate(next)}
+          />
+        </ListItem>
+        <ListItemButton
+          className="min-h-12 py-2"
+          aria-live="polite"
+          disabled={testState === "pending" || testState === "success"}
+          trailing={
+            testState === "pending" ? (
+              <Spinner />
+            ) : testState === "success" ? (
+              <CheckIcon className="text-success size-4 shrink-0" />
+            ) : testState === "error" ? (
+              <CircleAlertIcon className="text-destructive size-4 shrink-0" />
+            ) : (
+              <SendIcon className="text-foreground-muted size-4 shrink-0" />
+            )
+          }
+          onClick={() =>
+            void sendTestFeedback.run(
+              () => sendTest.mutateAsync(),
+              t("Couldn't send test"),
+            )
+          }
+        >
+          <span className="min-w-0 flex-1 text-base font-medium">
+            {testState === "pending"
+              ? t("Sending...")
+              : testState === "success"
+                ? t("Test delivered")
+                : testState === "error"
+                  ? t("Try again")
+                  : t("Send test")}
+          </span>
+        </ListItemButton>
+        <ListItemButton
+          className="text-danger min-h-12 py-2"
+          trailing={<Trash2Icon className="size-4 shrink-0" />}
+          onClick={() => setDeleteOpen(true)}
+        >
+          <span className="min-w-0 flex-1 text-base font-medium">
+            {t("Delete webhook")}
+          </span>
+        </ListItemButton>
+      </List>
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open)
+          if (!open) remove.reset()
+        }}
+        title={t("Delete this webhook?")}
+        description={t(
+          "It stops receiving announcements. Clips it already received are not re-sent if you add it back.",
+        )}
+        confirmLabel={t("Delete")}
+        pendingLabel={t("Deleting")}
+        pending={remove.isPending}
+        error={deleteError}
+        onConfirm={() => remove.mutate()}
+      />
+    </>
   )
 }
 
@@ -277,7 +412,8 @@ function WebhookDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  trigger: ReactElement
+  /** Omit when the opener lives elsewhere and drives `open` itself. */
+  trigger?: ReactElement
   title: ReactNode
   description: ReactNode
   onSubmit: (event: FormEvent) => void
@@ -287,7 +423,7 @@ function WebhookDialog({
 }) {
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveDialogTrigger render={trigger} />
+      {trigger ? <ResponsiveDialogTrigger render={trigger} /> : null}
       <ResponsiveDialogContent>
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>

@@ -123,13 +123,11 @@ export function TranscodingLadder({
         <Button
           type="button"
           variant="outline"
-          size="icon"
           onClick={addTier}
           disabled={form.tiers.length >= 6}
-          aria-label={t("Add tier")}
-          className="shrink-0"
         >
           <PlusIcon />
+          {t("Add tier")}
         </Button>
       }
     >

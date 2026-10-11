@@ -80,11 +80,13 @@ export const ADMIN_MESSAGES = {
   "Default codec for every rendition. Individual tiers in the ladder can override it.":
     "Standard-Codec für jede Qualitätsstufe. Einzelne Stufen der Leiter können ihn überschreiben.",
   "Delete OAuth provider?": "OAuth-Anbieter löschen?",
+  "Delete provider": "Anbieter löschen",
   "Delete this game?": "Dieses Spiel löschen?",
   "Delete this webhook?": "Diesen Webhook löschen?",
   "Delete user": "Nutzer löschen",
   "Delete webhook": "Webhook löschen",
   "Delete {username}?": "{username} löschen?",
+  "Delivered {time}": "Zugestellt {time}",
   "Demote yourself from the profile page after promoting another admin first.":
     "Stuf dich selbst auf der Profilseite herab, nachdem du zuerst einen anderen Admin befördert hast.",
   "Detecting encoders...": "Encoder werden erkannt …",
@@ -110,7 +112,6 @@ export const ADMIN_MESSAGES = {
   "Enable password-free sign-in and registration with passkeys.":
     "Aktiviere passwortlose Anmeldung und Registrierung mit Passkeys.",
   "Enable user": "Nutzer aktivieren",
-  "Enable webhook": "Webhook aktivieren",
   "Enable {username}?": "{username} aktivieren?",
   "Encoder detection refreshed": "Encoder-Erkennung aktualisiert",
   "Encoder used for GPU-accelerated encoding. Decoding and scaling always stay on the CPU.":

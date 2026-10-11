@@ -14,6 +14,9 @@ function SwitchRoot({
     <Switch.Root
       data-slot="switch"
       data-size={size}
+      // A drawer treats a mouse press on anything but a native control as the
+      // start of a swipe and swallows the click, so the switch opts out.
+      data-base-ui-swipe-ignore=""
       className={cn(
         "peer group/switch relative inline-flex shrink-0 items-center rounded-full",
         "bg-neutral-200 transition-colors duration-[var(--duration-base)] ease-[var(--ease-out)]",
