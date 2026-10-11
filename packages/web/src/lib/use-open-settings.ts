@@ -1,13 +1,15 @@
 import { useNavigate } from "@tanstack/react-router"
 import { useCallback } from "react"
 
-import { DEFAULT_SETTINGS_SECTION } from "@/components/routes/settings/settings-categories"
+import { SETTINGS_OVERVIEW_SECTION } from "@/components/routes/settings/settings-categories"
 import type { SettingsCategoryId } from "@/components/routes/settings/settings-search"
 import type { AppSearch } from "@/lib/app-search"
 
 /** Opens the responsive settings dialog over the current route. */
 export function useOpenSettings(
-  section: SettingsCategoryId = DEFAULT_SETTINGS_SECTION,
+  section:
+    | SettingsCategoryId
+    | typeof SETTINGS_OVERVIEW_SECTION = SETTINGS_OVERVIEW_SECTION,
 ) {
   const navigate = useNavigate()
   return useCallback(() => {

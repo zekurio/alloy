@@ -331,8 +331,11 @@ const ALL_CATEGORIES: SettingsCategory[] = settingsSearchCategories().map(
   (category) => ({ ...category, ...CATEGORY_PANELS[category.id] }),
 )
 
-/** The default category opened when the dialog is opened without a section. */
-export const DEFAULT_SETTINGS_SECTION = "profile"
+/**
+ * Section id for "settings, no page in particular". A phone shows the menu of
+ * categories for it; wider layouts fall through to the first category.
+ */
+export const SETTINGS_OVERVIEW_SECTION = "overview"
 
 /** Visible categories for the current user, in nav order. */
 export function useSettingsCategories(): SettingsCategory[] {

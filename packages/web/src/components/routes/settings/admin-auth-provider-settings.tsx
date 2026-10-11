@@ -18,7 +18,7 @@ import {
 } from "@alloy/ui/components/alert-dialog"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
-import { List, ListItem } from "@alloy/ui/components/list"
+import { List, ListItem, ListItemButton } from "@alloy/ui/components/list"
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
@@ -31,16 +31,15 @@ import {
   ResponsiveDialogTrigger,
 } from "@alloy/ui/components/responsive-dialog"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { Switch } from "@alloy/ui/components/switch"
+import { cn } from "@alloy/ui/lib/utils"
 import {
   CircleAlertIcon,
-  PencilIcon,
   PlusIcon,
   Trash2Icon,
   UserKeyIcon,
 } from "lucide-react"
 import { useState } from "react"
-import type { FormEvent } from "react"
+import type { FormEvent, ReactElement } from "react"
 
 import { ListEmpty } from "@/components/feedback/empty-state"
 import { EnvManagedNote } from "@/components/routes/settings/admin-env-note"
@@ -81,10 +80,8 @@ export function OAuthProviderSettings({
       description={t("Configure external OIDC and OAuth sign-in providers.")}
       action={
         readOnly ? null : (
-          <ProviderDialog
+          <AddProviderDialog
             providers={config.oauthProviders}
-            provider={null}
-            providerIndex={null}
             authBaseURL={config.authBaseURL}
             pending={pending}
             error={error}
@@ -106,18 +103,17 @@ export function OAuthProviderSettings({
         ) : (
           <List>
             {config.oauthProviders.map((provider, index) => (
-              <ListItem key={provider.providerId}>
-                <ProviderRow
-                  provider={provider}
-                  providerIndex={index}
-                  providers={config.oauthProviders}
-                  authBaseURL={config.authBaseURL}
-                  readOnly={readOnly}
-                  pending={pending}
-                  error={error}
-                  onSave={onSave}
-                />
-              </ListItem>
+              <ProviderRow
+                key={provider.providerId}
+                provider={provider}
+                providerIndex={index}
+                providers={config.oauthProviders}
+                authBaseURL={config.authBaseURL}
+                readOnly={readOnly}
+                pending={pending}
+                error={error}
+                onSave={onSave}
+              />
             ))}
           </List>
         )}
@@ -151,15 +147,7 @@ function ProviderRow({
   error: string | null
   onSave: SaveProviders
 }) {
-  async function toggleEnabled(enabled: boolean) {
-    await onSave(
-      providers.map((current, index) =>
-        index === providerIndex
-          ? { ...providerToInput(current), enabled }
-          : providerToInput(current),
-      ),
-    )
-  }
+  const [editing, setEditing] = useState(false)
 
   async function deleteProvider() {
     await onSave(
@@ -173,98 +161,87 @@ function ProviderRow({
   // paths render; external URLs never load in the browser.
   const iconUrl = publicOAuthProviderIconUrl(provider.iconUrl)
 
-  return (
+  const summary = (
     <>
-      <div className="flex min-w-0 flex-1 items-center gap-2.5">
-        <span
-          className="border-border inline-flex size-8 shrink-0 items-center justify-center rounded-md border"
-          style={{
-            backgroundColor: provider.buttonColor,
-            color: provider.buttonTextColor,
-          }}
-        >
-          {iconUrl ? (
-            <img src={iconUrl} alt="" className="size-4 object-contain" />
-          ) : (
-            <UserKeyIcon className="size-4" />
-          )}
-        </span>
-        <div className="min-w-0">
-          <div className="truncate text-sm font-medium">
-            {provider.displayName}
-          </div>
-          <p className="text-foreground-dim truncate font-mono text-xs">
-            {provider.providerId}
-          </p>
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-1">
-        <Switch
-          checked={provider.enabled}
-          disabled={readOnly || pending}
-          onCheckedChange={(enabled) => void toggleEnabled(enabled)}
-        />
-        {readOnly ? null : (
-          <ProviderActions
-            provider={provider}
-            providerIndex={providerIndex}
-            providers={providers}
-            authBaseURL={authBaseURL}
-            pending={pending}
-            error={error}
-            onDelete={deleteProvider}
-            onSave={onSave}
-          />
+      <span
+        className="border-border inline-flex size-9 shrink-0 items-center justify-center rounded-md border"
+        style={{
+          backgroundColor: provider.buttonColor,
+          color: provider.buttonTextColor,
+        }}
+      >
+        {iconUrl ? (
+          <img src={iconUrl} alt="" className="size-4.5 object-contain" />
+        ) : (
+          <UserKeyIcon className="size-4.5" />
         )}
-      </div>
+      </span>
+      <span
+        className={cn(
+          "flex min-w-0 flex-1 flex-col gap-0.5",
+          !provider.enabled && "opacity-60",
+        )}
+      >
+        <span className="text-md truncate font-semibold sm:text-base">
+          {provider.displayName}
+        </span>
+        <span className="text-foreground-dim truncate text-sm sm:text-xs">
+          <span className="font-mono">{provider.providerId}</span>
+          {provider.enabled ? null : ` · ${t("Disabled")}`}
+        </span>
+      </span>
     </>
   )
-}
 
-function ProviderActions({
-  provider,
-  providerIndex,
-  providers,
-  authBaseURL,
-  pending,
-  error,
-  onDelete,
-  onSave,
-}: {
-  provider: AdminOAuthProvider
-  providerIndex: number
-  providers: AdminOAuthProvider[]
-  authBaseURL: string
-  pending: boolean
-  error: string | null
-  onDelete: () => Promise<void>
-  onSave: SaveProviders
-}) {
+  // Providers set through the environment can be read here, not changed.
+  if (readOnly) return <ListItem>{summary}</ListItem>
+
   return (
     <>
+      <ListItemButton onClick={() => setEditing(true)}>
+        {summary}
+      </ListItemButton>
       <ProviderDialog
+        open={editing}
+        onOpenChange={setEditing}
         providers={providers}
         provider={provider}
         providerIndex={providerIndex}
         authBaseURL={authBaseURL}
         pending={pending}
         error={error}
+        onDelete={deleteProvider}
         onSave={onSave}
       />
+    </>
+  )
+}
+
+function DeleteProviderRow({
+  pending,
+  error,
+  onDelete,
+}: {
+  pending: boolean
+  error: string | null
+  onDelete: () => Promise<void>
+}) {
+  return (
+    <List>
       <AlertDialog>
         <AlertDialogTrigger
           render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t("Delete")}
+            <ListItemButton
+              className="text-danger min-h-12 py-2"
+              trailing={<Trash2Icon className="size-4 shrink-0" />}
               disabled={pending}
-            >
-              <Trash2Icon />
-            </Button>
+            />
           }
-        />
+        >
+          <span className="min-w-0 flex-1 text-base font-medium">
+            {t("Delete provider")}
+          </span>
+        </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Delete OAuth provider?")}</AlertDialogTitle>
@@ -294,28 +271,72 @@ function ProviderActions({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </List>
   )
 }
 
-function ProviderDialog({
+function AddProviderDialog({
   providers,
-  provider,
-  providerIndex,
   authBaseURL,
   pending,
   error,
   onSave,
 }: {
   providers: AdminOAuthProvider[]
-  provider: AdminOAuthProvider | null
-  providerIndex: number | null
   authBaseURL: string
   pending: boolean
   error: string | null
   onSave: SaveProviders
 }) {
   const [open, setOpen] = useState(false)
+  return (
+    <ProviderDialog
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <Button type="button">
+          <PlusIcon />
+          {t("Add provider")}
+        </Button>
+      }
+      providers={providers}
+      provider={null}
+      providerIndex={null}
+      authBaseURL={authBaseURL}
+      pending={pending}
+      error={error}
+      onSave={onSave}
+    />
+  )
+}
+
+function ProviderDialog({
+  open,
+  onOpenChange,
+  trigger,
+  providers,
+  provider,
+  providerIndex,
+  authBaseURL,
+  pending,
+  error,
+  onDelete,
+  onSave,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  /** Omit when the opener lives elsewhere and drives `open` itself. */
+  trigger?: ReactElement
+  providers: AdminOAuthProvider[]
+  provider: AdminOAuthProvider | null
+  providerIndex: number | null
+  authBaseURL: string
+  pending: boolean
+  error: string | null
+  /** Offered at the end of the form when editing an existing provider. */
+  onDelete?: () => Promise<void>
+  onSave: SaveProviders
+}) {
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [draft, setDraft] = useState<ProviderDraft>(() =>
     providerToDraft(provider),
@@ -339,7 +360,7 @@ function ProviderDialog({
       ? { providerId: providerInput.providerId, file: draft.iconFile }
       : undefined
     if (!(await onSave(nextProviders, iconUpload))) return
-    setOpen(false)
+    onOpenChange(false)
     resetDraft()
   }
 
@@ -347,35 +368,12 @@ function ProviderDialog({
     <ResponsiveDialog
       open={open}
       onOpenChange={(next) => {
-        setOpen(next)
+        onOpenChange(next)
         if (next) return
         resetDraft()
       }}
     >
-      <ResponsiveDialogTrigger
-        render={
-          editing ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t("Edit")}
-              disabled={pending}
-            >
-              <PencilIcon />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="icon"
-              variant="primary"
-              aria-label={t("Add provider")}
-            >
-              <PlusIcon />
-            </Button>
-          )
-        }
-      />
+      {trigger ? <ResponsiveDialogTrigger render={trigger} /> : null}
       <ResponsiveDialogContent className="md:max-w-[760px]">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>
@@ -403,6 +401,13 @@ function ProviderDialog({
                 <CircleAlertIcon />
                 <span>{error}</span>
               </Callout>
+            ) : null}
+            {onDelete ? (
+              <DeleteProviderRow
+                pending={pending}
+                error={error}
+                onDelete={onDelete}
+              />
             ) : null}
           </ResponsiveDialogBody>
           <ResponsiveDialogFooter>

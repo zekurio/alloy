@@ -39,7 +39,7 @@ export function SettingsSubsection({
   /** Sidebar label; defaults to `title` when that is plain text. */
   navLabel?: string
   description?: ReactNode
-  /** Optional control rendered to the right of the header. */
+  /** Optional button for the section, e.g. the one that adds to its list. */
   action?: ReactNode
   children: ReactNode
 }) {
@@ -55,18 +55,46 @@ export function SettingsSubsection({
       ref={register}
       className="flex scroll-mt-6 flex-col gap-4 sm:scroll-mt-8"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h3 className="text-foreground text-lg font-semibold tracking-[var(--tracking-tight)]">
-            {title}
-          </h3>
-          {description ? (
-            <p className="text-foreground-dim text-sm">{description}</p>
-          ) : null}
-        </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
+      <div className="flex min-w-0 flex-col gap-1">
+        <h3 className="text-foreground text-lg font-semibold tracking-[var(--tracking-tight)]">
+          {title}
+        </h3>
+        {description || action ? (
+          <SettingsIntro action={action} className="text-foreground-dim">
+            {description}
+          </SettingsIntro>
+        ) : null}
       </div>
       {children}
     </section>
+  )
+}
+
+/**
+ * A line of copy with the button that acts on what it describes, such as a
+ * list's description and its create button. In a narrow panel the button takes
+ * the full row under the copy, so its label never fights the text for width;
+ * once the panel has room it moves onto the same line.
+ */
+export function SettingsIntro({
+  children,
+  action,
+  className,
+}: {
+  children?: ReactNode
+  action?: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn("text-foreground-muted @container", className)}>
+      <div className="flex flex-col gap-3 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6">
+        {children ? <p className="min-w-0 text-sm">{children}</p> : null}
+        {action ? (
+          <div className="shrink-0 [&>button]:w-full @xl:[&>button]:w-auto">
+            {action}
+          </div>
+        ) : null}
+      </div>
+    </div>
   )
 }

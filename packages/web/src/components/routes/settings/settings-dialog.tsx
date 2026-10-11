@@ -1,6 +1,11 @@
 import { t } from "@alloy/i18n"
 import { AppMainColumn } from "@alloy/ui/components/app-shell"
 import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@alloy/ui/components/avatar"
+import {
   Dialog,
   DialogClose,
   DialogContent,
@@ -11,19 +16,12 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@alloy/ui/components/input-group"
+import { List, ListItemButton } from "@alloy/ui/components/list"
 import { LoadingState } from "@alloy/ui/components/loading-state"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@alloy/ui/components/select"
+import { useIsMobile } from "@alloy/ui/hooks/use-mobile"
 import { cn } from "@alloy/ui/lib/utils"
 import { useBlocker } from "@tanstack/react-router"
-import { SearchIcon, XIcon } from "lucide-react"
+import { ArrowLeftIcon, SearchIcon, XIcon } from "lucide-react"
 import {
   Suspense,
   useEffect,
@@ -33,12 +31,13 @@ import {
   type ReactNode,
 } from "react"
 
+import { mobileSurfaceCloseButtonClassName } from "@/components/app/mobile-close-button"
+import { avatarTint } from "@/components/layout/account-menu"
 import { AdminConfigProvider } from "@/components/routes/settings/admin-config-context"
 import { DesktopRecordingProvider } from "@/components/routes/settings/desktop/desktop-recording-context"
 import { SettingsBuildInfo } from "@/components/routes/settings/settings-build-info"
 import {
   type SettingsCategory,
-  DEFAULT_SETTINGS_SECTION,
   SETTINGS_GROUPS,
   useSettingsCategories,
 } from "@/components/routes/settings/settings-categories"
@@ -50,10 +49,20 @@ import {
 import { searchSettingsCategories } from "@/components/routes/settings/settings-search"
 import { SettingsSectionNav } from "@/components/routes/settings/settings-section-nav"
 import { SettingsSectionsProvider } from "@/components/routes/settings/settings-sections-context"
+import { useSuspenseSession } from "@/lib/session-suspense"
+import { useUserChipData } from "@/lib/user-display"
 
-interface SettingsDialogProps {
-  section: string | null
+interface SettingsNavigation {
+  /** Switch sections in place, as the sidebar does. */
   onNavigate: (section: string) => void
+  /** Open a section from the phone overview. */
+  onOpenSection: (section: string) => void
+  /** Leave a section for the phone overview. */
+  onBack: () => void
+}
+
+interface SettingsDialogProps extends SettingsNavigation {
+  section: string | null
   onClose: () => void
 }
 
@@ -73,9 +82,11 @@ export function SettingsPage() {
   )
 }
 
-function SettingsPageRoot() {
-  const categories = useSettingsCategories()
-  const [section, setSection] = useState(DEFAULT_SETTINGS_SECTION)
+/**
+ * Leaving with unsaved edits is blocked however it is attempted, including the
+ * browser's back button and the back gesture phones use to leave a section.
+ */
+function useBlockUnsavedNavigation() {
   const { dirty, requestAttention } = useSettingsSaveState()
   useBlocker({
     disabled: !dirty,
@@ -85,10 +96,14 @@ function SettingsPageRoot() {
       return true
     },
   })
-  const active =
-    categories.find((category) => category.id === section) ?? categories[0]
+}
 
-  if (!active) return null
+function SettingsPageRoot() {
+  const categories = useSettingsCategories()
+  const [section, setSection] = useState<string | null>(null)
+  useBlockUnsavedNavigation()
+
+  if (categories.length === 0) return null
 
   return (
     <AppMainColumn className="bg-surface flex-row max-md:pb-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom))]">
@@ -96,8 +111,10 @@ function SettingsPageRoot() {
         <SettingsDialogContent
           native
           categories={categories}
-          active={active}
+          section={section}
           onNavigate={setSection}
+          onOpenSection={setSection}
+          onBack={() => setSection(null)}
         />
       </SettingsProviders>
     </AppMainColumn>
@@ -107,6 +124,8 @@ function SettingsPageRoot() {
 function SettingsDialogRoot({
   section,
   onNavigate,
+  onOpenSection,
+  onBack,
   onClose,
 }: SettingsDialogProps) {
   const categories = useSettingsCategories()
@@ -117,18 +136,18 @@ function SettingsDialogRoot({
   }, [section])
 
   const { dirty, requestAttention } = useSettingsSaveState()
+  useBlockUnsavedNavigation()
 
-  const activeSection = section ?? visibleSection
-  const active =
-    categories.find((category) => category.id === activeSection) ??
-    categories[0]
-  const body = active ? (
-    <SettingsDialogContent
-      categories={categories}
-      active={active}
-      onNavigate={onNavigate}
-    />
-  ) : null
+  const body =
+    categories.length > 0 ? (
+      <SettingsDialogContent
+        categories={categories}
+        section={section ?? visibleSection}
+        onNavigate={onNavigate}
+        onOpenSection={onOpenSection}
+        onBack={onBack}
+      />
+    ) : null
 
   return (
     <Dialog
@@ -183,32 +202,245 @@ function SettingsProviders({
 function SettingsDialogContent({
   native = false,
   categories,
+  section,
+  onNavigate,
+  onOpenSection,
+  onBack,
+}: SettingsNavigation & {
+  native?: boolean
+  categories: SettingsCategory[]
+  /** Requested section id; anything that is not a category means "none". */
+  section: string | null
+}) {
+  const isMobile = useIsMobile()
+  const requested = categories.find((category) => category.id === section)
+  // A phone has room for the menu or a section, never both, so without a
+  // section it shows the menu. Wider layouts always pair the sidebar with one.
+  const active = requested ?? (isMobile ? null : categories[0])
+
+  if (!active) {
+    return (
+      <SettingsOverview
+        native={native}
+        categories={categories}
+        onOpenSection={onOpenSection}
+      />
+    )
+  }
+
+  return (
+    <SettingsSectionView
+      native={native}
+      isMobile={isMobile}
+      categories={categories}
+      active={active}
+      onNavigate={onNavigate}
+      onBack={onBack}
+    />
+  )
+}
+
+/** Title bar for the phone layout: one button, then the title centred. */
+function SettingsMobileHeader({
+  title,
+  leading,
+}: {
+  title: string
+  leading: ReactNode
+}) {
+  return (
+    <header className="border-border bg-background grid h-13 shrink-0 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center border-b px-1">
+      <div className="grid place-items-center">{leading}</div>
+      <h2 className="text-foreground truncate text-center text-base font-semibold tracking-[var(--tracking-tight)]">
+        {title}
+      </h2>
+    </header>
+  )
+}
+
+/**
+ * The phone's settings menu: search, the signed-in profile, then every section
+ * grouped the way the sidebar groups them.
+ */
+function SettingsOverview({
+  native,
+  categories,
+  onOpenSection,
+}: {
+  native: boolean
+  categories: SettingsCategory[]
+  onOpenSection: (section: string) => void
+}) {
+  const [query, setQuery] = useState("")
+  const matches = useMemo(
+    () => searchSettingsCategories(categories, query),
+    [categories, query],
+  )
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <SettingsMobileHeader
+        title={t("Settings")}
+        leading={
+          native ? null : (
+            <DialogClose
+              aria-label={t("Close settings")}
+              className={mobileSurfaceCloseButtonClassName}
+            >
+              <XIcon />
+            </DialogClose>
+          )
+        }
+      />
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5",
+          !native && "pb-[max(1.25rem,env(safe-area-inset-bottom))]",
+        )}
+      >
+        <InputGroup>
+          <InputGroupAddon>
+            <SearchIcon />
+          </InputGroupAddon>
+          <InputGroupInput
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.currentTarget.value)}
+            placeholder={t("Search settings")}
+            aria-label={t("Search settings")}
+            className="[&::-webkit-search-cancel-button]:appearance-none"
+          />
+        </InputGroup>
+        {SETTINGS_GROUPS.map((group) => {
+          const items = matches.filter(
+            (match) => match.category.group === group.id,
+          )
+          if (items.length === 0) return null
+          const profile = items.find((item) => item.category.id === "profile")
+          const rest = items.filter((item) => item.category.id !== "profile")
+          return (
+            <section key={group.id} className="flex flex-col gap-4">
+              {group.id !== "account" ? (
+                <h3 className="text-foreground-faint -mb-2 px-1 pt-1 text-sm font-medium">
+                  {group.label}
+                </h3>
+              ) : null}
+              {profile ? (
+                <List>
+                  <SettingsOverviewProfileRow
+                    hint={profile.hint}
+                    onOpen={() => onOpenSection(profile.category.id)}
+                  />
+                </List>
+              ) : null}
+              {rest.length > 0 ? (
+                <List>
+                  {rest.map(({ category, hint }) => {
+                    const Icon = category.icon
+                    return (
+                      <ListItemButton
+                        key={category.id}
+                        className="min-h-12 py-2"
+                        onClick={() => onOpenSection(category.id)}
+                      >
+                        <Icon className="text-foreground-muted size-4.5 shrink-0" />
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="text-md truncate font-medium">
+                            {category.label}
+                          </span>
+                          {hint ? (
+                            <span className="text-foreground-dim truncate text-sm">
+                              {hint}
+                            </span>
+                          ) : null}
+                        </span>
+                      </ListItemButton>
+                    )
+                  })}
+                </List>
+              ) : null}
+            </section>
+          )
+        })}
+        {matches.length === 0 ? (
+          <p className="text-foreground-faint px-1 text-sm">
+            {t("No settings found.")}
+          </p>
+        ) : null}
+        <SettingsBuildInfo className="px-1" />
+      </div>
+    </div>
+  )
+}
+
+/** The profile section's row on the overview, shown as the account it edits. */
+function SettingsOverviewProfileRow({
+  hint,
+  onOpen,
+}: {
+  hint: string | null
+  onOpen: () => void
+}) {
+  const session = useSuspenseSession()
+  const chip = useUserChipData(session?.user)
+
+  return (
+    <ListItemButton className="min-h-16" onClick={onOpen}>
+      <Avatar
+        size="lg"
+        className="!size-10 shrink-0"
+        style={avatarTint(chip.avatar)}
+      >
+        {chip.avatar.src ? <AvatarImage src={chip.avatar.src} alt="" /> : null}
+        <AvatarFallback style={avatarTint(chip.avatar)} />
+      </Avatar>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="text-md truncate font-semibold">{chip.name}</span>
+        <span className="text-foreground-dim truncate text-sm">
+          {hint ?? t("Edit profile")}
+        </span>
+      </span>
+    </ListItemButton>
+  )
+}
+
+function SettingsSectionView({
+  native,
+  isMobile,
+  categories,
   active,
   onNavigate,
+  onBack,
 }: {
-  native?: boolean
+  native: boolean
+  isMobile: boolean
   categories: SettingsCategory[]
   active: SettingsCategory
   onNavigate: (section: string) => void
+  onBack: () => void
 }) {
   const ActivePanel = active.Panel
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const { dirty, requestAttention } = useSettingsSaveState()
-  // Switching tabs unmounts the active panel and would silently drop its
-  // edits, so it gets the same unsaved-changes guard as closing.
-  const navigateTo = (sectionId: string) => {
-    if (sectionId === active.id) return
+  // Leaving a section unmounts its panel and would silently drop its edits,
+  // so it gets the same unsaved-changes guard as closing.
+  const guarded = (leave: () => void) => {
     if (dirty) {
       requestAttention()
       return
     }
-    onNavigate(sectionId)
+    leave()
+  }
+  const navigateTo = (sectionId: string) => {
+    if (sectionId === active.id) return
+    guarded(() => onNavigate(sectionId))
   }
   const [query, setQuery] = useState("")
   const matches = useMemo(
     () => searchSettingsCategories(categories, query),
     [categories, query],
   )
+  const title = active.title ?? active.label
 
   return (
     <SettingsSectionsProvider>
@@ -285,21 +517,30 @@ function SettingsDialogContent({
         <SettingsBuildInfo className="mt-auto px-2.5 pt-8" />
       </nav>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Discord-style title bar: the category name and the close button stay
-            pinned while the panel below them scrolls. */}
-        <header className="border-border bg-background flex shrink-0 flex-col gap-3 border-b px-5 py-3 md:px-10">
-          {/* The mobile section select below already names the active section,
-              so the title only earns its row from sm up (or for the dialog's
-              close button). */}
-          <div
-            className={cn(
-              "flex items-center justify-between gap-4",
-              native && "max-md:hidden",
-            )}
-          >
-            <h2 className="text-foreground truncate text-xl font-semibold tracking-[var(--tracking-tight)] max-md:hidden">
-              {active.title ?? active.label}
+      {/* On a phone a section replaces the menu, so it pushes in over it. */}
+      <div className="max-md:animate-in max-md:fade-in-0 max-md:slide-in-from-right-4 flex min-w-0 flex-1 flex-col duration-200 motion-reduce:animate-none">
+        {/* Discord-style title bar: the section name stays pinned while the
+            panel below it scrolls. A phone gets the way back to the menu in
+            it; wider layouts have the sidebar for that and get the close
+            button instead. */}
+        {isMobile ? (
+          <SettingsMobileHeader
+            title={title}
+            leading={
+              <button
+                type="button"
+                aria-label={t("Go back")}
+                className={mobileSurfaceCloseButtonClassName}
+                onClick={() => guarded(onBack)}
+              >
+                <ArrowLeftIcon />
+              </button>
+            }
+          />
+        ) : (
+          <header className="border-border bg-background flex shrink-0 items-center justify-between gap-4 border-b px-10 py-3">
+            <h2 className="text-foreground truncate text-xl font-semibold tracking-[var(--tracking-tight)]">
+              {title}
             </h2>
             {native ? null : (
               <DialogClose
@@ -309,50 +550,8 @@ function SettingsDialogContent({
                 <XIcon className="size-4" />
               </DialogClose>
             )}
-          </div>
-          <div className="md:hidden">
-            <Select
-              value={active.id}
-              onValueChange={(value) => {
-                if (value) navigateTo(value)
-              }}
-            >
-              <SelectTrigger
-                aria-label={t("Settings sections")}
-                className="w-full"
-              >
-                <SelectValue>
-                  <active.icon className="size-4 shrink-0" />
-                  <span>{active.label}</span>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent align="start">
-                {SETTINGS_GROUPS.map((group) => {
-                  const items = categories.filter(
-                    (category) => category.group === group.id,
-                  )
-                  if (items.length === 0) return null
-                  return (
-                    <SelectGroup key={group.id}>
-                      {group.id !== "account" ? (
-                        <SelectLabel>{group.label}</SelectLabel>
-                      ) : null}
-                      {items.map((category) => {
-                        const Icon = category.icon
-                        return (
-                          <SelectItem key={category.id} value={category.id}>
-                            <Icon className="size-4 shrink-0" />
-                            <span>{category.label}</span>
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectGroup>
-                  )
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-        </header>
+          </header>
+        )}
 
         <div
           ref={scrollRef}
@@ -366,7 +565,6 @@ function SettingsDialogContent({
           <Suspense fallback={<LoadingState variant="panel" />}>
             <ActivePanel />
           </Suspense>
-          <SettingsBuildInfo className="mt-8 md:hidden" />
         </div>
 
         <SettingsSaveBar />
