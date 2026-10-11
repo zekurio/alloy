@@ -29,6 +29,7 @@ export function SettingRow({
   footer,
   htmlFor,
   align = "center",
+  stack = false,
   children,
   className,
 }: {
@@ -40,6 +41,12 @@ export function SettingRow({
   htmlFor?: string
   /** Vertical alignment of the control against the text block. */
   align?: "center" | "start"
+  /**
+   * Put the control under the text while the row is narrower than `@lg`. For
+   * controls too wide to share a phone's line with the copy, such as a select
+   * or a text input; size them `w-full @lg:w-*` so they fill the stacked row.
+   */
+  stack?: boolean
   /** The control rendered on the right. */
   children: ReactNode
   className?: string
@@ -48,6 +55,7 @@ export function SettingRow({
     <div
       className={cn(
         "not-last:border-border flex flex-col gap-3 py-4 not-last:border-b first:pt-0 last:pb-0",
+        stack && "@container",
         className,
       )}
     >
@@ -55,6 +63,7 @@ export function SettingRow({
         className={cn(
           "flex justify-between gap-4",
           align === "center" ? "items-center" : "items-start",
+          stack && "@max-lg:flex-col @max-lg:items-stretch @max-lg:gap-2.5",
         )}
       >
         <div className="min-w-0">

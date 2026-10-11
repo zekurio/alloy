@@ -211,6 +211,7 @@ export function TranscodingSettingsContent({
                 )}
                 htmlFor="transcoding-hwaccel"
                 align="start"
+                stack
                 footer={
                   <HardwareAccelerationNote probe={selectedProbe} form={form} />
                 }
@@ -232,7 +233,7 @@ export function TranscodingSettingsContent({
                   <SelectTrigger
                     id="transcoding-hwaccel"
                     size="sm"
-                    className="w-56"
+                    className="w-full @lg:w-56"
                   >
                     <SelectValue>
                       {HARDWARE_ACCELERATION_LABELS[form.hardwareAcceleration]}
@@ -271,8 +272,9 @@ export function TranscodingSettingsContent({
                   )}
                   htmlFor="transcoding-vaapi-device"
                   align="start"
+                  stack
                 >
-                  <div className="flex w-56 flex-col gap-1.5">
+                  <div className="flex w-full flex-col gap-1.5 @lg:w-56">
                     <Input
                       id="transcoding-vaapi-device"
                       value={form.vaapiDevice}
@@ -396,6 +398,7 @@ function TranscodingChoiceSetting<T extends string | number>({
       description={description}
       htmlFor={id}
       align="start"
+      stack
     >
       <Select
         value={String(value)}
@@ -404,7 +407,7 @@ function TranscodingChoiceSetting<T extends string | number>({
           if (option !== undefined) onChange(option)
         }}
       >
-        <SelectTrigger id={id} size="sm" className="w-48">
+        <SelectTrigger id={id} size="sm" className="w-full @lg:w-48">
           <SelectValue>{getOptionLabel(value)}</SelectValue>
         </SelectTrigger>
         <SelectContent align="end">

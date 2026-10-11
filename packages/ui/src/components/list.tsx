@@ -40,38 +40,67 @@ function ListItem({ className, ...props }: ComponentProps<"li">) {
 
 /**
  * A {@link List} row that is one tap target. By default it opens something (a
- * page, or the editor for the item it names) and the trailing chevron says so,
- * which is why such a row holds no controls of its own. A row that acts in
- * place instead passes the glyph for that action as `trailing`.
+ * page, or the editor for the item it names) and the trailing chevron says so.
+ * A row that acts in place instead passes the glyph for that action as
+ * `trailing`.
+ *
+ * `actions` are controls that change the item without opening it, such as a
+ * switch or a delete button. They sit before the chevron, and the rest of the
+ * row, chevron included, stays the tap target.
  */
 function ListItemButton({
   className,
   children,
   trailing,
+  actions,
   ...props
-}: ComponentProps<"button"> & { trailing?: ReactNode }) {
+}: ComponentProps<"button"> & { trailing?: ReactNode; actions?: ReactNode }) {
+  const glyph = trailing ?? (
+    <ChevronRightIcon
+      aria-hidden
+      className="text-foreground-faint size-4 shrink-0"
+    />
+  )
   return (
-    <li data-slot="list-item">
+    <li
+      data-slot="list-item"
+      className={cn(
+        "relative flex items-stretch transition-colors",
+        // Lit by its own tap target only, so pointing at a control in
+        // `actions` does not read as pointing at the row.
+        "has-[>button:hover]:bg-surface-raised/60 has-[>button:focus-visible]:bg-surface-raised/60",
+      )}
+    >
       <button
         type="button"
         className={cn(
           listRowClassName,
-          "w-full text-left transition-colors",
-          "hover:bg-surface-raised/60 focus-visible:bg-surface-raised/60",
-          "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset",
+          "min-w-0 flex-1 cursor-pointer text-left outline-none",
+          // The target is stretched over the whole row, under `actions`, so
+          // the focus ring frames the row rather than the label.
+          "after:absolute after:inset-0",
+          "focus-visible:after:ring-ring focus-visible:after:ring-2 focus-visible:after:ring-inset",
           "disabled:pointer-events-none disabled:opacity-60",
           className,
         )}
         {...props}
       >
         {children}
-        {trailing ?? (
-          <ChevronRightIcon
-            aria-hidden
-            className="text-foreground-faint size-4 shrink-0"
-          />
-        )}
+        {actions ? null : glyph}
       </button>
+      {actions ? (
+        <>
+          {/* Full row height: a tap that just misses a control lands here
+              and does nothing, instead of opening the item. An icon button's
+              glyph sits inset from its box, so a trailing one needs no gap
+              before the chevron. */}
+          <div className="relative flex shrink-0 items-center gap-1 pr-2 has-[>button:last-child]:pr-0">
+            {actions}
+          </div>
+          {/* Left unpositioned so the stretched target covers it too. */}
+          <span className="flex shrink-0 items-center pr-3.5">{glyph}</span>
+        </>
+      ) : null}
     </li>
   )
 }

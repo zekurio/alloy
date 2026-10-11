@@ -38,8 +38,11 @@ import type {
   validateForm,
 } from "./admin-transcoding-validation"
 
-const LADDER_GRID_CLASS =
-  "sm:grid sm:grid-cols-[7rem_6rem_5rem_7rem_minmax(10rem,1fr)_5.5rem_2rem] sm:items-center sm:gap-3"
+// The layout follows the panel's width, not the viewport's: next to the
+// settings sidebar, a tablet-sized window leaves the panel narrower than the
+// table. All seven columns fit from 49rem up.
+const LADDER_TABLE_CLASS =
+  "@[49rem]:grid-cols-[7rem_6rem_5rem_7rem_minmax(10rem,1fr)_5.5rem_2rem] @[49rem]:items-center"
 
 export function TranscodingLadder({
   form,
@@ -131,25 +134,23 @@ export function TranscodingLadder({
         </Button>
       }
     >
-      <div className="border-border overflow-hidden rounded-lg border">
+      <div className="border-border @container overflow-hidden rounded-lg border">
         <LadderHeader />
         <div className="divide-border divide-y">
           {form.tiers.map((tier, index) => (
+            // Below the table width a tier is a card: its name and row
+            // controls on one line, then the fields. A phone gives the codec
+            // its own line; a wider panel fits it beside the numbers.
             <div
               key={tier.id}
               className={cn(
-                "flex flex-wrap items-start gap-3 p-3",
-                LADDER_GRID_CLASS,
+                "grid grid-cols-[1fr_1fr_1.25fr] gap-3 p-3 @xl:grid-cols-[1fr_1fr_1.25fr_2.25fr]",
+                LADDER_TABLE_CLASS,
               )}
             >
-              <div className="flex min-w-16 flex-col gap-1.5 sm:min-w-0">
-                <span className="text-foreground-muted text-xs font-medium sm:hidden">
-                  {t("Rendition")}
-                </span>
-                <span className="bg-muted text-foreground-muted text-2xs w-fit rounded px-1.5 py-0.5 font-mono">
-                  {Number.isFinite(tier.height) ? tierNames[index] : "–"}
-                </span>
-              </div>
+              <span className="bg-muted text-foreground-muted @[49rem]:text-2xs col-start-1 row-start-1 w-fit self-center rounded px-1.5 py-0.5 font-mono text-xs">
+                {Number.isFinite(tier.height) ? tierNames[index] : "–"}
+              </span>
               <LadderField
                 label={t("Height")}
                 unit={t("px")}
@@ -157,8 +158,6 @@ export function TranscodingLadder({
                 max={4320}
                 value={tier.height}
                 error={validation.rows[index]?.height}
-                className="w-24 flex-none"
-                hideLabelOnDesktop
                 onChange={(height) => updateTier(index, { height })}
               />
               <LadderField
@@ -168,8 +167,6 @@ export function TranscodingLadder({
                 max={240}
                 value={tier.maxFps}
                 error={validation.rows[index]?.maxFps}
-                className="w-20 flex-none"
-                hideLabelOnDesktop
                 onChange={(maxFps) => updateTier(index, { maxFps })}
               />
               <LadderField
@@ -179,41 +176,36 @@ export function TranscodingLadder({
                 max={100000}
                 value={tier.maxrateKbps}
                 error={validation.rows[index]?.maxrateKbps}
-                className="w-28 flex-none"
-                hideLabelOnDesktop
                 onChange={(maxrateKbps) => updateTier(index, { maxrateKbps })}
               />
               <LadderCodecField
                 value={tier.codec}
                 defaultCodec={form.videoCodec}
                 error={validation.rows[index]?.codec}
-                className="min-w-40 flex-1 sm:min-w-0"
-                hideLabelOnDesktop
+                className="col-span-full @xl:col-span-1"
                 onChange={(codec) => updateTier(index, { codec })}
               />
-              <div className="ml-auto flex items-center justify-center gap-1.5 self-end sm:ml-0 sm:self-center">
-                <span className="text-foreground-muted text-xs font-medium sm:hidden">
-                  {t("Link preview")}
-                </span>
+              {/* On the name's line in a card; the last two cells of a table row. */}
+              <div className="col-span-2 col-start-2 row-start-1 flex items-center justify-end gap-2 @xl:col-span-3 @[49rem]:contents">
                 <LadderPreviewRadio
                   name={ogRadioName}
                   checked={index === ogIndex}
                   onChange={() => setOgTier(index)}
                 />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeTier(index)}
+                  disabled={form.tiers.length <= 1}
+                  aria-label={t("Remove tier")}
+                  className="-mr-2.5 @[49rem]:mr-0"
+                >
+                  <Trash2Icon />
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => removeTier(index)}
-                disabled={form.tiers.length <= 1}
-                aria-label={t("Remove tier")}
-                className="self-end sm:self-center"
-              >
-                <Trash2Icon />
-              </Button>
               {firstTierError(validation.rows[index]) ? (
-                <p className="text-destructive text-2xs w-full sm:col-span-full">
+                <p className="text-destructive text-2xs col-span-full">
                   {firstTierError(validation.rows[index])}
                 </p>
               ) : null}
@@ -235,8 +227,8 @@ function LadderHeader() {
   return (
     <div
       className={cn(
-        "bg-muted/30 text-foreground-muted hidden px-3 py-2 text-xs font-medium",
-        LADDER_GRID_CLASS,
+        "bg-muted/30 text-foreground-muted hidden gap-3 px-3 py-2 text-xs font-medium @[49rem]:grid",
+        LADDER_TABLE_CLASS,
       )}
     >
       <span>{t("Rendition")}</span>
@@ -257,8 +249,6 @@ function LadderField({
   min,
   max,
   error,
-  className,
-  hideLabelOnDesktop,
   onChange,
 }: {
   label: string
@@ -267,18 +257,11 @@ function LadderField({
   min: number
   max: number
   error?: string
-  className?: string
-  hideLabelOnDesktop?: boolean
   onChange: (value: number) => void
 }) {
   const id = useId()
   return (
-    <LadderFieldFrame
-      id={id}
-      label={label}
-      className={className}
-      hideLabelOnDesktop={hideLabelOnDesktop}
-    >
+    <LadderFieldFrame id={id} label={label}>
       <InputGroup>
         <InputGroupInput
           id={id}
@@ -304,24 +287,17 @@ function LadderCodecField({
   defaultCodec,
   error,
   className,
-  hideLabelOnDesktop,
   onChange,
 }: {
   value: VideoCodec | null
   defaultCodec: VideoCodec
   error?: string
   className?: string
-  hideLabelOnDesktop?: boolean
   onChange: (codec: VideoCodec | null) => void
 }) {
   const id = useId()
   return (
-    <LadderFieldFrame
-      id={id}
-      label={t("Codec")}
-      className={className}
-      hideLabelOnDesktop={hideLabelOnDesktop}
-    >
+    <LadderFieldFrame id={id} label={t("Codec")} className={className}>
       <Select
         value={value ?? "default"}
         onValueChange={(next) => {
@@ -334,6 +310,7 @@ function LadderCodecField({
           id={id}
           size="sm"
           aria-invalid={error ? true : undefined}
+          className="w-full @[49rem]:w-fit"
         >
           <SelectValue>{codecLabel(value, defaultCodec)}</SelectValue>
         </SelectTrigger>
@@ -352,27 +329,23 @@ function LadderCodecField({
   )
 }
 
+/** Labels a field in a card. The table's header row names the column instead. */
 function LadderFieldFrame({
   id,
   label,
   className,
-  hideLabelOnDesktop,
   children,
 }: {
   id: string
   label: string
   className?: string
-  hideLabelOnDesktop?: boolean
   children: ReactNode
 }) {
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
+    <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
       <label
         htmlFor={id}
-        className={cn(
-          "text-foreground-muted text-xs font-medium",
-          hideLabelOnDesktop && "sm:hidden",
-        )}
+        className="text-foreground-muted truncate text-xs font-medium @[49rem]:hidden"
       >
         {label}
       </label>
@@ -392,9 +365,12 @@ function LadderPreviewRadio({
 }) {
   return (
     <label
-      className="group flex cursor-pointer items-center justify-center rounded-md"
+      className="group flex cursor-pointer items-center justify-center gap-2 rounded-md py-2 @[49rem]:py-0"
       title={checked ? t("Link preview") : t("Use as link preview")}
     >
+      <span className="text-foreground-muted text-xs font-medium @[49rem]:hidden">
+        {t("Link preview")}
+      </span>
       <input
         type="radio"
         name={name}
