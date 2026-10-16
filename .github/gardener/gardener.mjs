@@ -93,20 +93,25 @@ async function ensureLabels(names) {
 
 // ---------------------------------------------------------------- Claude ---
 
-async function claude({ model, system, user, tool, maxTokens = 8000 }) {
+// Structured outputs, not a forced tool call: Opus 5.5 and Sonnet 5.5 reject
+// tool_choice "tool"/"any". Their thinking is always on and counts toward
+// max_tokens. The schema can't use maxItems, so callers cap lists themselves.
+async function claude({ model, effort, system, user, schema, maxTokens }) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "x-api-key": env("ANTHROPIC_API_KEY"),
       "anthropic-version": "2023-06-01",
+      "anthropic-beta": "server-side-fallback-2026-07-01",
       "content-type": "application/json",
     },
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
+      // Re-runs safety-classifier declines on Anthropic's recommended model.
+      fallbacks: "default",
+      output_config: { effort, format: { type: "json_schema", schema } },
       system,
-      tools: [tool],
-      tool_choice: { type: "tool", name: tool.name },
       messages: [{ role: "user", content: user }],
     }),
   })
@@ -120,11 +125,20 @@ async function claude({ model, system, user, tool, maxTokens = 8000 }) {
     data.usage ?? {}
   const price = config.pricePerMTok[model]
   const cost = price ? (inTok * price.input + outTok * price.output) / 1e6 : NaN
-  log(`claude ${model}: ${inTok} in / ${outTok} out ≈ $${cost.toFixed(4)}`)
+  const served = data.model !== model ? ` (fallback: ${data.model})` : ""
+  log(
+    `claude ${model}${served}: ${inTok} in / ${outTok} out ≈ $${cost.toFixed(4)}`,
+  )
 
-  const call = data.content.find((block) => block.type === "tool_use")
-  if (!call) throw new Error("Claude did not return a tool call")
-  return call.input
+  if (data.stop_reason === "refusal")
+    throw new Error(
+      `Claude declined (${data.stop_details?.category ?? "uncategorised"}): ${data.stop_details?.explanation ?? ""}`,
+    )
+  if (data.stop_reason === "max_tokens")
+    throw new Error(`Claude ran out of max_tokens (${maxTokens})`)
+  const text = data.content.find((block) => block.type === "text")?.text
+  if (!text) throw new Error("Claude returned no output")
+  return JSON.parse(text)
 }
 
 const fence = (tag, text) => `<${tag}>\n${text}\n</${tag}>`
@@ -169,7 +183,8 @@ async function triage(number) {
   const areaNames = Object.keys(config.areas)
   const result = await claude({
     model: config.models.triage,
-    maxTokens: 2000,
+    effort: config.effort.triage,
+    maxTokens: 4000,
     system: [
       `You triage GitHub issues for Alloy, a self-hosted, open-source Medal.tv alternative (React web app, Hono server, Tauri desktop app with a Windows-only Rust OBS recorder).`,
       `Be conservative. Only flag a duplicate when the existing issue clearly describes the same problem or request, not merely the same area. Only mark needs_info for bug reports that genuinely lack what a maintainer needs to reproduce (steps, version, platform, logs for crashes) — never for feature requests that are merely brief.`,
@@ -186,61 +201,58 @@ async function triage(number) {
         `#${issue.number} by @${issue.user.login} (${issue.author_association})\nTitle: ${issue.title}\nCurrent labels: ${issue.labels.map((l) => l.name).join(", ") || "none"}\n\n${(issue.body ?? "").slice(0, 30_000)}`,
       ),
     ].join("\n\n"),
-    tool: {
-      name: "triage_issue",
-      description: "Record the triage decision for this issue.",
-      input_schema: {
-        type: "object",
-        properties: {
-          kind: {
-            type: "string",
-            enum: ["bug", "feature", "question", "other"],
-          },
-          areas: {
-            type: "array",
-            items: { type: "string", enum: areaNames },
-            maxItems: 2,
-            description: "Affected parts of Alloy, most relevant first.",
-          },
-          effort: {
-            type: ["string", "null"],
-            enum: ["XS", "S", "M", "L", "XL", null],
-          },
-          needs_info: { type: "boolean" },
-          duplicate_of: {
-            type: "array",
-            items: { type: "integer" },
-            maxItems: 3,
-            description:
-              "Existing issue numbers that are clearly the same. Empty if unsure.",
-          },
-          comment: { type: ["string", "null"] },
-          reasoning: {
-            type: "string",
-            description: "One or two sentences for the workflow log.",
-          },
+    schema: {
+      type: "object",
+      properties: {
+        kind: {
+          type: "string",
+          enum: ["bug", "feature", "question", "other"],
         },
-        required: [
-          "kind",
-          "areas",
-          "effort",
-          "needs_info",
-          "duplicate_of",
-          "comment",
-          "reasoning",
-        ],
+        areas: {
+          type: "array",
+          items: { type: "string", enum: areaNames },
+          description:
+            "Affected parts of Alloy, at most two, most relevant first.",
+        },
+        effort: {
+          type: ["string", "null"],
+          enum: ["XS", "S", "M", "L", "XL", null],
+        },
+        needs_info: { type: "boolean" },
+        duplicate_of: {
+          type: "array",
+          items: { type: "integer" },
+          description:
+            "At most three existing issue numbers that are clearly the same. Empty if unsure.",
+        },
+        comment: { type: ["string", "null"] },
+        rationale: {
+          type: "string",
+          description:
+            "One or two sentences justifying the decision, for the workflow log.",
+        },
       },
+      required: [
+        "kind",
+        "areas",
+        "effort",
+        "needs_info",
+        "duplicate_of",
+        "comment",
+        "rationale",
+      ],
+      additionalProperties: false,
     },
   })
 
   log(JSON.stringify(result, null, 2))
 
   const known = new Set(others.map((i) => i.number))
-  const duplicates = result.duplicate_of.filter((n) => known.has(n))
+  const duplicates = result.duplicate_of.filter((n) => known.has(n)).slice(0, 3)
 
   const labels = [
     config.kinds[result.kind],
-    ...result.areas.map((a) => config.areas[a]),
+    ...result.areas.slice(0, 2).map((a) => config.areas[a]),
     result.effort ? `effort: ${result.effort}` : null,
     result.needs_info ? "needs info" : null,
     duplicates.length ? "possible duplicate" : null,
@@ -359,6 +371,7 @@ async function review(number) {
 
   const result = await claude({
     model: config.models.review,
+    effort: config.effort.review,
     maxTokens: 12_000,
     system: [
       `You are a senior reviewer for Alloy, a self-hosted, open-source Medal.tv alternative: a React web app, Hono server, Tauri desktop app, and a Windows-only Rust OBS recorder sidecar.`,
@@ -381,44 +394,42 @@ async function review(number) {
     ]
       .filter(Boolean)
       .join("\n\n"),
-    tool: {
-      name: "submit_review",
-      description: "Submit the code review for this pull request.",
-      input_schema: {
-        type: "object",
-        properties: {
-          summary: {
-            type: "string",
-            description:
-              "2-5 sentences: overall assessment and the most important risks. Markdown.",
-          },
-          verdict: {
-            type: "string",
-            enum: ["looks_good", "minor_issues", "needs_changes"],
-          },
-          findings: {
-            type: "array",
-            maxItems: config.review.maxFindings,
-            items: {
-              type: "object",
-              properties: {
-                path: { type: "string" },
-                line: { type: "integer" },
-                start_line: { type: ["integer", "null"] },
-                severity: {
-                  type: "string",
-                  enum: ["blocker", "major", "minor", "nit"],
-                },
-                title: { type: "string" },
-                body: { type: "string" },
-                suggestion: { type: ["string", "null"] },
+    schema: {
+      type: "object",
+      properties: {
+        summary: {
+          type: "string",
+          description:
+            "2-5 sentences: overall assessment and the most important risks. Markdown.",
+        },
+        verdict: {
+          type: "string",
+          enum: ["looks_good", "minor_issues", "needs_changes"],
+        },
+        findings: {
+          type: "array",
+          description: `At most ${config.review.maxFindings} findings, most severe first.`,
+          items: {
+            type: "object",
+            properties: {
+              path: { type: "string" },
+              line: { type: "integer" },
+              start_line: { type: ["integer", "null"] },
+              severity: {
+                type: "string",
+                enum: ["blocker", "major", "minor", "nit"],
               },
-              required: ["path", "line", "severity", "title", "body"],
+              title: { type: "string" },
+              body: { type: "string" },
+              suggestion: { type: ["string", "null"] },
             },
+            required: ["path", "line", "severity", "title", "body"],
+            additionalProperties: false,
           },
         },
-        required: ["summary", "verdict", "findings"],
       },
+      required: ["summary", "verdict", "findings"],
+      additionalProperties: false,
     },
   })
 
@@ -433,7 +444,7 @@ async function review(number) {
 
   const inline = []
   const loose = []
-  for (const f of result.findings) {
+  for (const f of result.findings.slice(0, config.review.maxFindings)) {
     const valid = commentable.get(f.path)
     const start = f.start_line && f.start_line < f.line ? f.start_line : null
     const onDiff = valid?.has(f.line) && (!start || valid.has(start))

@@ -7,6 +7,13 @@ export const config = {
     review: "claude-opus-5-5",
   },
 
+  // output_config.effort per task. Thinking can't be turned off on these
+  // models; effort is the only control over its depth and cost.
+  effort: {
+    triage: "low",
+    review: "medium",
+  },
+
   // USD per million tokens, only used for the cost line in workflow logs.
   pricePerMTok: {
     "claude-opus-5-5": { input: 4, output: 20 },
