@@ -25,12 +25,13 @@ changes. Drafts and bot-authored PRs (Dependabot) are skipped.
 ### Posting as alloy-gardener
 
 Without an app, comments come from `github-actions[bot]`. To post as
-**alloy-gardener** with the Alloy logo:
+**alloy-gardener** with its own icon:
 
 1. Create a GitHub App under **Settings → Developer settings → GitHub Apps**,
    named `alloy-gardener`, with the webhook disabled and these repository
    permissions: Issues read/write, Pull requests read/write, Contents read.
-2. Upload [`public/logo.png`](../../public/logo.png) as its logo.
+2. Upload its icon, the Alloy ingot outlined in `#0b0a0f` on `#d0c4eb`, and
+   set the badge background color to `#d0c4eb`.
 3. Generate a private key, then install the app on this repository only.
 4. Add the app's Client ID as the repository **variable**
    `GARDENER_CLIENT_ID`, and the private key file's contents as the
