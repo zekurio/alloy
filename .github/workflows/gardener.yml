@@ -1,0 +1,124 @@
+name: gardener
+
+# Issue triage, PR review, and locking of stale resolved threads, powered by
+# the Claude API (.github/gardener). Needs the ANTHROPIC_API_KEY secret.
+#
+# Security: pull_request_target runs with secrets for fork PRs, so this
+# workflow only ever checks out the base branch. PR diffs and files are read
+# through the GitHub API as text and never executed.
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: What to run
+        type: choice
+        options: [triage, review, lock]
+        required: true
+      number:
+        description: Issue or PR number (triage and review)
+        required: false
+      dry_run:
+        description: Log actions instead of writing to GitHub
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: gardener-${{ github.event.issue.number || github.event.pull_request.number || inputs.number || github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  garden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && github.event.issue.user.type != 'Bot') ||
+      (github.event_name == 'pull_request_target' &&
+        !github.event.pull_request.draft &&
+        github.event.pull_request.user.type != 'Bot') ||
+      (github.event_name == 'issue_comment' &&
+        startsWith(github.event.comment.body, '/gardener ') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+
+    steps:
+      - name: checkout base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: set up node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: pick task
+        id: task
+        env:
+          EVENT: ${{ github.event_name }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          COMMENT: ${{ github.event.comment.body }}
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_NUMBER: ${{ inputs.number }}
+        run: |
+          case "$EVENT" in
+            issues) mode=triage; number=$ISSUE_NUMBER ;;
+            pull_request_target) mode=review; number=$PR_NUMBER ;;
+            schedule) mode=lock; number= ;;
+            workflow_dispatch) mode=$INPUT_MODE; number=$INPUT_NUMBER ;;
+            issue_comment)
+              number=$ISSUE_NUMBER
+              case "$(printf '%s' "$COMMENT" | head -n1 | tr -d '\r')" in
+                "/gardener review"*) mode=review ;;
+                "/gardener triage"*) mode=triage ;;
+                *) echo "unknown command"; mode= ;;
+              esac ;;
+          esac
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+      # Post as the alloy-gardener GitHub App when it is configured
+      # (vars.GARDENER_CLIENT_ID + secrets.GARDENER_PRIVATE_KEY);
+      # otherwise fall back to github-actions[bot].
+      - name: mint alloy-gardener token
+        id: app
+        if: steps.task.outputs.mode != '' && vars.GARDENER_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.GARDENER_CLIENT_ID }}
+          private-key: ${{ secrets.GARDENER_PRIVATE_KEY }}
+          permission-issues: write
+          permission-pull-requests: write
+          permission-contents: read
+
+      - name: react to command
+        if: github.event_name == 'issue_comment' && steps.task.outputs.mode != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: gh api -X POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID/reactions" -f content=eyes >/dev/null
+
+      - name: run gardener
+        if: steps.task.outputs.mode != ''
+        env:
+          GITHUB_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GARDENER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          MODE: ${{ steps.task.outputs.mode }}
+          NUMBER: ${{ steps.task.outputs.number }}
+        run: node .github/gardener/gardener.mjs "$MODE" $NUMBER
