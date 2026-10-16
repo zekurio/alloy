@@ -141,6 +141,10 @@ async function claude({ model, effort, system, user, schema, maxTokens }) {
   return JSON.parse(text)
 }
 
+// Structured-output schemas reject an enum under a type list like
+// ["string", "null"], so nullable fields use anyOf.
+const nullable = (schema) => ({ anyOf: [schema, { type: "null" }] })
+
 const fence = (tag, text) => `<${tag}>\n${text}\n</${tag}>`
 
 const repoFile = (path, maxChars = 20_000) =>
@@ -214,10 +218,10 @@ async function triage(number) {
           description:
             "Affected parts of Alloy, at most two, most relevant first.",
         },
-        effort: {
-          type: ["string", "null"],
-          enum: ["XS", "S", "M", "L", "XL", null],
-        },
+        effort: nullable({
+          type: "string",
+          enum: ["XS", "S", "M", "L", "XL"],
+        }),
         needs_info: { type: "boolean" },
         duplicate_of: {
           type: "array",
@@ -225,7 +229,7 @@ async function triage(number) {
           description:
             "At most three existing issue numbers that are clearly the same. Empty if unsure.",
         },
-        comment: { type: ["string", "null"] },
+        comment: nullable({ type: "string" }),
         rationale: {
           type: "string",
           description:
@@ -414,14 +418,14 @@ async function review(number) {
             properties: {
               path: { type: "string" },
               line: { type: "integer" },
-              start_line: { type: ["integer", "null"] },
+              start_line: nullable({ type: "integer" }),
               severity: {
                 type: "string",
                 enum: ["blocker", "major", "minor", "nit"],
               },
               title: { type: "string" },
               body: { type: "string" },
-              suggestion: { type: ["string", "null"] },
+              suggestion: nullable({ type: "string" }),
             },
             required: ["path", "line", "severity", "title", "body"],
             additionalProperties: false,
