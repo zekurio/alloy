@@ -68,12 +68,24 @@ jobs:
       - name: run typecheck
         run: corepack pnpm typecheck
 
+      # Only names the release commit's author. The push below still uses
+      # github.token, so it doesn't trigger the push workflows on dev.
+      - name: mint alloy-gardener token
+        id: app
+        if: vars.GARDENER_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.GARDENER_CLIENT_ID }}
+          private-key: ${{ secrets.GARDENER_PRIVATE_KEY }}
+          permission-contents: read
+
       - id: release
         name: resolve version, commit, and tag
         shell: bash
         env:
           INPUT_BUMP: ${{ inputs.bump }}
           INPUT_VERSION: ${{ inputs.version }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
           GH_TOKEN: ${{ github.token }}
         run: |
           # JavaScript template expressions must remain literal for node -e.
@@ -138,8 +150,10 @@ jobs:
             # Rebuild the pending release from the exact tagged commit.
             ref="$(git rev-list -n 1 "$tag")"
           else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            bot="${APP_SLUG:-github-actions}[bot]"
+            bot_id="$(gh api "users/$bot" --jq .id)"
+            git config user.name "$bot"
+            git config user.email "$bot_id+$bot@users.noreply.github.com"
 
             if [[ "$version" != "$current" ]]; then
               node scripts/update-release-package-versions.mjs "$version"
@@ -338,9 +352,21 @@ jobs:
               previousTag: process.env.PREVIOUS_TAG,
             })
 
+      # Publish as the alloy-gardener GitHub App when it is configured; it needs
+      # Contents read/write. Otherwise fall back to github-actions[bot].
+      - name: mint alloy-gardener token
+        id: app
+        if: vars.GARDENER_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.GARDENER_CLIENT_ID }}
+          private-key: ${{ secrets.GARDENER_PRIVATE_KEY }}
+          permission-contents: write
+
       - name: publish github release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
+          token: ${{ steps.app.outputs.token || github.token }}
           tag_name: ${{ needs.preflight.outputs.tag }}
           target_commitish: ${{ needs.preflight.outputs.ref }}
           name: ${{ needs.preflight.outputs.tag }}

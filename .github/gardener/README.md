@@ -29,7 +29,9 @@ Without an app, comments come from `github-actions[bot]`. To post as
 
 1. Create a GitHub App under **Settings → Developer settings → GitHub Apps**,
    named `alloy-gardener`, with the webhook disabled and these repository
-   permissions: Issues read/write, Pull requests read/write, Contents read.
+   permissions: Issues read/write, Pull requests read/write, Contents
+   read/write. Only release publishing needs Contents write; without it,
+   `publish.yml` fails at its last step.
 2. Upload its icon, the Alloy ingot outlined in `#d0c4eb` on `#0b0a0f`, and
    set the badge background color to `#0b0a0f`.
 3. Generate a private key, then install the app on this repository only.
@@ -37,7 +39,15 @@ Without an app, comments come from `github-actions[bot]`. To post as
    `GARDENER_CLIENT_ID`, and the private key file's contents as the
    repository **secret** `GARDENER_PRIVATE_KEY`.
 
-The workflow picks the app up automatically once the variable is set.
+The gardener, the changelog labeler
+([`changelog-label.yml`](../workflows/changelog-label.yml)), and releases
+([`publish.yml`](../workflows/publish.yml): the GitHub release and the
+release commit's author) pick the app up automatically once the variable is
+set.
+
+The private key is available to workflows triggered by pull requests, and
+with Contents write it can mint a token that pushes to `dev`. Those workflows
+never check out or run pull request code; keep it that way.
 
 ## Cost
 
