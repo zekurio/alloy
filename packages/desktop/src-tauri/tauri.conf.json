@@ -26,7 +26,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "icon": ["icons/icon.ico", "../../../public/logo.png"],
+    "icon": ["../assets/icon.ico", "../../../public/logo.png"],
     "windows": {
       "nsis": {
         "installMode": "currentUser",
