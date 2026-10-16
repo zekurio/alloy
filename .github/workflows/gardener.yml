@@ -92,17 +92,31 @@ jobs:
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "number=$number" >> "$GITHUB_OUTPUT"
 
+      # Post as the alloy-gardener GitHub App when it is configured
+      # (vars.GARDENER_CLIENT_ID + secrets.GARDENER_PRIVATE_KEY);
+      # otherwise fall back to github-actions[bot].
+      - name: mint alloy-gardener token
+        id: app
+        if: steps.task.outputs.mode != '' && vars.GARDENER_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.GARDENER_CLIENT_ID }}
+          private-key: ${{ secrets.GARDENER_PRIVATE_KEY }}
+          permission-issues: write
+          permission-pull-requests: write
+          permission-contents: read
+
       - name: react to command
         if: github.event_name == 'issue_comment' && steps.task.outputs.mode != ''
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
           COMMENT_ID: ${{ github.event.comment.id }}
         run: gh api -X POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID/reactions" -f content=eyes >/dev/null
 
       - name: run gardener
         if: steps.task.outputs.mode != ''
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ steps.app.outputs.token || github.token }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GARDENER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
           MODE: ${{ steps.task.outputs.mode }}
