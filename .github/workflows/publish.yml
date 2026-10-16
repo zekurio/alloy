@@ -150,8 +150,13 @@ jobs:
             # Rebuild the pending release from the exact tagged commit.
             ref="$(git rev-list -n 1 "$tag")"
           else
-            bot="${APP_SLUG:-github-actions}[bot]"
-            bot_id="$(gh api "users/$bot" --jq .id)"
+            if [[ -n "$APP_SLUG" ]]; then
+              bot="${APP_SLUG}[bot]"
+              bot_id="$(gh api "users/$bot" --jq .id)"
+            else
+              bot="github-actions[bot]"
+              bot_id=41898282
+            fi
             git config user.name "$bot"
             git config user.email "$bot_id+$bot@users.noreply.github.com"
 
