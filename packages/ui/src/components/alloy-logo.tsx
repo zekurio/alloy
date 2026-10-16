@@ -1,10 +1,9 @@
 import { cn } from "@alloy/ui/lib/utils"
-import type { HTMLAttributes, ImgHTMLAttributes } from "react"
+import type { HTMLAttributes } from "react"
 
 interface AlloyLogoProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number
   showText?: boolean
-  markSrc?: string
   textClassName?: string
   spacing?: number
 }
@@ -12,14 +11,13 @@ interface AlloyLogoProps extends HTMLAttributes<HTMLSpanElement> {
 function AlloyLogo({
   size = 40,
   showText = false,
-  markSrc,
   textClassName,
   spacing = 10,
   className,
   ...props
 }: AlloyLogoProps) {
   if (!showText) {
-    return <AlloyLogoMark src={markSrc} size={size} className={className} />
+    return <AlloyLogoMark size={size} className={className} {...props} />
   }
 
   return (
@@ -28,7 +26,7 @@ function AlloyLogo({
       style={{ gap: spacing }}
       {...props}
     >
-      <AlloyLogoMark src={markSrc} size={size} />
+      <AlloyLogoMark size={size} />
       <span
         className={cn(
           "font-mono inline-flex items-center font-bold tracking-normal text-foreground",
@@ -45,24 +43,44 @@ function AlloyLogo({
   )
 }
 
+// Brand colors stay fixed across themes; public/logo.svg uses the same mark.
 function AlloyLogoMark({
-  src = "/logo.png",
   size = 40,
   className,
   style,
   ...props
-}: ImgHTMLAttributes<HTMLImageElement> & { size?: number }) {
+}: HTMLAttributes<HTMLSpanElement> & { size?: number }) {
   return (
-    <img
-      src={src}
-      width={size}
-      height={size}
-      alt={"alloy"}
-      className={cn("block shrink-0 select-none", className)}
+    <span
+      role="img"
+      aria-label={"alloy"}
+      className={cn(
+        "block shrink-0 bg-[#0b0a0f] text-[#d0c4eb] select-none",
+        className,
+      )}
       style={{ width: size, height: size, ...style }}
-      draggable={false}
       {...props}
-    />
+    >
+      <AlloyMarkFigure className="block size-full" />
+    </span>
+  )
+}
+
+function AlloyMarkFigure({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="-20.29 -18.29 292.57 292.57"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={14}
+      strokeLinejoin="round"
+      strokeLinecap="round"
+    >
+      <path d="M32 160 L55 220 L157 172 L220 66 L163 36 L105 72 Z" />
+      <path d="M32 160 L98 127 L157 172 M98 127 L163 36" />
+    </svg>
   )
 }
 
