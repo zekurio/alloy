@@ -395,7 +395,7 @@ fn callback_page(lang: &str, title: &str, message: &str) -> String {
             "font:16px/1.5 \"DM Sans\",ui-sans-serif,system-ui,-apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;",
             "-webkit-font-smoothing:antialiased}}",
             "header{{display:flex;align-items:center;gap:10px;padding:32px 40px;font:700 20px/1 \"IBM Plex Mono\",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}}",
-            "header svg{{display:block;width:36px;height:36px;background:#0b0a0f;color:#d0c4eb}}",
+            "header svg{{display:block;width:36px;height:36px;color:#d0c4eb}}",
             "main{{flex:1;display:flex;align-items:center;justify-content:center;padding:0 24px 96px}}",
             "section{{width:100%;max-width:24rem}}",
             "h1{{margin:0 0 8px;font-size:24px;font-weight:600;letter-spacing:-0.02em}}",

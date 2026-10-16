@@ -43,7 +43,8 @@ function AlloyLogo({
   )
 }
 
-// Brand colors stay fixed across themes; public/logo.svg uses the same mark.
+// Glyph only, tinted with the theme accent; public/logo.svg adds a backdrop
+// for icon contexts.
 function AlloyLogoMark({
   size = 40,
   className,
@@ -54,10 +55,7 @@ function AlloyLogoMark({
     <span
       role="img"
       aria-label={"alloy"}
-      className={cn(
-        "block shrink-0 bg-[#0b0a0f] text-[#d0c4eb] select-none",
-        className,
-      )}
+      className={cn("block shrink-0 text-accent select-none", className)}
       style={{ width: size, height: size, ...style }}
       {...props}
     >
