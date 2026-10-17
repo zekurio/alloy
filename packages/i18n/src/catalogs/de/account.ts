@@ -12,6 +12,8 @@ export const ACCOUNT_MESSAGES = {
   "Account unlinked": "Konto getrennt",
   "Actions here affect your whole account.":
     "Aktionen hier betreffen dein gesamtes Konto.",
+  "Active now": "Gerade aktiv",
+  "Active within the last hour": "In der letzten Stunde aktiv",
   "Add a passkey": "Passkey hinzufügen",
   "Add an avatar and banner so people recognize you.":
     "Füge Avatar und Banner hinzu, damit andere dich wiedererkennen.",
@@ -19,6 +21,7 @@ export const ACCOUNT_MESSAGES = {
   "Add or replace avatar": "Avatar hinzufügen oder ersetzen",
   "Add or replace banner": "Banner hinzufügen oder ersetzen",
   "Add passkey": "Passkey hinzufügen",
+  "Alloy Desktop": "Alloy Desktop",
   "Already have an account?": "Hast du schon ein Konto?",
   "Auth attempt cancelled.": "Authentifizierungsversuch abgebrochen.",
   Avatar: "Profilbild",
@@ -30,6 +33,8 @@ export const ACCOUNT_MESSAGES = {
   Banner: "Banner",
   "Banner removed": "Banner entfernt",
   Block: "Blockieren",
+  "Browsers and desktop apps signed in to your account.":
+    "Browser und Desktop-Apps, die bei deinem Konto angemeldet sind.",
   Connect: "Verbinden",
   "Connect additional sign-in methods to your account.":
     "Verbinde weitere Anmeldemethoden mit deinem Konto.",
@@ -41,6 +46,7 @@ export const ACCOUNT_MESSAGES = {
   "Couldn't disable account": "Konto konnte nicht deaktiviert werden",
   "Couldn't load passkeys": "Passkeys konnten nicht geladen werden",
   "Couldn't load profile": "Profil konnte nicht geladen werden",
+  "Couldn't load sessions": "Sitzungen konnten nicht geladen werden",
   "Couldn't reactivate account": "Konto konnte nicht reaktiviert werden",
   "Couldn't refresh linked accounts":
     "Verknüpfte Konten konnten nicht aktualisiert werden",
@@ -50,6 +56,7 @@ export const ACCOUNT_MESSAGES = {
   "Couldn't remove passkey": "Passkey konnte nicht entfernt werden",
   "Couldn't rename passkey": "Passkey konnte nicht umbenannt werden",
   "Couldn't sign out": "Abmeldung fehlgeschlagen",
+  "Couldn't sign out session": "Sitzung konnte nicht abgemeldet werden",
   "Couldn't start link flow": "Verknüpfung konnte nicht gestartet werden",
   "Couldn't unlink": "Verknüpfung konnte nicht aufgehoben werden",
   "Create account with passkey": "Konto mit Passkey erstellen",
@@ -60,6 +67,7 @@ export const ACCOUNT_MESSAGES = {
   "Delete your account?": "Konto löschen?",
   "Deleted {count} clip": "{count} Clip gelöscht",
   "Deleted {count} clips": "{count} Clips gelöscht",
+  "Desktop app": "Desktop-App",
   "Disable account": "Konto deaktivieren",
   "Disable your account?": "Konto deaktivieren?",
   Disabled: "Deaktiviert",
@@ -74,8 +82,10 @@ export const ACCOUNT_MESSAGES = {
   "Edit avatar": "Avatar bearbeiten",
   "Edit banner": "Banner bearbeiten",
   "Edit profile": "Profil bearbeiten",
-  "Edit your username, avatar, and sign-in methods.":
-    "Bearbeite deinen Benutzernamen, Avatar und Anmeldemethoden.",
+  "Edit your username, avatar, sign-in methods, and sessions.":
+    "Bearbeite deinen Benutzernamen, Avatar, Anmeldemethoden und Sitzungen.",
+  "Every other browser and desktop app will need to sign in again.":
+    "Alle anderen Browser und Desktop-Apps müssen sich erneut anmelden.",
   "Give this passkey a name so you can recognise it later.":
     "Gib diesem Passkey einen Namen, damit du ihn später wiedererkennst.",
   "Hide your profile and clips until you reactivate your account.":
@@ -83,6 +93,7 @@ export const ACCOUNT_MESSAGES = {
   "How you appear to everyone else on this server.":
     "Wie du für alle anderen auf diesem Server erscheinst.",
   Identity: "Identität",
+  "Last active {time}": "Zuletzt aktiv {time}",
   "Link another enabled sign-in method before removing this one":
     "Verknüpfe eine andere aktive Anmeldemethode, bevor du diese entfernst",
   "Linked accounts": "Verknüpfte Konten",
@@ -134,6 +145,7 @@ export const ACCOUNT_MESSAGES = {
   "Search people": "Nutzer suchen",
   "Search people...": "Nutzer suchen...",
   "Search users": "Nutzer suchen",
+  Sessions: "Sitzungen",
   "Set up your profile": "Richte dein Profil ein",
   "Show profile": "Profil anzeigen",
   "Show this profile?": "Dieses Profil anzeigen?",
@@ -145,6 +157,11 @@ export const ACCOUNT_MESSAGES = {
   "Sign in without a password using your device or hardware key.":
     "Melde dich ohne Passwort mit deinem Gerät oder Hardware-Schlüssel an.",
   "Sign out": "Abmelden",
+  "Sign out of all other sessions?": "Alle anderen Sitzungen abmelden?",
+  "Sign out other sessions": "Andere Sitzungen abmelden",
+  "Sign out others": "Andere abmelden",
+  "Sign out this session": "Diese Sitzung abmelden",
+  "Sign out this session?": "Diese Sitzung abmelden?",
   "Sign up": "Registrieren",
   "Sign-in": "Anmeldung",
   "Sign-in methods": "Anmeldemethoden",
@@ -154,8 +171,12 @@ export const ACCOUNT_MESSAGES = {
   "Sign-ups are disabled": "Registrierungen sind deaktiviert",
   "Signed in as {username}. Continue only if you opened the Alloy desktop app.":
     "Angemeldet als {username}. Fahre nur fort, wenn du die Alloy-Desktop-App geöffnet hast.",
+  "Signed in {date}": "Angemeldet am {date}",
   "Signed out": "Abgemeldet",
+  "Signing out…": "Wird abgemeldet…",
   System: "System",
+  "That device will need to sign in again.":
+    "Dieses Gerät muss sich erneut anmelden.",
   "They won't be able to sign in and their clips will be hidden. Their data is kept and you can unban them later.":
     "Der Nutzer kann sich nicht mehr anmelden und seine Clips werden ausgeblendet. Die Daten bleiben erhalten und du kannst ihn später wieder entsperren.",
   "They'll be able to sign in and their clips will be visible again.":
@@ -164,6 +185,7 @@ export const ACCOUNT_MESSAGES = {
     "Der Nutzer wird abgemeldet und seine Clips ausgeblendet. Die Daten bleiben erhalten und du kannst ihn später wieder aktivieren.",
   "This account has been banned by an administrator.":
     "Dieses Konto wurde von einem Administrator gesperrt.",
+  "This device": "Dieses Gerät",
   "This is your last enabled sign-in method. Link another before removing it.":
     "Das ist deine letzte aktive Anmeldemethode. Verknüpfe eine andere, bevor du sie entfernst.",
   "This permanently removes every clip you uploaded.":
@@ -172,6 +194,7 @@ export const ACCOUNT_MESSAGES = {
     "Das entfernt ihre Sitzungen und Clips. Es kann nicht rückgängig gemacht werden.",
   Unblock: "Entsperren",
   "Unblocking…": "Wird entsperrt…",
+  "Unknown browser": "Unbekannter Browser",
   Unlink: "Trennen",
   "Upload new avatar": "Neuen Avatar hochladen",
   "Upload new banner": "Neues Banner hochladen",
@@ -199,6 +222,7 @@ export const ACCOUNT_MESSAGES = {
   "View tagged users": "Markierte Nutzer anzeigen",
   "You may need another sign-in method to access your account.":
     "Vielleicht brauchst du eine andere Anmeldemethode, um auf dein Konto zuzugreifen.",
+  "You're not signed in anywhere else.": "Du bist nirgendwo sonst angemeldet.",
   "You've blocked @": "Du hast @ blockiert",
   "Your browser will prompt you to use Touch ID, Face ID, Windows Hello, or a security key.":
     "Dein Browser fordert dich auf, Touch ID, Face ID, Windows Hello oder einen Sicherheitsschlüssel zu verwenden.",
@@ -211,4 +235,5 @@ export const ACCOUNT_MESSAGES = {
   "this game": "dieses Spiel",
   user: "Nutzer",
   users: "Nutzer",
+  "{browser} on {os}": "{browser} auf {os}",
 } satisfies TranslationCatalog
