@@ -561,7 +561,7 @@ async fn download_manager_uses_native_server_and_cookie_state() {
         "/api/clips/clip-123/download",
         get(|headers: HeaderMap| async move {
             if headers.get("cookie").and_then(|value| value.to_str().ok())
-                != Some("alloy_access=secret")
+                != Some("alloy_session=secret")
             {
                 return (StatusCode::UNAUTHORIZED, "missing native cookie").into_response();
             }
@@ -591,7 +591,7 @@ async fn download_manager_uses_native_server_and_cookie_state() {
     manager
         .set_selected_server(
             Url::parse(&format!("http://127.0.0.1:{port}")).unwrap(),
-            Some("alloy_access=secret".to_string()),
+            Some("alloy_session=secret".to_string()),
         )
         .unwrap();
     let initial = manager

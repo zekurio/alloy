@@ -1,4 +1,6 @@
 import {
+  AUTH_SESSION_CLIENT_KINDS,
+  type AuthSessionClientKind,
   USER_ROLES,
   USER_STATUSES,
   type UserRole,
@@ -77,40 +79,40 @@ export const user = pgTable(
   ],
 )
 
-export const authSession = pgTable("auth_session", {
-  id: uuid().primaryKey().defaultRandom(),
-  token_hash: text().notNull().unique(),
-  user_id: uuid()
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  expires_at: timestamp(),
-  ip_address: text(),
-  user_agent: text(),
-  created_at: timestamp().notNull().defaultNow(),
-  updated_at: timestamp().notNull().defaultNow(),
-  last_seen_at: timestamp(),
-  revoked_at: timestamp(),
-})
-
-export const authRefreshToken = pgTable(
-  "auth_refresh_token",
+// One row per signed-in client. `token_hash` is the SHA-256 of the opaque
+// session token, which never rotates; `expires_at` is the idle deadline that
+// use moves forward.
+export const authSession = pgTable(
+  "auth_session",
   {
     id: uuid().primaryKey().defaultRandom(),
-    session_id: uuid()
-      .notNull()
-      .references(() => authSession.id, { onDelete: "cascade" }),
     token_hash: text().notNull().unique(),
+    user_id: uuid()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     expires_at: timestamp().notNull(),
-    absolute_expires_at: timestamp().notNull(),
-    consumed_at: timestamp(),
-    revoked_at: timestamp(),
+    // Last seen address, refreshed when use moves `expires_at`.
+    ip_address: text(),
+    // Raw User-Agent of the client that signed in, kept for display only.
+    user_agent: text(),
+    client_kind: text().$type<AuthSessionClientKind>().notNull().default("web"),
+    // Computer name the desktop app reports at sign-in. Null for browsers.
+    device_name: text(),
     created_at: timestamp().notNull().defaultNow(),
     updated_at: timestamp().notNull().defaultNow(),
-    last_used_at: timestamp(),
+    last_seen_at: timestamp(),
   },
   (t) => [
-    index("auth_refresh_token_session_idx").on(t.session_id),
-    index("auth_refresh_token_expires_at_idx").on(t.expires_at),
+    index("auth_session_user_idx").on(t.user_id),
+    index("auth_session_expires_at_idx").on(t.expires_at),
+    check(
+      "auth_session_client_kind_check",
+      sql`${t.client_kind} in (${sql.raw(sqlStringList(AUTH_SESSION_CLIENT_KINDS))})`,
+    ),
+    check(
+      "auth_session_device_name_check",
+      sql`${t.device_name} is null or char_length(${t.device_name}) between 1 and 64`,
+    ),
   ],
 )
 
@@ -190,7 +192,6 @@ export const authChallenge = pgTable(
 export const authSchema = {
   user,
   authSession,
-  authRefreshToken,
   userPasskey,
   authAccount,
   authChallenge,
@@ -199,5 +200,4 @@ export const authSchema = {
 export type User = typeof user.$inferSelect
 export type NewUser = typeof user.$inferInsert
 export type AuthSession = typeof authSession.$inferSelect
-export type AuthRefreshToken = typeof authRefreshToken.$inferSelect
 export type UserPasskey = typeof userPasskey.$inferSelect

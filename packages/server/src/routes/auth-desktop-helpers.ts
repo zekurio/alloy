@@ -1,4 +1,23 @@
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"])
+// Matches `auth_session_device_name_check`, counted in code points.
+const DEVICE_NAME_MAX_LENGTH = 64
+
+/**
+ * Display name for the computer the desktop app signed in from. The app sends
+ * the OS computer name, so odd input is tidied up rather than rejected: a
+ * strange hostname must never block sign-in.
+ */
+export function normalizeDeviceName(value: string | undefined): string | null {
+  if (!value) return null
+  const cleaned = value
+    .normalize("NFC")
+    .replace(/\s+/gu, " ")
+    .replace(/[\p{Cc}\p{Cf}]/gu, "")
+    .trim()
+  return (
+    Array.from(cleaned).slice(0, DEVICE_NAME_MAX_LENGTH).join("").trim() || null
+  )
+}
 
 /**
  * Web page that renders the desktop-link confirmation UI. The API's

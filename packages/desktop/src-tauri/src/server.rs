@@ -19,6 +19,13 @@ impl Server {
         let origin = server_origin(input)?;
         install_crypto_provider();
         let client = Client::builder()
+            // Lets the server label the session the token exchange creates.
+            .user_agent(format!(
+                "Alloy-Desktop/{} ({}; {})",
+                env!("CARGO_PKG_VERSION"),
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            ))
             .redirect(Policy::none())
             .connect_timeout(Duration::from_secs(8))
             .timeout(Duration::from_secs(60))

@@ -15,7 +15,7 @@ use std::{
 };
 
 use alloy_desktop::{
-    login::{BrowserLogin, InjectedCookies, SessionTokens},
+    login::{BrowserLogin, InjectedCookie, LEGACY_REFRESH_COOKIE, SESSION_COOKIE, SessionToken},
     policy::{
         CONNECT_WINDOW_LABEL, SERVER_WINDOW_PREFIX, bridge_initialization_script, is_local_app_url,
         is_same_origin, remote_window_label,
@@ -241,7 +241,7 @@ async fn connect_to_server(
                 result = browser_login(&server) => result,
                 _ = login_cancelled.changed() => Err("Sign-in was cancelled.".into()),
             } {
-                Ok(tokens) => tokens,
+                Ok(token) => token,
                 Err(error) => {
                     clear_cancel(host);
                     return Err(error);
@@ -300,7 +300,7 @@ async fn prepare_server(url: &str) -> Result<(Server, String), String> {
     Ok((server, version))
 }
 
-async fn browser_login(server: &Server) -> Result<SessionTokens, String> {
+async fn browser_login(server: &Server) -> Result<SessionToken, String> {
     let login = BrowserLogin::prepare(server).await?;
     open::that(login.authorize_url.as_str())
         .map_err(|_| "Could not open the sign-in page in your browser.")?;
@@ -653,7 +653,7 @@ async fn install_remote(
     host: &Arc<Host>,
     runtime: &Arc<DesktopRuntime>,
     server: Server,
-    tokens: Option<&SessionTokens>,
+    token: Option<&SessionToken>,
     cancelled: &watch::Receiver<bool>,
     show: bool,
 ) -> Result<u64, String> {
@@ -737,19 +737,17 @@ async fn install_remote(
         let _ = window.destroy();
         return Err(error);
     }
-    let injected = tokens.map(SessionTokens::injected_cookies);
+    let injected = token.map(SessionToken::injected_cookie);
     let cookie_result = async {
-        if let Some(tokens) = tokens {
+        if let Some(token) = token {
             // A previous host-only or domain cookie must not shadow this login.
             clear_session_cookies(&window, &server.origin).await?;
-            for header in tokens.cookie_headers(&server.origin)? {
-                let cookie = Cookie::parse(header)
-                    .map_err(|_| "Could not create the Alloy session cookie.")?
-                    .into_owned();
-                window
-                    .set_cookie(cookie)
-                    .map_err(|_| "Could not store the Alloy session cookie.")?;
-            }
+            let cookie = Cookie::parse(token.cookie_header(&server.origin)?)
+                .map_err(|_| "Could not create the Alloy session cookie.")?
+                .into_owned();
+            window
+                .set_cookie(cookie)
+                .map_err(|_| "Could not store the Alloy session cookie.")?;
         } else {
             let cookies = window
                 .cookies_for_url(server.origin.clone())
@@ -854,26 +852,24 @@ async fn install_remote(
         let _ = previous.window.destroy();
     }
     if let Some(injected) = injected {
-        tauri::async_runtime::spawn(replace_injected_cookies(window, origin, injected, loaded));
+        tauri::async_runtime::spawn(replace_injected_cookie(window, origin, injected, loaded));
     }
     Ok(generation)
 }
 
-/// Swaps the cookies the host injected for the ones the server sets itself.
+/// Swaps the cookie the host injected for the copy the server sets itself.
 ///
-/// The injected pair must carry a `Domain` (see `session_cookie` in
+/// The injected cookie must carry a `Domain` (see `session_cookie` in
 /// `login.rs`), so on a registrable domain it is stored as a domain cookie
-/// while the server's is host-only. Both would then be sent for every request
-/// and hono keeps the first, so a rotated refresh token would stay shadowed by
-/// the stale injected one until the server revoked the session family. Asking
-/// the signed-in page to refresh once makes the webview receive the server's
-/// own `Set-Cookie`; the injected copies are then deleted, leaving one copy of
-/// each name. Only runs after a fresh sign-in — a restored session never
-/// injected anything.
-async fn replace_injected_cookies(
+/// while the server's is host-only. A domain cookie reaches every subdomain
+/// and survives the server's sign-out. Checking the session from the loaded
+/// page makes the webview receive the server's own `Set-Cookie` with the same
+/// token; the injected copy is then deleted. Only runs after a fresh sign-in —
+/// a restored session never injected anything.
+async fn replace_injected_cookie(
     window: WebviewWindow,
     origin: Url,
-    injected: InjectedCookies,
+    injected: InjectedCookie,
     mut loaded: watch::Receiver<bool>,
 ) {
     // An error here means the window is gone, and with it the cookies.
@@ -881,10 +877,10 @@ async fn replace_injected_cookies(
         return;
     }
     // Same-origin `fetch` from the page itself, so the browser attaches the
-    // cookies and the `Sec-Fetch-Site: same-origin` the server's CSRF check
-    // wants. The endpoint takes no body and no extra headers.
+    // cookie. The web app makes the same request when it boots; this one
+    // covers pages that do not.
     if window
-        .eval("fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' }).catch(() => {})")
+        .eval("fetch('/api/auth/session', { credentials: 'include' }).catch(() => {})")
         .is_err()
     {
         return;
@@ -901,7 +897,7 @@ async fn replace_injected_cookies(
         }
         if tokio::time::Instant::now() >= deadline {
             log::warn!(
-                "The server did not replace the injected session cookies. Sign in again if the session drops."
+                "The server did not replace the injected session cookie. It stays scoped to the server's subdomains until sign-out."
             );
             return;
         }
@@ -933,10 +929,12 @@ async fn abandon_remote(
     let _ = show_connect(app, host);
 }
 
+/// A legacy `alloy_refresh` cookie also counts: an upgraded server accepts it
+/// as the session token and replaces it once the web app loads.
 fn has_session_cookie(cookies: &[Cookie<'static>]) -> bool {
     let now = time::OffsetDateTime::now_utc();
     cookies.iter().any(|cookie| {
-        cookie.name() == "alloy_refresh"
+        [SESSION_COOKIE, LEGACY_REFRESH_COOKIE].contains(&cookie.name())
             && !cookie.value().is_empty()
             && cookie
                 .expires_datetime()
