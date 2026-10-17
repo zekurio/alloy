@@ -127,8 +127,8 @@ async function selectRecommendedClipRows(
         and(
           sql`${clipView.user_id} = ${viewerId}::uuid`,
           sql`${clip.author_id} <> ${viewerId}::uuid`,
-          // View timestamps use database-local now(); let PostgreSQL apply
-          // its time zone when comparing them to the UTC pagination anchor.
+          // View timestamps are UTC wall time, and connections use UTC, so
+          // PostgreSQL compares them to the pagination anchor correctly.
           sql`${clipView.created_at} <= ${isoDate(asOf)}::timestamptz`,
           ...publicClipListingConditions("video"),
         ),
