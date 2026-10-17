@@ -8,6 +8,14 @@ export type AuthErrorCode =
   (typeof AUTH_ERROR_CODES)[keyof typeof AUTH_ERROR_CODES]
 
 /**
+ * How a session was created: a browser sign-in, or the desktop app's code
+ * exchange. Set by the endpoint that creates the session, never derived from
+ * the client's User-Agent.
+ */
+export const AUTH_SESSION_CLIENT_KINDS = ["web", "desktop"] as const
+export type AuthSessionClientKind = (typeof AUTH_SESSION_CLIENT_KINDS)[number]
+
+/**
  * The authenticated user as it crosses the wire.
  *
  * Shared rather than duplicated because the client validates this shape with a

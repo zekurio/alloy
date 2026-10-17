@@ -87,13 +87,22 @@ async fn respond(mut stream: TcpStream, info: Value, received: Arc<Mutex<Option<
         json!({ "setupRequired": false, "desktopAuth": { "version": 1 } })
     } else {
         assert!(first.starts_with("POST /api/auth/desktop/token "));
+        // The server labels the desktop session with this.
+        assert!(
+            headers
+                .to_ascii_lowercase()
+                .contains("\r\nuser-agent: alloy-desktop/")
+        );
         *received.lock().unwrap() =
             Some(serde_json::from_slice(&request[header_end..header_end + length]).unwrap());
         json!({
-            "accessToken": "test-access-token",
-            "refreshToken": "test-refresh-token",
+            "sessionToken": "test-session-token",
+            "cookieExpiresAt": "2099-01-01T00:00:00Z",
+            // Legacy fields the server keeps for older apps.
+            "accessToken": "test-session-token",
+            "refreshToken": "test-session-token",
             "accessExpiresAt": "2099-01-01T00:00:00Z",
-            "refreshExpiresAt": "2099-02-01T00:00:00Z"
+            "refreshExpiresAt": "2099-01-01T00:00:00Z"
         })
     }
     .to_string();
@@ -150,7 +159,7 @@ async fn browser_login_rejects_wrong_state_then_exchanges_pkce_code() {
         .append_pair("code", "one-time-code");
     let response = mock.server.client.get(callback).send().await.unwrap();
     assert_eq!(response.status().as_u16(), 200);
-    let tokens = timeout(Duration::from_secs(5), completion)
+    let token = timeout(Duration::from_secs(5), completion)
         .await
         .unwrap()
         .unwrap()
@@ -163,17 +172,22 @@ async fn browser_login_rejects_wrong_state_then_exchanges_pkce_code() {
         URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes())),
         query["code_challenge"]
     );
-    let cookies = tokens.cookie_headers(&mock.server.origin).unwrap();
-    assert!(cookies[0].starts_with("alloy_access=test-access-token;"));
-    assert!(cookies[1].starts_with("alloy_refresh=test-refresh-token;"));
-    assert!(cookies.iter().all(|cookie| cookie.contains("HttpOnly")));
+    let cookie = token.cookie_header(&mock.server.origin).unwrap();
+    assert!(cookie.starts_with("alloy_session=test-session-token;"));
+    assert!(cookie.contains("HttpOnly"));
 
-    // The host deletes its injected cookies once the server has set its own,
-    // so it has to recognise exactly its own values and nothing else.
-    let injected = tokens.injected_cookies();
-    assert!(injected.is_injected_cookie("alloy_access", "test-access-token"));
-    assert!(injected.is_injected_cookie("alloy_refresh", "test-refresh-token"));
-    assert!(!injected.is_injected_cookie("alloy_refresh", "rotated-refresh-token"));
-    assert!(!injected.is_injected_cookie("alloy_access", "test-refresh-token"));
+    // The host deletes its injected cookie once the server has set its own
+    // host-only copy of the same token, and must never touch anything else.
+    let injected = token.injected_cookie();
+    let host = mock.server.origin.host_str().unwrap();
+    let domain = format!(".{host}");
+    assert!(injected.is_injected_cookie("alloy_session", "test-session-token"));
+    assert!(!injected.is_injected_cookie("alloy_session", "other-session-token"));
+    assert!(!injected.is_injected_cookie("alloy_refresh", "test-session-token"));
     assert!(!injected.is_injected_cookie("alloy_is_authenticated", "true"));
+    assert!(injected.should_remove("alloy_session", "test-session-token", &domain, host));
+    assert!(!injected.should_remove("alloy_session", "test-session-token", host, host));
+    assert!(injected.has_replacement("alloy_session", "test-session-token", host, "/", host));
+    assert!(!injected.has_replacement("alloy_session", "test-session-token", &domain, "/", host));
+    assert!(!injected.has_replacement("alloy_session", "test-session-token", host, "/api", host));
 }

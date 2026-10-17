@@ -72,9 +72,11 @@ check on Windows:
 - Installer setup, updates, and uninstall.
 
 For cookie changes, test HTTPS on a registrable domain and loopback with stale
-host-only and domain-scoped cookies. After login and refresh, only host-only
-`alloy_access` and `alloy_refresh` cookies should remain and survive restart.
-Forgetting the server must remove both scopes, including stale path variants.
+host-only and domain-scoped cookies. After login, only a host-only
+`alloy_session` cookie should remain and survive restart, including a forced
+restart of Windows. A session from an older app (`alloy_refresh`) must restore
+without a new sign-in. Forgetting the server must remove both scopes and the
+legacy names, including stale path variants.
 Never log or screenshot token values.
 
 ## Storage and logs
