@@ -19,6 +19,9 @@ Leave unrelated working-tree changes alone.
   require Windows to build and run Clippy:
   `cargo fmt --all --check` and
   `cargo clippy --workspace --all-targets --locked -- -D warnings`.
+- For schema changes, generate migrations with a descriptive snake_case name,
+  e.g. `pnpm db:generate --name session_tokens`, never Drizzle's random
+  default. Never edit a migration's SQL after it merges; add a new one instead.
 - For Nix changes, run `nix flake check`. Build `.#alloy` only when needed.
 
 ## Boundaries
