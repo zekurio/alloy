@@ -56,6 +56,8 @@ export const ACCOUNT_MESSAGES = {
   "Couldn't remove passkey": "Passkey konnte nicht entfernt werden",
   "Couldn't rename passkey": "Passkey konnte nicht umbenannt werden",
   "Couldn't sign out": "Abmeldung fehlgeschlagen",
+  "Couldn't sign out other sessions":
+    "Andere Sitzungen konnten nicht abgemeldet werden",
   "Couldn't sign out session": "Sitzung konnte nicht abgemeldet werden",
   "Couldn't start link flow": "Verknüpfung konnte nicht gestartet werden",
   "Couldn't unlink": "Verknüpfung konnte nicht aufgehoben werden",

@@ -54,7 +54,9 @@ export function SessionsCard() {
     mutationFn: async () => {
       const { error } = await authClient.revokeOtherSessions()
       if (error) {
-        throw new Error(errorMessage(error, t("Couldn't sign out session")))
+        throw new Error(
+          errorMessage(error, t("Couldn't sign out other sessions")),
+        )
       }
     },
     onSuccess: () => setRevokeOthersOpen(false),
