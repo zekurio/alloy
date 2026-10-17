@@ -46,6 +46,11 @@ export function setSessionCookie(c: Context, token: string): void {
     path: "/",
     maxAge: SESSION_COOKIE_MAX_AGE_SEC,
   })
+  // Nothing reads the legacy access cookie anymore. The legacy refresh cookie
+  // stays until it expires: desktop apps from before this change only look
+  // for that name when restoring a session, and deleting it would sign them
+  // out on every restart wherever their cookie is host-only.
+  deleteCookie(c, LEGACY_ACCESS_COOKIE, { path: "/", secure })
 }
 
 export function clearSessionCookies(c: Context): void {
