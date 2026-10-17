@@ -20,7 +20,13 @@ const UTC_SESSION_OPTION = "-c TimeZone=UTC"
  * there so it wins over a TimeZone set in them.
  */
 function withUtcSessions(databaseUrl: string): string {
-  if (!URL.canParse(databaseUrl)) return databaseUrl
+  // Env validation already requires a URL. Refuse anything else rather than
+  // run with sessions in the server's local time.
+  if (!URL.canParse(databaseUrl)) {
+    throw new Error(
+      "DATABASE_URL must be a postgres:// URL so sessions can start in UTC.",
+    )
+  }
   const url = new URL(databaseUrl)
   const options = url.searchParams.get("options")
   url.searchParams.set(

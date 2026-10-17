@@ -2,9 +2,11 @@
 -- defaults stored local wall time in these `timestamp` columns while the app
 -- reads them as UTC. The app now starts its sessions in UTC. Migrations still
 -- run in the old session time zone, so convert from it, assuming it has not
--- changed since the rows were written. Only `created_at` qualifies: the app
--- never writes it, while `updated_at` mixes default-written local times with
--- app-written UTC times.
+-- changed since the rows were written. Rows from the repeated hour when
+-- daylight saving time ends are ambiguous, and PostgreSQL picks one of the
+-- two offsets, so they may end up an hour off. Only `created_at` qualifies:
+-- the app never writes it, while `updated_at` mixes default-written local
+-- times with app-written UTC times.
 DO $$
 DECLARE
   tz text := current_setting('TimeZone');
