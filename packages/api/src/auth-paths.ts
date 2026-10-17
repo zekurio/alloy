@@ -19,4 +19,9 @@ export const AUTH_PATHS = {
   passkey(id: string): string {
     return `/api/auth/passkeys/${encodedPathSegment(id)}`
   },
+  sessions: "/api/auth/sessions",
+  sessionsRevokeOthers: "/api/auth/sessions/revoke-others",
+  sessionById(id: string): string {
+    return `/api/auth/sessions/${encodedPathSegment(id)}`
+  },
 } as const

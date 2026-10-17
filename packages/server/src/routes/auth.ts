@@ -47,6 +47,7 @@ import {
   authError,
   csrf,
 } from "./auth-route-helpers"
+import { authSessionRoutes } from "./auth-session-routes"
 import { tbValidator } from "./validation"
 
 const UpdateUserBody = t.object({
@@ -145,6 +146,7 @@ export const authRoute = new Hono()
     )
   })
   .route("/", authPasskeyRoutes)
+  .route("/", authSessionRoutes)
   .patch(
     "/user",
     requireSession,

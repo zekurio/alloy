@@ -6,6 +6,10 @@ import {
   startAuthChallengeExpiryWorker,
   stopAuthChallengeExpiryWorker,
 } from "./auth/challenge-expiry"
+import {
+  startAuthSessionExpiryWorker,
+  stopAuthSessionExpiryWorker,
+} from "./auth/session-expiry"
 import { signInConfigError } from "./auth/sign-in-config"
 import { configStore, initializeConfigStore } from "./config/store"
 import { warmDatabase } from "./db"
@@ -74,6 +78,8 @@ try {
   // Auth challenge TTLs use their own indexed deadline coordinator rather
   // than manufacturing recurring generic jobs.
   startAuthChallengeExpiryWorker()
+  // Expired sessions are already ignored by lookups; this only prunes them.
+  startAuthSessionExpiryWorker()
   // Pending clip uploads and detached ticket owners share one globally ordered
   // deadline coordinator. Pending clips retain exact-object crash recovery.
   startUploadExpiryWorker()
@@ -113,6 +119,7 @@ const shutdown = () => {
     stopClipMediaWorker(),
     stopStorageDeletionWorker(),
     stopAuthChallengeExpiryWorker(),
+    stopAuthSessionExpiryWorker(),
     stopUploadExpiryWorker(),
     stopWebhookDeliveryWorker(),
   ])

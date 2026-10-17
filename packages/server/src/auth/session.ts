@@ -158,6 +158,25 @@ export async function getSession(c: Context): Promise<SessionData | null> {
   return session
 }
 
+/**
+ * Whether a session is still signed in. Long-lived requests such as event
+ * streams authenticate once, then call this to notice a sign-out, a
+ * revocation from another device, or expiry.
+ */
+export async function isSessionActive(sessionId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: authSession.id })
+    .from(authSession)
+    .where(
+      and(
+        eq(authSession.id, sessionId),
+        gt(authSession.expires_at, new Date()),
+      ),
+    )
+    .limit(1)
+  return row !== undefined
+}
+
 export async function deleteCurrentSession(c: Context): Promise<void> {
   const token = readSessionToken(c)
   if (!token) return

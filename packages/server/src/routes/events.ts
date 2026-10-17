@@ -1,4 +1,6 @@
+import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
+import { isSessionActive } from "@alloy/server/auth/session"
 import {
   type QueueEvent,
   subscribeToAuthorQueue,
@@ -9,6 +11,8 @@ import { Hono } from "hono"
 import { type SSEStreamingApi, streamSSE } from "hono/streaming"
 
 const HEARTBEAT_MS = 25_000
+
+const logger = createLogger("events")
 
 type StreamSleeper = Pick<SSEStreamingApi, "sleep">
 
@@ -88,9 +92,13 @@ async function runPendingEventStream<T>(input: {
   setWake: (wake: (() => void) | null) => void
   eventName: (event: T) => string
   writeIdle: () => Promise<void>
+  /** Returns false to end the stream. */
+  stillAuthorized: () => Promise<boolean>
   signal: AbortSignal
 }) {
   while (!input.stream.aborted && !input.signal.aborted) {
+    if (!(await input.stillAuthorized())) return
+
     if (
       await writePendingEvents(
         input.stream.writeSSE.bind(input.stream),
@@ -117,16 +125,39 @@ async function runPendingEventStream<T>(input: {
   }
 }
 
+/**
+ * The stream authenticates only when it opens. Look the session up again once
+ * per heartbeat interval, busy or idle, so a revoked or expired session stops
+ * receiving events. Ending the stream makes the client reconnect, and that
+ * request gets a 401.
+ */
+function sessionCheck(sessionId: string): () => Promise<boolean> {
+  let checkedAt = Date.now()
+  return async () => {
+    if (Date.now() - checkedAt < HEARTBEAT_MS) return true
+    checkedAt = Date.now()
+    try {
+      return await isSessionActive(sessionId)
+    } catch (cause) {
+      // Ending the stream is safe: the reconnect authenticates from scratch.
+      logger.warn("event stream session check failed:", cause)
+      return false
+    }
+  }
+}
+
 async function runHeartbeatEventStream<T>(input: {
   stream: Pick<SSEStreamingApi, "aborted" | "sleep" | "writeSSE">
   pending: T[]
   setWake: (wake: (() => void) | null) => void
   eventName: (event: T) => string
+  sessionId: string
 }) {
   await runPendingEventStream({
     ...input,
     sleep: streamSleep(input.stream),
     writeIdle: () => input.stream.writeSSE({ event: "heartbeat", data: "" }),
+    stillAuthorized: sessionCheck(input.sessionId),
     signal: shutdownSignal,
   })
 }
@@ -137,6 +168,7 @@ async function streamSubscribedEvents<T>(input: {
   subscribe: (push: (event: T) => void) => () => void
   writeSnapshot: () => Promise<void>
   eventName: (event: T) => string
+  sessionId: string
 }) {
   let wake: (() => void) | null = null
   const wakeOnShutdown = () => wake?.()
@@ -161,6 +193,7 @@ async function streamSubscribedEvents<T>(input: {
         wake = next
       },
       eventName: input.eventName,
+      sessionId: input.sessionId,
     })
   } finally {
     shutdownSignal.removeEventListener("abort", wakeOnShutdown)
@@ -173,6 +206,7 @@ export const eventsRoute = new Hono().get(
   requireSession,
   (c) => {
     const viewerId = c.var.viewerId
+    const sessionId = c.var.session.session.id
 
     c.header("Cache-Control", "no-cache, no-transform")
     c.header("X-Accel-Buffering", "no")
@@ -187,6 +221,7 @@ export const eventsRoute = new Hono().get(
         writeSnapshot: () =>
           writeQueueSnapshot(stream.writeSSE.bind(stream), viewerId),
         eventName: (event) => event.type,
+        sessionId,
       })
     })
   },
