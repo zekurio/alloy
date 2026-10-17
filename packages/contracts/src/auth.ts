@@ -15,6 +15,49 @@ export type AuthErrorCode =
 export const AUTH_SESSION_CLIENT_KINDS = ["web", "desktop"] as const
 export type AuthSessionClientKind = (typeof AUTH_SESSION_CLIENT_KINDS)[number]
 
+/** Browser families the server recognizes in a session's User-Agent. */
+export const AUTH_SESSION_BROWSERS = [
+  "Firefox",
+  "Chrome",
+  "Edge",
+  "Safari",
+  "Opera",
+] as const
+export type AuthSessionBrowser = (typeof AUTH_SESSION_BROWSERS)[number]
+
+/** Operating systems the server recognizes in a session's User-Agent. */
+export const AUTH_SESSION_OPERATING_SYSTEMS = [
+  "Windows",
+  "macOS",
+  "Linux",
+  "Android",
+  "iOS",
+  "ChromeOS",
+] as const
+export type AuthSessionOperatingSystem =
+  (typeof AUTH_SESSION_OPERATING_SYSTEMS)[number]
+
+/**
+ * One of the signed-in user's sessions, as listed in their settings. The
+ * token hash, owner, and raw User-Agent stay on the server; `browser` and `os`
+ * are parsed from the User-Agent when the list is read.
+ */
+export interface AuthSessionSummary {
+  id: string
+  /** The session that made this request. */
+  current: boolean
+  clientKind: AuthSessionClientKind
+  /** Computer name reported by the desktop app. Null for browsers. */
+  deviceName: string | null
+  browser: AuthSessionBrowser | null
+  os: AuthSessionOperatingSystem | null
+  /** Address of the last request that moved the session's idle deadline. */
+  ipAddress: string | null
+  createdAt: IsoDateString
+  lastSeenAt: IsoDateString
+  expiresAt: IsoDateString
+}
+
 /**
  * The authenticated user as it crosses the wire.
  *

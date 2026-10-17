@@ -74,6 +74,9 @@ export const ERRORS_MESSAGES = {
     "Passkey-Registrierung ist derzeit deaktiviert.",
   "Passkey sign-up is enabled, but this browser does not support passkeys.":
     "Passkey-Registrierung ist aktiviert, aber dieser Browser unterstützt keine Passkeys.",
+  "Session not found.": "Sitzung nicht gefunden.",
+  "Sign out to end the current session.":
+    "Melde dich ab, um die aktuelle Sitzung zu beenden.",
   "Something went wrong": "Etwas ist schiefgelaufen",
   "The page may have moved, been deleted, or never existed.":
     "Die Seite wurde vielleicht verschoben, gelöscht oder hat nie existiert.",
