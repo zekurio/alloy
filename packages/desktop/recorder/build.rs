@@ -4,7 +4,7 @@ fn main() {
     }
 
     winresource::WindowsResource::new()
-        .set_icon("assets/icon.ico")
+        .set_icon("../assets/icon.ico")
         .set("FileDescription", "Alloy Agent")
         .set("ProductName", "Alloy")
         .compile()

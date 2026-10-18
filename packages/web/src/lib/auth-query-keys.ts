@@ -5,11 +5,12 @@ import { api } from "./api"
 import { authClient } from "./auth-client"
 import { errorMessage } from "./error-message"
 
-const authKeys = {
+export const authKeys = {
   all: ["auth"] as const,
   backdrops: () => [...authKeys.all, "backdrops"] as const,
   accounts: () => [...authKeys.all, "accounts"] as const,
   passkeys: () => [...authKeys.all, "passkeys"] as const,
+  sessions: () => [...authKeys.all, "sessions"] as const,
 }
 
 export function backdropsQueryOptions() {
@@ -38,6 +39,18 @@ export function passkeysQueryOptions() {
       const { data, error } = await authClient.passkey.listUserPasskeys()
       if (error)
         throw new Error(errorMessage(error, t("Couldn't load passkeys")))
+      return data ?? []
+    },
+  })
+}
+
+export function sessionsQueryOptions() {
+  return queryOptions({
+    queryKey: authKeys.sessions(),
+    queryFn: async () => {
+      const { data, error } = await authClient.listSessions()
+      if (error)
+        throw new Error(errorMessage(error, t("Couldn't load sessions")))
       return data ?? []
     },
   })

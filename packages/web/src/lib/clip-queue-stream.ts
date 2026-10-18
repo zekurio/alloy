@@ -13,6 +13,7 @@ import { invalidateClipCaches, patchClipInCaches } from "./clip-query-cache"
 import { clipKeys } from "./clip-query-keys"
 import { apiOrigin } from "./env"
 import { bindEventSourceListeners } from "./event-source-listeners"
+import { recheckSession } from "./session-recheck"
 
 function applyUploadQueueEvent(
   prev: QueueClip[] | undefined,
@@ -143,6 +144,9 @@ function bindUploadQueueStream(input: {
     },
     () => {
       setInitialError(true)
+      // CLOSED means the browser stopped reconnecting. The server ends the
+      // stream once the session is gone and then refuses the retry with 401.
+      if (source.readyState === EventSource.CLOSED) void recheckSession()
     },
   )
 }

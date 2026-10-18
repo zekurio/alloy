@@ -6,7 +6,8 @@ import {
   RouteNotFoundState,
 } from "@/components/feedback/route-state"
 
-import { getQueryClient } from "./lib/query-client"
+import { getQueryClient, resetClientState } from "./lib/query-client"
+import { setSessionEndedHandler } from "./lib/session-recheck"
 import { routeTree } from "./routeTree.gen"
 
 export function getRouter() {
@@ -30,6 +31,14 @@ export function getRouter() {
     Wrap: ({ children }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     ),
+  })
+
+  // Once the server drops the session, clear signed-in caches and rerun the
+  // route guards. Protected routes then redirect to a bare /login, which the
+  // desktop app shows as its sign-in screen.
+  setSessionEndedHandler(async () => {
+    resetClientState()
+    await router.invalidate()
   })
 
   return router

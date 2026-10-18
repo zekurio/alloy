@@ -1,6 +1,8 @@
-import type { AuthUser } from "@alloy/contracts"
+import type { AuthSessionSummary, AuthUser } from "@alloy/contracts"
 import type { AuthSession, User } from "@alloy/db/auth-schema"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
+
+import { sessionClientLabel } from "./session-client"
 
 type PublicPasskeyRow = {
   id: string
@@ -58,6 +60,27 @@ export function publicSessionData(row: PublicSessionData) {
   return {
     session: publicAuthSessionRow(row.session),
     user: publicAuthUserRow(row.user),
+  }
+}
+
+export function publicAuthSessionSummary(
+  row: AuthSession,
+  currentId: string,
+): AuthSessionSummary {
+  // Annotated for the same reason as publicAuthUserRow. Leave out token_hash,
+  // user_id, and the raw user_agent.
+  const { browser, os } = sessionClientLabel(row.client_kind, row.user_agent)
+  return {
+    id: row.id,
+    current: row.id === currentId,
+    clientKind: row.client_kind,
+    deviceName: row.device_name,
+    browser,
+    os,
+    ipAddress: row.ip_address,
+    createdAt: isoDate(row.created_at),
+    lastSeenAt: isoDate(row.last_seen_at ?? row.created_at),
+    expiresAt: isoDate(row.expires_at),
   }
 }
 

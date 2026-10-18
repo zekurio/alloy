@@ -51,6 +51,7 @@ import {
 } from "@/components/routes/settings/data-card"
 import { ProfileCard } from "@/components/routes/settings/profile-card"
 import { SecuritySettings } from "@/components/routes/settings/security-settings"
+import { SessionsCard } from "@/components/routes/settings/sessions-card"
 import {
   SettingsSections,
   SettingsSubsection,
@@ -177,6 +178,7 @@ function ProfilePanel() {
         />
       </SettingsSubsection>
       <SecuritySettings />
+      <SessionsCard />
     </SettingsSections>
   )
 }

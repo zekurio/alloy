@@ -1,8 +1,6 @@
-import { isStringValue } from "@alloy/contracts"
 import type { AppType } from "@alloy/server/app"
 import { type ClientRequestOptions, hc } from "hono/client"
 
-import { AUTH_PATHS } from "./auth-paths"
 import { queryParams, type QueryParamValue } from "./paths"
 
 export interface CreateApiOptions {
@@ -58,7 +56,6 @@ function mergeHeaders(
 export function createApiClient(
   baseURL: string,
   init: RequestInit = {},
-  fetcher: typeof fetch = createSessionRefreshingFetch(baseURL, init),
 ): ApiClient {
   return {
     async request(path, options = {}) {
@@ -76,62 +73,13 @@ export function createApiClient(
         requestInit.body = JSON.stringify(options.json)
       }
 
-      return fetcher(buildUrl(baseURL, path, options.query), requestInit)
+      return fetch(buildUrl(baseURL, path, options.query), requestInit)
     },
   }
 }
 
-function createSessionRefreshingFetch(
-  baseURL: string,
-  init: RequestInit = {},
-): typeof fetch {
-  let refreshPromise: Promise<boolean> | null = null
-
-  async function refreshAuthSession(): Promise<boolean> {
-    if (!refreshPromise) {
-      refreshPromise = fetch(buildUrl(baseURL, AUTH_PATHS.refresh), {
-        method: "POST",
-        credentials: init.credentials ?? "include",
-        headers: mergeHeaders(init.headers, undefined),
-      })
-        .then((res) => res.ok)
-        .catch(() => false)
-        .finally(() => {
-          refreshPromise = null
-        })
-    }
-    return refreshPromise
-  }
-
-  return async (input, requestInit) => {
-    const res = await fetch(input, requestInit)
-    if (res.status !== 401 || isAuthRefreshBypass(baseURL, input)) return res
-
-    if (!(await refreshAuthSession())) return res
-    return fetch(input, requestInit)
-  }
-}
-
-function isAuthRefreshBypass(
-  baseURL: string,
-  input: RequestInfo | URL,
-): boolean {
-  const url =
-    isStringValue(input) || input instanceof URL
-      ? new URL(input, baseURL)
-      : new URL(input.url, baseURL)
-  return (
-    url.pathname === AUTH_PATHS.refresh || url.pathname === AUTH_PATHS.signOut
-  )
-}
-
-function createRpcClient(
-  baseURL: string,
-  init: RequestInit = {},
-  fetcher: typeof fetch = createSessionRefreshingFetch(baseURL, init),
-): RpcClient {
+function createRpcClient(baseURL: string, init: RequestInit = {}): RpcClient {
   const options: ClientRequestOptions = {
-    fetch: fetcher,
     init: {
       ...init,
       credentials: init.credentials ?? "include",
@@ -142,13 +90,12 @@ function createRpcClient(
 
 export function createApiContext(options: CreateApiOptions): ApiContext {
   const init = options.init ?? {}
-  const fetcher = createSessionRefreshingFetch(options.baseURL, init)
-  const client = createApiClient(options.baseURL, init, fetcher)
+  const client = createApiClient(options.baseURL, init)
   return {
     baseURL: options.baseURL,
     publicURL: options.publicURL ?? options.baseURL,
     client,
-    rpc: createRpcClient(options.baseURL, init, fetcher),
+    rpc: createRpcClient(options.baseURL, init),
     request: client.request,
   }
 }
