@@ -1,10 +1,22 @@
-import { USER_ROLES, USER_STATUSES } from "@alloy/contracts"
+import {
+  AUTH_SESSION_BROWSERS,
+  AUTH_SESSION_CLIENT_KINDS,
+  AUTH_SESSION_OPERATING_SYSTEMS,
+  USER_ROLES,
+  USER_STATUSES,
+} from "@alloy/contracts"
 import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser"
 
-import type { AuthUser, LinkedAccount, Passkey, SessionData } from "./auth"
+import type {
+  AuthSessionSummary,
+  AuthUser,
+  LinkedAccount,
+  Passkey,
+  SessionData,
+} from "./auth"
 import { booleanFlagResponseValidator } from "./contract-validators"
 import type { ApiJsonInput } from "./json-value"
 import {
@@ -13,8 +25,11 @@ import {
   validateBoolean,
   validateEnumString,
   validateIsoDateString,
+  validateNonNegativeInteger,
   validateNullableDateString,
+  validateNullableEnumString,
   validateNullablePositiveInteger,
+  validateNullableRequiredString,
   validateNullableString,
   validateRequiredString,
   validateUrlString,
@@ -24,6 +39,15 @@ export type JsonValidator<T> = (value: ApiJsonInput) => T
 
 const USER_ROLE_SET: ReadonlySet<string> = new Set(USER_ROLES)
 const USER_STATUS_SET: ReadonlySet<string> = new Set(USER_STATUSES)
+const AUTH_SESSION_CLIENT_KIND_SET: ReadonlySet<string> = new Set(
+  AUTH_SESSION_CLIENT_KINDS,
+)
+const AUTH_SESSION_BROWSER_SET: ReadonlySet<string> = new Set(
+  AUTH_SESSION_BROWSERS,
+)
+const AUTH_SESSION_OPERATING_SYSTEM_SET: ReadonlySet<string> = new Set(
+  AUTH_SESSION_OPERATING_SYSTEMS,
+)
 
 export function validateAuthUser(value: ApiJsonInput): AuthUser {
   const user = objectRecord(value, "auth user")
@@ -181,6 +205,66 @@ export function validatePasskey(value: ApiJsonInput): Passkey {
 
 export function validatePasskeys(value: ApiJsonInput): Passkey[] {
   return validateArray(value, "Invalid passkeys response").map(validatePasskey)
+}
+
+function validateAuthSessionSummary(value: ApiJsonInput): AuthSessionSummary {
+  const session = objectRecord(value, "session")
+  validateRequiredString(session.id, "Invalid session response: id is required")
+  validateBoolean(
+    session.current,
+    "Invalid session response: current must be boolean",
+  )
+  validateEnumString(
+    session.clientKind,
+    AUTH_SESSION_CLIENT_KIND_SET,
+    "Invalid session response: clientKind is invalid",
+  )
+  validateNullableRequiredString(
+    session.deviceName,
+    "Invalid session response: deviceName must be a non-empty string or null",
+  )
+  validateNullableEnumString(
+    session.browser,
+    AUTH_SESSION_BROWSER_SET,
+    "Invalid session response: browser is invalid",
+  )
+  validateNullableEnumString(
+    session.os,
+    AUTH_SESSION_OPERATING_SYSTEM_SET,
+    "Invalid session response: os is invalid",
+  )
+  validateNullableString(
+    session.ipAddress,
+    "Invalid session response: ipAddress must be string or null",
+  )
+  for (const key of ["createdAt", "lastSeenAt", "expiresAt"] as const) {
+    validateIsoDateString(
+      session[key],
+      `Invalid session response: ${key} must be a date string`,
+    )
+  }
+  // SAFETY: The checks above validate every field in the asserted response contract.
+  return value as AuthSessionSummary
+}
+
+export function validateAuthSessionSummaries(
+  value: ApiJsonInput,
+): AuthSessionSummary[] {
+  return validateArray(value, "Invalid sessions response").map(
+    validateAuthSessionSummary,
+  )
+}
+
+export function validateRevokeOtherSessionsResponse(value: ApiJsonInput): {
+  revoked: number
+} {
+  const response = objectRecord(value, "revoke other sessions")
+  validateNonNegativeInteger(
+    response.revoked,
+    "Invalid revoke other sessions response: revoked must be a non-negative integer",
+  )
+  // SAFETY: The checks above validate every field in the asserted response contract.
+  return value as { revoked: number }
 }
 
 export function validateLinkedAccount(value: ApiJsonInput): LinkedAccount {

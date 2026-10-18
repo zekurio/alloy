@@ -1,5 +1,6 @@
 import {
   type AuthErrorCode,
+  type AuthSessionSummary,
   isStringValue,
   type AuthUser,
 } from "@alloy/contracts"
@@ -32,7 +33,7 @@ export interface CreateAuthOptions {
   redirect?: AuthRedirect
 }
 
-export type { AuthUser }
+export type { AuthSessionSummary, AuthUser }
 
 export type SessionData = {
   session: {

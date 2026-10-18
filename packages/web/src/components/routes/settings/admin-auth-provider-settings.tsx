@@ -417,7 +417,7 @@ function ProviderDialog({
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
         <form onSubmit={handleSubmit}>
-          <ResponsiveDialogBody className="flex flex-col gap-4 md:max-h-[70vh] md:overflow-y-auto">
+          <ResponsiveDialogBody className="flex flex-col gap-4 md:mb-4 md:max-h-[70vh] md:overflow-y-auto md:pb-0">
             <OAuthProviderForm
               draft={draft}
               editingProviderId={provider?.providerId ?? null}

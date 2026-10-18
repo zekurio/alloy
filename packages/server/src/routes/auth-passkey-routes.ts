@@ -3,7 +3,7 @@ import { userPasskey } from "@alloy/db/auth-schema"
 import { completeAuthenticatedSignIn } from "@alloy/server/auth/account-sign-in"
 import {
   clearAccountReactivationCookie,
-  setSessionCookies,
+  setSessionCookie,
 } from "@alloy/server/auth/cookies"
 import {
   deleteUserPasskeyPreservingSignIn,
@@ -170,9 +170,9 @@ export const authPasskeyRoutes = new Hono()
           response,
         })
 
-        const { tokens, data } = await createSession(c, userRow.id)
+        const { token, data } = await createSession(c, userRow.id)
         clearAccountReactivationCookie(c)
-        setSessionCookies(c, tokens)
+        setSessionCookie(c, token)
         return c.json(publicSessionData(data))
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not verify passkey.")

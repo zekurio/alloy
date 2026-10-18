@@ -11,6 +11,8 @@ import {
   clearAccountReactivationCookie,
   clearSessionCookies,
   readAccountReactivationCookie,
+  readSessionToken,
+  setSessionCookie,
 } from "@alloy/server/auth/cookies"
 import {
   reactivateSelfDisabledIdentity,
@@ -23,7 +25,6 @@ import {
 import {
   deleteCurrentSession,
   getSession,
-  refreshSession,
   requireAnySession,
   requireSession,
 } from "@alloy/server/auth/session"
@@ -31,7 +32,6 @@ import {
   badRequest,
   badRequestFromCause,
   success,
-  unauthorized,
 } from "@alloy/server/runtime/http-response"
 import { rateLimiter } from "@alloy/server/runtime/rate-limit"
 import { requestIp } from "@alloy/server/runtime/request-ip"
@@ -47,6 +47,7 @@ import {
   authError,
   csrf,
 } from "./auth-route-helpers"
+import { authSessionRoutes } from "./auth-session-routes"
 import { tbValidator } from "./validation"
 
 const UpdateUserBody = t.object({
@@ -100,12 +101,13 @@ export const authRoute = new Hono()
   .use("/oauth/link", strictAuthRateLimit)
   .get("/session", async (c) => {
     const session = await getSession(c)
+    const token = readSessionToken(c)
+    // Renewing the cookie with the same token restarts its lifetime and moves
+    // legacy refresh cookies and the desktop app's injected cookie over to
+    // the server's own host-only `alloy_session`.
+    if (session && token) setSessionCookie(c, token)
+    else if (token) clearSessionCookies(c)
     return c.json(session ? publicSessionData(session) : null)
-  })
-  .post("/refresh", async (c) => {
-    const refreshed = await refreshSession(c)
-    if (!refreshed) return unauthorized(c)
-    return c.json(publicSessionData(refreshed.data))
   })
   .post("/sign-out", async (c) => {
     await deleteCurrentSession(c)
@@ -144,6 +146,7 @@ export const authRoute = new Hono()
     )
   })
   .route("/", authPasskeyRoutes)
+  .route("/", authSessionRoutes)
   .patch(
     "/user",
     requireSession,

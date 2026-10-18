@@ -2,7 +2,6 @@ import { encodedPathSegment } from "./paths"
 
 export const AUTH_PATHS = {
   session: "/api/auth/session",
-  refresh: "/api/auth/refresh",
   signOut: "/api/auth/sign-out",
   reactivate: "/api/auth/reactivate",
   user: "/api/auth/user",
@@ -19,5 +18,10 @@ export const AUTH_PATHS = {
   passkeySignUpVerify: "/api/auth/passkey/sign-up/verify",
   passkey(id: string): string {
     return `/api/auth/passkeys/${encodedPathSegment(id)}`
+  },
+  sessions: "/api/auth/sessions",
+  sessionsRevokeOthers: "/api/auth/sessions/revoke-others",
+  sessionById(id: string): string {
+    return `/api/auth/sessions/${encodedPathSegment(id)}`
   },
 } as const

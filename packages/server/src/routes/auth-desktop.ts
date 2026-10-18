@@ -1,5 +1,6 @@
 import { t } from "@alloy/contracts/schema"
 import { translate } from "@alloy/i18n"
+import { SESSION_COOKIE_MAX_AGE_SEC } from "@alloy/server/auth/cookies"
 import {
   consumeDesktopLinkCode,
   createDesktopLinkCode,
@@ -8,7 +9,6 @@ import {
   createSession,
   getSession,
   InactiveAccountError,
-  REFRESH_IDLE_TTL_MS,
 } from "@alloy/server/auth/session"
 import { getSetupStatus } from "@alloy/server/auth/user-bootstrap"
 import { badRequest, forbidden } from "@alloy/server/runtime/http-response"
@@ -18,6 +18,7 @@ import { type Context, Hono } from "hono"
 import {
   desktopAuthorizeWebUrl,
   loopbackRedirect,
+  normalizeDeviceName,
 } from "./auth-desktop-helpers"
 import { tbValidator } from "./validation"
 
@@ -40,6 +41,8 @@ const CodeChallenge = t.string().min(32).max(128).regex(BASE64URL_RE)
 const TokenBody = t.object({
   code: t.string().min(1),
   codeVerifier: t.string().min(32).max(128).regex(BASE64URL_RE),
+  // Older apps omit it.
+  deviceName: t.string().max(256).optional(),
 })
 
 export const authDesktopRoute = new Hono()
@@ -111,25 +114,33 @@ export const authDesktopRoute = new Hono()
   // Mints a fresh session distinct from the browser's, so signing out of one
   // doesn't kill the other.
   .post("/token", tbValidator("json", TokenBody), async (c) => {
-    const { code, codeVerifier } = c.req.valid("json")
+    const { code, codeVerifier, deviceName } = c.req.valid("json")
     const userId = await consumeDesktopLinkCode(code, codeVerifier)
     if (!userId) return badRequest(c, "Invalid or expired code.")
 
-    const created = await createSession(c, userId).catch((cause: unknown) => {
+    const created = await createSession(c, userId, {
+      kind: "desktop",
+      deviceName: normalizeDeviceName(deviceName),
+    }).catch((cause: unknown) => {
       if (cause instanceof InactiveAccountError) return null
       throw cause
     })
     if (!created) return forbidden(c, "Account is not active.")
 
-    const { tokens, data } = created
-    const expiresAt = data.session.expires_at
-    if (!expiresAt) throw new Error("Session created without an expiry.")
+    // The app injects the token as its bootstrap cookie with this expiry,
+    // matching the cookie the server sets itself.
+    const cookieExpiresAt = new Date(
+      Date.now() + SESSION_COOKIE_MAX_AGE_SEC * 1000,
+    ).toISOString()
     return c.json({
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      accessExpiresAt: expiresAt.toISOString(),
-      refreshExpiresAt: new Date(
-        Date.now() + REFRESH_IDLE_TTL_MS,
-      ).toISOString(),
+      sessionToken: created.token,
+      cookieExpiresAt,
+      // Apps from before sessions stopped rotating inject these as
+      // `alloy_access` and `alloy_refresh`. The refresh cookie is accepted as
+      // the session token, so both carry it.
+      accessToken: created.token,
+      refreshToken: created.token,
+      accessExpiresAt: cookieExpiresAt,
+      refreshExpiresAt: cookieExpiresAt,
     })
   })

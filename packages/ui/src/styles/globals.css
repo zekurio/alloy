@@ -108,12 +108,6 @@
   --color-live: var(--live);
   --color-live-soft: var(--live-soft);
 
-  /* Brand */
-  --color-brand-blue: var(--brand-blue);
-  --color-brand-blue-deep: var(--brand-blue-deep);
-  --color-brand-grey-light: var(--brand-grey-light);
-  --color-brand-grey-dark: var(--brand-grey-dark);
-
   /* Neutral ramp exposed for fine-tuned utilities */
   --color-neutral-0: var(--neutral-0);
   --color-neutral-50: var(--neutral-50);
@@ -210,12 +204,6 @@
   --neutral-700: oklch(0.79 0 0);
   --neutral-800: oklch(0.9 0 0);
   --neutral-900: oklch(0.98 0 0);
-
-  /* Brand */
-  --brand-blue: #0091ff;
-  --brand-blue-deep: #003b8f;
-  --brand-grey-light: #bfc5cc;
-  --brand-grey-dark: #1a1c1f;
 
   /* Motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
