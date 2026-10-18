@@ -157,6 +157,16 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     serveFile(c, "/logo.png", "public, max-age=86400"),
   )
 
+  app.on(["GET", "HEAD"], "/logo.svg", (c) =>
+    serveFile(c, "/logo.svg", "public, max-age=86400"),
+  )
+
+  // Square on purpose: iOS rounds touch icons itself and fills transparent
+  // corners with black.
+  app.on(["GET", "HEAD"], "/apple-touch-icon.png", (c) =>
+    serveFile(c, "/apple-touch-icon.png", "public, max-age=86400"),
+  )
+
   app.on(["GET", "HEAD"], "/favicon.ico", (c) =>
     serveFile(c, "/logo.png", "public, max-age=86400"),
   )

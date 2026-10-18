@@ -14,66 +14,56 @@ use crate::server::{Server, read_body};
 
 const MAX_TOKEN_BODY: usize = 64 * 1024;
 
-/// Credentials stay in native memory until they are written to the selected
+/// The cookie that carries an Alloy session. Sessions do not rotate, so a copy
+/// stays valid until the session is signed out or expires.
+pub const SESSION_COOKIE: &str = "alloy_session";
+/// Cookies from before sessions stopped rotating. An upgraded server still
+/// accepts the refresh cookie as the session token until the web app's next
+/// session check replaces it with `SESSION_COOKIE`.
+pub const LEGACY_ACCESS_COOKIE: &str = "alloy_access";
+pub const LEGACY_REFRESH_COOKIE: &str = "alloy_refresh";
+
+/// The credential stays in native memory until it is written to the selected
 /// webview's cookie store. This type is never serialized into a Tauri result.
-pub struct SessionTokens {
-    access_token: String,
-    refresh_token: String,
-    access_expires_at: String,
-    refresh_expires_at: String,
+pub struct SessionToken {
+    token: String,
+    cookie_expires_at: String,
 }
 
-impl SessionTokens {
-    pub fn cookie_headers(&self, server: &Url) -> Result<[String; 2], String> {
+impl SessionToken {
+    pub fn cookie_header(&self, server: &Url) -> Result<String, String> {
         let host = server
             .host_str()
             .ok_or_else(|| "The server URL has no host.".to_string())?;
-        let secure = server.scheme() == "https";
-        Ok([
-            session_cookie(
-                "alloy_access",
-                &self.access_token,
-                &self.access_expires_at,
-                host,
-                secure,
-            )?,
-            session_cookie(
-                "alloy_refresh",
-                &self.refresh_token,
-                &self.refresh_expires_at,
-                host,
-                secure,
-            )?,
-        ])
+        session_cookie(
+            &self.token,
+            &self.cookie_expires_at,
+            host,
+            server.scheme() == "https",
+        )
     }
 
-    /// The values the host is about to inject, so it can recognise its own
-    /// bootstrap cookies in the webview store once the server has set its
-    /// own. Owned, because the cleanup outlives the connect call.
-    pub fn injected_cookies(&self) -> InjectedCookies {
-        InjectedCookies {
-            access_token: self.access_token.clone(),
-            refresh_token: self.refresh_token.clone(),
+    /// The value the host is about to inject, so it can recognise its own
+    /// bootstrap cookie in the webview store once the server has set its own.
+    /// Owned, because the cleanup outlives the connect call.
+    pub fn injected_cookie(&self) -> InjectedCookie {
+        InjectedCookie {
+            token: self.token.clone(),
         }
     }
 }
 
-/// Lets the host tell an injected session cookie apart from one the server
-/// set itself. The tokens stay private so they cannot reach a log or a
-/// command result.
+/// Lets the host tell its injected session cookie apart from the copy the
+/// server sets itself. Both carry the same token; only their scope differs.
+/// The token stays private so it cannot reach a log or a command result.
 #[derive(Clone)]
-pub struct InjectedCookies {
-    access_token: String,
-    refresh_token: String,
+pub struct InjectedCookie {
+    token: String,
 }
 
-impl InjectedCookies {
+impl InjectedCookie {
     pub fn is_injected_cookie(&self, name: &str, value: &str) -> bool {
-        match name {
-            "alloy_access" => value == self.access_token,
-            "alloy_refresh" => value == self.refresh_token,
-            _ => false,
-        }
+        name == SESSION_COOKIE && value == self.token
     }
 
     /// Uses the raw WebView2 domain, not cookie::Cookie::domain(), which strips
@@ -82,6 +72,7 @@ impl InjectedCookies {
         domain.strip_prefix('.') == Some(host) && self.is_injected_cookie(name, value)
     }
 
+    /// The server's own copy is host-only and set at `/`.
     pub fn has_replacement(
         &self,
         name: &str,
@@ -90,11 +81,7 @@ impl InjectedCookies {
         path: &str,
         host: &str,
     ) -> bool {
-        name == "alloy_refresh"
-            && !value.is_empty()
-            && !self.is_injected_cookie(name, value)
-            && domain == host
-            && path == "/"
+        self.is_injected_cookie(name, value) && domain == host && path == "/"
     }
 }
 
@@ -134,7 +121,7 @@ impl BrowserLogin {
         })
     }
 
-    pub async fn finish(self, server: &Server) -> Result<SessionTokens, String> {
+    pub async fn finish(self, server: &Server) -> Result<SessionToken, String> {
         timeout(
             Duration::from_secs(5 * 60),
             self.receive_and_exchange(server),
@@ -143,7 +130,7 @@ impl BrowserLogin {
         .map_err(|_| "Sign-in timed out. Connect again to retry.".to_string())?
     }
 
-    async fn receive_and_exchange(&self, server: &Server) -> Result<SessionTokens, String> {
+    async fn receive_and_exchange(&self, server: &Server) -> Result<SessionToken, String> {
         loop {
             let (stream, _) = self
                 .listener
@@ -166,7 +153,11 @@ impl BrowserLogin {
         }
     }
 
-    async fn exchange(&self, server: &Server, code: String) -> Result<SessionTokens, String> {
+    async fn exchange(&self, server: &Server, code: String) -> Result<SessionToken, String> {
+        let mut body = serde_json::json!({ "code": code, "codeVerifier": self.verifier });
+        if let Some(device_name) = device_name() {
+            body["deviceName"] = device_name.into();
+        }
         let response = server
             .client
             .post(
@@ -175,7 +166,7 @@ impl BrowserLogin {
                     .join("/api/auth/desktop/token")
                     .map_err(|_| "Invalid token URL.")?,
             )
-            .json(&serde_json::json!({ "code": code, "codeVerifier": self.verifier }))
+            .json(&body)
             .send()
             .await
             .map_err(|_| "Could not exchange the login code.")?;
@@ -183,34 +174,35 @@ impl BrowserLogin {
             return Err("The server rejected the login code.".into());
         }
         let body = read_body(response, MAX_TOKEN_BODY).await?;
-        let tokens: Tokens = serde_json::from_slice(&body)
+        let response: TokenResponse = serde_json::from_slice(&body)
             .map_err(|_| "The server returned invalid login credentials.")?;
-        SessionTokens::try_from(tokens)
+        SessionToken::try_from(response)
     }
 }
 
+/// Servers from before sessions stopped rotating answer with an access and
+/// refresh pair instead, which this host no longer injects.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Tokens {
-    access_token: String,
-    refresh_token: String,
-    access_expires_at: String,
-    refresh_expires_at: String,
+struct TokenResponse {
+    session_token: Option<String>,
+    cookie_expires_at: Option<String>,
 }
 
-impl TryFrom<Tokens> for SessionTokens {
+impl TryFrom<TokenResponse> for SessionToken {
     type Error = String;
 
-    fn try_from(tokens: Tokens) -> Result<Self, Self::Error> {
-        validate_token(&tokens.access_token)?;
-        validate_token(&tokens.refresh_token)?;
-        validate_expiry(&tokens.access_expires_at)?;
-        validate_expiry(&tokens.refresh_expires_at)?;
+    fn try_from(response: TokenResponse) -> Result<Self, Self::Error> {
+        let (Some(token), Some(cookie_expires_at)) =
+            (response.session_token, response.cookie_expires_at)
+        else {
+            return Err("Update the Alloy server to sign in with this version of Alloy.".into());
+        };
+        validate_token(&token)?;
+        validate_expiry(&cookie_expires_at)?;
         Ok(Self {
-            access_token: tokens.access_token,
-            refresh_token: tokens.refresh_token,
-            access_expires_at: tokens.access_expires_at,
-            refresh_expires_at: tokens.refresh_expires_at,
+            token,
+            cookie_expires_at,
         })
     }
 }
@@ -240,26 +232,19 @@ fn validate_expiry(expires: &str) -> Result<(), String> {
 /// Builds the `Set-Cookie` header the host injects into the server webview so
 /// the first page load is already signed in.
 ///
-/// These cookies only bootstrap that first load. `Domain` is mandatory here —
+/// This cookie only bootstraps that first load. `Domain` is mandatory here —
 /// wry hands `cookie.domain()` straight to
 /// `ICoreWebView2CookieManager::CreateCookie` and WebView2's
-/// `AddOrUpdateCookie` fails without one — while the server's own cookies
-/// (`packages/server/src/auth/cookies.ts`) are host-only, and on a registrable
-/// domain Chromium stores ours as a domain cookie (`.alloy.example`). Two
-/// copies of a name would then be sent for the same request and hono keeps the
-/// first, shadowing a rotated refresh token. So the host asks the loaded page
-/// to refresh once and deletes these injected copies as soon as the webview
-/// holds cookies the server set itself (`replace_injected_cookies` in
-/// `main.rs`). The host is written without a leading dot: adding one would
-/// force a domain cookie even where Chromium stores ours host-only
-/// (`localhost`, bare IPs, non-public-suffix TLDs).
-fn session_cookie(
-    name: &str,
-    token: &str,
-    expires: &str,
-    host: &str,
-    secure: bool,
-) -> Result<String, String> {
+/// `AddOrUpdateCookie` fails without one — while the server's own cookie
+/// (`packages/server/src/auth/cookies.ts`) is host-only. On a registrable
+/// domain Chromium stores ours as a domain cookie (`.alloy.example`), which
+/// every subdomain would receive and which the server cannot delete on
+/// sign-out. So the host has the loaded page check its session, which makes
+/// the server set its own host-only copy, and then deletes the injected one
+/// (`replace_injected_cookie` in `main.rs`). The host is written without a
+/// leading dot: adding one would force a domain cookie even where Chromium
+/// stores ours host-only (`localhost`, bare IPs, non-public-suffix TLDs).
+fn session_cookie(token: &str, expires: &str, host: &str, secure: bool) -> Result<String, String> {
     validate_token(token)?;
     let expires =
         time::OffsetDateTime::parse(expires, &time::format_description::well_known::Rfc3339)
@@ -270,8 +255,17 @@ fn session_cookie(
     }
     let secure = if secure { "; Secure" } else { "" };
     Ok(format!(
-        "{name}={token}; Domain={host}; Path=/; HttpOnly; SameSite=Lax; Max-Age={seconds}{secure}"
+        "{SESSION_COOKIE}={token}; Domain={host}; Path=/; HttpOnly; SameSite=Lax; Max-Age={seconds}{secure}"
     ))
+}
+
+/// The computer name shown in the account's session list. The server tidies
+/// it up and ignores it if it is unusable.
+fn device_name() -> Option<String> {
+    std::env::var("COMPUTERNAME")
+        .ok()
+        .map(|name| name.trim().to_owned())
+        .filter(|name| !name.is_empty())
 }
 
 fn random_secret() -> String {
@@ -394,13 +388,20 @@ fn callback_page(lang: &str, title: &str, message: &str) -> String {
             "body{{display:flex;flex-direction:column;background:oklch(0.11 0 0);color:oklch(0.98 0 0);",
             "font:16px/1.5 \"DM Sans\",ui-sans-serif,system-ui,-apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;",
             "-webkit-font-smoothing:antialiased}}",
-            "header{{padding:32px 40px;font:700 22px/1 \"IBM Plex Mono\",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}}",
+            "header{{display:flex;align-items:center;gap:10px;padding:32px 40px;font:700 20px/1 \"IBM Plex Mono\",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}}",
+            "header svg{{display:block;width:36px;height:36px;color:#d0c4eb}}",
             "main{{flex:1;display:flex;align-items:center;justify-content:center;padding:0 24px 96px}}",
             "section{{width:100%;max-width:24rem}}",
             "h1{{margin:0 0 8px;font-size:24px;font-weight:600;letter-spacing:-0.02em}}",
             "p{{margin:0;font-size:14px;color:oklch(0.79 0 0)}}",
             "</style></head><body>",
-            "<header>alloy</header>",
+            "<header>",
+            // The page CSP blocks image requests, so the mark is drawn inline.
+            "<svg viewBox=\"-20.29 -18.29 292.57 292.57\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" ",
+            "stroke-width=\"14\" stroke-linejoin=\"round\" stroke-linecap=\"round\">",
+            "<path d=\"M32 160 L55 220 L157 172 L220 66 L163 36 L105 72 Z\"/>",
+            "<path d=\"M32 160 L98 127 L157 172 M98 127 L163 36\"/></svg>",
+            "alloy</header>",
             "<main><section><h1>{title}</h1><p>{message}</p></section></main>",
             "</body></html>",
         ),

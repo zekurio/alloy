@@ -3,7 +3,9 @@
 //! Recreating that cookie for deletion can target the host-only server cookie
 //! instead of the domain-scoped bootstrap cookie.
 
-use alloy_desktop::login::InjectedCookies;
+use alloy_desktop::login::InjectedCookie;
+#[cfg(windows)]
+use alloy_desktop::login::{LEGACY_ACCESS_COOKIE, LEGACY_REFRESH_COOKIE, SESSION_COOKIE};
 use tauri::WebviewWindow;
 use url::Url;
 #[cfg(windows)]
@@ -13,14 +15,15 @@ use webview2_com::{
 #[cfg(windows)]
 use windows::core::{HSTRING, Interface, PWSTR};
 
-/// None clears every Alloy session cookie for this host, including stale path
-/// variants. Some waits for a rotated refresh cookie and deletes only injected
-/// values. All inspection and deletion stay on the WebView2 UI thread.
+/// None clears every Alloy session cookie for this host, including legacy
+/// names and stale path variants. Some waits for the server's host-only copy
+/// of the injected session cookie and then deletes only the injected copy.
+/// All inspection and deletion stay on the WebView2 UI thread.
 #[cfg(windows)]
 pub async fn remove(
     window: &WebviewWindow,
     origin: &Url,
-    injected: Option<InjectedCookies>,
+    injected: Option<InjectedCookie>,
 ) -> Result<bool, String> {
     let host = origin
         .host_str()
@@ -66,7 +69,10 @@ pub async fn remove(
                                     let mut name = PWSTR::null();
                                     cookie.Name(&mut name)?;
                                     let name = take_pwstr(name);
-                                    if !matches!(name.as_str(), "alloy_access" | "alloy_refresh") {
+                                    if name != SESSION_COOKIE
+                                        && name != LEGACY_ACCESS_COOKIE
+                                        && name != LEGACY_REFRESH_COOKIE
+                                    {
                                         continue;
                                     }
                                     if let Some(injected) = &injected {
@@ -78,10 +84,11 @@ pub async fn remove(
                                         let path = take_pwstr(path);
                                         replaced |= injected
                                             .has_replacement(&name, &value, &domain, &path, &host);
-                                        // Cookie scope determines identity, not value.
-                                        // Never delete a host-only cookie during handoff.
-                                        // On loopback, injection itself is host-only and
-                                        // rotation replaces it in place.
+                                        // Cookie scope determines identity, not value:
+                                        // both copies carry the same token. Never delete
+                                        // a host-only cookie during handoff. On loopback,
+                                        // injection itself is host-only and the server
+                                        // renews it in place.
                                         if !injected.should_remove(&name, &value, &domain, &host) {
                                             continue;
                                         }
@@ -120,7 +127,7 @@ pub async fn remove(
 pub async fn remove(
     _window: &WebviewWindow,
     _origin: &Url,
-    _injected: Option<InjectedCookies>,
+    _injected: Option<InjectedCookie>,
 ) -> Result<bool, String> {
     Err("Native session cookies require Windows WebView2.".into())
 }

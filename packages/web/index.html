@@ -40,10 +40,12 @@
       :root {
         --boot-background: oklch(0.11 0 0);
         --boot-track: oklch(1 0 0 / 0.08);
+        --boot-accent: #d0c4eb;
       }
       :root.light {
         --boot-background: oklch(0.99 0 0);
         --boot-track: oklch(0 0 0 / 0.08);
+        --boot-accent: #5d4f96;
       }
       #boot-splash {
         position: fixed;
@@ -68,11 +70,11 @@
         animation: boot-splash-in 280ms cubic-bezier(0.16, 1, 0.3, 1) 150ms
           forwards;
       }
-      #boot-splash img {
+      #boot-splash svg {
         display: block;
         width: 56px;
         height: 56px;
-        user-select: none;
+        color: var(--accent, var(--boot-accent));
         animation: boot-splash-breathe 2.4s ease-in-out infinite;
       }
       #boot-splash span {
@@ -89,7 +91,7 @@
         inset: 0;
         width: 40%;
         border-radius: inherit;
-        background: var(--accent, #d0c4eb);
+        background: var(--accent, var(--boot-accent));
         animation: boot-splash-progress 1.2s cubic-bezier(0.65, 0, 0.35, 1)
           infinite;
       }
@@ -119,7 +121,7 @@
       @media (prefers-reduced-motion: reduce) {
         #boot-splash,
         #boot-splash > div,
-        #boot-splash img,
+        #boot-splash svg,
         #boot-splash span::after {
           transition: none;
           animation: none;
@@ -149,15 +151,26 @@
       content="Share and watch game clips on alloy."
     />
     <!-- /alloy:head -->
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="icon" type="image/png" href="/logo.png" />
-    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   </head>
   <body>
     <div id="root"></div>
     <!-- Removed by main.tsx once the first route has rendered. -->
     <div id="boot-splash" aria-hidden="true">
       <div>
-        <img src="/logo.png" alt="" draggable="false" />
+        <svg
+          viewBox="-20.29 -18.29 292.57 292.57"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="14"
+          stroke-linejoin="round"
+          stroke-linecap="round"
+        >
+          <path d="M32 160 L55 220 L157 172 L220 66 L163 36 L105 72 Z" />
+          <path d="M32 160 L98 127 L157 172 M98 127 L163 36" />
+        </svg>
         <span></span>
       </div>
     </div>

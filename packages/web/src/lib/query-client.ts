@@ -1,11 +1,15 @@
-import { QueryClient } from "@tanstack/react-query"
+import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query"
 
+import { recheckSessionOnUnauthorized } from "./session-recheck"
 import { invalidateAuthConfig } from "./session-suspense"
 
 let browserClient: QueryClient | null = null
 
 function makeClient(): QueryClient {
   return new QueryClient({
+    // A 401 while signed in usually means the session ended elsewhere.
+    queryCache: new QueryCache({ onError: recheckSessionOnUnauthorized }),
+    mutationCache: new MutationCache({ onError: recheckSessionOnUnauthorized }),
     defaultOptions: {
       queries: {
         // 30s keeps feeds snappy without hammering the API on quick

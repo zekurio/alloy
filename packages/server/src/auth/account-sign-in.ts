@@ -8,7 +8,7 @@ import { accountSignInState } from "./account-state"
 import {
   clearAccountReactivationCookie,
   setAccountReactivationCookie,
-  setSessionCookies,
+  setSessionCookie,
 } from "./cookies"
 import {
   createSession,
@@ -51,7 +51,7 @@ export async function completeAuthenticatedSignIn(
     try {
       const session = await createSession(c, userId)
       clearAccountReactivationCookie(c)
-      setSessionCookies(c, session.tokens)
+      setSessionCookie(c, session.token)
       return { kind: "session", session }
     } catch (cause) {
       if (cause instanceof InactiveAccountError) continue

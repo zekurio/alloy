@@ -3,6 +3,7 @@ import type { RegistrationResponseJSON } from "@simplewebauthn/browser"
 import type {
   AuthRedirect,
   AuthResult,
+  AuthSessionSummary,
   LinkedAccount,
   Passkey,
   RequestFn,
@@ -12,12 +13,14 @@ import type {
 import { AUTH_PATHS } from "./auth-paths"
 import {
   type JsonValidator,
+  validateAuthSessionSummaries,
   validateLinkedAccounts,
   validateOAuthStartResponse,
   validatePasskey,
   validatePasskeyAuthenticationOptionsResponse,
   validatePasskeyRegistrationOptionsResponse,
   validatePasskeys,
+  validateRevokeOtherSessionsResponse,
   validateSessionData,
   validateSuccessResponse,
   validateUserUpdateResponse,
@@ -283,6 +286,27 @@ function createUserActions(request: RequestFn, store: SessionStore) {
         { method: "POST", body: JSON.stringify(input) },
         "Could not unlink account",
         validateSuccessResponse,
+      ),
+    listSessions: () =>
+      result<AuthSessionSummary[]>(
+        AUTH_PATHS.sessions,
+        {},
+        "Could not load sessions",
+        validateAuthSessionSummaries,
+      ),
+    revokeSession: (input: { id: string }) =>
+      result(
+        AUTH_PATHS.sessionById(input.id),
+        { method: "DELETE" },
+        "Could not sign out session",
+        validateSuccessResponse,
+      ),
+    revokeOtherSessions: () =>
+      result(
+        AUTH_PATHS.sessionsRevokeOthers,
+        { method: "POST" },
+        "Could not sign out other sessions",
+        validateRevokeOtherSessionsResponse,
       ),
   }
 }

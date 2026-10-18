@@ -2,20 +2,20 @@ import { env } from "@alloy/server/env"
 import type { Context } from "hono"
 import { deleteCookie, getCookie, setCookie } from "hono/cookie"
 
-const ACCESS_COOKIE = "alloy_access"
-const REFRESH_COOKIE = "alloy_refresh"
+const SESSION_COOKIE = "alloy_session"
+// Sessions used to rotate an access/refresh pair. The migration that removed
+// rotation made each live refresh token its session's token, so a leftover
+// refresh cookie still signs in until `GET /api/auth/session` replaces it.
+const LEGACY_ACCESS_COOKIE = "alloy_access"
+const LEGACY_REFRESH_COOKIE = "alloy_refresh"
 const AUTH_MARKER_COOKIE = "alloy_is_authenticated"
 const ACCOUNT_REACTIVATION_COOKIE = "alloy_account_reactivation"
 const OAUTH_STATE_COOKIE_PREFIX = "alloy_oauth_state_"
-const ACCESS_MAX_AGE_SEC = 15 * 60
-const REFRESH_MAX_AGE_SEC = 30 * 24 * 60 * 60
+// Chromium's cap on cookie lifetimes. The session itself expires server-side
+// after a period without use; `GET /api/auth/session` renews the cookie.
+export const SESSION_COOKIE_MAX_AGE_SEC = 400 * 24 * 60 * 60
 const OAUTH_STATE_MAX_AGE_SEC = 10 * 60
 const ACCOUNT_REACTIVATION_MAX_AGE_SEC = 10 * 60
-
-export type SessionCookieTokens = {
-  accessToken: string
-  refreshToken: string
-}
 
 function secureCookies(): boolean {
   return (
@@ -24,46 +24,40 @@ function secureCookies(): boolean {
   )
 }
 
-export function readAccessCookie(c: Context): string | null {
-  return getCookie(c, ACCESS_COOKIE) ?? null
+export function readSessionToken(c: Context): string | null {
+  return (
+    getCookie(c, SESSION_COOKIE) || getCookie(c, LEGACY_REFRESH_COOKIE) || null
+  )
 }
 
-export function readRefreshCookie(c: Context): string | null {
-  return getCookie(c, REFRESH_COOKIE) ?? null
-}
-
-export function setSessionCookies(
-  c: Context,
-  tokens: SessionCookieTokens,
-): void {
+export function setSessionCookie(c: Context, token: string): void {
   const secure = secureCookies()
-  setCookie(c, ACCESS_COOKIE, tokens.accessToken, {
+  setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "Lax",
     secure,
     path: "/",
-    maxAge: ACCESS_MAX_AGE_SEC,
-  })
-  setCookie(c, REFRESH_COOKIE, tokens.refreshToken, {
-    httpOnly: true,
-    sameSite: "Lax",
-    secure,
-    path: "/",
-    maxAge: REFRESH_MAX_AGE_SEC,
+    maxAge: SESSION_COOKIE_MAX_AGE_SEC,
   })
   setCookie(c, AUTH_MARKER_COOKIE, "true", {
     httpOnly: false,
     sameSite: "Lax",
     secure,
     path: "/",
-    maxAge: REFRESH_MAX_AGE_SEC,
+    maxAge: SESSION_COOKIE_MAX_AGE_SEC,
   })
+  // Nothing reads the legacy access cookie anymore. The legacy refresh cookie
+  // stays until it expires: desktop apps from before this change only look
+  // for that name when restoring a session, and deleting it would sign them
+  // out on every restart wherever their cookie is host-only.
+  deleteCookie(c, LEGACY_ACCESS_COOKIE, { path: "/", secure })
 }
 
 export function clearSessionCookies(c: Context): void {
   const secure = secureCookies()
-  deleteCookie(c, ACCESS_COOKIE, { path: "/", secure })
-  deleteCookie(c, REFRESH_COOKIE, { path: "/", secure })
+  deleteCookie(c, SESSION_COOKIE, { path: "/", secure })
+  deleteCookie(c, LEGACY_ACCESS_COOKIE, { path: "/", secure })
+  deleteCookie(c, LEGACY_REFRESH_COOKIE, { path: "/", secure })
   deleteCookie(c, AUTH_MARKER_COOKIE, { path: "/", secure })
   deleteCookie(c, ACCOUNT_REACTIVATION_COOKIE, {
     path: "/api/auth/reactivate",

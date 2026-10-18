@@ -1,6 +1,6 @@
 [package]
 name = "alloy-desktop"
-version = "0.0.13"
+version = "0.0.16"
 edition = "2024"
 publish = false
 
@@ -40,7 +40,12 @@ sha2 = { workspace = true }
 tauri = { version = "2", optional = true, features = ["tray-icon"] }
 tauri-plugin-autostart = { version = "2", optional = true }
 tauri-plugin-single-instance = { version = "2", optional = true }
-tauri-plugin-updater = { version = "2", optional = true }
+# Without `zip`: updates ship as the NSIS installer itself, which the updater
+# runs directly, so its archive extraction (and the zip crate) is never used.
+tauri-plugin-updater = { version = "2", optional = true, default-features = false, features = [
+  "rustls-tls",
+  "system-proxy",
+] }
 thiserror = "2"
 time = { workspace = true }
 tokio = { workspace = true, features = [

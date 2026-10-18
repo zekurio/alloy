@@ -6,6 +6,7 @@ use alloy_desktop::capture_library::{
     CaptureHttpServer, CaptureLibrary, CaptureLibraryConfig, collection_for,
     download::DownloadManager, media,
 };
+use alloy_desktop::login::{LEGACY_ACCESS_COOKIE, SESSION_COOKIE};
 use alloy_desktop::recording_host::{
     PlayNotificationSoundRequest, RecorderHost, RecorderHostOptions, RecordingCapture,
     RecordingCaptureKind, RecordingEvent, RecordingSettings, SaveReplayClipRequest,
@@ -538,9 +539,14 @@ impl DesktopRuntime {
                 let origin = self.selected(window)?;
                 let cookies = window.cookies_for_url(origin.clone()).map_err(error)?;
                 self.selected(window)?;
+                // Never the legacy refresh cookie: a server from before
+                // sessions stopped rotating would spend it on this request
+                // and the webview would keep the spent token.
                 let cookie = cookies
                     .iter()
-                    .filter(|cookie| ["alloy_access", "alloy_refresh"].contains(&cookie.name()))
+                    .filter(|cookie| {
+                        [SESSION_COOKIE, LEGACY_ACCESS_COOKIE].contains(&cookie.name())
+                    })
                     .map(|cookie| format!("{}={}", cookie.name(), cookie.value()))
                     .collect::<Vec<_>>()
                     .join("; ");

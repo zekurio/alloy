@@ -42,7 +42,9 @@ const CATEGORIES = [
     id: "profile",
     group: "account",
     label: message("Profile"),
-    description: message("Edit your username, avatar, and sign-in methods."),
+    description: message(
+      "Edit your username, avatar, sign-in methods, and sessions.",
+    ),
     options: [
       message("Username"),
       message("Display name"),
@@ -51,11 +53,16 @@ const CATEGORIES = [
       message("Passkeys"),
       message("Linked accounts"),
       message("Sign-in methods"),
+      message("Sessions"),
+      message("Sign out other sessions"),
     ],
     aliases: [
       alias("profile picture", message("Avatar")),
       alias("connected accounts", message("Linked accounts")),
       alias("oauth", message("Linked accounts")),
+      alias("devices", message("Sessions")),
+      alias("logged in", message("Sessions")),
+      alias("sign out everywhere", message("Sign out other sessions")),
     ],
   },
   {
