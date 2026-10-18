@@ -1,5 +1,6 @@
 import { t } from "@alloy/contracts/schema"
 import { selectEmbeddableClip } from "@alloy/server/clips/access"
+import { clipEmbedProvider } from "@alloy/server/clips/embed-metadata"
 import { clipIdFromPermalink } from "@alloy/server/clips/permalink"
 import { env } from "@alloy/server/env"
 import { badRequest, notFound } from "@alloy/server/runtime/http-response"
@@ -7,7 +8,8 @@ import { Hono } from "hono"
 
 import { tbValidator } from "./validation"
 
-// A link-only preview with a clickable Alloy provider, without author or media.
+// oEmbed supplies the small "username on alloy" profile link. The clip page's
+// OpenGraph tags supply the clickable title and the media preview.
 const OembedQuery = t.object({
   url: t.string().min(1),
   format: t.enum(["json"]).optional(),
@@ -28,14 +30,17 @@ export const oembedRoute = new Hono().get(
     const row = await selectEmbeddableClip(clipId)
     if (!row) return notFound(c)
 
-    const origin = env.PUBLIC_SERVER_URL
+    const provider = clipEmbedProvider(
+      row.authorUsername,
+      env.PUBLIC_SERVER_URL,
+    )
     c.header("Cache-Control", "public, max-age=300")
     return c.json({
       type: "link",
       version: "1.0",
       title: row.title,
-      provider_name: "alloy",
-      provider_url: new URL("/", origin).toString(),
+      provider_name: provider.name,
+      provider_url: provider.url,
     })
   },
 )
