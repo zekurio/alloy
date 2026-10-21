@@ -2,7 +2,7 @@ import { t } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { useState } from "react"
+import { useCallback, useState } from "react"
 
 import { gameDisplayName } from "@/lib/game-display-name"
 
@@ -36,6 +36,16 @@ function GameCardBody({ game, name }: { game: GameCardData; name: string }) {
   const heroLoaded = Boolean(heroSrc && loadedHero === heroSrc)
   const logoSrc = game.logoUrl && !logoFailed ? game.logoUrl : null
 
+  // Catches heroes that finished loading before React attached `onLoad`.
+  const setHeroRef = useCallback(
+    (image: HTMLImageElement | null) => {
+      if (!image || !heroSrc) return
+      if (!image.complete || image.naturalWidth <= 0) return
+      setLoadedHero(heroSrc)
+    },
+    [heroSrc],
+  )
+
   return (
     <>
       {/* Anything painted under the hero tints its antialiased corner pixels,
@@ -48,6 +58,7 @@ function GameCardBody({ game, name }: { game: GameCardData; name: string }) {
       )}
       {heroSrc ? (
         <img
+          ref={setHeroRef}
           src={heroSrc}
           alt=""
           aria-hidden
