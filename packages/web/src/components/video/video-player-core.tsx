@@ -65,7 +65,7 @@ export function PlayerCore({
   chromeSize = "default",
   shortcutBounds,
   enableHorizontalSeekShortcuts = true,
-  playbackRate,
+  playbackRate: playbackRateProp,
   playbackRange,
   qualityOptions,
   selectedQualityId,
@@ -106,6 +106,7 @@ export function PlayerCore({
   const [volume, setVolumeState] = useState(playerVolume.volume)
   const [muted, setMutedState] = useState(initialMuted || playerVolume.muted)
   const [hasRenderedFrame, setHasRenderedFrame] = useState(false)
+  const [playbackRate, setPlaybackRate] = useState(playbackRateProp)
   // The poster stands in for the media until the viewer's own frame is on
   // screen — playback starting, or a seek they asked for. The first decoded
   // frame is the media's opening frame, so uncovering it while the video is
@@ -384,6 +385,10 @@ export function PlayerCore({
   }, [muted, volume])
 
   useEffect(() => {
+    setPlaybackRate(playbackRateProp)
+  }, [playbackRateProp])
+
+  useEffect(() => {
     const video = videoRef.current
     if (!video) return
     video.playbackRate = playbackRate
@@ -416,6 +421,7 @@ export function PlayerCore({
     seekInternal,
     setChromeVisible,
     setMutedState,
+    setPlaybackRate,
     setVolumeState,
     shortcutBounds,
     videoRef,
@@ -602,6 +608,8 @@ export function PlayerCore({
             syncTime()
             onSelectQuality?.(id)
           }}
+          playbackRate={playbackRate}
+          onPlaybackRateChange={setPlaybackRate}
         />
       }
     >

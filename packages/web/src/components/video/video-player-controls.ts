@@ -30,6 +30,7 @@ interface VideoPlayerControlsOptions {
   seekInternal: (targetSec: number, keepPlaying?: boolean) => void
   setChromeVisible: Dispatch<SetStateAction<boolean>>
   setMutedState: Dispatch<SetStateAction<boolean>>
+  setPlaybackRate: Dispatch<SetStateAction<number>>
   setVolumeState: Dispatch<SetStateAction<number>>
   shortcutBounds: PlayerCoreProps["shortcutBounds"]
   videoRef: RefObject<HTMLVideoElement | null>
@@ -49,6 +50,7 @@ export function useVideoPlayerControls({
   seekInternal,
   setChromeVisible,
   setMutedState,
+  setPlaybackRate,
   setVolumeState,
   shortcutBounds,
   videoRef,
@@ -94,10 +96,7 @@ export function useVideoPlayerControls({
       getDuration,
       setVolume,
       setMuted,
-      setPlaybackRate: (rate: number) => {
-        const video = videoRef.current
-        if (video) video.playbackRate = rate
-      },
+      setPlaybackRate,
     }),
     [
       getCurrentTime,
@@ -106,8 +105,8 @@ export function useVideoPlayerControls({
       playInternal,
       seekInternal,
       setMuted,
+      setPlaybackRate,
       setVolume,
-      videoRef,
     ],
   )
 

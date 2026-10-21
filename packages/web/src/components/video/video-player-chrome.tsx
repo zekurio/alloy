@@ -1,40 +1,17 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@alloy/ui/components/drawer"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@alloy/ui/components/dropdown-menu"
 import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { cn } from "@alloy/ui/lib/utils"
-import {
-  CheckIcon,
-  MaximizeIcon,
-  PauseIcon,
-  PlayIcon,
-  SettingsIcon,
-} from "lucide-react"
+import { MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
 import { memo, useCallback, useEffect, useState } from "react"
-import type { ComponentProps, RefObject } from "react"
+import type { RefObject } from "react"
 
-import {
-  mobileDrawerContentClass,
-  MobileDrawerHandle,
-} from "@/components/app/mobile-drawer-surface"
 import { isFullscreenElement, isFullscreenSupported } from "@/lib/fullscreen"
 
 import type { QualityOption } from "./video-player-types"
 import { VideoScrubber } from "./video-scrubber"
+import { VideoSettingsMenu } from "./video-settings-menu"
 import { VolumeControl } from "./video-volume-control"
 
 const videoChromeIconClass =
@@ -66,6 +43,8 @@ export function ChromeBar({
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
+  playbackRate,
+  onPlaybackRateChange,
 }: {
   size?: ChromeBarSize
   containerRef: RefObject<HTMLDivElement | null>
@@ -85,6 +64,8 @@ export function ChromeBar({
   qualityOptions?: QualityOption[]
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
+  playbackRate: number
+  onPlaybackRateChange: (rate: number) => void
 }) {
   const [fullscreenSupported, setFullscreenSupported] = useState(false)
   // The player container while it is the fullscreen element, else null.
@@ -173,6 +154,8 @@ export function ChromeBar({
             qualityOptions={qualityOptions}
             selectedQualityId={selectedQualityId}
             onSelectQuality={onSelectQuality}
+            playbackRate={playbackRate}
+            onPlaybackRateChange={onPlaybackRateChange}
           />
         </div>
       </div>
@@ -278,6 +261,8 @@ const ChromeTrailingControls = memo(function ChromeTrailingControls({
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
+  playbackRate,
+  onPlaybackRateChange,
 }: {
   size: ChromeBarSize
   popoverContainer: RefObject<HTMLDivElement | null>
@@ -289,20 +274,26 @@ const ChromeTrailingControls = memo(function ChromeTrailingControls({
   qualityOptions: QualityOption[] | undefined
   selectedQualityId: string | undefined
   onSelectQuality: ((qualityId: string) => void) | undefined
+  playbackRate: number
+  onPlaybackRateChange: (rate: number) => void
 }) {
   return (
     <>
-      {qualityOptions && qualityOptions.length > 1 && onSelectQuality ? (
-        <QualitySettingsControl
-          size={size}
-          sheet={isCoarsePointer}
-          sheetContainer={sheetContainer}
-          popoverContainer={popoverContainer}
-          options={qualityOptions}
-          selectedId={selectedQualityId}
-          onSelect={onSelectQuality}
-        />
-      ) : null}
+      <VideoSettingsMenu
+        sheet={isCoarsePointer}
+        sheetContainer={sheetContainer}
+        popoverContainer={popoverContainer}
+        triggerClassName={cn(
+          videoChromeIconClass,
+          size === "compact" && videoChromeCompactIconClass,
+        )}
+        glyphClassName={videoChromeGlyphClass}
+        qualityOptions={qualityOptions}
+        selectedQualityId={selectedQualityId}
+        onSelectQuality={onSelectQuality}
+        playbackRate={playbackRate}
+        onPlaybackRateChange={onPlaybackRateChange}
+      />
 
       {fullscreenSupported ? (
         <Button
@@ -322,114 +313,3 @@ const ChromeTrailingControls = memo(function ChromeTrailingControls({
     </>
   )
 })
-
-function QualitySettingsControl({
-  size,
-  sheet,
-  sheetContainer,
-  popoverContainer,
-  options,
-  selectedId,
-  onSelect,
-}: {
-  size: ChromeBarSize
-  sheet: boolean
-  sheetContainer: HTMLDivElement | null
-  popoverContainer: RefObject<HTMLDivElement | null>
-  options: QualityOption[]
-  selectedId: string | undefined
-  onSelect: (qualityId: string) => void
-}) {
-  if (sheet) {
-    return (
-      <Drawer direction="bottom">
-        <DrawerTrigger asChild>
-          <QualitySettingsButton size={size} />
-        </DrawerTrigger>
-        <DrawerContent
-          container={sheetContainer}
-          className={mobileDrawerContentClass}
-        >
-          <MobileDrawerHandle />
-          <DrawerTitle className="px-4 pt-3 pb-2 text-base">
-            {t("Playback quality")}
-          </DrawerTitle>
-          <div
-            role="radiogroup"
-            aria-label={t("Playback quality")}
-            className="min-h-0 overflow-y-auto px-2 pb-[max(1rem,env(safe-area-inset-bottom))]"
-          >
-            {options.map((option) => (
-              <DrawerClose key={option.id} asChild>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={option.id === selectedId}
-                  className="hover:bg-surface-raised focus-visible:ring-ring flex min-h-12 w-full items-center rounded-lg px-3 text-left text-sm outline-none focus-visible:ring-2"
-                  onClick={() => onSelect(option.id)}
-                >
-                  <span>{option.label}</span>
-                  {option.detail ? (
-                    <span className="text-foreground-dim ml-auto pl-3 text-xs">
-                      {option.detail}
-                    </span>
-                  ) : null}
-                  {option.id === selectedId ? (
-                    <CheckIcon className="text-accent ml-3 size-4 shrink-0" />
-                  ) : null}
-                </button>
-              </DrawerClose>
-            ))}
-          </div>
-        </DrawerContent>
-      </Drawer>
-    )
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<QualitySettingsButton size={size} />} />
-      <DropdownMenuContent
-        align="end"
-        side="top"
-        portalContainer={popoverContainer}
-      >
-        <DropdownMenuRadioGroup value={selectedId} onValueChange={onSelect}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem key={option.id} value={option.id}>
-              {option.label}
-              {option.detail ? (
-                <span className="text-foreground-dim ml-auto pl-3 text-xs">
-                  {option.detail}
-                </span>
-              ) : null}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
-function QualitySettingsButton({
-  size,
-  className,
-  ...props
-}: { size: ChromeBarSize } & Omit<ComponentProps<typeof Button>, "size">) {
-  return (
-    <Button
-      {...props}
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      aria-label={t("Playback quality")}
-      className={cn(
-        videoChromeIconClass,
-        size === "compact" && videoChromeCompactIconClass,
-        className,
-      )}
-    >
-      <SettingsIcon className={videoChromeGlyphClass} />
-    </Button>
-  )
-}
