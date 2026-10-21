@@ -230,7 +230,16 @@ export function ClipCardThumb({
         CLIP_MEDIA_ROUNDED_CLASS,
       )}
     >
-      <MediaPlaceholder seed={fallbackSeed} blurHash={activeBlurHash} />
+      <MediaPlaceholder
+        seed={fallbackSeed}
+        blurHash={activeBlurHash}
+        // Anything painted under the still tints its antialiased corner
+        // pixels, so drop the placeholder once the still has faded in.
+        className={cn(
+          "transition-opacity duration-0",
+          thumbnailLoaded && !previewing && "opacity-0 delay-200",
+        )}
+      />
 
       {activeThumbnail ? (
         <img
