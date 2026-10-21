@@ -191,6 +191,7 @@ export const MEDIA_MESSAGES = {
   "No public clips yet": "Noch keine öffentlichen Clips",
   "No screenshots yet": "Noch keine Screenshots",
   "No uploads in progress": "Keine laufenden Uploads",
+  Normal: "Normal",
   "Nothing found for {query}. Try a different title, game, file, or user.":
     "Keine Treffer für {query}. Probiere einen anderen Titel, ein anderes Spiel, eine andere Datei oder einen anderen Nutzer.",
   "Nothing in the queue": "Nichts in der Warteschlange",
@@ -209,7 +210,7 @@ export const MEDIA_MESSAGES = {
   "Play (Space)": "Abspielen (Leertaste)",
   "Play clip: {title}": "Clip abspielen: {title}",
   "Playback failed": "Wiedergabe fehlgeschlagen",
-  "Playback quality": "Wiedergabequalität",
+  "Playback speed": "Wiedergabegeschwindigkeit",
   "Playback unavailable.": "Wiedergabe nicht verfügbar.",
   Post: "Posten",
   "Posted and link copied": "Veröffentlicht und Link kopiert",

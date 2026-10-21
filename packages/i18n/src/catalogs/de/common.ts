@@ -12,6 +12,7 @@ export const COMMON_MESSAGES = {
   "Applying...": "Wird angewendet...",
   Auto: "Auto",
   Available: "Verfügbar",
+  Back: "Zurück",
   Cancel: "Abbrechen",
   Choose: "Auswählen",
   "Clear search": "Suche löschen",
