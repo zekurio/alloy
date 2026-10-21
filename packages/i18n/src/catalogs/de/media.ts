@@ -177,7 +177,6 @@ export const MEDIA_MESSAGES = {
   "Next library item": "Nächstes Bibliothekselement",
   "Next month": "Nächster Monat",
   "Next slide": "Nächste Folie",
-  Normal: "Normal",
   "No captures here": "Keine Aufnahmen hier",
   "No clips for {game} yet": "Noch keine Clips für {game}",
   "No clips in this game yet": "Noch keine Clips in diesem Spiel",
@@ -192,6 +191,7 @@ export const MEDIA_MESSAGES = {
   "No public clips yet": "Noch keine öffentlichen Clips",
   "No screenshots yet": "Noch keine Screenshots",
   "No uploads in progress": "Keine laufenden Uploads",
+  Normal: "Normal",
   "Nothing found for {query}. Try a different title, game, file, or user.":
     "Keine Treffer für {query}. Probiere einen anderen Titel, ein anderes Spiel, eine andere Datei oder einen anderen Nutzer.",
   "Nothing in the queue": "Nichts in der Warteschlange",
