@@ -4,7 +4,7 @@ import { errorMessage } from "@alloy/server/runtime/error-message"
 import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-worker"
 
 import { subscribeStorageDeletionWake } from "./deletion-events"
-import { storageDeletionHasLiveReference } from "./deletion-references"
+import { storageDeletionReference } from "./deletion-references"
 import { runStorageDeletion } from "./deletion-run"
 import {
   completeStorageDeletion,
@@ -74,7 +74,7 @@ async function deleteNextPendingObject(signal: AbortSignal) {
     const result = await runStorageDeletion(row, {
       storage: storageDriver(row.namespace),
       isWriteActive: storageObjectWriteIsActive,
-      hasLiveReference: storageDeletionHasLiveReference,
+      liveReference: storageDeletionReference,
       signal,
     })
     if (result === "interrupted") {

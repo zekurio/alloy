@@ -6,6 +6,7 @@ import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 
 import { abortMediaProcessing } from "./media-abort"
 import { runScopedThumbKey } from "./media-asset-keys"
+import type { RunUploads } from "./media-run-workspace"
 import type { MediaRow, MediaStore } from "./media-store"
 
 const logger = createLogger("queue")
@@ -90,10 +91,10 @@ export async function publishRunThumbnail(
   id: string,
   runId: string,
   poster: ExtractedPoster,
-  uploadedKeys: string[],
+  uploadedKeys: RunUploads,
 ): Promise<{ thumbKey: string; thumbBlurHash: string }> {
   const thumbKey = runScopedThumbKey(id, runId)
-  uploadedKeys.push(thumbKey)
+  await uploadedKeys.reserve(thumbKey)
   await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
   return { thumbKey, thumbBlurHash: poster.blurHash }
 }

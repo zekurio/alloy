@@ -33,7 +33,10 @@ import {
 import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { clipThumbnailStorage } from "@alloy/server/storage/index"
-import { enqueueUnownedMediaAssets } from "@alloy/server/storage/media-deletion"
+import {
+  adoptStorageWrites,
+  withReservedStorageWrites,
+} from "@alloy/server/storage/write-reservation"
 import { and, eq, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -155,85 +158,77 @@ export const clipsUploadMediaRoutes = new Hono()
 
       const attemptId = crypto.randomUUID()
       const thumbKey = runScopedThumbKey(id, attemptId)
-      try {
-        await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
-      } catch (cause) {
-        await enqueueUnownedMediaAssets({
-          keys: [thumbKey],
-          reason: "poster upload failed",
-          source: { type: "poster-request", id: attemptId },
-        })
-        throw cause
-      }
+      const thumb = { namespace: "thumbnails", key: thumbKey } as const
+      // Reserved before the upload and fenced until the swap commits. If
+      // either fails, or the process dies in between, the reservation
+      // deletes the poster unless a row points at it.
+      const swapped = await withReservedStorageWrites(
+        [thumb],
+        attemptId,
+        async () => {
+          await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
 
-      // Guarded on "ready" plus a null encode lease: a reprocess that started
-      // meanwhile republishes its own thumbnail at commitReady and would
-      // silently clobber this one. Locking and re-reading also serializes two
-      // poster requests so the second one retires the first request's key,
-      // rather than both acting on the stale pre-upload snapshot.
-      let swapped: { accepted: boolean; queuedDeletions: number }
-      try {
-        swapped = await db.transaction(async (tx) => {
-          const [current] = await tx
-            .select({
-              authorId: clip.author_id,
-              sourceKey: clip.source_key,
-              status: clip.status,
-              encodeRunId: clip.encode_run_id,
-              thumbKey: clip.thumb_key,
+          // Guarded on "ready" plus a null encode lease: a reprocess that
+          // started meanwhile republishes its own thumbnail at commitReady
+          // and would silently clobber this one. Locking and re-reading also
+          // serializes two poster requests so the second one retires the
+          // first request's key, rather than both acting on the stale
+          // pre-upload snapshot.
+          return db.transaction(async (tx) => {
+            const [current] = await tx
+              .select({
+                authorId: clip.author_id,
+                sourceKey: clip.source_key,
+                status: clip.status,
+                encodeRunId: clip.encode_run_id,
+                thumbKey: clip.thumb_key,
+              })
+              .from(clip)
+              .where(eq(clip.id, id))
+              .limit(1)
+              .for("update")
+
+            if (
+              !current ||
+              current.authorId !== row.author_id ||
+              current.sourceKey !== sourceKey ||
+              current.status !== "ready" ||
+              current.encodeRunId !== null
+            ) {
+              const intents = posterDeletionIntents({
+                previousKey: null,
+                uploadedKey: thumbKey,
+                accepted: false,
+                attemptId,
+              })
+              await enqueueStorageDeletions(intents, { tx })
+              return { accepted: false, queuedDeletions: intents.length }
+            }
+
+            const accepted = await updateReadyClip(tx, {
+              id,
+              authorId: row.author_id,
+              sourceKey,
+              patch: {
+                thumb_key: thumbKey,
+                thumb_blur_hash: poster.blurHash,
+                thumb_failed_at: null,
+              },
             })
-            .from(clip)
-            .where(eq(clip.id, id))
-            .limit(1)
-            .for("update")
-
-          if (
-            !current ||
-            current.authorId !== row.author_id ||
-            current.sourceKey !== sourceKey ||
-            current.status !== "ready" ||
-            current.encodeRunId !== null
-          ) {
+            if (accepted) await adoptStorageWrites([thumb], tx)
             const intents = posterDeletionIntents({
-              previousKey: null,
+              previousKey: current.thumbKey,
               uploadedKey: thumbKey,
-              accepted: false,
+              accepted,
               attemptId,
             })
             await enqueueStorageDeletions(intents, { tx })
-            return { accepted: false, queuedDeletions: intents.length }
-          }
-
-          const accepted = await updateReadyClip(tx, {
-            id,
-            authorId: row.author_id,
-            sourceKey,
-            patch: {
-              thumb_key: thumbKey,
-              thumb_blur_hash: poster.blurHash,
-              thumb_failed_at: null,
-            },
+            return { accepted, queuedDeletions: intents.length }
           })
-          const intents = posterDeletionIntents({
-            previousKey: current.thumbKey,
-            uploadedKey: thumbKey,
-            accepted,
-            attemptId,
-          })
-          await enqueueStorageDeletions(intents, { tx })
-          return { accepted, queuedDeletions: intents.length }
-        })
-      } catch (cause) {
-        // The upload is already externally visible. If the swap transaction
-        // rolls back (or its outcome is uncertain), a live-reference recheck
-        // makes this compensating intent safe in either case.
-        await enqueueUnownedMediaAssets({
-          keys: [thumbKey],
-          reason: "poster swap failed",
-          source: { type: "poster-request", id: attemptId },
-        })
-        throw cause
-      }
+        },
+      )
+      // Woken only once the fence is gone, which would otherwise defer the
+      // rejected poster's deletion.
       if (swapped.queuedDeletions > 0) wakeStorageDeletionWorker()
       if (!swapped.accepted) {
         return conflict(c, "Clip is already processing")

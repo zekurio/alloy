@@ -49,7 +49,7 @@ export async function runImageProcessing(
       await ensureStillPresent(store, id, runId, signal)
       const sourceKey = runScopedSourceKey(id, runId)
       const thumbKey = runScopedThumbKey(id, runId)
-      uploadedKeys.push(sourceKey, thumbKey)
+      await uploadedKeys.reserve(sourceKey, thumbKey)
       await clipStorage.put(sourceKey, image.bytes, "image/png")
       await clipThumbnailStorage.put(thumbKey, image.thumbnail, "image/jpeg")
       await ensureStillPresent(store, id, runId, signal)

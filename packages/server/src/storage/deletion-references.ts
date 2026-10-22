@@ -21,31 +21,53 @@ export interface StorageDeletionReferenceSource {
 }
 
 /**
+ * What keeps an object: a row that points at it, or a media run on its clip
+ * that may still attach it. A reservation (`storage-prewrite`) is fulfilled
+ * by a row but has to wait out a run.
+ */
+export type StorageDeletionReference = "row" | "run" | null
+
+/**
  * Check DB ownership before deletion. Enqueueing and reference removal must
  * share a transaction. Writers must use versioned keys or coordinate key reuse
  * with the deletion worker; this check cannot prevent a later write.
  */
-export async function storageDeletionHasLiveReference(
+export async function storageDeletionReference(
   namespace: StorageDeletionNamespace,
   key: string,
   source: StorageDeletionReferenceSource,
-): Promise<boolean> {
+): Promise<StorageDeletionReference> {
   switch (namespace) {
     case "clips":
-      return clipObjectHasLiveReference(key, source)
+      return clipObjectReference(key, source)
     case "thumbnails":
-      return thumbnailHasLiveReference(key, source)
+      return thumbnailReference(key, source)
     case "assets":
-      return assetHasLiveReference(key)
+      return (await assetHasLiveReference(key)) ? "row" : null
   }
 }
 
-async function clipObjectHasLiveReference(
+async function clipObjectReference(
   key: string,
   source: StorageDeletionReferenceSource,
-): Promise<boolean> {
+): Promise<StorageDeletionReference> {
   const ownerId = clipStorageKeyClipId(key)
-  const differentActiveRun = activeRunReferenceCondition(source)
+  // The run is read before the rows. A run attaches objects and gives up the
+  // clip in one transaction, and each statement sees its own snapshot, so a
+  // later row read that missed the attachment would see the run still there.
+  const runRows = ownerId
+    ? await db
+        .select({ id: clip.id })
+        .from(clip)
+        .where(
+          and(
+            eq(clip.id, ownerId),
+            isNotNull(clip.encode_run_id),
+            activeRunReferenceCondition(source),
+          ),
+        )
+        .limit(1)
+    : []
   const [clipRows, renditionRows, ticketRows] = await Promise.all([
     db
       .select({ id: clip.id })
@@ -55,13 +77,6 @@ async function clipObjectHasLiveReference(
           storageKeyMatches(clip.source_key, key),
           storageKeyMatches(clip.waveform_key, key),
           storageKeyMatches(clip.cut_key, key),
-          ownerId
-            ? and(
-                eq(clip.id, ownerId),
-                isNotNull(clip.encode_run_id),
-                differentActiveRun,
-              )
-            : undefined,
         ),
       )
       .limit(1),
@@ -76,32 +91,33 @@ async function clipObjectHasLiveReference(
       .where(storageKeyMatches(uploadTicket.storage_key, key))
       .limit(1),
   ])
-  return (
-    clipRows.length > 0 || renditionRows.length > 0 || ticketRows.length > 0
-  )
+  if (clipRows.length > 0 || renditionRows.length > 0 || ticketRows.length > 0)
+    return "row"
+  return runRows.length > 0 ? "run" : null
 }
 
-async function thumbnailHasLiveReference(
+async function thumbnailReference(
   key: string,
   source: StorageDeletionReferenceSource,
-): Promise<boolean> {
+): Promise<StorageDeletionReference> {
+  // Run before row, as for clip objects.
+  const ownerId = clipStorageKeyClipId(key)
+  const [owner] = ownerId
+    ? await db
+        .select({ id: clip.id, encodeRunId: clip.encode_run_id })
+        .from(clip)
+        .where(eq(clip.id, ownerId))
+        .limit(1)
+    : []
   const [direct] = await db
     .select({ id: clip.id })
     .from(clip)
     .where(storageKeyMatches(clip.thumb_key, key))
     .limit(1)
-  if (direct) return true
-
-  const ownerId = clipStorageKeyClipId(key)
-  if (!ownerId) return false
-  const [owner] = await db
-    .select({ id: clip.id, encodeRunId: clip.encode_run_id })
-    .from(clip)
-    .where(eq(clip.id, ownerId))
-    .limit(1)
-  return Boolean(
-    owner && activeRunBlocksStorageDeletion(owner.encodeRunId, source),
-  )
+  if (direct) return "row"
+  return owner && activeRunBlocksStorageDeletion(owner.encodeRunId, source)
+    ? "run"
+    : null
 }
 
 function activeRunReferenceCondition(source: StorageDeletionReferenceSource) {

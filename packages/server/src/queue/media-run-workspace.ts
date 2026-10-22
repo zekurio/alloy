@@ -1,7 +1,9 @@
 import { rm } from "node:fs/promises"
 
 import { createLogger } from "@alloy/logging"
+import { clipKeyDeletionNamespace } from "@alloy/server/storage/clip-key"
 import { enqueueUnownedMediaAssets } from "@alloy/server/storage/media-deletion"
+import { reserveStorageWrites } from "@alloy/server/storage/write-reservation"
 
 import { abortMediaProcessing } from "./media-abort"
 import { makeMediaWorkDir } from "./media-run-helpers"
@@ -9,9 +11,29 @@ import type { MediaRow, MediaStore } from "./media-store"
 
 const logger = createLogger("queue")
 
+/**
+ * The objects a run writes. Each is reserved before its bytes are written,
+ * so the objects of a run that crashed or was killed are deleted once no run
+ * holds the clip and no row points at them. A run that fails cleanly has
+ * them deleted at once.
+ */
+export class RunUploads {
+  readonly keys: string[] = []
+
+  constructor(private readonly runId: string) {}
+
+  async reserve(...keys: string[]): Promise<void> {
+    this.keys.push(...keys)
+    await reserveStorageWrites(
+      keys.map((key) => ({ namespace: clipKeyDeletionNamespace(key), key })),
+      this.runId,
+    )
+  }
+}
+
 type MediaRunWorkspace = {
   workDir: string
-  uploadedKeys: string[]
+  uploadedKeys: RunUploads
   retainedKeys: Set<string>
 }
 
@@ -26,7 +48,7 @@ export async function withMediaRunWorkspace(
   run: (workspace: MediaRunWorkspace) => Promise<void>,
 ): Promise<void> {
   const workDir = await makeMediaWorkDir(options.id)
-  const uploadedKeys: string[] = []
+  const uploadedKeys = new RunUploads(options.runId)
   const retainedKeys = new Set<string>()
   for (const key of [
     options.row.sourceKey,
@@ -42,7 +64,7 @@ export async function withMediaRunWorkspace(
   } catch (err) {
     await retainRowAssetKeys(options.store, options.id, retainedKeys)
     await enqueueUnownedMediaAssets({
-      keys: new Set(uploadedKeys),
+      keys: new Set(uploadedKeys.keys),
       retainedKeys,
       reason: "failed media processing asset",
       source: { type: "media-run", id: options.runId },

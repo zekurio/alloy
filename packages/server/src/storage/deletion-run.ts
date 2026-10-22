@@ -1,5 +1,6 @@
 import type { StorageDeletionNamespace } from "@alloy/db/schema"
 
+import type { StorageDeletionReference } from "./deletion-references"
 import type { StorageDriver } from "./driver"
 
 export interface StorageDeletionRunInput {
@@ -13,11 +14,11 @@ export interface StorageDeletionRunInput {
 export interface StorageDeletionRunDependencies {
   storage: StorageDriver
   isWriteActive(namespace: StorageDeletionNamespace, key: string): boolean
-  hasLiveReference(
+  liveReference(
     namespace: StorageDeletionNamespace,
     key: string,
     source: { type: string; id: string | null },
-  ): Promise<boolean>
+  ): Promise<StorageDeletionReference>
   signal: AbortSignal
 }
 
@@ -40,19 +41,25 @@ export async function runStorageDeletion(
 
   // A durable prewrite reservation deliberately exists before its object is
   // attached to a row. Keep this process-local fence distinct from the DB
-  // reference check: an active writer must always defer, while a later live
-  // DB reference means that a prewrite reservation was successfully adopted.
+  // reference check: an active writer must always defer, while a later row
+  // reference means that a prewrite reservation was successfully adopted. A
+  // media run that holds the object's clip may still attach it, so its
+  // reservation waits for the run like any other deletion.
   if (dependencies.isWriteActive(input.namespace, input.key)) {
     return "referenced"
   }
-  if (
-    await dependencies.hasLiveReference(input.namespace, input.key, {
+  const reference = await dependencies.liveReference(
+    input.namespace,
+    input.key,
+    {
       type: input.sourceType,
       id: input.sourceId,
-    })
-  ) {
-    return input.sourceType === "storage-prewrite" ? "adopted" : "referenced"
+    },
+  )
+  if (reference === "row" && input.sourceType === "storage-prewrite") {
+    return "adopted"
   }
+  if (reference) return "referenced"
   if (dependencies.signal.aborted) return "interrupted"
 
   if (input.abortUpload) {

@@ -1,11 +1,45 @@
 import { mkdir, mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
 
-import { MEDIA_CACHE_DIR } from "@alloy/server/runtime/dirs"
+import { env } from "@alloy/server/env"
+import { resolve } from "@alloy/server/runtime/path"
 import { clipStorage } from "@alloy/server/storage/index"
+import { configuredFilesystemStoragePath } from "@alloy/server/storage/paths"
+
+/** Where media scratch lived before it moved into the clip storage root. */
+const LEGACY_MEDIA_WORK_ROOT = resolve(tmpdir(), "alloy-server", "media")
+
+/**
+ * Scratch space for media work: the sources a run reads and the files it
+ * writes before publishing them. It sits inside the clip storage root, so
+ * sources and outputs move in and out by hardlink rather than by copy; a
+ * private /tmp, such as systemd's PrivateTmp, is a different mount. No
+ * storage key points into it, and it never outlives the process.
+ */
+function mediaWorkRoot(): string {
+  return resolve(
+    configuredFilesystemStoragePath(env.storage, "clips"),
+    ".media-work",
+  )
+}
 
 export async function makeMediaWorkDir(id: string): Promise<string> {
-  await mkdir(MEDIA_CACHE_DIR, { recursive: true })
-  return mkdtemp(`${MEDIA_CACHE_DIR}/${id}-`)
+  const root = mediaWorkRoot()
+  await mkdir(root, { recursive: true })
+  return mkdtemp(`${root}/${id}-`)
+}
+
+/**
+ * Removes the scratch a killed process left behind. Runs before the media
+ * worker starts and before the server takes requests, so no work dir is in
+ * use.
+ */
+export async function clearMediaWorkDirs(): Promise<void> {
+  await Promise.all(
+    [mediaWorkRoot(), LEGACY_MEDIA_WORK_ROOT].map((dir) =>
+      rm(dir, { recursive: true, force: true }),
+    ),
+  )
 }
 
 /**
