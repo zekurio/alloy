@@ -1,12 +1,16 @@
 name: nix
 
-# Runs only when packaging-relevant inputs change. Source-only breakage is
-# caught by the turbo build in checks on PRs and by the dev image build on
-# dev, which builds the same package derivation.
+# Runs only when packaging-relevant inputs change. `nix/package.nix` builds the
+# server and web from `packages/**` and the root `public/` directory, and the
+# turbo build in checks does not run the Nix derivation, so those inputs are
+# listed here. The desktop packages are not part of that derivation.
 on:
   pull_request:
     paths:
       - "nix/**"
+      - "packages/**"
+      - "!packages/desktop/**"
+      - "public/**"
       - "flake.nix"
       - "flake.lock"
       - "package.json"
@@ -15,6 +19,7 @@ on:
       - "turbo.json"
       - "scripts/**"
       - ".github/workflows/nix.yml"
+      - "!**/*.md"
   workflow_dispatch:
 
 permissions:
@@ -28,10 +33,13 @@ jobs:
   nix:
     name: nix package
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: install nix
         uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1

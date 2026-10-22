@@ -32,6 +32,7 @@ jobs:
     name: preflight
     if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       version: ${{ steps.release.outputs.version }}
       tag: ${{ steps.release.outputs.tag }}
@@ -42,6 +43,7 @@ jobs:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{ github.ref }}
 
@@ -69,7 +71,8 @@ jobs:
         run: corepack pnpm typecheck
 
       # Only names the release commit's author. The push below still uses
-      # github.token, so it doesn't trigger the push workflows on dev.
+      # github.token, so it doesn't trigger the push workflows on dev. The
+      # checkout does not persist that token; the push passes it explicitly.
       - name: mint alloy-gardener token
         id: app
         if: vars.GARDENER_CLIENT_ID != ''
@@ -172,7 +175,9 @@ jobs:
             fi
 
             git tag "$tag"
-            git push --atomic origin dev "refs/tags/$tag"
+            # The checkout dropped its credentials, so authenticate this push
+            # with the job token (masked in logs) instead of the remote.
+            git push --atomic "https://x-access-token:${GH_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git" dev "refs/tags/$tag"
             ref="$(git rev-parse HEAD)"
           fi
 
@@ -187,11 +192,13 @@ jobs:
     name: build windows desktop release
     needs: [preflight]
     runs-on: windows-latest
+    timeout-minutes: 90
 
     steps:
       - name: checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ needs.preflight.outputs.ref }}
 
       - name: set up pnpm
@@ -271,11 +278,13 @@ jobs:
     name: publish container image
     needs: [preflight]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ needs.preflight.outputs.ref }}
 
       - name: install nix
@@ -312,11 +321,13 @@ jobs:
       - image
       - promote
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ needs.preflight.outputs.ref }}
 
       - name: download desktop release assets
@@ -391,6 +402,7 @@ jobs:
       - preflight
       - image
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: log in to ghcr
