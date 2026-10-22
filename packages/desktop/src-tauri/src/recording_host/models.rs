@@ -199,9 +199,12 @@ pub struct RecorderHostOptions {
     pub shutdown_request_timeout: std::time::Duration,
     pub graceful_exit_timeout: std::time::Duration,
     pub forced_exit_timeout: std::time::Duration,
+    /// Wait after the first failed start; each failure in a row doubles it.
     pub respawn_delay: std::time::Duration,
     pub respawn_streak_reset: std::time::Duration,
     pub max_consecutive_respawns: u32,
+    /// Longest wait between starts while the agent keeps failing.
+    pub max_respawn_backoff: std::time::Duration,
     pub heartbeat_interval: std::time::Duration,
     pub max_line_bytes: usize,
 }
@@ -227,6 +230,7 @@ impl RecorderHostOptions {
             respawn_delay: std::time::Duration::from_secs(3),
             respawn_streak_reset: std::time::Duration::from_secs(60),
             max_consecutive_respawns: 5,
+            max_respawn_backoff: std::time::Duration::from_secs(5 * 60),
             heartbeat_interval: std::time::Duration::from_secs(30),
             max_line_bytes: 4 * 1024 * 1024,
         }

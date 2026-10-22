@@ -100,6 +100,9 @@ pub enum RecorderHostError {
     Timeout {
         method: String,
     },
+    /// The last agent start failed and its retry window is still running.
+    /// Carries that failure's message.
+    StartBackoff(String),
     Shutdown,
 }
 
@@ -124,6 +127,7 @@ impl fmt::Display for RecorderHostError {
             Self::Timeout { method } => {
                 write!(formatter, "Alloy recorder timed out during {method}.")
             }
+            Self::StartBackoff(message) => formatter.write_str(message),
             Self::Shutdown => formatter.write_str("Alloy recorder host is shut down."),
         }
     }
@@ -395,10 +399,32 @@ impl Session {
     }
 }
 
+/// Paces agent starts. Requests and automatic respawns both start the agent
+/// through `ensure_session`, which answers with the last failure instead of
+/// starting another agent while that failure's retry window runs.
 struct RespawnState {
     consecutive: u32,
-    last_started: Option<Instant>,
+    /// When the running agent finished starting. A crash after it ran for
+    /// `respawn_streak_reset` starts a new failure streak.
+    running_since: Option<Instant>,
     scheduled: bool,
+    failure: Option<StartFailure>,
+}
+
+struct StartFailure {
+    message: String,
+    retry_at: Instant,
+}
+
+impl RespawnState {
+    fn new() -> Self {
+        Self {
+            consecutive: 0,
+            running_since: None,
+            scheduled: false,
+            failure: None,
+        }
+    }
 }
 
 struct Inner {
@@ -475,11 +501,7 @@ impl RecorderHost {
                 start_lock: Mutex::new(()),
                 configure_lock: Mutex::new(()),
                 applied_settings: Mutex::new(None),
-                respawn: Mutex::new(RespawnState {
-                    consecutive: 0,
-                    last_started: None,
-                    scheduled: false,
-                }),
+                respawn: Mutex::new(RespawnState::new()),
                 shutdown: AtomicBool::new(false),
                 next_session_id: AtomicU64::new(1),
             }),
@@ -508,6 +530,9 @@ impl RecorderHost {
         write_json_atomic(&self.inner.options.state_dir.join(SETTINGS_FILE), &settings)?;
         *self.inner.settings.write().await = settings.clone();
         *self.inner.applied_settings.lock().await = None;
+        // New settings may fix what made the last start fail; let the next
+        // request try them at once.
+        self.inner.respawn.lock().await.failure = None;
         self.refresh_status_settings(&settings).await;
         let _ = self.inner.events.send(RecordingEvent::Status {
             status: self.get_status().await,
@@ -562,12 +587,7 @@ impl RecorderHost {
     pub async fn restart(&self) -> Result<RecordingStatus, RecorderHostError> {
         self.inner.shutdown.store(true, Ordering::Release);
         self.stop_current_session().await;
-        {
-            let mut respawn = self.inner.respawn.lock().await;
-            respawn.consecutive = 0;
-            respawn.last_started = None;
-            respawn.scheduled = false;
-        }
+        *self.inner.respawn.lock().await = RespawnState::new();
         *self.inner.applied_settings.lock().await = None;
         self.inner.shutdown.store(false, Ordering::Release);
         self.configure().await
@@ -898,12 +918,20 @@ async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHost
         return Ok(session);
     }
 
-    start_discord_detection_refresh(inner);
-    let session = Session::spawn(inner)?;
+    if let Some(failure) = inner.respawn.lock().await.failure.as_ref()
+        && Instant::now() < failure.retry_at
     {
-        let mut respawn = inner.respawn.lock().await;
-        respawn.last_started = Some(Instant::now());
+        return Err(RecorderHostError::StartBackoff(failure.message.clone()));
     }
+
+    start_discord_detection_refresh(inner);
+    let session = match Session::spawn(inner) {
+        Ok(session) => session,
+        Err(error) => {
+            record_start_failure(inner, error.to_string()).await;
+            return Err(error);
+        }
+    };
     *inner.session.lock().await = Some(Arc::clone(&session));
 
     let startup = async {
@@ -958,10 +986,45 @@ async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHost
         }
         session.stop(&inner.options).await;
         set_error_status(inner, message.clone()).await;
+        let error = RecorderHostError::Protocol(message);
+        record_start_failure(inner, error.to_string()).await;
         schedule_respawn(inner);
-        return Err(RecorderHostError::Protocol(message));
+        return Err(error);
+    }
+    {
+        let mut respawn = inner.respawn.lock().await;
+        respawn.running_since = Some(Instant::now());
+        respawn.failure = None;
     }
     Ok(session)
+}
+
+/// Counts a failed start or an unexpected exit and opens a retry window that
+/// doubles with each consecutive failure, up to `max_respawn_backoff`.
+async fn record_start_failure(inner: &Arc<Inner>, message: String) {
+    let mut respawn = inner.respawn.lock().await;
+    if respawn
+        .running_since
+        .take()
+        .is_some_and(|since| since.elapsed() >= inner.options.respawn_streak_reset)
+    {
+        respawn.consecutive = 0;
+    }
+    respawn.consecutive = respawn.consecutive.saturating_add(1);
+    let wait = inner
+        .options
+        .respawn_delay
+        .saturating_mul(1 << (respawn.consecutive - 1).min(16))
+        .min(inner.options.max_respawn_backoff);
+    log::warn!(
+        "[alloy-recording-host] recorder start failed ({} in a row); next start in {}s: {message}",
+        respawn.consecutive,
+        wait.as_secs()
+    );
+    respawn.failure = Some(StartFailure {
+        message,
+        retry_at: Instant::now() + wait,
+    });
 }
 
 async fn wait_for_exit(mut child: Child, session: Arc<Session>, inner: Weak<Inner>) {
@@ -1082,8 +1145,19 @@ where
             }
         };
         let message = line.trim();
-        if !message.is_empty() {
-            log::info!("[alloy-agent] {message}");
+        if message.is_empty() {
+            continue;
+        }
+        // The agent forwards OBS log output at every level. Debug output
+        // stays out of the log file; errors and warnings log as warnings.
+        match message
+            .strip_prefix("[obs] ")
+            .and_then(|rest| rest.split_once(": "))
+            .map(|(level, _)| level)
+        {
+            Some("debug") => log::debug!("[alloy-agent] {message}"),
+            Some("error" | "warning") => log::warn!("[alloy-agent] {message}"),
+            _ => log::info!("[alloy-agent] {message}"),
         }
     }
 }
@@ -1261,6 +1335,7 @@ async fn process_exited(inner: &Arc<Inner>, session_id: u64, message: String) {
     }
     *inner.applied_settings.lock().await = None;
     set_error_status(inner, message.clone()).await;
+    record_start_failure(inner, message.clone()).await;
     let status = inner.status.read().await.clone();
     let _ = inner.events.send(RecordingEvent::Error {
         error: message,
@@ -1269,36 +1344,46 @@ async fn process_exited(inner: &Arc<Inner>, session_id: u64, message: String) {
     schedule_respawn(inner);
 }
 
+/// Starts the agent again once the current failure's retry window ends. After
+/// `max_consecutive_respawns` failures in a row it stops trying on its own;
+/// requests can still start the agent once per retry window.
 fn schedule_respawn(inner: &Arc<Inner>) {
     let weak = Arc::downgrade(inner);
-    let delay = inner.options.respawn_delay;
     tokio::spawn(async move {
+        {
+            let Some(inner) = weak.upgrade() else {
+                return;
+            };
+            if inner.shutdown.load(Ordering::Acquire) || !inner.options.executable.is_file() {
+                return;
+            }
+            let mut state = inner.respawn.lock().await;
+            if state.consecutive > inner.options.max_consecutive_respawns || state.scheduled {
+                return;
+            }
+            state.scheduled = true;
+        }
+        // A request can fail another start meanwhile and move the window, so
+        // wait for whichever window is current. Only a weak reference is held
+        // while waiting.
+        loop {
+            let retry_at = {
+                let Some(inner) = weak.upgrade() else {
+                    return;
+                };
+                let state = inner.respawn.lock().await;
+                state.failure.as_ref().map(|failure| failure.retry_at)
+            };
+            match retry_at {
+                Some(retry_at) if Instant::now() < retry_at => {
+                    tokio::time::sleep_until(retry_at.into()).await;
+                }
+                _ => break,
+            }
+        }
         let Some(inner) = weak.upgrade() else {
             return;
         };
-        if inner.shutdown.load(Ordering::Acquire) || !inner.options.executable.is_file() {
-            return;
-        }
-        let should_spawn = {
-            let mut state = inner.respawn.lock().await;
-            if state
-                .last_started
-                .is_some_and(|started| started.elapsed() >= inner.options.respawn_streak_reset)
-            {
-                state.consecutive = 0;
-            }
-            if state.consecutive >= inner.options.max_consecutive_respawns || state.scheduled {
-                false
-            } else {
-                state.consecutive += 1;
-                state.scheduled = true;
-                true
-            }
-        };
-        if !should_spawn {
-            return;
-        }
-        sleep(delay).await;
         inner.respawn.lock().await.scheduled = false;
         if inner.shutdown.load(Ordering::Acquire) {
             return;
