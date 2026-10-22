@@ -9,10 +9,6 @@ allowBuilds:
   # Native image decoding for server-side BlurHash computation (game art).
   sharp: true
 
-minimumReleaseAgeExclude:
-  - hono@4.13.0
-  - zod@4.6.4
-
 overrides:
   # Upstream packages have not yet refreshed these transitive patch releases.
   "@xmldom/xmldom": 0.8.15

@@ -47,7 +47,7 @@ Never use npm, yarn, or Bun in this repo.
 - Branch names are at most three hyphen-separated words, without slashes or
   type prefixes: `session-recovery`, `fix-scroll-state`.
 - Commits and PR titles use conventional commit style: `type(scope): summary`
-  with types `feat`, `fix`, `docs`, `chore`, `refactor`, or `test`, e.g.
+  with types `feat`, `fix`, `perf`, `docs`, `chore`, `refactor`, or `test`, e.g.
   `fix(web): keep scroll position on feed refresh`.
 
 ## Code Style
@@ -71,9 +71,10 @@ validation in the PR. Native integration tests and the Nix security test remain.
 1. Make sure `pnpm verify` passes (fmt check, lint, and typecheck).
 2. Open the PR against `dev` and fill in the pull request template, including
    how you verified the change.
-3. CI runs formatting, lint, typecheck, a server/web build, and a Nix flake
-   check. Desktop changes additionally build the Tauri host, the recorder, and
-   the Windows installer.
+3. CI runs formatting, lint, typecheck, and a server/web build. Changes that
+   touch Nix files, the lockfile, or the root manifests also run a
+   Nix flake check. Desktop changes additionally build the Tauri host, the
+   recorder, and the Windows installer.
 
 Releases are tagged from `dev` by maintainers; see
 [RELEASING.md](RELEASING.md) for the release process.
