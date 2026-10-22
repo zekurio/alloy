@@ -1,11 +1,13 @@
 import { clip } from "@alloy/db/schema"
 import type { DbTransaction } from "@alloy/server/db/transaction"
-import { and, eq, isNull } from "drizzle-orm"
+import { clipOwnsUpload } from "@alloy/server/uploads/tickets"
+import { and, eq, isNotNull, isNull, or } from "drizzle-orm"
 
 // The media worker only claims processing/ready clips, so an owner/admin
 // re-encode must first clear terminal quarantine + stage columns and flip a
 // failed clip back to processing. Guarded on the null run ID so a run that just
-// took over isn't clobbered. Returns true when a failed clip was flipped.
+// took over isn't clobbered, and on media to encode from: a committed source or
+// the upload a failed run kept. Returns true when a failed clip was flipped.
 export async function resetFailedClipForEncode(
   clipId: string,
   tx: DbTransaction,
@@ -29,6 +31,7 @@ export async function resetFailedClipForEncode(
         eq(clip.id, clipId),
         eq(clip.status, "failed"),
         isNull(clip.encode_run_id),
+        or(isNotNull(clip.source_key), clipOwnsUpload()),
       ),
     )
     .returning({ id: clip.id })

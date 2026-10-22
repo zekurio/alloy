@@ -5,9 +5,7 @@ import { publishClipUpsertById } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import type { FingerprintSourceFacts } from "@alloy/server/media/encode-fingerprint"
-import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
-import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
 import { and, eq, isNull, sql } from "drizzle-orm"
 
 import type { ClipMediaClaim } from "./clip-media-claim-store"
@@ -211,7 +209,7 @@ export async function failClipMedia(
     thumbnailOnly: boolean
   },
 ): Promise<"retry" | "failed" | "superseded" | "lost"> {
-  const result = await withUploadActivityStopped(claim.id, () =>
+  const outcome = await withUploadActivityStopped(claim.id, () =>
     db.transaction(async (tx) => {
       const [current] = await tx
         .select({
@@ -223,21 +221,11 @@ export async function failClipMedia(
         .where(and(eq(clip.id, claim.id), eq(clip.encode_run_id, claim.runId)))
         .limit(1)
         .for("update")
-      if (!current) {
-        return {
-          outcome: "lost" as const,
-          terminalStatus: null,
-          queuedDeletions: 0,
-        }
-      }
+      if (!current) return "lost" as const
 
       if (current.requestId !== claim.requestId) {
         await releaseRun(tx, claim, reason)
-        return {
-          outcome: "superseded" as const,
-          terminalStatus: null,
-          queuedDeletions: 0,
-        }
+        return "superseded" as const
       }
 
       if (current.attempt < MAX_ATTEMPTS) {
@@ -254,20 +242,20 @@ export async function failClipMedia(
           .where(
             and(eq(clip.id, claim.id), eq(clip.encode_run_id, claim.runId)),
           )
-        return {
-          outcome: "retry" as const,
-          terminalStatus: null,
-          queuedDeletions: 0,
-        }
+        return "retry" as const
       }
 
-      const terminalStatus = current.status === "ready" ? "ready" : "failed"
+      // The staged upload stays: until a run commits a source it is the only
+      // copy of the clip, and the failure may be the server's (a missing
+      // encoder, a full disk), so a re-encode must still find it. A
+      // committed source, deleting the clip, or deleting its owner releases
+      // it, and it counts toward the owner's quota meanwhile.
       const [terminal] = await tx
         .update(clip)
         .set({
           ...clearedStageColumns,
           ...completeRequestColumns(claim),
-          status: terminalStatus,
+          status: current.status === "ready" ? "ready" : "failed",
           encode_run_id: null,
           encode_locked_at: null,
           encode_failed_fingerprint: options.thumbnailOnly
@@ -284,30 +272,12 @@ export async function failClipMedia(
         })
         .where(and(eq(clip.id, claim.id), eq(clip.encode_run_id, claim.runId)))
         .returning({ id: clip.id })
-      if (!terminal) {
-        return {
-          outcome: "lost" as const,
-          terminalStatus: null,
-          queuedDeletions: 0,
-        }
-      }
-      const queuedDeletions = await deleteUploadTicketsWithStorageIntents(
-        { type: "clip", id: claim.id },
-        `terminal clip ${claim.id} upload`,
-        tx,
-      )
-      return {
-        outcome: "failed" as const,
-        terminalStatus,
-        queuedDeletions,
-      }
+      return terminal ? ("failed" as const) : ("lost" as const)
     }),
   )
 
-  if (result.queuedDeletions > 0) wakeStorageDeletionWorker()
-  if (result.outcome !== "failed") return result.outcome
-  void publishClipUpsertById(claim.id)
-  return result.outcome
+  if (outcome === "failed") void publishClipUpsertById(claim.id)
+  return outcome
 }
 
 export async function recoverClipMediaWork(): Promise<void> {

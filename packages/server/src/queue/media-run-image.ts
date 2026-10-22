@@ -64,6 +64,7 @@ export async function runImageProcessing(
           height: image.height,
           thumbKey,
           thumbBlurHash: image.blurHash,
+          thumbTimeMs: null,
           sourceVideoCodec: null,
           sourceAudioCodec: null,
           sourceCodecs: null,

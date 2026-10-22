@@ -22,6 +22,7 @@ const mediaClaimSelect = {
   thumbKey: clip.thumb_key,
   thumbBlurHash: clip.thumb_blur_hash,
   thumbFailedAt: clip.thumb_failed_at,
+  thumbTimeMs: clip.thumb_time_ms,
   trimStartMs: clip.trim_start_ms,
   trimEndMs: clip.trim_end_ms,
   durationMs: clip.duration_ms,

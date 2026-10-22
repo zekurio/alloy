@@ -92,9 +92,9 @@ export async function publishRunThumbnail(
   runId: string,
   poster: ExtractedPoster,
   uploadedKeys: RunUploads,
-): Promise<{ thumbKey: string; thumbBlurHash: string }> {
+): Promise<{ thumbKey: string; thumbBlurHash: string; thumbTimeMs: null }> {
   const thumbKey = runScopedThumbKey(id, runId)
   await uploadedKeys.reserve(thumbKey)
   await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
-  return { thumbKey, thumbBlurHash: poster.blurHash }
+  return { thumbKey, thumbBlurHash: poster.blurHash, thumbTimeMs: null }
 }

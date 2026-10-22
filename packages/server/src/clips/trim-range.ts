@@ -40,3 +40,18 @@ export function resolveTrimRange(input: {
   }
   return { kind: "range", startMs, endMs }
 }
+
+/**
+ * Whether a clip cut to `range` (null: untrimmed, `durationMs` long) still
+ * shows the source frame at `timeMs`. An owner-picked poster stays only while
+ * this holds; the poster route clamps picks into the same bounds.
+ */
+export function trimShowsFrame(
+  range: { startMs: number; endMs: number } | null,
+  timeMs: number,
+  durationMs: number,
+): boolean {
+  return (
+    timeMs >= (range?.startMs ?? 0) && timeMs <= (range?.endMs ?? durationMs)
+  )
+}

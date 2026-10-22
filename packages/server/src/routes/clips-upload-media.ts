@@ -2,7 +2,10 @@ import { clip, clipRendition } from "@alloy/db/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { resetFailedClipForEncode } from "@alloy/server/clips/reencode"
-import { resolveTrimRange } from "@alloy/server/clips/trim-range"
+import {
+  resolveTrimRange,
+  trimShowsFrame,
+} from "@alloy/server/clips/trim-range"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import {
@@ -37,6 +40,7 @@ import {
   adoptStorageWrites,
   withReservedStorageWrites,
 } from "@alloy/server/storage/write-reservation"
+import { selectVideoTicketKey } from "@alloy/server/uploads/tickets"
 import { and, eq, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -213,6 +217,8 @@ export const clipsUploadMediaRoutes = new Hono()
                 thumb_key: thumbKey,
                 thumb_blur_hash: poster.blurHash,
                 thumb_failed_at: null,
+                // Marks the poster as picked, so reprocessing keeps it.
+                thumb_time_ms: timeMs,
               },
             })
             if (accepted) await adoptStorageWrites([thumb], tx)
@@ -305,18 +311,41 @@ export const clipsUploadMediaRoutes = new Hono()
       // references and enqueue their durable deletion intents in the same
       // transaction that invalidates their rows.
       const trimmed = await db.transaction(async (tx) => {
+        // Locked like the poster route does, so a poster picked meanwhile
+        // is either seen here or rejected once the clip is processing.
+        const [poster] = await tx
+          .select({ thumbKey: clip.thumb_key, thumbTimeMs: clip.thumb_time_ms })
+          .from(clip)
+          .where(eq(clip.id, id))
+          .limit(1)
+          .for("update")
+        // The new cut gets an automatic poster of its own. A picked poster
+        // stays while the cut still shows its frame; any other poster may
+        // show footage the owner just cut, so it goes with this trim.
+        const stalePosterKey =
+          poster?.thumbKey &&
+          (poster.thumbTimeMs === null ||
+            !trimShowsFrame(range, poster.thumbTimeMs, durationMs))
+            ? poster.thumbKey
+            : null
+        const patch: Partial<typeof clip.$inferInsert> = {
+          trim_start_ms: range?.startMs ?? null,
+          trim_end_ms: range?.endMs ?? null,
+          status: "processing",
+          encode_progress: 0,
+          encode_attempt: 0,
+          failure_reason: null,
+        }
+        if (stalePosterKey) {
+          patch.thumb_key = null
+          patch.thumb_blur_hash = null
+          patch.thumb_time_ms = null
+        }
         const accepted = await updateReadyClip(tx, {
           id,
           authorId: row.author_id,
           sourceKey,
-          patch: {
-            trim_start_ms: range?.startMs ?? null,
-            trim_end_ms: range?.endMs ?? null,
-            status: "processing",
-            encode_progress: 0,
-            encode_attempt: 0,
-            failure_reason: null,
-          },
+          patch,
         })
         if (!accepted) return null
 
@@ -325,7 +354,10 @@ export const clipsUploadMediaRoutes = new Hono()
           .from(clipRendition)
           .where(eq(clipRendition.clip_id, id))
         const intents = mediaAssetDeletionIntents({
-          keys: staleRenditions.map((rendition) => rendition.storageKey),
+          keys: [
+            ...staleRenditions.map((rendition) => rendition.storageKey),
+            stalePosterKey,
+          ],
           reason: "trim invalidated derived media",
           source: { type: "clip-trim", id },
         })
@@ -367,6 +399,15 @@ export const clipsUploadMediaRoutes = new Hono()
       const row = access.row
 
       if (row.status === "failed") {
+        // Without a committed source or a kept upload every attempt would
+        // fail: failed uploads, and earlier servers on a failed run, deleted
+        // the upload.
+        if (
+          row.source_key === null &&
+          (await selectVideoTicketKey({ type: "clip", id })) === null
+        ) {
+          return conflict(c, "The clip's upload is gone; upload it again")
+        }
         // Failed clips are not claimable, so flip it back to processing in the
         // same transaction that creates the durable media request. The run-ID
         // guard stops a run that just took over from being clobbered.

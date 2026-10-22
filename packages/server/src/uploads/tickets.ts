@@ -105,6 +105,11 @@ async function selectTicket(
   return ticket ?? null
 }
 
+/** SQL condition: the clip row in scope still owns a staged upload. */
+export function clipOwnsUpload() {
+  return sql`exists (select 1 from ${uploadTicket} where ${uploadTicket.target_type} = 'clip' and ${uploadTicket.target_id} = ${clip.id})`
+}
+
 export function selectVideoTicketKey(
   target: UploadTarget,
 ): Promise<string | null> {
