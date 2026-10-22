@@ -6,11 +6,12 @@ import {
   UNIFORM_IMAGE_VARIANCE_THRESHOLD,
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
+import { errorMessage } from "@alloy/server/runtime/error-message"
 import { join } from "@alloy/server/runtime/path"
 import sharp, { type Sharp } from "sharp"
 
 import { imageBlurHashFromBytes } from "./blurhash"
-import { runFfmpeg } from "./ffmpeg"
+import { ffmpegFailureKind, runFfmpeg } from "./ffmpeg"
 
 const logger = createLogger("media")
 
@@ -25,9 +26,17 @@ export interface ExtractedPoster {
 
 /**
  * Poster frame extraction: grab a frame at the requested timestamp or from the
- * standard automatic candidates, and return a JPEG + BlurHash. Returns null
- * only when every checked candidate is blank/uniform. ffmpeg/sharp failures are
- * transient and throw so callers can retry later.
+ * standard automatic candidates, and return a JPEG + BlurHash. The rules are
+ * the desktop library's (`capture_library/poster.rs`), so a clip keeps its
+ * picture after upload:
+ * - a candidate whose grab fails is skipped, since one seek can fail where
+ *   another works, e.g. past the end of a video stream the audio outlasts;
+ * - the first blank frame is the fallback, so a clip that is black throughout
+ *   gets its earliest frame rather than no poster.
+ *
+ * Returns null only when no candidate yields a frame, the one terminal
+ * outcome. A timeout before any frame, an ffmpeg that cannot start and a
+ * sharp failure throw: they say nothing about the media, so callers retry.
  */
 export async function extractPoster(
   videoPath: string,
@@ -35,21 +44,41 @@ export async function extractPoster(
   opts: {
     durationMs: number
     atMs?: number
-    allowUniform?: boolean
     signal?: AbortSignal
   },
 ): Promise<ExtractedPoster | null> {
   const framePath = join(workDir, "poster-frame.png")
+  let blank: Sharp | null = null
+  let failure: string | null = null
   for (const seekMs of posterCandidateTimes(opts)) {
-    await extractFrame(videoPath, framePath, seekMs / 1000, opts.signal)
-
-    const poster = await readPosterFrame(framePath, {
-      allowUniform: opts.allowUniform ?? false,
+    let frame: Buffer | null
+    try {
+      frame = await grabFrame(videoPath, framePath, seekMs / 1000, opts.signal)
+    } catch (cause) {
+      if (opts.signal?.aborted) throw cause
+      const kind = ffmpegFailureKind(cause)
+      if (kind === "exit") {
+        failure ??= errorMessage(cause, "ffmpeg failed")
+        continue
+      }
+      // Every later seek into a file this slow would take as long, so settle
+      // for the blank frame an earlier candidate found.
+      if (kind === "timeout" && blank) break
+      throw cause
+    }
+    if (!frame) continue
+    const image = sharp(frame).resize(POSTER_MAX_WIDTH, null, {
+      withoutEnlargement: true,
     })
-    if (poster) return poster
+    if (!(await isUniformFrame(image))) return encodePoster(image)
+    blank ??= image
   }
+  if (blank) return encodePoster(blank)
 
-  logger.warn(`poster extraction produced no usable frame for ${videoPath}`)
+  logger.warn(
+    `poster extraction produced no usable frame for ${videoPath}:`,
+    failure ?? "ffmpeg wrote no frame",
+  )
   return null
 }
 
@@ -83,25 +112,37 @@ function uniqueClampedTimes(timesMs: number[], durationMs: number): number[] {
   return result.length > 0 ? result : [0]
 }
 
-async function readPosterFrame(
+/**
+ * One candidate frame, or null when ffmpeg exits cleanly without writing
+ * one, as it does for a seek past the last frame.
+ */
+async function grabFrame(
+  videoPath: string,
   framePath: string,
-  options: { allowUniform: boolean },
-): Promise<ExtractedPoster | null> {
-  const frame = await readFile(framePath)
+  seekSec: number,
+  signal: AbortSignal | undefined,
+): Promise<Buffer | null> {
   try {
-    const image = sharp(frame).resize(POSTER_MAX_WIDTH, null, {
-      withoutEnlargement: true,
+    await extractFrame(videoPath, framePath, seekSec, signal)
+    return await readFile(framePath).catch((cause: unknown) => {
+      if (isMissingFile(cause)) return null
+      throw cause
     })
-    await rm(framePath, { force: true }).catch(() => undefined)
-    if (!options.allowUniform && (await isUniformFrame(image))) return null
-    const jpeg = await image
-      .clone()
-      .jpeg({ quality: POSTER_JPEG_QUALITY })
-      .toBuffer()
-    return { jpeg, blurHash: await imageBlurHashFromBytes(jpeg) }
   } finally {
     await rm(framePath, { force: true }).catch(() => undefined)
   }
+}
+
+function isMissingFile(cause: unknown): boolean {
+  return cause instanceof Error && "code" in cause && cause.code === "ENOENT"
+}
+
+async function encodePoster(image: Sharp): Promise<ExtractedPoster> {
+  const jpeg = await image
+    .clone()
+    .jpeg({ quality: POSTER_JPEG_QUALITY })
+    .toBuffer()
+  return { jpeg, blurHash: await imageBlurHashFromBytes(jpeg) }
 }
 
 async function isUniformFrame(image: Sharp): Promise<boolean> {

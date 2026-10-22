@@ -20,15 +20,28 @@ export function transcodeTimeoutMs(durationMs: number): number {
   return Math.min(Math.max(durationMs * 30, MIN_TIMEOUT_MS), MAX_TIMEOUT_MS)
 }
 
+/**
+ * Why an ffmpeg run failed: it never started, it ran out of time, or it
+ * exited with an error. Only an exit is about the input itself, so callers
+ * that try several inputs in turn, like the poster candidates, move on after
+ * an exit and stop on the other two.
+ */
+export type FfmpegFailureKind = "start" | "timeout" | "exit"
+
 class FfmpegError extends Error {
   constructor(
     message: string,
+    readonly kind: FfmpegFailureKind,
     readonly exitCode: number | null,
     readonly stderrTail: string,
   ) {
     super(stderrTail ? `${message}\n${stderrTail}` : message)
     this.name = "FfmpegError"
   }
+}
+
+export function ffmpegFailureKind(cause: unknown): FfmpegFailureKind | null {
+  return cause instanceof FfmpegError ? cause.kind : null
 }
 
 /**
@@ -115,6 +128,7 @@ export function runFfmpeg(opts: {
       reject(
         new FfmpegError(
           `Failed to start ffmpeg (${ffmpegPath}): ${err.message}`,
+          "start",
           null,
           "",
         ),
@@ -129,6 +143,7 @@ export function runFfmpeg(opts: {
         reject(
           new FfmpegError(
             `ffmpeg timed out after ${Math.round(opts.timeoutMs / 1000)}s`,
+            "timeout",
             code,
             stderrTail.join("\n"),
           ),
@@ -139,6 +154,7 @@ export function runFfmpeg(opts: {
         reject(
           new FfmpegError(
             `ffmpeg exited with code ${code}`,
+            "exit",
             code,
             stderrTail.join("\n"),
           ),

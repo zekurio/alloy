@@ -5,7 +5,11 @@ import { resetFailedClipForEncode } from "@alloy/server/clips/reencode"
 import { resolveTrimRange } from "@alloy/server/clips/trim-range"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
-import { extractPoster } from "@alloy/server/media/poster"
+import {
+  createKeyedWork,
+  MediaWorkBusyError,
+} from "@alloy/server/media/keyed-work"
+import { type ExtractedPoster, extractPoster } from "@alloy/server/media/poster"
 import {
   requestClipMedia,
   requeueClipMedia,
@@ -18,6 +22,7 @@ import {
   conflict,
   forbidden,
   notFound,
+  tooManyRequests,
 } from "@alloy/server/runtime/http-response"
 import { rateLimiter } from "@alloy/server/runtime/rate-limit"
 import { requestIp } from "@alloy/server/runtime/request-ip"
@@ -45,6 +50,19 @@ const reEncodeRateLimit = rateLimiter({
   windowMs: 60_000,
   max: 10,
   key: requestIp,
+})
+
+// A poster grab runs ffmpeg in the request, outside the media worker and its
+// concurrency, so the route bounds it: per IP here, and at most two grabs at
+// a time across requests, like the desktop library's frame grabs.
+const posterRateLimit = rateLimiter({
+  windowMs: 60_000,
+  max: 20,
+  key: requestIp,
+})
+const posterWork = createKeyedWork<ExtractedPoster | null>({
+  concurrency: 2,
+  maxWaiting: 16,
 })
 
 async function updateReadyClip(
@@ -76,6 +94,7 @@ export const clipsUploadMediaRoutes = new Hono()
   .post(
     "/:id/poster",
     requireSession,
+    posterRateLimit,
     tbValidator("param", IdParam),
     tbValidator("json", PosterBody),
     async (c) => {
@@ -108,11 +127,30 @@ export const clipsUploadMediaRoutes = new Hono()
         row.trim_end_ms ?? durationMs,
       )
 
-      const poster = await extractSourcePoster(sourceKey, {
-        atMs: timeMs,
-        durationMs,
-        allowUniform: true,
-      })
+      let poster: ExtractedPoster | null
+      try {
+        // Identical requests share one grab. The key names the source, so a
+        // clip whose media changed never gets a frame of the old file.
+        poster = await posterWork.run(
+          `${id}:${sourceKey}:${timeMs}`,
+          c.req.raw.signal,
+          (signal) =>
+            extractSourcePoster(sourceKey, {
+              atMs: timeMs,
+              durationMs,
+              signal,
+            }),
+        )
+      } catch (cause) {
+        if (cause instanceof MediaWorkBusyError) {
+          return tooManyRequests(c, 5, "Too many posters are being made")
+        }
+        // The client went away, so nothing reads this response.
+        if (c.req.raw.signal.aborted) {
+          return badRequest(c, "The request was cancelled")
+        }
+        throw cause
+      }
       if (!poster) return badRequest(c, "Could not extract a poster frame")
 
       const attemptId = crypto.randomUUID()
@@ -385,7 +423,7 @@ export const clipsUploadMediaRoutes = new Hono()
 
 function extractSourcePoster(
   sourceKey: string,
-  opts: { atMs: number; durationMs: number; allowUniform: boolean },
+  opts: { atMs: number; durationMs: number; signal: AbortSignal },
 ) {
   return withClipSourceWorkDir("poster", sourceKey, ({ workDir, sourcePath }) =>
     extractPoster(sourcePath, workDir, opts),

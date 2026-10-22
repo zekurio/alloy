@@ -243,6 +243,17 @@ export class FsStorageDriver implements StorageDriver {
     await copyFile(src, destPath)
   }
 
+  async withLocalFile<T>(
+    key: string,
+    fn: (path: string) => Promise<T>,
+  ): Promise<T> {
+    const path = this.fullPath(key)
+    // Surface a missing object here, the way downloadToFile would, rather
+    // than as a tool failure deep inside `fn`.
+    await stat(path)
+    return fn(path)
+  }
+
   async uploadFromFile(
     localPath: string,
     key: string,
