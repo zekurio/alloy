@@ -52,7 +52,23 @@ async function clipObjectReference(
   source: StorageDeletionReferenceSource,
 ): Promise<StorageDeletionReference> {
   const ownerId = clipStorageKeyClipId(key)
-  const [clipRows, renditionRows, ticketRows, runRows] = await Promise.all([
+  // The run is read before the rows. A run attaches objects and gives up the
+  // clip in one transaction, and each statement sees its own snapshot, so a
+  // later row read that missed the attachment would see the run still there.
+  const runRows = ownerId
+    ? await db
+        .select({ id: clip.id })
+        .from(clip)
+        .where(
+          and(
+            eq(clip.id, ownerId),
+            isNotNull(clip.encode_run_id),
+            activeRunReferenceCondition(source),
+          ),
+        )
+        .limit(1)
+    : []
+  const [clipRows, renditionRows, ticketRows] = await Promise.all([
     db
       .select({ id: clip.id })
       .from(clip)
@@ -74,19 +90,6 @@ async function clipObjectReference(
       .from(uploadTicket)
       .where(storageKeyMatches(uploadTicket.storage_key, key))
       .limit(1),
-    ownerId
-      ? db
-          .select({ id: clip.id })
-          .from(clip)
-          .where(
-            and(
-              eq(clip.id, ownerId),
-              isNotNull(clip.encode_run_id),
-              activeRunReferenceCondition(source),
-            ),
-          )
-          .limit(1)
-      : [],
   ])
   if (clipRows.length > 0 || renditionRows.length > 0 || ticketRows.length > 0)
     return "row"
@@ -97,20 +100,21 @@ async function thumbnailReference(
   key: string,
   source: StorageDeletionReferenceSource,
 ): Promise<StorageDeletionReference> {
+  // Run before row, as for clip objects.
+  const ownerId = clipStorageKeyClipId(key)
+  const [owner] = ownerId
+    ? await db
+        .select({ id: clip.id, encodeRunId: clip.encode_run_id })
+        .from(clip)
+        .where(eq(clip.id, ownerId))
+        .limit(1)
+    : []
   const [direct] = await db
     .select({ id: clip.id })
     .from(clip)
     .where(storageKeyMatches(clip.thumb_key, key))
     .limit(1)
   if (direct) return "row"
-
-  const ownerId = clipStorageKeyClipId(key)
-  if (!ownerId) return null
-  const [owner] = await db
-    .select({ id: clip.id, encodeRunId: clip.encode_run_id })
-    .from(clip)
-    .where(eq(clip.id, ownerId))
-    .limit(1)
   return owner && activeRunBlocksStorageDeletion(owner.encodeRunId, source)
     ? "run"
     : null
