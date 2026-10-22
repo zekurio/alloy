@@ -1,5 +1,7 @@
-// Tunables for alloy-gardener. Labels listed here are owned by the gardener:
-// on re-triage it replaces them, and leaves every other label untouched.
+// Tunables for alloy-gardener. Labels in `labels` are owned by triage: on
+// re-triage it replaces them, and leaves every other label untouched.
+
+const RELEASE_NOTES = "Category for generated release notes"
 
 export const config = {
   models: {
@@ -84,6 +86,34 @@ export const config = {
     "possible duplicate": {
       color: "cfd3d7",
       description: "May duplicate an existing issue",
+    },
+  },
+
+  // PR release-notes category from the conventional title; `type!:` is
+  // breaking. Sections live in .github/release.yml, and the commit fallback in
+  // scripts/write-release-notes.cjs mirrors these types.
+  changelog: {
+    types: {
+      feat: "changelog:feature",
+      fix: "changelog:bugfix",
+      perf: "changelog:performance",
+      docs: "changelog:documentation",
+      refactor: "changelog:improvement",
+    },
+    breaking: "changelog:breaking",
+    fallback: "changelog:other",
+    labels: {
+      "changelog:breaking": { color: "b60205", description: RELEASE_NOTES },
+      "changelog:feature": { color: "0e8a16", description: RELEASE_NOTES },
+      "changelog:bugfix": { color: "d73a4a", description: RELEASE_NOTES },
+      "changelog:performance": { color: "5319e7", description: RELEASE_NOTES },
+      "changelog:documentation": {
+        color: "0075ca",
+        description: RELEASE_NOTES,
+      },
+      "changelog:improvement": { color: "fbca04", description: RELEASE_NOTES },
+      "changelog:other": { color: "ededed", description: RELEASE_NOTES },
+      "changelog:skip": { color: "ffffff", description: RELEASE_NOTES },
     },
   },
 
