@@ -26,13 +26,31 @@ import { alloyDesktop } from "./desktop-native"
 
 type Phase = "loading" | "idle"
 
+/**
+ * Operations that report failures. Each keeps its own slot so one failing
+ * (say, a sound preview) neither clears nor shows up as another's error.
+ */
+export type RecordingErrorScope =
+  | "save"
+  | "folder"
+  | "restart"
+  | "sounds"
+  | "games"
+  | "displays"
+
+/** Scopes every recording panel shows: the shared settings write. */
+const SETTINGS_ERROR_SCOPES: readonly RecordingErrorScope[] = ["save"]
+
 interface DesktopRecordingContextValue {
   settings: RecordingSettings | null
   status: RecordingStatus | null
   storageInfo: RecordingStorageInfo | null
   phase: Phase
   busy: boolean
+  /** Failure to load settings at all; panels can't render without them. */
   error: string | null
+  /** Latest failure of each operation, cleared when it next runs. */
+  errors: Partial<Record<RecordingErrorScope, string>>
   /** Local-only update, e.g. live slider dragging before committing. */
   setSettings: Dispatch<SetStateAction<RecordingSettings | null>>
   /** Persist the given settings to the desktop shell. */
@@ -83,7 +101,25 @@ export function DesktopRecordingProvider({
   )
   const [phase, setPhase] = useState<Phase>("loading")
   const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<
+    Partial<Record<RecordingErrorScope, string>>
+  >({})
   const saveSequence = useRef(0)
+  // Last settings the host confirmed, for rolling back a rejected save.
+  const confirmedSettings = useRef<RecordingSettings | null>(null)
+
+  const setScopeError = useCallback(
+    (scope: RecordingErrorScope, message: string | null) => {
+      setErrors((current) => {
+        if ((current[scope] ?? null) === message) return current
+        const next = { ...current }
+        if (message === null) delete next[scope]
+        else next[scope] = message
+        return next
+      })
+    },
+    [],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -106,6 +142,7 @@ export function DesktopRecordingProvider({
           if (cancelled) return
           if (event.type === "settings") {
             receivedSettingsEvent = true
+            confirmedSettings.current = event.settings
             setSettings(event.settings)
           }
           if ("status" in event) {
@@ -119,7 +156,10 @@ export function DesktopRecordingProvider({
           recording.getStorageInfo(),
         ])
         if (cancelled) return
-        if (!receivedSettingsEvent) setSettings(nextSettings)
+        if (!receivedSettingsEvent) {
+          confirmedSettings.current = nextSettings
+          setSettings(nextSettings)
+        }
         if (!receivedStatusEvent) setStatus(nextStatus)
         setStorageInfo(nextStorage)
         setPhase("idle")
@@ -136,6 +176,7 @@ export function DesktopRecordingProvider({
     return () => {
       cancelled = true
       unsubscribe?.()
+      confirmedSettings.current = null
       setSettings(null)
       setStatus(null)
       setStorageInfo(null)
@@ -145,24 +186,39 @@ export function DesktopRecordingProvider({
   const save = useCallback(
     async (next: RecordingSettings) => {
       if (!recording) return
-      setError(null)
+      setScopeError("save", null)
       const sequence = ++saveSequence.current
       setSettings(next)
       try {
         const saved = await recording.setSettings(next)
+        confirmedSettings.current = saved
         if (sequence !== saveSequence.current) return
         setSettings(saved)
       } catch (cause) {
         if (sequence !== saveSequence.current) return
-        setError(errorText(cause, t("Couldn't save recording settings.")))
+        setScopeError(
+          "save",
+          errorText(cause, t("Couldn't save recording settings.")),
+        )
+        // Roll back so the rejected value neither stays on screen nor gets
+        // written back by the next change, which spreads `settings`. Prefer
+        // what the host holds now; fall back to the last confirmed value.
+        let restored = confirmedSettings.current
+        try {
+          restored = await recording.getSettings()
+          confirmedSettings.current = restored
+        } catch {
+          // Keep the last confirmed settings.
+        }
+        if (sequence === saveSequence.current) setSettings(restored)
       }
     },
-    [recording],
+    [recording, setScopeError],
   )
 
   const chooseOutputFolder = useCallback(async () => {
     if (!recording) return
-    setError(null)
+    setScopeError("folder", null)
     try {
       const folder = await recording.selectOutputFolder()
       if (!folder) return
@@ -170,87 +226,104 @@ export function DesktopRecordingProvider({
       // return it, so save it through the settings path, which moves the
       // library and recorder onto it.
       const current = await recording.getSettings()
-      if (current.outputFolder === folder) setSettings(current)
-      else await save({ ...current, outputFolder: folder })
+      if (current.outputFolder === folder) {
+        confirmedSettings.current = current
+        setSettings(current)
+      } else await save({ ...current, outputFolder: folder })
       setStorageInfo(await recording.getStorageInfo())
     } catch (cause) {
-      setError(errorText(cause, t("Couldn't change the capture folder.")))
+      setScopeError(
+        "folder",
+        errorText(cause, t("Couldn't change the capture folder.")),
+      )
     }
-  }, [recording, save])
+  }, [recording, save, setScopeError])
 
   const restartBackend = useCallback(async () => {
     if (!recording) return
-    setError(null)
+    setScopeError("restart", null)
     setPhase("loading")
     try {
       const nextStatus = await recording.restartBackend()
       setStatus(nextStatus)
     } catch (cause) {
-      setError(errorText(cause, t("Couldn't restart Alloy agent.")))
+      setScopeError(
+        "restart",
+        errorText(cause, t("Couldn't restart Alloy agent.")),
+      )
       throw cause
     } finally {
       setPhase("idle")
     }
-  }, [recording])
+  }, [recording, setScopeError])
 
   const listNotificationSounds = useCallback(async () => {
     if (!recording) return EMPTY_SOUND_LIBRARY
-    setError(null)
+    setScopeError("sounds", null)
     try {
       return await recording.listNotificationSounds()
     } catch (cause) {
-      setError(errorText(cause, t("Couldn't load notification sounds.")))
+      setScopeError(
+        "sounds",
+        errorText(cause, t("Couldn't load notification sounds.")),
+      )
       return EMPTY_SOUND_LIBRARY
     }
-  }, [recording])
+  }, [recording, setScopeError])
 
   const openNotificationSoundsFolder = useCallback(
     async (sound: RecordingNotificationSoundEvent) => {
       if (!recording) return
-      setError(null)
+      setScopeError("sounds", null)
       try {
         await recording.openNotificationSoundsFolder(sound)
       } catch (cause) {
-        setError(errorText(cause, t("Couldn't open the sounds folder.")))
+        setScopeError(
+          "sounds",
+          errorText(cause, t("Couldn't open the sounds folder.")),
+        )
       }
     },
-    [recording],
+    [recording, setScopeError],
   )
 
   const previewNotificationSound = useCallback(
     async (sound: RecordingNotificationSoundEvent) => {
       if (!recording) return
-      setError(null)
+      setScopeError("sounds", null)
       try {
         await recording.previewNotificationSound(sound)
       } catch (cause) {
-        setError(errorText(cause, t("Couldn't play the sound.")))
+        setScopeError("sounds", errorText(cause, t("Couldn't play the sound.")))
       }
     },
-    [recording],
+    [recording, setScopeError],
   )
 
   const listGameProcesses = useCallback(async () => {
     if (!recording) return []
-    setError(null)
+    setScopeError("games", null)
     try {
       return await recording.listGameProcesses()
     } catch (cause) {
-      setError(errorText(cause, t("Couldn't load running processes.")))
+      setScopeError(
+        "games",
+        errorText(cause, t("Couldn't load running processes.")),
+      )
       return []
     }
-  }, [recording])
+  }, [recording, setScopeError])
 
   const listDisplays = useCallback(async () => {
     if (!recording) return []
-    setError(null)
+    setScopeError("displays", null)
     try {
       return await recording.listDisplays()
     } catch (cause) {
-      setError(errorText(cause, t("Couldn't load displays.")))
+      setScopeError("displays", errorText(cause, t("Couldn't load displays.")))
       return []
     }
-  }, [recording])
+  }, [recording, setScopeError])
 
   const value = useMemo<DesktopRecordingContextValue>(
     () => ({
@@ -260,6 +333,7 @@ export function DesktopRecordingProvider({
       phase,
       busy: phase !== "idle",
       error,
+      errors,
       setSettings,
       save,
       restartBackend,
@@ -276,6 +350,7 @@ export function DesktopRecordingProvider({
       storageInfo,
       phase,
       error,
+      errors,
       save,
       restartBackend,
       chooseOutputFolder,
@@ -304,8 +379,21 @@ export function useDesktopRecording(): DesktopRecordingContextValue {
   return value
 }
 
-export function DesktopRecordingNotice() {
-  const { error, status } = useDesktopRecording()
+/**
+ * Shows the load failure, then the first failed operation among `scopes`,
+ * then the capture status message. Panels pass the operations they own so a
+ * failure elsewhere doesn't show up on them.
+ */
+export function DesktopRecordingNotice({
+  scopes = SETTINGS_ERROR_SCOPES,
+}: {
+  scopes?: readonly RecordingErrorScope[]
+}) {
+  const { error: loadError, errors, status } = useDesktopRecording()
+  const error =
+    loadError ??
+    scopes.map((scope) => errors[scope]).find((message) => message) ??
+    null
   const statusMessage = status?.message?.trim()
   const message = error ?? (statusMessage ? t(statusMessage) : null)
   if (!message) return null

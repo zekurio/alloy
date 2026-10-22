@@ -10,6 +10,7 @@ import { useClickAnchor } from "@/hooks/use-click-anchor"
 import { api } from "@/lib/api"
 import { useSession } from "@/lib/auth-client"
 import { errorMessage } from "@/lib/error-message"
+import { refreshAfterWrite } from "@/lib/refresh-after-write"
 import { userImageSrc } from "@/lib/user-display"
 import { invalidateProfileIdentityCaches } from "@/lib/user-queries"
 
@@ -128,7 +129,9 @@ function useProfileMediaMutations({
         nextUser = await api.users.uploadBanner(blob)
         setProfileBanner(nextUser.banner ?? "")
       }
-      await refreshProfile()
+      // The upload already saved; a failed refresh must not leave the crop
+      // dialog open so Apply uploads the same image again.
+      void refreshAfterWrite("profile", refreshProfile)
       return true
     } catch (cause) {
       setError(errorMessage(cause, t("Upload failed")))
@@ -189,7 +192,7 @@ async function removeProfileMedia({
   try {
     const nextUser = await remove()
     update(nextUser)
-    await refreshProfile()
+    void refreshAfterWrite("profile", refreshProfile)
   } catch (cause) {
     setError(errorMessage(cause, failure))
   } finally {

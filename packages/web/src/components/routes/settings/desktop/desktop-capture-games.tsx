@@ -51,7 +51,8 @@ export function AllowedGamesSection({
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
 }) {
-  const { listGameProcesses, error } = useDesktopRecording()
+  const { listGameProcesses, errors } = useDesktopRecording()
+  const error = errors.games
   const [pickerMode, setPickerMode] = useState<RuleMode | null>(null)
   const [processes, setProcesses] = useState<RecordingGameProcess[]>([])
   const [query, setQuery] = useState("")

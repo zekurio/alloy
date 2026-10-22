@@ -10,6 +10,8 @@ import type { DependencyList } from "react"
  * Pass `load: null` when the bridge is unavailable (plain web) — the hook stays
  * idle with `data` undefined. `setData` applies the result of a follow-up
  * mutation without a refetch; `refetch` re-runs the loader on demand.
+ * A rejected loader leaves `data` as it was and sets `error` until the next
+ * load succeeds.
  */
 export function useDesktopQuery<T>(
   load: (() => Promise<T>) | null | undefined,
@@ -17,6 +19,7 @@ export function useDesktopQuery<T>(
 ) {
   const [data, setData] = useState<T>()
   const [loading, setLoading] = useState(load != null)
+  const [error, setError] = useState<unknown>(null)
   const [reloadNonce, setReloadNonce] = useState(0)
   const refetch = useCallback(() => setReloadNonce((nonce) => nonce + 1), [])
 
@@ -28,9 +31,16 @@ export function useDesktopQuery<T>(
     let cancelled = false
     setLoading(true)
     void load()
-      .then((result) => {
-        if (!cancelled) setData(result)
-      })
+      .then(
+        (result) => {
+          if (cancelled) return
+          setData(result)
+          setError(null)
+        },
+        (cause: unknown) => {
+          if (!cancelled) setError(cause)
+        },
+      )
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
@@ -39,5 +49,5 @@ export function useDesktopQuery<T>(
     }
   }, [...deps, reloadNonce])
 
-  return { data, setData, loading, refetch }
+  return { data, setData, loading, error, refetch }
 }

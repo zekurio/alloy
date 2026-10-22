@@ -171,14 +171,13 @@ export function useSettingsSaveState(): SettingsSaveState {
 }
 
 /**
- * Registers a form with the settings save bar. Returns whether a bar exists:
- * `true` means the bar renders the Cancel/Save controls and the form should
- * hide its own footer; `false` (used standalone, e.g. the setup wizard) means
- * the form keeps its local buttons.
+ * Registers a form with the settings save bar, which renders its Cancel/Save
+ * controls. Every settings form renders under a SettingsSaveProvider (the
+ * settings dialog and page), so forms keep no save footer of their own.
  */
 export function useSettingsSaveBar(
   form: SettingsFormSnapshot & SettingsFormHandlers,
-): boolean {
+): void {
   const registry = useContext(SettingsSaveRegistryContext)
   const id = useId()
 
@@ -206,6 +205,4 @@ export function useSettingsSaveBar(
     if (!registry) return
     return () => registry.remove(id)
   }, [registry, id])
-
-  return registry !== null
 }

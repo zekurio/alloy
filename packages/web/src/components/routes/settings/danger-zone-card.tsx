@@ -19,10 +19,9 @@ import { EyeOffIcon, RotateCcwIcon, Trash2Icon } from "lucide-react"
 import { useState } from "react"
 
 import { api } from "@/lib/api"
-import { authClient, signOut } from "@/lib/auth-client"
-import { clientLogger } from "@/lib/client-log"
+import { authClient } from "@/lib/auth-client"
+import { completeAccountExitFlow } from "@/lib/auth-flow"
 import { errorMessage } from "@/lib/error-message"
-import { resetClientState } from "@/lib/query-client"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 function useAccountDangerActions() {
@@ -49,14 +48,10 @@ function useAccountDangerActions() {
     try {
       const state = await api.users.disableAccount()
       setDisabledAt(state.disabledAt)
-      try {
-        await signOut()
-      } catch (cause) {
-        clientLogger.warn("[account] Failed to sign out after disable.", cause)
-      }
-      resetClientState()
-      await router.invalidate()
-      await navigate({ to: "/login" })
+      await completeAccountExitFlow({
+        invalidateRouter: () => router.invalidate(),
+        navigate: () => navigate({ to: "/login" }),
+      })
     } catch (cause) {
       setActionError(errorMessage(cause, t("Couldn't disable account")))
     } finally {
@@ -89,8 +84,10 @@ function useAccountDangerActions() {
         setActionError(errorMessage(error, t("Couldn't delete account")))
         return
       }
-      await router.invalidate()
-      await navigate({ to: "/login" })
+      await completeAccountExitFlow({
+        invalidateRouter: () => router.invalidate(),
+        navigate: () => navigate({ to: "/login" }),
+      })
     } catch (cause) {
       setActionError(errorMessage(cause, t("Something went wrong")))
     } finally {

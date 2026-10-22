@@ -4,6 +4,7 @@ import { t } from "@alloy/i18n"
 import { Callout } from "@alloy/ui/components/callout"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { List, ListItem } from "@alloy/ui/components/list"
+import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import {
   CircleAlertIcon,
@@ -20,11 +21,13 @@ import {
   isAuthAttemptCancellation,
   reportAuthFlowFailure,
 } from "@/lib/auth-flow"
+import { authKeys } from "@/lib/auth-query-keys"
 import {
   consumeCurrentQueryParam,
   currentUrlWithQueryParam,
 } from "@/lib/browser-url"
 import { errorMessage } from "@/lib/error-message"
+import { refreshAfterWrite } from "@/lib/refresh-after-write"
 
 export type { LinkedAccount }
 
@@ -98,6 +101,7 @@ function useLinkedAccountActions({
   refresh: () => Promise<void>
   router: ReturnType<typeof useRouter>
 }) {
+  const queryClient = useQueryClient()
   const { refetch: refetchSession } = useSession()
   const [linkingProviderId, setLinkingProviderId] = useState<string | null>(
     null,
@@ -203,8 +207,16 @@ function useLinkedAccountActions({
           })
           return
         }
-        await refresh()
-        await router.invalidate()
+        // The unlink saved; drop the row now and let the refetch catch up
+        // without turning a refresh failure into "Couldn't unlink".
+        queryClient.setQueryData<LinkedAccount[]>(
+          authKeys.accounts(),
+          (current) => current?.filter((entry) => entry.id !== account.id),
+        )
+        void refreshAfterWrite("linked accounts", async () => {
+          await refresh()
+          await router.invalidate()
+        })
       } catch (cause) {
         setActionError({
           target: account.id,
@@ -214,7 +226,15 @@ function useLinkedAccountActions({
         setUnlinkingId(null)
       }
     },
-    [accounts, config, hasPasskeySignIn, refresh, router, unlinkingId],
+    [
+      accounts,
+      config,
+      hasPasskeySignIn,
+      queryClient,
+      refresh,
+      router,
+      unlinkingId,
+    ],
   )
 
   return {
