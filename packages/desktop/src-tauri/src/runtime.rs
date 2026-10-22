@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use alloy_desktop::capture_library::{
     CaptureHttpServer, CaptureLibrary, CaptureLibraryConfig, collection_for,
@@ -44,6 +44,9 @@ pub struct DesktopRuntime {
     /// captures. Jobs that write there wait for it, so the sweep never
     /// takes a file one of them has just created.
     output_swept: watch::Sender<bool>,
+    /// Taken before the library serves anything. Cache files written before
+    /// it belong to an earlier session.
+    started_at: SystemTime,
 }
 
 impl DesktopRuntime {
@@ -118,7 +121,8 @@ impl DesktopRuntime {
             }
         };
         // The web app reaches the library only once this returns, so no
-        // export or poster is being written into the cache yet.
+        // export is being written into the cache yet.
+        let started_at = SystemTime::now();
         library.library.sweep_cache_leftovers();
         let sounds = data.join("notification-sounds");
         std::fs::create_dir_all(&sounds).map_err(error)?;
@@ -150,6 +154,7 @@ impl DesktopRuntime {
             sounds,
             startup_error: Mutex::new(startup_error),
             output_swept: watch::Sender::new(false),
+            started_at,
         });
         runtime.start_events();
         Ok(runtime)
@@ -248,7 +253,11 @@ impl DesktopRuntime {
         }
         // One-time cache validation, off the startup path.
         let library = self.library.read().await.clone();
-        tauri::async_runtime::spawn_blocking(move || library.library.remove_orphans());
+        let started_at = self.started_at;
+        tauri::async_runtime::spawn_blocking(move || {
+            library.library.sweep_poster_leftovers(started_at);
+            library.library.remove_orphans();
+        });
         for capture in self.recorder.captures().await {
             // Recovered captures don't hold up the recorder for their posters.
             if let Err(cause) = self.finalize(capture, Duration::ZERO).await {
@@ -540,12 +549,22 @@ impl DesktopRuntime {
                 let mut export = media::export(&library.library, arg(args, 0)?)
                     .await
                     .map_err(error)?;
-                export.media_url = if export.whole_capture {
+                let media_url = if export.whole_capture {
                     library.files.media_url(&export.id)
                 } else {
                     library.files.export_url(&export.id)
-                }
-                .map_err(error)?;
+                };
+                export.media_url = match media_url {
+                    Ok(media_url) => media_url,
+                    Err(cause) => {
+                        // The renderer never learns this id, so it cannot
+                        // give back the lease the render was handed out on.
+                        if !export.whole_capture {
+                            let _ = library.library.release_export(&export.id).await;
+                        }
+                        return Err(error(cause));
+                    }
+                };
                 to_value(export)
             }
             "recording.releaseLibraryExport" => {

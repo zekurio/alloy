@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File, OpenOptions};
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -163,16 +163,28 @@ impl CaptureLibrary {
         Ok(library)
     }
 
-    /// Empties the cache of what earlier sessions left: every export render,
-    /// posters that were still being written, and the copies older builds
-    /// staged for imports. A renderer reads a render right after asking for
-    /// it, so no render outlives the session that made it. The host runs
-    /// this once at startup, before the library serves anything, so nothing
-    /// it removes is in use.
+    /// Empties the cache of what earlier sessions left: every export render
+    /// and the copies older builds staged for imports. A renderer reads a
+    /// render right after asking for it, so no render outlives the session
+    /// that made it. The host runs this once at startup, before the library
+    /// serves anything, so nothing it removes is in use.
     pub fn sweep_cache_leftovers(&self) {
         let _ = fs::remove_dir_all(self.inner.config.exports_folder());
         let _ = fs::remove_dir_all(self.inner.config.imports_folder());
-        remove_matching_files(&self.inner.config.thumbnails_folder(), is_job_leftover);
+    }
+
+    /// Removes the posters earlier sessions were still writing when they
+    /// ended. The thumbnail cache holds a folder per capture, so the host
+    /// walks it in the background while this session writes posters again;
+    /// only files last written before `session_start` go.
+    pub fn sweep_poster_leftovers(&self, session_start: SystemTime) {
+        remove_matching_files(&self.inner.config.thumbnails_folder(), |entry| {
+            is_job_leftover(&entry.file_name().to_string_lossy())
+                && entry
+                    .metadata()
+                    .and_then(|metadata| metadata.modified())
+                    .is_ok_and(|modified| modified < session_start)
+        });
     }
 
     /// Removes what interrupted jobs left beside the captures: partial
@@ -184,7 +196,9 @@ impl CaptureLibrary {
     pub fn sweep_output_leftovers(&self) {
         for kind in [CaptureKind::Replay, CaptureKind::Screenshot] {
             let root = self.inner.config.output_folder.join(collection_for(kind));
-            remove_matching_files(&root, is_job_leftover);
+            remove_matching_files(&root, |entry| {
+                is_job_leftover(&entry.file_name().to_string_lossy())
+            });
         }
     }
 
@@ -410,6 +424,10 @@ impl CaptureLibrary {
     /// [`release_export`]: Self::release_export
     pub(crate) fn lease_export(&self, capture_id: &str, export_id: &str) {
         let mut leases = self.export_leases();
+        // Older web builds never release, so expired leases go here rather
+        // than pile up for the session. A late release of one is a no-op, and
+        // its render goes with the next export of the capture or at startup.
+        leases.retain(|_, lease| lease.protects());
         let lease = leases
             .entry(export_id.to_string())
             .or_insert_with(|| ExportLease {
@@ -1712,8 +1730,8 @@ fn is_job_leftover(name: &str) -> bool {
         || (name.starts_with('.') && name.contains(".tmp."))
 }
 
-/// Deletes every file below `root` whose name `matches`. Folders stay.
-fn remove_matching_files(root: &Path, matches: impl Fn(&str) -> bool + Copy) {
+/// Deletes every file below `root` that `matches`. Folders stay.
+fn remove_matching_files(root: &Path, matches: impl Fn(&fs::DirEntry) -> bool + Copy) {
     let Ok(entries) = fs::read_dir(root) else {
         return;
     };
@@ -1723,7 +1741,7 @@ fn remove_matching_files(root: &Path, matches: impl Fn(&str) -> bool + Copy) {
         };
         if file_type.is_dir() {
             remove_matching_files(&entry.path(), matches);
-        } else if file_type.is_file() && matches(&entry.file_name().to_string_lossy()) {
+        } else if file_type.is_file() && matches(&entry) {
             let _ = fs::remove_file(entry.path());
         }
     }

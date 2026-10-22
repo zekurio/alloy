@@ -186,7 +186,10 @@ async fn replace_exports(library: &CaptureLibrary, capture_id: &str, keep: Optio
     let capture_id = capture_id.to_string();
     let keep = keep.map(str::to_string);
     let _ = library
-        .off_worker(move |library| library.replace_exports(&capture_id, keep.as_deref()))
+        .off_worker(move |library| {
+            library.replace_exports(&capture_id, keep.as_deref());
+            Ok(())
+        })
         .await;
 }
 
@@ -292,8 +295,8 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
             .await?;
         }
         let size_bytes = tokio::fs::metadata(&output).await?.len();
-        // Nothing after the lease fails, so every lease reaches a caller
-        // that releases it.
+        // Nothing after the lease fails here, so every lease reaches the
+        // host, which releases it itself if it cannot hand the id out.
         library.lease_export(&item.id, &export_id);
         size_bytes
     };

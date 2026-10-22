@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::process::Command;
+use std::time::{Duration, SystemTime};
 
 use alloy_desktop::capture_library::media::{
     capture_sources_present, discard_capture_sources, export, finalize_capture, probe_file,
@@ -495,19 +496,33 @@ async fn startup_sweeps_what_interrupted_jobs_left() {
     ];
     // Files that only look alike: someone else's partial download and a
     // dot file that is not ours.
+    // And a poster this session is still writing.
+    let writing = thumbnails.join(".poster.5d1c0a9e-2b3f-4c6d-8e7f-9a0b1c2d3e4f.tmp.jpg");
     let kept = [
         clip.clone(),
         clips.join("notes.part"),
         clips.join(".hidden.mp4"),
         thumbnails.join("poster.jpg"),
+        writing.clone(),
     ];
     for path in leftovers.iter().chain(&kept) {
         if !path.exists() {
             fs::write(path, b"leftover").await.unwrap();
         }
     }
+    // The leftovers are from a session that ended before this one started.
+    let session_start = SystemTime::now() - Duration::from_secs(60);
+    for path in &leftovers {
+        std::fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(session_start - Duration::from_secs(3600))
+            .unwrap();
+    }
 
     library.sweep_cache_leftovers();
+    library.sweep_poster_leftovers(session_start);
     library.sweep_output_leftovers();
 
     for path in &leftovers {
