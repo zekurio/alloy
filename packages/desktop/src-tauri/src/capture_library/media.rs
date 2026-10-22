@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::capture_library::error::{LibraryError, Result};
 use crate::capture_library::paths::extension;
 use crate::capture_library::store::{
-    CaptureLibrary, ensure_media_in_output, ensure_media_location,
+    CaptureLibrary, ensure_media_in_output, ensure_media_location, export_job_key,
 };
 use crate::capture_library::types::{
     CaptureRecord, ExportRequest, ExportSegment, LibraryExport, LibraryItem, PostProcess, VideoMeta,
@@ -179,17 +179,15 @@ fn ensure_uploadable_codecs(probed: &ProbedMedia) -> Result<()> {
 }
 
 /// Prunes a capture's export cache; the directory walk runs off the async
-/// workers like every other library file operation.
-async fn replace_exports(
-    library: &CaptureLibrary,
-    capture_id: &str,
-    keep: Option<&str>,
-) -> Result<()> {
+/// workers like every other library file operation. Cleanup only, so it
+/// never fails an export: it runs after the render is leased, and the
+/// caller must still receive that lease.
+async fn replace_exports(library: &CaptureLibrary, capture_id: &str, keep: Option<&str>) {
     let capture_id = capture_id.to_string();
     let keep = keep.map(str::to_string);
-    library
+    let _ = library
         .off_worker(move |library| library.replace_exports(&capture_id, keep.as_deref()))
-        .await
+        .await;
 }
 
 /// Produces the file a publish uploads, without re-encoding when it can:
@@ -198,6 +196,10 @@ async fn replace_exports(
 ///   selection is stream-copied from the keyframe before it, and the export
 ///   reports the selection as a trim for the server's one frame-exact encode.
 /// - Anything else is re-encoded to exactly the selection.
+///
+/// A render in the export cache is leased to the caller, who reads it once
+/// and gives it back through [`CaptureLibrary::release_export`]; the last
+/// release deletes it.
 pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<LibraryExport> {
     let id = request.id.clone();
     let item = library
@@ -226,7 +228,7 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
     if full_source && ensure_uploadable_mp4(&source, &probed).is_ok() {
         // The capture is the export, so nothing is copied into the cache and
         // older renders of this capture are no longer needed.
-        replace_exports(library, &item.id, None).await?;
+        replace_exports(library, &item.id, None).await;
         return Ok(LibraryExport {
             id: item.id.clone(),
             // The host fills this from its loopback file server.
@@ -270,10 +272,11 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
     let export_id = crate::capture_library::paths::capture_id(export_key.as_str());
     let output = library.export_path(&item.id, &export_id)?;
     tokio::fs::create_dir_all(output.parent().ok_or(LibraryError::InvalidPath)?).await?;
-    {
+    let size_bytes = {
         // A repeated publish of the same range waits for the render in flight
-        // and reuses it.
-        let _slot = library.work().exclusive(export_key).await;
+        // and reuses it. A release of this id takes the same slot, so the
+        // render cannot disappear between this check and the lease.
+        let _slot = library.work().exclusive(export_job_key(&export_id)).await;
         if !output.exists() || tokio::fs::metadata(&output).await?.len() == 0 {
             replace_with(&output, |temp| async move {
                 transcode_range(
@@ -288,11 +291,15 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
             })
             .await?;
         }
-    }
-    // The editor only ever plays the export it just asked for, so the capture
+        let size_bytes = tokio::fs::metadata(&output).await?.len();
+        // Nothing after the lease fails, so every lease reaches a caller
+        // that releases it.
+        library.lease_export(&item.id, &export_id);
+        size_bytes
+    };
+    // A publish reads only the render it just asked for, so the capture
     // keeps one render instead of one per trim the user tried.
-    replace_exports(library, &item.id, Some(&export_id)).await?;
-    let size_bytes = tokio::fs::metadata(&output).await?.len();
+    replace_exports(library, &item.id, Some(&export_id)).await;
     Ok(LibraryExport {
         id: export_id,
         // The host fills this from its loopback file server.
@@ -338,8 +345,8 @@ async fn export_copy(
     let export_id = crate::capture_library::paths::capture_id(export_key.as_str());
     let output = library.export_path(&item.id, &export_id)?;
     tokio::fs::create_dir_all(output.parent().ok_or(LibraryError::InvalidPath)?).await?;
-    {
-        let _slot = library.work().exclusive(export_key).await;
+    let (copied, size_bytes) = {
+        let _slot = library.work().exclusive(export_job_key(&export_id)).await;
         if !output.exists() || tokio::fs::metadata(&output).await?.len() == 0 {
             replace_with(&output, |temp| async move {
                 copy_packets(
@@ -355,16 +362,27 @@ async fn export_copy(
             })
             .await?;
         }
-    }
-    let measured = measure_copy(library, &output, keyframe, segment, MAX_COPY_LEAD_IN_MS).await;
-    let copied = match measured {
-        Ok(copied) => copied,
-        Err(error) => {
-            let _ = tokio::fs::remove_file(&output).await;
-            return Err(error);
+        let measured =
+            match measure_copy(library, &output, keyframe, segment, MAX_COPY_LEAD_IN_MS).await {
+                Ok(copied) => tokio::fs::metadata(&output)
+                    .await
+                    .map(|metadata| (copied, metadata.len()))
+                    .map_err(LibraryError::from),
+                Err(error) => Err(error),
+            };
+        match measured {
+            Ok(measured) => {
+                // As above, nothing after the lease fails.
+                library.lease_export(&item.id, &export_id);
+                measured
+            }
+            Err(error) => {
+                let _ = tokio::fs::remove_file(&output).await;
+                return Err(error);
+            }
         }
     };
-    replace_exports(library, &item.id, Some(&export_id)).await?;
+    replace_exports(library, &item.id, Some(&export_id)).await;
     // The trim is in the copy's time. Its end is not clamped to the copy:
     // the server clamps against the duration it measures, and a clamped
     // minimum-length selection would fall under its minimum.
@@ -378,7 +396,7 @@ async fn export_copy(
         media_url: String::new(),
         file_name: export_file_name(&item.file_name, segment, false),
         content_type: CONTENT_TYPE_MP4.to_string(),
-        size_bytes: tokio::fs::metadata(&output).await?.len(),
+        size_bytes,
         duration_ms: copied.duration_ms,
         width: probed.meta.width.or(item.width),
         height: probed.meta.height.or(item.height),

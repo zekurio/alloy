@@ -2,7 +2,7 @@ import type { GameRow } from "@alloy/api"
 import { t, tp } from "@alloy/i18n"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { refreshLibrarySnapshotCache } from "@/components/routes/library/library-data"
 import { normalizeClipTitle } from "@/lib/clip-fields"
@@ -34,6 +34,28 @@ export function useImportClipAction(
   const [staged, setStaged] = useState<RecordingLibraryStagedImport | null>(
     null,
   )
+  // The host keeps a staged pick until it is committed or discarded. This
+  // hook can unmount while the native picker is open or the details dialog
+  // is up (the upload popover closes), so whatever it still holds, or
+  // receives afterwards, is discarded rather than left to the host.
+  const mountedRef = useRef(true)
+  const stagedRef = useRef<RecordingLibraryStagedImport | null>(null)
+  // A commit in flight owns its pick: older hosts delete the staged copy
+  // on discard, which would fail the commit.
+  const committingIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    stagedRef.current = staged
+  }, [staged])
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      const current = stagedRef.current
+      if (desktop && current && committingIdRef.current !== current.id) {
+        discardQuietly(desktop, current.id)
+      }
+    }
+  }, [desktop])
 
   const available = desktop !== null
 
@@ -44,6 +66,12 @@ export function useImportClipAction(
     try {
       const result = await desktop.recording.importLibraryFiles()
       if (result.canceled) return
+      // One pick is imported. An older host may stage every file of a
+      // multi-select, and a host whose caller is gone keeps the pick.
+      const [next, ...rest] = result.staged
+      const unused = mountedRef.current ? rest : result.staged
+      for (const extra of unused) discardQuietly(desktop, extra.id)
+      if (!mountedRef.current) return
       if (result.failed.length > 0) {
         const [first] = result.failed
         setError(
@@ -62,7 +90,6 @@ export function useImportClipAction(
               ),
         )
       }
-      const [next] = result.staged
       if (next) setStaged(next)
     } catch (cause) {
       setError(errorMessage(cause, t("Could not import clip.")))
@@ -90,6 +117,8 @@ export function useImportClipAction(
 
       setError(null)
       setCommitting(true)
+      committingIdRef.current = current.id
+      let committed = false
       try {
         const result = await desktop.recording.commitStagedLibraryImport({
           id: current.id,
@@ -97,6 +126,7 @@ export function useImportClipAction(
           gameName: game.name,
           gameIconUrl: game.iconUrl ?? game.logoUrl,
         })
+        committed = true
         await refreshLibrarySnapshotCache(queryClient, desktop)
         await navigate({
           to: "/library/$captureId",
@@ -106,6 +136,12 @@ export function useImportClipAction(
       } catch (cause) {
         setError(errorMessage(cause, t("Could not import clip.")))
       } finally {
+        committingIdRef.current = null
+        // A failed commit stays staged for another try, unless the dialog
+        // that would retry it is gone.
+        if (!committed && !mountedRef.current) {
+          discardQuietly(desktop, current.id)
+        }
         setCommitting(false)
       }
     },
@@ -122,4 +158,8 @@ export function useImportClipAction(
     discard,
     commit,
   }
+}
+
+function discardQuietly(desktop: AlloyTauriDesktop, id: string): void {
+  void desktop.recording.discardStagedLibraryImport(id).catch(() => {})
 }

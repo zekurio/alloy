@@ -52,6 +52,7 @@
     "getLibrary",
     "revealLibraryCapture",
     "exportLibraryCapture",
+    "releaseLibraryExport",
     "updateLibraryCapture",
     "setLibraryCaptureTrim",
     "deleteLibraryCapture",

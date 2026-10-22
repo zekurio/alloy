@@ -73,8 +73,7 @@ pub(crate) struct MediaWork {
     light: Semaphore,
     probe: Semaphore,
     cancel: CancellationToken,
-    active: AtomicUsize,
-    idle: Notify,
+    drain: Drain,
     jobs: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>,
 }
 
@@ -88,8 +87,7 @@ impl MediaWork {
             light: Semaphore::new(LIGHT_SLOTS),
             probe: Semaphore::new(PROBE_SLOTS),
             cancel: CancellationToken::new(),
-            active: AtomicUsize::new(0),
-            idle: Notify::new(),
+            drain: Drain::default(),
             jobs: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -132,18 +130,7 @@ impl MediaWork {
     /// Cancels tools and waits until every child process has been released.
     pub(crate) async fn shutdown(&self) {
         self.cancel();
-        loop {
-            if self.active.load(Ordering::Acquire) == 0 {
-                return;
-            }
-            let notified = self.idle.notified();
-            tokio::pin!(notified);
-            notified.as_mut().enable();
-            if self.active.load(Ordering::Acquire) == 0 {
-                return;
-            }
-            notified.await;
-        }
+        self.drain.idle().await;
     }
 
     async fn run(
@@ -155,7 +142,7 @@ impl MediaWork {
     ) -> Result<ToolOutput> {
         // Count waiting runs too: shutdown must not return while one of them
         // could still win a permit and start a process.
-        let _activity = Activity::begin(self);
+        let _activity = self.drain.begin();
         let slots = match lane {
             Lane::Export => &self.export,
             Lane::Finalize => &self.finalize,
@@ -202,22 +189,71 @@ impl Drop for JobSlot {
     }
 }
 
-struct Activity<'a> {
-    work: &'a MediaWork,
+/// Counts jobs in flight so a shutdown can wait for the last one. Media
+/// tools and clip downloads each have one: both must finish their cleanup
+/// (killing children, removing partial files) before the process exits.
+#[derive(Default)]
+pub(crate) struct Drain {
+    active: AtomicUsize,
+    idle: Notify,
 }
 
-impl<'a> Activity<'a> {
-    fn begin(work: &'a MediaWork) -> Self {
-        work.active.fetch_add(1, Ordering::AcqRel);
-        Self { work }
+impl Drain {
+    /// Marks a job as running until the returned guard is dropped.
+    pub(crate) fn begin(&self) -> Activity<'_> {
+        self.active.fetch_add(1, Ordering::AcqRel);
+        Activity { drain: self }
     }
+
+    /// [`Drain::begin`] for a job that moves into its own task.
+    pub(crate) fn begin_owned(self: &Arc<Self>) -> OwnedActivity {
+        self.active.fetch_add(1, Ordering::AcqRel);
+        OwnedActivity {
+            drain: Arc::clone(self),
+        }
+    }
+
+    fn finish(&self) {
+        if self.active.fetch_sub(1, Ordering::AcqRel) == 1 {
+            self.idle.notify_waiters();
+        }
+    }
+
+    /// Resolves once no job is running. Jobs that start afterwards are not
+    /// waited for, so callers cancel before they drain.
+    pub(crate) async fn idle(&self) {
+        loop {
+            if self.active.load(Ordering::Acquire) == 0 {
+                return;
+            }
+            let notified = self.idle.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+            if self.active.load(Ordering::Acquire) == 0 {
+                return;
+            }
+            notified.await;
+        }
+    }
+}
+
+pub(crate) struct Activity<'a> {
+    drain: &'a Drain,
 }
 
 impl Drop for Activity<'_> {
     fn drop(&mut self) {
-        if self.work.active.fetch_sub(1, Ordering::AcqRel) == 1 {
-            self.work.idle.notify_waiters();
-        }
+        self.drain.finish();
+    }
+}
+
+pub(crate) struct OwnedActivity {
+    drain: Arc<Drain>,
+}
+
+impl Drop for OwnedActivity {
+    fn drop(&mut self) {
+        self.drain.finish();
     }
 }
 
