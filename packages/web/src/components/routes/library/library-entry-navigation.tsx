@@ -27,7 +27,11 @@ import {
   useLibraryGameLookup,
   useLibrarySnapshot,
 } from "./library-data"
-import { buildLibraryEntries, type LibraryEntry } from "./library-entries"
+import {
+  buildLibraryEntries,
+  isPlacedByLoadedUploads,
+  type LibraryEntry,
+} from "./library-entries"
 
 export type NavigableLibraryEntry = Extract<
   LibraryEntry,
@@ -88,6 +92,8 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry) {
   )
   // A current item that is already loaded but hidden by the grid's filters
   // has no neighbours to reach, so the remaining pages are not walked for it.
+  // A capture is only loaded once the pages place it, the same check the grid
+  // uses to hold it back.
   const currentLoaded = useMemo(() => {
     if (current.type === "cloud") {
       return uploaded.some((row) => row.id === current.id)
@@ -96,11 +102,8 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry) {
       (candidate) => candidate.id === current.id,
     )
     if (!item) return false
-    return (
-      !item.uploadedClipId ||
-      uploaded.some((row) => row.id === item.uploadedClipId)
-    )
-  }, [current, uploaded, snapshot])
+    return isPlacedByLoadedUploads(item, uploaded, uploadedComplete, sort)
+  }, [current, uploaded, uploadedComplete, sort, snapshot])
   // Load the next page when the current item is the last loaded entry (so
   // "next" can reach past it) or isn't loaded yet (opened from a deep link).
   const {

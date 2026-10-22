@@ -120,6 +120,27 @@ export function collapsedServerCounts(
   return counts
 }
 
+/**
+ * Whether the upload pages loaded so far place a capture. Until every page is
+ * in, a capture past the last loaded clip could belong after clips not
+ * fetched yet, and one linked to an unloaded clip can't be told apart from an
+ * unsynced capture. Both wait for more pages.
+ */
+export function isPlacedByLoadedUploads(
+  item: RecordingLibraryItem,
+  uploaded: ClipRow[],
+  uploadedComplete: boolean,
+  sort: LibrarySort,
+): boolean {
+  const lastLoaded = uploadedComplete ? undefined : uploaded.at(-1)
+  if (!lastLoaded) return true
+  const serverId = libraryServerIdForItem(item)
+  if (serverId) return uploaded.some((row) => row.id === serverId)
+  const direction = sort === "oldest" ? 1 : -1
+  const boundary = Date.parse(clipListedAt(lastLoaded))
+  return (Date.parse(item.createdAt) - boundary) * direction <= 0
+}
+
 export function buildLibraryEntries({
   snapshot,
   gamesByName,
@@ -145,17 +166,10 @@ export function buildLibraryEntries({
 }): LibraryEntry[] {
   const direction = sort === "oldest" ? 1 : -1
   const cloudIds = new Set(uploaded.map((row) => row.id))
-  // Until every upload page is in, a capture past the last loaded clip could
-  // belong after clips not fetched yet, and one linked to an unloaded clip
-  // can't be told apart from an unsynced capture. Both wait for more pages.
-  const lastLoaded = uploadedComplete ? undefined : uploaded.at(-1)
-  const boundary = lastLoaded ? Date.parse(clipListedAt(lastLoaded)) : null
   const localItems = (snapshot?.items ?? []).filter((item) => {
     const serverId = libraryServerIdForItem(item)
     if (serverId && cloudIds.has(serverId)) return false
-    if (boundary === null) return true
-    if (serverId) return false
-    return (Date.parse(item.createdAt) - boundary) * direction <= 0
+    return isPlacedByLoadedUploads(item, uploaded, uploadedComplete, sort)
   })
   const localByClipId = new Map<string, RecordingLibraryItem[]>()
   for (const item of snapshot?.items ?? []) {
