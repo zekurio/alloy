@@ -42,7 +42,15 @@ function ConfirmActionDialog({
   confirmVariant,
 }: ConfirmActionDialogProps) {
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        // Escape and the backdrop stay live while the action runs; closing then
+        // would drop the outcome, including an error the caller still reports.
+        if (!next && pending) return
+        onOpenChange(next)
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>

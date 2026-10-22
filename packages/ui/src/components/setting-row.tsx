@@ -1,5 +1,17 @@
 import { cn } from "@alloy/ui/lib/utils"
+import { createContext, useContext, useId } from "react"
 import type { ReactNode } from "react"
+
+const SettingRowLabelContext = createContext<string | undefined>(undefined)
+
+/**
+ * Id of the enclosing {@link SettingRow}'s title, for a control that has no
+ * name of its own. Undefined outside a row's control slot and in rows that
+ * bind the title with `htmlFor`.
+ */
+export function useSettingRowLabelId(): string | undefined {
+  return useContext(SettingRowLabelContext)
+}
 
 /**
  * Stack of {@link SettingRow}s. The hairline dividers and the collapsed padding
@@ -22,6 +34,8 @@ export function SettingRows({
 /**
  * Compact settings row: title (+ optional description) on the left, a control on
  * the right. Stack these inside {@link SettingRows} to get the sectioned list.
+ * Without `htmlFor`, a Switch or Slider in the control slot is named by the
+ * title through `aria-labelledby` unless it carries its own label.
  */
 export function SettingRow({
   title,
@@ -51,6 +65,8 @@ export function SettingRow({
   children: ReactNode
   className?: string
 }) {
+  const titleId = useId()
+
   return (
     <div
       className={cn(
@@ -68,17 +84,29 @@ export function SettingRow({
       >
         <div className="min-w-0">
           {htmlFor ? (
-            <label htmlFor={htmlFor} className="text-sm font-medium">
+            <label
+              id={titleId}
+              htmlFor={htmlFor}
+              className="text-sm font-medium"
+            >
               {title}
             </label>
           ) : (
-            <div className="text-sm font-medium">{title}</div>
+            <div id={titleId} className="text-sm font-medium">
+              {title}
+            </div>
           )}
           {description ? (
             <p className="text-foreground-dim mt-1 text-xs">{description}</p>
           ) : null}
         </div>
-        <div className="shrink-0">{children}</div>
+        <div className="shrink-0">
+          <SettingRowLabelContext.Provider
+            value={htmlFor ? undefined : titleId}
+          >
+            {children}
+          </SettingRowLabelContext.Provider>
+        </div>
       </div>
       {footer}
     </div>

@@ -20,11 +20,24 @@ function AppSidebar({ className, ...props }: ComponentProps<"aside">) {
   )
 }
 
+const SIDEBAR_GROUP_CLASS = "flex flex-col items-center gap-1 px-1.5"
+
 function AppSidebarGroup({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="app-sidebar-group"
-      className={cn("flex flex-col items-center gap-1 px-1.5", className)}
+      className={cn(SIDEBAR_GROUP_CLASS, className)}
+      {...props}
+    />
+  )
+}
+
+/** An {@link AppSidebarGroup} exposed as a navigation landmark. */
+function AppSidebarNav({ className, ...props }: ComponentProps<"nav">) {
+  return (
+    <nav
+      data-slot="app-sidebar-group"
+      className={cn(SIDEBAR_GROUP_CLASS, className)}
       {...props}
     />
   )
@@ -48,6 +61,7 @@ function useNavItem(
         type: "button",
         title,
         "aria-label": title,
+        "aria-current": active ? "page" : undefined,
         className: cn(style.className, className),
       },
       props,
@@ -98,4 +112,10 @@ function AppSidebarItemTooltip({
   )
 }
 
-export { AppSidebar, AppSidebarGroup, AppSidebarItem, AppSidebarItemTooltip }
+export {
+  AppSidebar,
+  AppSidebarGroup,
+  AppSidebarItem,
+  AppSidebarItemTooltip,
+  AppSidebarNav,
+}

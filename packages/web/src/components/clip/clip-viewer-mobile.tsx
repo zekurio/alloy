@@ -108,9 +108,16 @@ function MobileClipViewerBody({
     writeSessionStorageItem(MOBILE_SWIPE_HINT_SEEN_KEY, "true")
 
     setShowSwipeHint(true)
+  }, [canNav, next, prev])
+
+  // Hiding keys off the hint itself: a re-run of the effect above (new
+  // neighbours, StrictMode) takes the "seen" early return and would otherwise
+  // cancel the only timer that hides it.
+  useEffect(() => {
+    if (!showSwipeHint) return
     const timer = window.setTimeout(() => setShowSwipeHint(false), 2400)
     return () => window.clearTimeout(timer)
-  }, [canNav, next, prev])
+  }, [showSwipeHint])
 
   /* ---- swipe gesture ---- */
   const touchRef = useRef<{ y: number; t: number } | null>(null)

@@ -35,10 +35,15 @@ export function shouldHandleVideoShortcut(
   return role !== "slider" && role !== "button" && role !== "combobox"
 }
 
+function isSpaceKey(e: KeyboardEvent): boolean {
+  return e.key === " " || e.code === "Space"
+}
+
 export function shouldHandleGlobalVideoShortcut(
-  target: EventTarget | null,
+  e: KeyboardEvent,
   playerRoot: HTMLElement | null,
 ) {
+  const target = e.target
   if (!(target instanceof HTMLElement)) return true
   if (target.closest("[data-video-shortcut-scope='ignore']")) return false
   if (target.isContentEditable) return false
@@ -58,11 +63,16 @@ export function shouldHandleGlobalVideoShortcut(
     target.closest("[data-video-player-control]"),
   )
 
-  if (tag === "BUTTON" && !isPlayerControl) return false
-
   const role = target.getAttribute("role")
   if (role === "slider" || role === "combobox") return false
-  return role !== "button" || isPlayerControl
+  if (tag !== "BUTTON" && role !== "button") return true
+
+  // Space activates a button reached with the keyboard, the player's own Mute
+  // or Fullscreen included. A button that only holds focus from a mouse click
+  // shows no focus ring, so Space still toggles playback there, and letter
+  // shortcuts such as K reach the player either way.
+  if (isSpaceKey(e) && target.matches(":focus-visible")) return false
+  return isPlayerControl
 }
 
 export function handleVideoKeyCommand(
@@ -74,7 +84,7 @@ export function handleVideoKeyCommand(
   const key = e.key.toLowerCase()
   const enableHorizontalSeek = options.enableHorizontalSeek ?? true
 
-  if (e.key === " " || e.code === "Space" || key === "k") {
+  if (isSpaceKey(e) || key === "k") {
     e.preventDefault()
     command.togglePlay()
     return true

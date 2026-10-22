@@ -68,6 +68,7 @@ export const COMMON_MESSAGES = {
   "Sending...": "Wird gesendet...",
   "Sharing…": "Wird geteilt…",
   Show: "Anzeigen",
+  "Skip to content": "Zum Inhalt springen",
   "Start typing to search": "Tippe los, um zu suchen",
   "Starting...": "Wird gestartet...",
   "This can't be undone.": "Das kann nicht rückgängig gemacht werden.",

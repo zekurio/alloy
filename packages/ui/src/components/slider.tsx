@@ -1,6 +1,8 @@
 import { cn } from "@alloy/ui/lib/utils"
 import { Slider } from "@base-ui/react/slider"
 
+import { useSettingRowLabelId } from "./setting-row"
+
 function SliderRoot({
   className,
   defaultValue,
@@ -18,6 +20,9 @@ function SliderRoot({
       ? defaultValue
       : [min]
   const touch = size === "touch"
+  const rowLabelId = useSettingRowLabelId()
+  const labelledBy =
+    props["aria-labelledby"] ?? (props["aria-label"] ? undefined : rowLabelId)
 
   return (
     <Slider.Root
@@ -56,7 +61,7 @@ function SliderRoot({
         {Array.from({ length: _values.length }, (_, index) => (
           <Slider.Thumb
             aria-label={props["aria-label"]}
-            aria-labelledby={props["aria-labelledby"]}
+            aria-labelledby={labelledBy}
             key={index}
             data-slot="slider-thumb"
             className={cn(

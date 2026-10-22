@@ -604,6 +604,11 @@
   .animate-pulse-dot {
     animation: alloy-pulse 1.6s infinite;
   }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-pulse-dot {
+      animation: none;
+    }
+  }
 
   /* Indeterminate progress sweep — a short segment slides across its track to
      signal an in-flight request without reserving layout or stealing focus

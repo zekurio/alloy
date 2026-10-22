@@ -1,6 +1,8 @@
 import { cn } from "@alloy/ui/lib/utils"
 import { Switch } from "@base-ui/react/switch"
 
+import { useSettingRowLabelId } from "./setting-row"
+
 /**
  * Alloy Switch — 36×20 pill (28×16 in `sm`), tokenised so the thumb animates on
  * the accent track.
@@ -10,9 +12,12 @@ function SwitchRoot({
   size = "default",
   ...props
 }: Switch.Root.Props & { size?: "default" | "sm" }) {
+  const rowLabelId = useSettingRowLabelId()
+
   return (
     <Switch.Root
       data-slot="switch"
+      aria-labelledby={props["aria-label"] ? undefined : rowLabelId}
       data-size={size}
       // A drawer treats a mouse press on anything but a native control as the
       // start of a swipe and swallows the click, so the switch opts out.

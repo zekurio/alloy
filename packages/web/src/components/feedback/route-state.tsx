@@ -36,7 +36,7 @@ function RouteErrorState({
   reset,
   variant = "screen",
 }: RouteErrorStateProps): ReactElement {
-  const message = getErrorMessage(error) ?? "This view failed to load."
+  const message = getErrorMessage(error) ?? t("This view failed to load.")
   const details = getErrorDetails(error, info)
   const copyFeedback = useActionFeedback()
   const copyErrorDetails = useCallback(async () => {
