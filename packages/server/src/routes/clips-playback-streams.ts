@@ -50,7 +50,6 @@ export function streamResolved(
   )
   if (range.kind === "range") {
     const length = range.end - range.start + 1
-    const body = resolved.stream({ start: range.start, end: range.end })
     c.header("Content-Type", contentType)
     c.header(
       "Content-Range",
@@ -58,7 +57,10 @@ export function streamResolved(
     )
     c.header("Content-Length", String(length))
     c.status(206)
+    // Open the file only for a body: a HEAD answer with an unread stream
+    // would hold its descriptor until the stream is collected, if ever.
     if (c.req.method === "HEAD") return c.body(null)
+    const body = resolved.stream({ start: range.start, end: range.end })
     return stream(c, async (s) => {
       await pipeReadable(s, body)
     })
@@ -68,10 +70,10 @@ export function streamResolved(
     return c.body(null, 416)
   }
 
-  const body = resolved.stream()
   c.header("Content-Type", contentType)
   c.header("Content-Length", String(resolved.size))
   if (c.req.method === "HEAD") return c.body(null)
+  const body = resolved.stream()
   return stream(c, async (s) => {
     await pipeReadable(s, body)
   })

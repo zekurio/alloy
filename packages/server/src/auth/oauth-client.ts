@@ -26,6 +26,7 @@ import {
 import { getEnabledProviderConfig } from "./oauth-config"
 
 const oauthClientCache = new Map<string, Promise<Configuration>>()
+const USER_INFO_TIMEOUT_MS = 10_000
 
 // Provider metadata and secrets are runtime-mutable (admin settings). Drop
 // discovered client configurations on any config change so the next sign-in
@@ -107,10 +108,13 @@ export async function fetchOAuthUserInfo(
 
   if (!provider.userInfoUrl) return {}
 
+  // One deadline covers headers and body: a provider that stalls mid-response
+  // must not pin the login request forever.
   const res = await fetch(provider.userInfoUrl, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
+    signal: AbortSignal.timeout(USER_INFO_TIMEOUT_MS),
   })
   if (!res.ok) {
     throw new Error(
