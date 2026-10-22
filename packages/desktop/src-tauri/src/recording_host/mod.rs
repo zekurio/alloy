@@ -530,12 +530,16 @@ impl RecorderHost {
         settings: RecordingSettings,
     ) -> Result<RecordingSettings, RecorderHostError> {
         validate_settings(&settings)?;
+        // Holding the lock across the write keeps two saves from sharing the
+        // temporary file and the file in step with the settings in memory.
+        let mut current = self.inner.settings.write().await;
         write_json_off_worker(
             self.inner.options.state_dir.join(SETTINGS_FILE),
             settings.clone(),
         )
         .await?;
-        *self.inner.settings.write().await = settings.clone();
+        *current = settings.clone();
+        drop(current);
         *self.inner.applied_settings.lock().await = None;
         // New settings may fix what made the last start fail; let the next
         // request try them at once.
@@ -1724,7 +1728,12 @@ fn start_discord_detection_refresh(inner: &Arc<Inner>) {
 }
 
 async fn refresh_discord_detection_cache(path: &Path) -> Result<(), String> {
-    if discord_cache_is_fresh(path) {
+    // Checking freshness parses the whole cache file.
+    let cached = path.to_path_buf();
+    if off_worker(move || discord_cache_is_fresh(&cached))
+        .await
+        .map_err(|error| error.to_string())?
+    {
         return Ok(());
     }
 

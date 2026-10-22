@@ -290,9 +290,9 @@ impl DownloadManager {
         let base = safe_component(Some(request.title.as_str()), "clip");
         let (destination, partial) = {
             let (root, extension) = (root.clone(), extension.clone());
-            tokio::task::spawn_blocking(move || reserve_destination(&root, &base, &extension))
-                .await
-                .map_err(|error| LibraryError::Io(std::io::Error::other(error)))??
+            self.library
+                .off_worker(move |_| reserve_destination(&root, &base, &extension))
+                .await?
         };
         let received = match self
             .write_response(
