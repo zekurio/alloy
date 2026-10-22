@@ -15,6 +15,7 @@ export interface MediaRow {
   thumbKey: string | null
   thumbBlurHash: string | null
   thumbFailedAt: Date | null
+  thumbTimeMs: number | null
   trimStartMs: number | null
   trimEndMs: number | null
   durationMs: number | null
@@ -43,6 +44,8 @@ export interface MediaThumbPatch {
   thumbKey: string | null
   thumbBlurHash: string | null
   thumbFailedAt?: Date | null
+  /** Source time of the frame an owner picked; null for automatic posters. */
+  thumbTimeMs: number | null
 }
 
 interface MediaStageTier {

@@ -1,0 +1,1 @@
+ALTER TABLE "clip" ADD COLUMN "thumb_time_ms" integer;

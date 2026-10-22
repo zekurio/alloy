@@ -42,6 +42,7 @@ export function thumbPatchToColumns(patch: MediaThumbPatch) {
   const columns = {
     thumb_key: patch.thumbKey,
     thumb_blur_hash: patch.thumbBlurHash,
+    thumb_time_ms: patch.thumbTimeMs,
   }
   if (patch.thumbFailedAt === undefined && patch.thumbKey) {
     return { ...columns, thumb_failed_at: null }

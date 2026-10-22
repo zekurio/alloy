@@ -1,9 +1,15 @@
 import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
 import type { db } from "@alloy/server/db/index"
-import { and, eq, inArray, ne, sql } from "drizzle-orm"
+import { clipOwnsUpload } from "@alloy/server/uploads/tickets"
+import { and, eq, inArray, ne, or, sql } from "drizzle-orm"
 
 type StorageUsageDb = Pick<typeof db, "select">
+
+// Failed clips do not count, except one whose processing failed before it
+// committed a source: it keeps its upload for a re-encode, and that upload
+// counts until it is released.
+const clipHoldsStorage = or(ne(clip.status, "failed"), clipOwnsUpload())
 
 export async function selectSourceStorageUsedBytes(
   database: StorageUsageDb,
@@ -14,7 +20,7 @@ export async function selectSourceStorageUsedBytes(
       usedBytes: sql<number>`coalesce(sum(${clip.source_size_bytes}), 0)::double precision`,
     })
     .from(clip)
-    .where(and(eq(clip.author_id, userId), ne(clip.status, "failed")))
+    .where(and(eq(clip.author_id, userId), clipHoldsStorage))
 
   return clipRow?.usedBytes ?? 0
 }
@@ -33,7 +39,7 @@ export async function selectSourceStorageUsedBytesByUserIds(
       usedBytes: sql<number>`coalesce(sum(${clip.source_size_bytes}), 0)::double precision`,
     })
     .from(clip)
-    .where(and(inArray(clip.author_id, userIds), ne(clip.status, "failed")))
+    .where(and(inArray(clip.author_id, userIds), clipHoldsStorage))
     .groupBy(clip.author_id)
   for (const row of clipRows) {
     usage.set(row.userId, (usage.get(row.userId) ?? 0) + row.usedBytes)

@@ -36,6 +36,13 @@
       "when": 1792675713773,
       "tag": "0004_game_refresh_backoff",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792686376453,
+      "tag": "0005_clip_thumb_time",
+      "breakpoints": true
     }
   ]
 }

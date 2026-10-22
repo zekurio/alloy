@@ -78,6 +78,10 @@ export const clip = pgTable(
     thumb_key: text(),
     thumb_blur_hash: text(),
     thumb_failed_at: timestamp(),
+    // Source-time ms of the frame the owner picked as the poster; null for an
+    // automatic poster. Reprocessing keeps a picked poster while the trim
+    // still contains its frame.
+    thumb_time_ms: integer(),
 
     view_count: integer().notNull().default(0),
 

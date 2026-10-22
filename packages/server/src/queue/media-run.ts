@@ -1,4 +1,5 @@
 import { normalizeBlurHash, type TranscodingConfig } from "@alloy/contracts"
+import { trimShowsFrame } from "@alloy/server/clips/trim-range"
 import {
   encodeFingerprint,
   expectedLadder,
@@ -37,6 +38,7 @@ import type {
   MediaRow,
   MediaSourcePatch,
   MediaStore,
+  MediaThumbPatch,
 } from "./media-store"
 
 export { runThumbnailBackfill } from "./media-thumbnail-backfill"
@@ -215,33 +217,33 @@ async function runPipelineInWorkDir({
 
   await ensureStillPresent(store, id, runId, signal)
   // Publish the poster before the encode ladder so viewers see a real
-  // thumbnail for the whole encode instead of only the BlurHash. Extraction is
-  // best-effort: first publishes can proceed without a thumbnail, while
-  // re-runs keep any previously committed thumbnail when no usable frame exists.
-  const poster = await extractPosterBestEffort(cut.posterMediaPath, workDir, {
-    durationMs,
-    signal,
-  })
+  // thumbnail for the whole encode instead of only the BlurHash. A poster the
+  // owner picked stays while the cut still shows its frame. Otherwise
+  // extraction is best-effort: first publishes can proceed without a
+  // thumbnail, while re-runs keep an automatic thumbnail when no usable frame
+  // exists. A re-trim already dropped any poster the new cut does not show.
+  const picked = pickedPoster(row, trim, sourceProbe.durationMs)
+  const poster = picked
+    ? null
+    : await extractPosterBestEffort(cut.posterMediaPath, workDir, {
+        durationMs,
+        signal,
+      })
   const thumb =
-    poster.kind === "thumbnail"
+    picked ??
+    (poster?.kind === "thumbnail"
       ? await publishRunThumbnail(id, runId, poster.poster, uploadedKeys)
-      : row.thumbKey
-        ? {
-            thumbKey: row.thumbKey,
-            thumbBlurHash: normalizeBlurHash(row.thumbBlurHash),
-          }
-        : { thumbKey: null, thumbBlurHash: null }
-  const { thumbKey, thumbBlurHash } = thumb
+      : previousAutomaticPoster(row))
+  const { thumbKey } = thumb
   // A clip with no usable frame is marked so the thumbnail backfill leaves it
   // alone. commitReady writes the mark again, since its source columns reset
   // it and the backfill would otherwise re-run the same grabs after every
   // full run.
   const thumbFailedAt =
-    poster.kind === "permanent-empty" ? new Date() : undefined
+    poster?.kind === "permanent-empty" ? new Date() : undefined
   if (
     !(await store.commitThumb(id, runId, {
-      thumbKey,
-      thumbBlurHash,
+      ...thumb,
       thumbFailedAt,
     }))
   )
@@ -277,8 +279,7 @@ async function runPipelineInWorkDir({
     runId,
     {
       ...sourcePatch,
-      thumbKey,
-      thumbBlurHash,
+      ...thumb,
       thumbFailedAt,
       encodeFingerprint: encodeFingerprint(transcodingConfig, fingerprintFacts),
     },
@@ -288,6 +289,36 @@ async function runPipelineInWorkDir({
   if (!committed) throw abortMediaProcessing()
   progress.complete(FINALIZE_PHASE_COST)
   store.publishUpsert(row.authorId, id)
+}
+
+/** The poster the owner picked, while the cut still shows its frame. */
+function pickedPoster(
+  row: MediaRow,
+  trim: { startMs: number; endMs: number } | null,
+  sourceDurationMs: number,
+): MediaThumbPatch | null {
+  if (row.thumbKey === null || row.thumbTimeMs === null) return null
+  if (!trimShowsFrame(trim, row.thumbTimeMs, sourceDurationMs)) return null
+  return {
+    thumbKey: row.thumbKey,
+    thumbBlurHash: normalizeBlurHash(row.thumbBlurHash),
+    thumbTimeMs: row.thumbTimeMs,
+  }
+}
+
+/**
+ * What a re-run keeps when the cut has no usable frame: an automatic poster,
+ * which still matches the cut since a re-trim drops it. A picked poster that
+ * got here shows a frame the cut no longer has, so it goes.
+ */
+function previousAutomaticPoster(row: MediaRow): MediaThumbPatch {
+  return row.thumbKey !== null && row.thumbTimeMs === null
+    ? {
+        thumbKey: row.thumbKey,
+        thumbBlurHash: normalizeBlurHash(row.thumbBlurHash),
+        thumbTimeMs: null,
+      }
+    : { thumbKey: null, thumbBlurHash: null, thumbTimeMs: null }
 }
 
 function makeSourcePatch({
