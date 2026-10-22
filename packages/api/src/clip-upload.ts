@@ -1,10 +1,23 @@
 import type { UploadTicket } from "@alloy/contracts"
 
+import { abortError, isAbortError, throwIfAborted } from "./abort"
 import { toError } from "./error"
-import { parseErrorMessagePayload } from "./http"
+import { HttpError, parseErrorMessagePayload } from "./http"
 import type { ApiJsonInput } from "./json-value"
 const UPLOAD_TIMEOUT_GRACE_MS = 30_000
 const MIN_UPLOAD_TIMEOUT_MS = 30_000
+// Each chunk and the completion request get this many tries on one ticket
+// before the upload fails; transient errors back off 1s, then 2s.
+const UPLOAD_REQUEST_ATTEMPTS = 3
+const UPLOAD_RETRY_BASE_DELAY_MS = 1_000
+
+/** A network failure or timeout that never produced an HTTP response. */
+class UploadTransportError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "UploadTransportError"
+  }
+}
 
 type XhrUploadOptions<T> = {
   ticket: UploadTicket
@@ -61,28 +74,78 @@ async function uploadChunkedToTicket(
   const partCount = Math.ceil(body.size / chunkSize)
   try {
     for (let index = 0; index < partCount; index += 1) {
-      throwIfAborted(signal)
       const start = index * chunkSize
       const end = Math.min(start + chunkSize, body.size)
-      await uploadSingleToTicket(
-        {
-          uploadUrl: `${ticket.uploadUrl}/chunks/${index + 1}`,
-          method: "PUT",
-          headers: {},
-          expiresAt: ticket.expiresAt,
-        },
-        body.slice(start, end),
-        (loaded) => onProgress(start + loaded, body.size),
+      const chunk = body.slice(start, end)
+      // Parts are addressed by number and the server replaces a part
+      // atomically, so a failed chunk is re-sent on the same ticket.
+      await withTransientRetry(
+        () =>
+          uploadSingleToTicket(
+            {
+              uploadUrl: `${ticket.uploadUrl}/chunks/${index + 1}`,
+              method: "PUT",
+              headers: {},
+              expiresAt: ticket.expiresAt,
+            },
+            chunk,
+            (loaded) => onProgress(start + loaded, body.size),
+            signal,
+          ),
         signal,
       )
     }
-    throwIfAborted(signal)
-    await postTicketControl(ticket.uploadUrl, "complete", undefined, signal)
+    await withTransientRetry(
+      () => postTicketControl(ticket.uploadUrl, "complete", undefined, signal),
+      signal,
+    )
     onProgress(body.size, body.size)
   } catch (err) {
     await abortTicketUpload(ticket.uploadUrl)
     throw err
   }
+}
+
+async function withTransientRetry<T>(
+  run: () => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    throwIfAborted(signal, "Upload aborted")
+    try {
+      return await run()
+    } catch (err) {
+      if (attempt >= UPLOAD_REQUEST_ATTEMPTS || !isTransientUploadError(err)) {
+        throw err
+      }
+    }
+    await waitBeforeRetry(
+      UPLOAD_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1),
+      signal,
+    )
+  }
+}
+
+function isTransientUploadError(cause: unknown): boolean {
+  if (cause instanceof UploadTransportError) return true
+  if (!(cause instanceof HttpError)) return false
+  // 501 and 507 are permanent: the server lacks the feature or the disk.
+  if (cause.status === 501 || cause.status === 507) return false
+  return cause.status === 408 || cause.status === 429 || cause.status >= 500
+}
+
+function waitBeforeRetry(delayMs: number, signal?: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(abortError("Upload aborted"))
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort)
+      resolve()
+    }, delayMs)
+    signal?.addEventListener("abort", onAbort, { once: true })
+  })
 }
 
 function uploadWithXhr<T>({
@@ -123,7 +186,7 @@ function uploadWithXhr<T>({
         const message =
           parseErrorMessagePayload(xhr.responseText) ??
           `${xhr.status} ${xhr.statusText}`
-        settle(() => reject(new Error(message)))
+        settle(() => reject(new HttpError(xhr.status, message)))
         return
       }
       try {
@@ -134,10 +197,12 @@ function uploadWithXhr<T>({
       }
     }
     xhr.onerror = () =>
-      settle(() => reject(new Error("Network error during upload")))
-    xhr.ontimeout = () => settle(() => reject(new Error("Upload timed out")))
-    xhr.onabort = () =>
-      settle(() => reject(new DOMException("Upload aborted", "AbortError")))
+      settle(() =>
+        reject(new UploadTransportError("Network error during upload")),
+      )
+    xhr.ontimeout = () =>
+      settle(() => reject(new UploadTransportError("Upload timed out")))
+    xhr.onabort = () => settle(() => reject(abortError("Upload aborted")))
     if (signal) {
       if (signal.aborted) {
         xhr.abort()
@@ -180,14 +245,22 @@ async function postTicketControl(
   json: ApiJsonInput,
   signal?: AbortSignal,
 ): Promise<void> {
-  const res = await fetch(`${uploadUrl}/${suffix}`, {
-    method: "POST",
-    headers:
-      json === undefined ? undefined : { "Content-Type": "application/json" },
-    body: json === undefined ? undefined : JSON.stringify(json),
-    signal,
-  })
-  if (!res.ok) throw new Error(await responseErrorMessage(res))
+  let res: Response
+  try {
+    res = await fetch(`${uploadUrl}/${suffix}`, {
+      method: "POST",
+      headers:
+        json === undefined ? undefined : { "Content-Type": "application/json" },
+      body: json === undefined ? undefined : JSON.stringify(json),
+      signal,
+    })
+  } catch (err) {
+    if (isAbortError(err)) throw err
+    throw new UploadTransportError(
+      toError(err, "Network error during upload").message,
+    )
+  }
+  if (!res.ok) throw new HttpError(res.status, await responseErrorMessage(res))
 }
 
 async function abortTicketUpload(uploadUrl: string): Promise<void> {
@@ -196,10 +269,6 @@ async function abortTicketUpload(uploadUrl: string): Promise<void> {
   } catch {
     // Best effort: server maintenance also removes expired tickets.
   }
-}
-
-function throwIfAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) throw new DOMException("Upload aborted", "AbortError")
 }
 
 async function responseErrorMessage(res: Response): Promise<string> {

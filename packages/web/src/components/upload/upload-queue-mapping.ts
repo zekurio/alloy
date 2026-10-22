@@ -6,7 +6,7 @@ import type { RecordingLibraryDownload } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
 import { formatBytes } from "@/lib/storage-format"
 
-import type { PublishPayload } from "./new-clip-helpers"
+import type { DeferredPublishPayload, PublishPayload } from "./new-clip-helpers"
 import { encodeStageLabel } from "./queue-progress"
 import type { QueueItem, QueueItemStatus } from "./upload-queue-types"
 
@@ -26,6 +26,15 @@ export interface ActiveUpload {
   thumbBlurHash: string | null
   /** Retained after a prepared upload begins so a local failure can retry. */
   preparedPayload?: PublishPayload
+  /** Kept for deferred uploads so a failed preparation can run again. */
+  prepare?: DeferredPublishPayload["prepare"]
+}
+
+export function canRetryActiveUpload(entry: ActiveUpload): boolean {
+  return (
+    entry.status === "error" &&
+    (entry.preparedPayload !== undefined || entry.prepare !== undefined)
+  )
 }
 
 interface LocalRowHandlers {

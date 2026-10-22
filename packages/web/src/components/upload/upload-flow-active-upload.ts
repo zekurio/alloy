@@ -1,10 +1,13 @@
+import { isAbortError } from "@alloy/api"
 import { stableHue } from "@alloy/ui/lib/stable-hash"
 import { useCallback } from "react"
 import type { MutableRefObject } from "react"
 
 import { useInvalidateClips } from "@/lib/clip-queries"
+import { randomId } from "@/lib/random-id"
 
 import {
+  type DeferredPublishPayload,
   isDeferredPublishPayload,
   type PublishClipInput,
   type PublishPayload,
@@ -16,7 +19,7 @@ import {
   markUploadFailedBestEffort,
   startUpload,
 } from "./upload-flow-runner"
-import type { ActiveUpload } from "./upload-queue-mapping"
+import { type ActiveUpload, canRetryActiveUpload } from "./upload-queue-mapping"
 import { revokeUploadThumbUrl } from "./upload-thumbnail-urls"
 
 export function useRunUpload(
@@ -33,9 +36,22 @@ export function useRunUpload(
     finishUpload,
     failUpload,
   )
+  const prepareUpload = usePrepareActiveUpload(beginUpload, failUpload)
   return {
-    runUpload: useStartActiveUpload(activeRef, bump, beginUpload, failUpload),
-    retryUpload: useRetryActiveUpload(activeRef, bump, beginUpload, failUpload),
+    runUpload: useStartActiveUpload(
+      activeRef,
+      bump,
+      beginUpload,
+      prepareUpload,
+      failUpload,
+    ),
+    retryUpload: useRetryActiveUpload(
+      activeRef,
+      bump,
+      beginUpload,
+      prepareUpload,
+      failUpload,
+    ),
   }
 }
 
@@ -131,6 +147,29 @@ function useBeginActiveUpload(
   )
 }
 
+function usePrepareActiveUpload(
+  beginUpload: (
+    entry: ActiveUpload,
+    payload: PublishPayload,
+  ) => Promise<string>,
+  failUpload: (entry: ActiveUpload, cause: unknown) => void,
+) {
+  return useCallback(
+    (entry: ActiveUpload, prepare: DeferredPublishPayload["prepare"]) => {
+      if (entry.localCaptureId && entry.clipId) {
+        void linkLocalCaptureToClip(entry.localCaptureId, entry.clipId)
+      }
+      void prepare(entry.abort.signal)
+        .then((payload) => {
+          entry.abort.signal.throwIfAborted()
+          return beginUpload(entry, payload)
+        })
+        .catch((cause: unknown) => failUpload(entry, cause))
+    },
+    [beginUpload, failUpload],
+  )
+}
+
 function useStartActiveUpload(
   activeRef: MutableRefObject<Map<string, ActiveUpload>>,
   bump: () => void,
@@ -138,6 +177,10 @@ function useStartActiveUpload(
     entry: ActiveUpload,
     payload: PublishPayload,
   ) => Promise<string>,
+  prepareUpload: (
+    entry: ActiveUpload,
+    prepare: DeferredPublishPayload["prepare"],
+  ) => void,
   failUpload: (entry: ActiveUpload, cause: unknown) => void,
 ) {
   return useCallback(
@@ -146,21 +189,8 @@ function useStartActiveUpload(
       activeRef.current.set(entry.localId, entry)
       bump()
 
-      if (
-        isDeferredPublishPayload(input) &&
-        entry.localCaptureId &&
-        entry.clipId
-      ) {
-        void linkLocalCaptureToClip(entry.localCaptureId, entry.clipId)
-      }
       if (isDeferredPublishPayload(input)) {
-        void input
-          .prepare(entry.abort.signal)
-          .then((payload) => {
-            entry.abort.signal.throwIfAborted()
-            return beginUpload(entry, payload)
-          })
-          .catch((cause: unknown) => failUpload(entry, cause))
+        prepareUpload(entry, input.prepare)
         return { clipId: entry.clipId ?? null }
       }
 
@@ -172,19 +202,15 @@ function useStartActiveUpload(
         throw cause
       }
     },
-    [activeRef, bump, beginUpload, failUpload],
+    [activeRef, bump, beginUpload, prepareUpload, failUpload],
   )
-}
-
-function isAbortError(cause: unknown): boolean {
-  return cause instanceof Error && cause.name === "AbortError"
 }
 
 function createActiveUpload(input: PublishClipInput): ActiveUpload {
   const deferred = isDeferredPublishPayload(input)
   return {
     localId: `local-${Math.random().toString(36).slice(2)}`,
-    clipId: deferred ? crypto.randomUUID() : undefined,
+    clipId: deferred ? randomId() : undefined,
     localCaptureId: input.localCaptureId,
     title: input.title,
     hue: stableHue(input.title),
@@ -194,6 +220,7 @@ function createActiveUpload(input: PublishClipInput): ActiveUpload {
     abort: new AbortController(),
     thumbUrl: deferred ? input.thumbUrl : null,
     thumbBlurHash: deferred ? input.thumbBlurHash : null,
+    prepare: deferred ? input.prepare : undefined,
   }
 }
 
@@ -204,12 +231,27 @@ function useRetryActiveUpload(
     entry: ActiveUpload,
     payload: PublishPayload,
   ) => Promise<string>,
+  prepareUpload: (
+    entry: ActiveUpload,
+    prepare: DeferredPublishPayload["prepare"],
+  ) => void,
   failUpload: (entry: ActiveUpload, cause: unknown) => void,
 ) {
   return useCallback(
     (localId: string) => {
       const entry = activeRef.current.get(localId)
-      if (!entry || entry.status !== "error" || !entry.preparedPayload) return
+      if (!entry || !canRetryActiveUpload(entry)) return
+      if (!entry.preparedPayload) {
+        // Preparation failed before a server clip existed, so the original
+        // clip id is still unused and the prepare step can simply run again.
+        if (!entry.prepare) return
+        entry.abort = new AbortController()
+        entry.errorMessage = undefined
+        entry.status = "preparing"
+        bump()
+        prepareUpload(entry, entry.prepare)
+        return
+      }
       const payload = entry.preparedPayload
       // Initiation rejects duplicate client ids, so retry with a fresh clip id
       // after dropping any server clip created by the failed attempt.
@@ -228,6 +270,6 @@ function useRetryActiveUpload(
         failUpload(entry, cause),
       )
     },
-    [activeRef, bump, beginUpload, failUpload],
+    [activeRef, bump, beginUpload, prepareUpload, failUpload],
   )
 }

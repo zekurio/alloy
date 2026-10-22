@@ -1,3 +1,5 @@
+import { isAbortError } from "@alloy/api"
+
 import { clientLogger } from "./client-log"
 import { copyTextToClipboard } from "./clipboard"
 
@@ -6,10 +8,6 @@ type ShareResult = "shared" | "copied" | "cancelled" | "failed"
 interface ShareUrlOptions {
   title?: string
   action?: string
-}
-
-function isShareCancelled(cause: unknown): boolean {
-  return cause instanceof DOMException && cause.name === "AbortError"
 }
 
 export async function shareUrlWithFallback(
@@ -27,7 +25,7 @@ export async function shareUrlWithFallback(
       })
       return "shared"
     } catch (cause) {
-      if (isShareCancelled(cause)) return "cancelled"
+      if (isAbortError(cause)) return "cancelled"
       clientLogger.warn(`[share] Failed to ${action}.`, cause)
     }
   }

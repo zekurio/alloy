@@ -1,4 +1,9 @@
-import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
+import {
+  type ClipPrivacy,
+  type GameRow,
+  throwIfAborted,
+  type UserSearchResult,
+} from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { useCallback, useEffect, useRef, useState } from "react"
 
@@ -262,7 +267,7 @@ export async function prepareWebUploadPayload(
   metadata: WebUploadMetadata,
   signal: AbortSignal,
 ): Promise<PublishPayload> {
-  throwIfAborted(signal)
+  throwIfAborted(signal, "Upload aborted")
   if (selected.contentType.startsWith("image/")) {
     const server = await api.serverInfo.fetch()
     if (server.capabilities.screenshots !== 1)
@@ -292,8 +297,4 @@ export async function prepareWebUploadPayload(
     trimStartMs: metadata.trimmed ? metadata.trim.startMs : undefined,
     trimEndMs: metadata.trimmed ? metadata.trim.endMs : undefined,
   }
-}
-
-function throwIfAborted(signal: AbortSignal): void {
-  if (signal.aborted) throw new DOMException("Upload aborted", "AbortError")
 }
