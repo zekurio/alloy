@@ -3,8 +3,9 @@
 //! Library jobs (probing, finalizing recordings, exports, posters) are plain
 //! async functions; every tool process they start goes through [`MediaWork`],
 //! which
-//! - bounds concurrency per [`Lane`], so a long encode never holds up the
-//!   quick probes and frame grabs that thumbnails depend on,
+//! - bounds concurrency per [`Lane`], so a long export never holds up
+//!   saving a clip or the quick probes and frame grabs that thumbnails
+//!   depend on,
 //! - cancels all tools when the library shuts down and lets shutdown wait
 //!   until every child process is gone, and
 //! - collapses concurrent requests for the same job into one run through
@@ -31,18 +32,27 @@ use crate::capture_library::error::{LibraryError, Result};
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 const MAX_TOOL_OUTPUT: usize = 2 * 1024 * 1024;
-/// Encodes and stream copies over whole recordings.
-const HEAVY_SLOTS: usize = 2;
+/// Encodes and stream copies for exports.
+const EXPORT_SLOTS: usize = 2;
+/// Recorder post-processing. Mostly stream copies, but a replay tail can
+/// fall back to an encode, and one slow tail should not hold up the next
+/// clip.
+const FINALIZE_SLOTS: usize = 2;
 /// Single-frame grabs.
 const LIGHT_SLOTS: usize = 2;
 /// Container and packet probes.
 const PROBE_SLOTS: usize = 4;
 
-/// How expensive a tool run is. Each lane has its own process limit.
+/// What a tool run is for. Each lane has its own process limit, so one kind
+/// of work never queues behind a backlog of another.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Lane {
-    /// Reads or writes a whole recording: finalizing, exporting.
-    Heavy,
+    /// Reads or writes a whole recording for an export.
+    Export,
+    /// Trims or joins a recording the recorder just saved. The clip is
+    /// completed and announced only after this, so it never waits for
+    /// exports.
+    Finalize,
     /// Decodes a few frames: posters.
     Light,
     /// Reads container headers and packet tables. Every job starts with one,
@@ -58,7 +68,8 @@ pub(crate) struct ToolOutput {
 pub(crate) struct MediaWork {
     ffmpeg: PathBuf,
     ffprobe: PathBuf,
-    heavy: Semaphore,
+    export: Semaphore,
+    finalize: Semaphore,
     light: Semaphore,
     probe: Semaphore,
     cancel: CancellationToken,
@@ -72,7 +83,8 @@ impl MediaWork {
         Self {
             ffmpeg,
             ffprobe,
-            heavy: Semaphore::new(HEAVY_SLOTS),
+            export: Semaphore::new(EXPORT_SLOTS),
+            finalize: Semaphore::new(FINALIZE_SLOTS),
             light: Semaphore::new(LIGHT_SLOTS),
             probe: Semaphore::new(PROBE_SLOTS),
             cancel: CancellationToken::new(),
@@ -145,7 +157,8 @@ impl MediaWork {
         // could still win a permit and start a process.
         let _activity = Activity::begin(self);
         let slots = match lane {
-            Lane::Heavy => &self.heavy,
+            Lane::Export => &self.export,
+            Lane::Finalize => &self.finalize,
             Lane::Light => &self.light,
             Lane::Probe => &self.probe,
         };

@@ -1296,6 +1296,116 @@ async fn trimmed_publishes_copy_the_recording_and_leave_the_cut_to_the_server() 
 }
 
 #[tokio::test]
+async fn replay_tails_copy_only_from_a_keyframe_close_to_the_tail() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    // Keyframes at 0 s and 5 s; blue shows from 4 s, white from 6 s, and red
+    // again from 8 s.
+    let near = temp.path().join("captures/Clips/Test Game/near.mp4");
+    write_color_recording(&near, "libx265", 10, 150);
+    let far = near.with_file_name("far.mp4");
+    fs::copy(&near, &far).await.unwrap();
+
+    // The last 4 s start 1 s after the keyframe at 5 s, so the tail copies
+    // the recording's packets from there.
+    let mut replay = capture(near.to_str().unwrap(), CaptureKind::Replay);
+    replay.post_process = Some(PostProcess::TrimTail { keep_ms: 4_000 });
+    finalize_capture(&library, &mut replay).await.unwrap();
+    assert_eq!(video_codec(&near), "hevc");
+    assert!(replay.duration_ms.unwrap().abs_diff(5_000) < 150);
+    assert!(is_blue(frame_color(&near, 100)));
+
+    // The last second starts 4 s after it. A copy would save five times the
+    // length asked for, so the tail is re-encoded exactly.
+    let mut replay = capture(far.to_str().unwrap(), CaptureKind::Replay);
+    replay.post_process = Some(PostProcess::TrimTail { keep_ms: 1_000 });
+    finalize_capture(&library, &mut replay).await.unwrap();
+    assert_eq!(video_codec(&far), "h264");
+    assert!(replay.duration_ms.unwrap().abs_diff(1_000) < 150);
+    assert!(is_red(frame_color(&far, 100)));
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn saving_a_clip_does_not_wait_for_exports() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::Duration;
+
+    let temp = TempDir::new().expect("temp dir");
+    // Stands in for ffmpeg. Encodes wait until `release` exists, so two
+    // exports hold every export slot for as long as the test needs them to.
+    let gate = temp.path().join("gate");
+    std::fs::create_dir_all(&gate).unwrap();
+    let script = temp.path().join("gated-ffmpeg");
+    let body = r#"#!/bin/sh
+for arg in "$@"; do
+  if [ "$arg" = libx264 ]; then
+    touch "GATE/encode.$$"
+    while [ ! -e "GATE/release" ]; do sleep 0.05; done
+  fi
+done
+exec ffmpeg "$@"
+"#;
+    std::fs::write(&script, body.replace("GATE", gate.to_str().unwrap())).unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    alloy_desktop::server::install_crypto_provider();
+    let library = CaptureLibrary::new(CaptureLibraryConfig::new(
+        temp.path().join("captures"),
+        temp.path().join("user-data"),
+        temp.path().join("cache"),
+        &script,
+        Path::new("ffprobe"),
+    ))
+    .unwrap();
+    let exported = temp.path().join("captures/Clips/Test Game/exported.mp4");
+    write_color_recording(&exported, "libx264", 6, 60);
+    let exported_id = library
+        .remember_capture(&capture(exported.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+    let saved = exported.with_file_name("saved.mp4");
+    write_color_recording(&saved, "libx264", 6, 60);
+    let mut replay = capture(saved.to_str().unwrap(), CaptureKind::Replay);
+    replay.post_process = Some(PostProcess::TrimTail { keep_ms: 3_000 });
+
+    let reencode = |start_ms, end_ms| ExportRequest {
+        id: exported_id.clone(),
+        allow_server_trim: false,
+        segments: vec![ExportSegment { start_ms, end_ms }],
+    };
+    let exports = async {
+        tokio::join!(
+            export(&library, reencode(500, 2_500)),
+            export(&library, reencode(1_000, 3_000)),
+        )
+    };
+    let finalized = async {
+        tokio::time::timeout(Duration::from_secs(30), async {
+            while std::fs::read_dir(&gate).unwrap().count() < 2 {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("both exports start encoding");
+        let finalized = tokio::time::timeout(
+            Duration::from_secs(30),
+            finalize_capture(&library, &mut replay),
+        )
+        .await;
+        std::fs::write(gate.join("release"), b"").unwrap();
+        finalized
+    };
+    let ((first, second), finalized) = tokio::join!(exports, finalized);
+    finalized
+        .expect("the clip finalizes while both exports encode")
+        .unwrap();
+    assert!(replay.duration_ms.unwrap().abs_diff(4_000) < 150);
+    // Both exports still finish once their encodes may run.
+    for export in [first.unwrap(), second.unwrap()] {
+        assert!(export.size_bytes > 0);
+    }
+}
+
+#[tokio::test]
 async fn shutdown_media_cancels_future_tool_work() {
     let temp = TempDir::new().expect("temp dir");
     let library = library(&temp);

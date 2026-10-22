@@ -19,10 +19,16 @@ pub(crate) const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
 const MEDIA_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 const MIN_EXPORT_SEGMENT_MS: u64 = 100;
 const MIN_EXPORT_TOTAL_MS: u64 = 1_000;
-/// Longest lead-in a stream copy may carry before the range it is for.
-/// Recordings have a keyframe every two seconds; a file with sparser
-/// keyframes is re-encoded rather than copied with a long lead-in.
+/// Longest lead-in a publish copy may carry before the selection. The
+/// server cuts the selection out of the copy, so the lead-in only costs
+/// upload size; a file with sparser keyframes is re-encoded instead.
 const MAX_COPY_LEAD_IN_MS: u64 = 10_000;
+/// Longest lead-in a copied replay tail may keep. Nothing cuts the tail
+/// later, so the saved clip is at most this much longer than asked. The
+/// recorder sets a keyframe every two seconds (`keyint_sec`); the extra
+/// second is slack for an interval that runs long. A replay with sparser
+/// keyframes is re-encoded to the exact length.
+const MAX_TAIL_LEAD_IN_MS: u64 = 3_000;
 /// Copied past the end of a range, so the frames that close it decode.
 const COPY_END_MARGIN_MS: u64 = 250;
 /// Slack between packet timestamps and probed durations. Matches the
@@ -255,7 +261,15 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
         let _slot = library.work().exclusive(export_key).await;
         if !output.exists() || tokio::fs::metadata(&output).await?.len() == 0 {
             replace_with(&output, |temp| async move {
-                transcode_range(library, &source, &temp, source_start_ms, source_end_ms).await
+                transcode_range(
+                    library,
+                    &source,
+                    &temp,
+                    source_start_ms,
+                    source_end_ms,
+                    Lane::Export,
+                )
+                .await
             })
             .await?;
         }
@@ -292,11 +306,15 @@ async fn export_copy(
     probed: &ProbedMedia,
     segment: ExportSegment,
 ) -> Result<LibraryExport> {
-    let keyframe = keyframe_at_or_before(library, source, probed, segment.start_ms)
-        .await?
-        .ok_or_else(|| {
-            LibraryError::MediaTool("no keyframe shortly before the selection".into())
-        })?;
+    let keyframe = keyframe_at_or_before(
+        library,
+        source,
+        probed,
+        segment.start_ms,
+        MAX_COPY_LEAD_IN_MS,
+    )
+    .await?
+    .ok_or_else(|| LibraryError::MediaTool("no keyframe shortly before the selection".into()))?;
     // Selections that start within one keyframe interval share a copy.
     let export_key = format!(
         "export:copy:{}:{}:{}:{}",
@@ -316,13 +334,15 @@ async fn export_copy(
                     &temp,
                     keyframe,
                     segment.end_ms + COPY_END_MARGIN_MS,
+                    Lane::Export,
                 )
                 .await
             })
             .await?;
         }
     }
-    let copied = match measure_copy(library, &output, keyframe, segment).await {
+    let measured = measure_copy(library, &output, keyframe, segment, MAX_COPY_LEAD_IN_MS).await;
+    let copied = match measured {
         Ok(copied) => copied,
         Err(error) => {
             let _ = tokio::fs::remove_file(&output).await;
@@ -362,16 +382,16 @@ struct CopiedRange {
     duration_ms: u64,
 }
 
-/// The latest keyframe at or before `at_ms`, at most
-/// [`MAX_COPY_LEAD_IN_MS`] before it. Reads packet flags only, nothing is
-/// decoded.
+/// The latest keyframe at or before `at_ms`, at most `max_lead_in_ms`
+/// before it. Reads packet flags only, nothing is decoded.
 async fn keyframe_at_or_before(
     library: &CaptureLibrary,
     source: &Path,
     probed: &ProbedMedia,
     at_ms: u64,
+    max_lead_in_ms: u64,
 ) -> Result<Option<u64>> {
-    let earliest_ms = at_ms.saturating_sub(MAX_COPY_LEAD_IN_MS);
+    let earliest_ms = at_ms.saturating_sub(max_lead_in_ms);
     // Packet times are absolute; library times count from the container
     // start.
     let interval = format!(
@@ -416,7 +436,7 @@ async fn keyframe_at_or_before(
         .map(|seconds| ((seconds - probed.start_seconds) * 1_000.0).round())
         .filter(|ms| *ms >= 0.0)
         .map(|ms| ms as u64)
-        .filter(|ms| *ms <= at_ms && at_ms - ms <= MAX_COPY_LEAD_IN_MS)
+        .filter(|ms| *ms <= at_ms && at_ms - ms <= max_lead_in_ms)
         .max())
 }
 
@@ -429,6 +449,7 @@ async fn copy_packets(
     output: &Path,
     keyframe_ms: u64,
     until_ms: u64,
+    lane: Lane,
 ) -> Result<()> {
     let source_text = source.to_string_lossy().into_owned();
     let output_text = output.to_string_lossy().into_owned();
@@ -467,20 +488,18 @@ async fn copy_packets(
         args.extend(["-avoid_negative_ts", "make_zero"]);
     }
     args.extend(["-movflags", "+faststart", "-y", &output_text]);
-    library
-        .work()
-        .ffmpeg(Lane::Heavy, &args, MEDIA_TIMEOUT)
-        .await?;
+    library.work().ffmpeg(lane, &args, MEDIA_TIMEOUT).await?;
     Ok(())
 }
 
 /// Measures where a copy made by [`copy_packets`] sits in its capture and
-/// checks that it holds `range`.
+/// checks that it holds `range` with at most `max_lead_in_ms` before it.
 async fn measure_copy(
     library: &CaptureLibrary,
     copy: &Path,
     keyframe_ms: u64,
     range: ExportSegment,
+    max_lead_in_ms: u64,
 ) -> Result<CopiedRange> {
     let probed = probe_media(library, copy).await?;
     let duration_ms = probed
@@ -493,7 +512,7 @@ async fn measure_copy(
     let start_ms = u64::try_from(keyframe_ms as i64 - probed.video_offset_ms.unwrap_or(0))
         .map_err(|_| LibraryError::MediaTool("stream copy starts before its capture".into()))?;
     if start_ms > range.start_ms + COPY_TOLERANCE_MS
-        || range.start_ms.saturating_sub(start_ms) > MAX_COPY_LEAD_IN_MS + COPY_TOLERANCE_MS
+        || range.start_ms.saturating_sub(start_ms) > max_lead_in_ms + COPY_TOLERANCE_MS
         || start_ms + duration_ms + COPY_TOLERANCE_MS < range.end_ms
     {
         return Err(LibraryError::MediaTool(
@@ -539,7 +558,8 @@ pub async fn finalize_capture(library: &CaptureLibrary, capture: &mut CaptureRec
 /// that point. Copying keeps the recorder's encode and codec and spares the
 /// CPU while a game may still run; the clip runs up to one keyframe interval
 /// longer, the way disk replays keep whole segments. Without a keyframe
-/// close enough, the tail is re-encoded to the exact length.
+/// within [`MAX_TAIL_LEAD_IN_MS`], the tail is re-encoded to the exact
+/// length.
 async fn trim_tail(library: &CaptureLibrary, source: &Path, keep_ms: u64) -> Result<()> {
     let probed = probe_media(library, source).await?;
     let duration = probed
@@ -553,7 +573,9 @@ async fn trim_tail(library: &CaptureLibrary, source: &Path, keep_ms: u64) -> Res
         start_ms: duration - keep_ms,
         end_ms: duration,
     };
-    let copied = match keyframe_at_or_before(library, source, &probed, tail.start_ms).await {
+    let keyframe =
+        keyframe_at_or_before(library, source, &probed, tail.start_ms, MAX_TAIL_LEAD_IN_MS).await;
+    let copied = match keyframe {
         Ok(Some(keyframe)) => {
             replace_with(source, |temp| async move {
                 copy_packets(
@@ -563,10 +585,11 @@ async fn trim_tail(library: &CaptureLibrary, source: &Path, keep_ms: u64) -> Res
                     &temp,
                     keyframe,
                     duration + COPY_END_MARGIN_MS,
+                    Lane::Finalize,
                 )
                 .await?;
                 // Check the copy before it replaces the recording.
-                measure_copy(library, &temp, keyframe, tail)
+                measure_copy(library, &temp, keyframe, tail, MAX_TAIL_LEAD_IN_MS)
                     .await
                     .map(|_| ())
             })
@@ -586,7 +609,15 @@ async fn trim_tail(library: &CaptureLibrary, source: &Path, keep_ms: u64) -> Res
         ),
     }
     replace_with(source, |temp| async move {
-        transcode_range(library, source, &temp, tail.start_ms, tail.end_ms).await
+        transcode_range(
+            library,
+            source,
+            &temp,
+            tail.start_ms,
+            tail.end_ms,
+            Lane::Finalize,
+        )
+        .await
     })
     .await
 }
@@ -646,7 +677,7 @@ async fn concat_segments(
         ];
         library
             .work()
-            .ffmpeg(Lane::Heavy, &args, MEDIA_TIMEOUT)
+            .ffmpeg(Lane::Finalize, &args, MEDIA_TIMEOUT)
             .await
             .map(|_| ())
     })
@@ -663,6 +694,7 @@ async fn transcode_range(
     output: &Path,
     start_ms: u64,
     end_ms: u64,
+    lane: Lane,
 ) -> Result<()> {
     if end_ms <= start_ms {
         return Err(LibraryError::InvalidExport("empty media range".into()));
@@ -698,10 +730,7 @@ async fn transcode_range(
         "-y",
         &output.to_string_lossy(),
     ];
-    library
-        .work()
-        .ffmpeg(Lane::Heavy, &args, MEDIA_TIMEOUT)
-        .await?;
+    library.work().ffmpeg(lane, &args, MEDIA_TIMEOUT).await?;
     if tokio::fs::metadata(output).await?.len() == 0 {
         return Err(LibraryError::MediaTool(
             "ffmpeg produced an empty file".into(),

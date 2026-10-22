@@ -39,9 +39,11 @@ files after the recorder writes them. Jobs are async functions; each one
 starts its tools through `work.rs`, never through its own `Command`:
 
 - `MediaWork` is the only ffmpeg/ffprobe runner. It bounds concurrent
-  processes per lane (`Heavy` for whole-file encodes and copies, `Light` for
-  frame grabs, `Probe` for ffprobe), cancels them when the library shuts
-  down, and collapses concurrent requests for one job key (`exclusive`).
+  processes per lane (`Export` for export encodes and copies, `Finalize` for
+  recorder post-processing, `Light` for frame grabs, `Probe` for ffprobe),
+  cancels them when the library shuts down, and collapses concurrent
+  requests for one job key (`exclusive`). Lanes don't share slots, so
+  saving a clip never waits for an export.
   Manifest and file system calls in async jobs go through `spawn_blocking`,
   and temporary files are `TempFile`s, which delete themselves when a job
   fails or its future is dropped.
@@ -50,8 +52,12 @@ starts its tools through `work.rs`, never through its own `Command`:
   MP4 exports the capture itself, and a publish stream-copies a shorter
   selection from the keyframe before it and hands the selection to the server
   as an ingest trim, so the server's frame-exact cut is the only encode.
-  Replay tails are stream-copied the same way. Re-encoding is the fallback
-  for codecs the server rejects and for keyframes more than 10 s apart.
+  Re-encoding is the fallback for codecs the server rejects and for
+  keyframes more than 10 s before the selection. A replay tail is
+  stream-copied from the keyframe before it too, so a shorter replay runs
+  up to one keyframe interval (2 s in Alloy's recordings) longer than
+  asked. Without a keyframe within 3 s, the tail is re-encoded to the exact
+  length.
 - `poster.rs` makes the thumbnail and BlurHash for videos and screenshots.
   Posters render in their own task. A new capture, import, or download is
   announced once its poster is done or after `POSTER_WAIT`; captures
