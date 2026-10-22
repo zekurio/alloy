@@ -137,6 +137,7 @@ export interface MediaStore {
    * Transactional replacement keeps readers from seeing partial ladders.
    * Stamps `published_at` under the same rule as commitPlayable, covering
    * retried runs whose source (and thus playable transition) predates them.
+   * Only a clip's first completed encode claims webhook announcements.
    */
   commitReady(
     id: string,

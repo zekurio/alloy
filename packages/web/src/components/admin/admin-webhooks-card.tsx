@@ -217,7 +217,7 @@ function WebhookDeliveryStatus({ webhook }: { webhook: AdminWebhookRow }) {
       className="text-destructive"
       title={webhook.lastDeliveryError ?? undefined}
     >
-      {t("Failing since {time}", { time })}
+      {t("Failed {time}", { time })}
     </span>
   )
 }

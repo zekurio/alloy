@@ -6,12 +6,16 @@ import { errorMessage } from "@alloy/server/runtime/error-message"
 import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-worker"
 import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm"
 
-import { webhookFailurePlan } from "./delivery-policy"
 import { clipPublishedPayload, messageWebhookContent } from "./payload"
 import { sendWebhook, type WebhookSendResult } from "./send"
 
 const logger = createLogger("webhooks")
 const RECONCILE_INTERVAL_MS = 60_000
+const MAX_ATTEMPTS = 5
+const RETRY_BACKOFF_MS = 30_000
+// Bounds for a wait the endpoint asked for; linear backoff applies otherwise.
+const RETRY_AFTER_MIN_MS = 1_000
+const RETRY_AFTER_MAX_MS = 15 * 60_000
 
 const worker = new WakeableSerialWorker({
   reconciliationIntervalMs: RECONCILE_INTERVAL_MS,
@@ -43,12 +47,15 @@ async function selectNextPending() {
       provider: webhook.provider,
       url: webhook.url,
       secret: webhook.secret,
-      enabled: webhook.enabled,
       webhookId: webhook.id,
     })
     .from(webhookDelivery)
     .innerJoin(webhook, eq(webhookDelivery.webhook_id, webhook.id))
-    .where(eq(webhookDelivery.status, "pending"))
+    // A paused webhook holds its queue. The admin route wakes this worker
+    // when the webhook is enabled again.
+    .where(
+      and(eq(webhookDelivery.status, "pending"), eq(webhook.enabled, true)),
+    )
     .orderBy(
       asc(webhookDelivery.next_attempt_at),
       asc(webhookDelivery.created_at),
@@ -60,6 +67,7 @@ async function selectNextPending() {
 type PendingDelivery = NonNullable<
   Awaited<ReturnType<typeof selectNextPending>>
 >
+type FailedSend = Extract<WebhookSendResult, { ok: false }>
 
 async function deliverNextPending(signal: AbortSignal) {
   const row = await selectNextPending()
@@ -75,10 +83,6 @@ async function deliverPending(
   row: PendingDelivery,
   signal: AbortSignal,
 ): Promise<void> {
-  if (!row.enabled) {
-    await skipDelivery(row.deliveryId, "Webhook is disabled")
-    return
-  }
   if (!row.clipId) {
     await skipDelivery(row.deliveryId, "Delivery has no clip")
     return
@@ -104,6 +108,8 @@ async function deliverPending(
     await skipDelivery(row.deliveryId, "Clip is no longer announceable")
     return
   }
+  // Shutdown stops between deliveries, never during one: once the request is
+  // out, its result must be recorded or a restart resends the message.
   if (signal.aborted) return
 
   let messageId: string | undefined
@@ -135,11 +141,7 @@ async function deliverPending(
       body: announcement,
       messageId,
     },
-    signal,
   )
-  // Shutdown interruption leaves the durable row pending. It may have reached
-  // the receiver, so the stable delivery ID remains the receiver's dedup key.
-  if (signal.aborted) return
   await recordAttempt(row, result)
   if (
     result.ok &&
@@ -155,8 +157,11 @@ async function recordAttempt(
   result: WebhookSendResult,
 ): Promise<void> {
   const attemptedAt = new Date()
-  const failure = webhookFailurePlan(row.attempts, attemptedAt)
-  const terminalFailure = !result.ok && failure.terminal
+  const attempts = row.attempts + 1
+  const terminal = !result.ok && attempts >= MAX_ATTEMPTS
+  const retryAt = result.ok
+    ? attemptedAt
+    : nextAttemptAt(result, attempts, attemptedAt)
 
   const updated = await db.transaction(async (tx) => {
     const [delivery] = await tx
@@ -167,11 +172,11 @@ async function recordAttempt(
         discord_message_id: result.ok ? (result.messageId ?? null) : null,
         status: result.ok
           ? ("succeeded" as const)
-          : terminalFailure
+          : terminal
             ? ("failed" as const)
             : ("pending" as const),
         error: result.ok ? null : result.error,
-        next_attempt_at: result.ok ? attemptedAt : failure.nextAttemptAt,
+        next_attempt_at: terminal ? attemptedAt : retryAt,
         delivered_at: result.ok ? attemptedAt : null,
       })
       .where(
@@ -182,6 +187,23 @@ async function recordAttempt(
       )
       .returning({ id: webhookDelivery.id })
     if (!delivery) return false
+
+    // The endpoint asked for a pause, so everything queued for it waits.
+    // Otherwise each queued delivery would spend an attempt learning the same
+    // thing, and a burst to a rate-limited Discord webhook would lose clips.
+    if (!result.ok && result.retryAfterMs !== undefined) {
+      await tx
+        .update(webhookDelivery)
+        .set({
+          next_attempt_at: sql`greatest(${webhookDelivery.next_attempt_at}, ${retryAt.toISOString()}::timestamptz)`,
+        })
+        .where(
+          and(
+            eq(webhookDelivery.webhook_id, row.webhookId),
+            eq(webhookDelivery.status, "pending"),
+          ),
+        )
+    }
 
     await tx
       .update(webhook)
@@ -199,15 +221,30 @@ async function recordAttempt(
   })
 
   if (!updated || result.ok) return
-  if (terminalFailure) {
+  if (terminal) {
     logger.error(
-      `webhook delivery ${row.deliveryId} gave up after ${failure.attempts} attempts: ${result.error}`,
+      `webhook delivery ${row.deliveryId} gave up after ${attempts} attempts: ${result.error}`,
     )
   } else {
     logger.warn(
-      `webhook delivery ${row.deliveryId} failed; retrying at ${failure.nextAttemptAt.toISOString()}: ${result.error}`,
+      `webhook delivery ${row.deliveryId} failed; retrying at ${retryAt.toISOString()}: ${result.error}`,
     )
   }
+}
+
+function nextAttemptAt(
+  result: FailedSend,
+  attempts: number,
+  attemptedAt: Date,
+): Date {
+  const delayMs =
+    result.retryAfterMs === undefined
+      ? RETRY_BACKOFF_MS * attempts
+      : Math.min(
+          RETRY_AFTER_MAX_MS,
+          Math.max(RETRY_AFTER_MIN_MS, result.retryAfterMs),
+        )
+  return new Date(attemptedAt.getTime() + delayMs)
 }
 
 /** Keep the dedup ledger for terminal non-delivery outcomes. */

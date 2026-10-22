@@ -15,6 +15,8 @@ const REQUEST_TIMEOUT_MS = 10_000
 const ERROR_BODY_MAX_CHARS = 200
 const MessageResponse = t.object({ id: t.string().regex(/^\d+$/) })
 const MessageError = t.object({ code: t.number() })
+// Discord and Fluxer report a rate limit in the body as fractional seconds.
+const RetryAfterBody = t.object({ retry_after: t.number().nonnegative() })
 
 export interface WebhookTarget {
   provider: WebhookProvider
@@ -35,19 +37,28 @@ export interface WebhookMessage {
 
 export type WebhookSendResult =
   | { ok: true; status: number; messageId?: string }
-  | { ok: false; status: number | null; error: string }
+  | {
+      ok: false
+      status: number | null
+      error: string
+      /** How long the endpoint asked us to wait before trying again. */
+      retryAfterMs?: number
+    }
 
 /**
  * Deliver one message to one webhook.
  *
  * Returns a result rather than throwing: the admin "send test" flow reports
- * the outcome verbatim, and the delivery job records it before deciding
+ * the outcome verbatim, and the delivery worker records it before deciding
  * whether to retry.
+ *
+ * Only the request timeout bounds the call. A shutdown that cancelled it
+ * could not tell whether the receiver got the message, and Discord has no
+ * delivery ID to deduplicate a resend on.
  */
 export async function sendWebhook(
   target: WebhookTarget,
   message: WebhookMessage,
-  signal?: AbortSignal,
 ): Promise<WebhookSendResult> {
   const messageProvider = isMessageWebhookProvider(target.provider)
   const body = messageProvider
@@ -68,8 +79,6 @@ export async function sendWebhook(
     }
   }
 
-  // redirect: "error" — a webhook endpoint that redirects is misconfigured or
-  // hostile, and following it would send the signature to an unintended host.
   const url = new URL(target.url)
   const editing = messageProvider && message.messageId
   if (editing) {
@@ -84,10 +93,10 @@ export async function sendWebhook(
     method: editing ? "PATCH" : "POST",
     headers,
     body,
+    // A webhook endpoint that redirects is misconfigured or hostile, and
+    // following it would send the signature to an unintended host.
     redirect: "error",
-    signal: signal
-      ? AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
-      : AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   }).then(
     (response) => ({ response }),
     (cause: unknown) => ({
@@ -129,17 +138,47 @@ export async function sendWebhook(
     // Only Unknown Message permits a replacement. Missing webhooks, permission
     // errors, and temporary failures must follow the normal delivery retries.
     if (error.success && error.data.code === 10008) {
-      return sendWebhook(target, { ...message, messageId: undefined }, signal)
+      return sendWebhook(target, { ...message, messageId: undefined })
     }
   }
 
   const detail = await response.text().catch(() => "")
+  const retryAfterMs = retryAfterFromResponse(response, detail)
   return {
     ok: false,
     status: response.status,
     error: detail
       ? `${response.status}: ${detail.slice(0, ERROR_BODY_MAX_CHARS)}`
       : `Endpoint responded ${response.status}`,
+    ...(retryAfterMs !== null && { retryAfterMs }),
+  }
+}
+
+/**
+ * The Retry-After header as seconds or an HTTP date, else the JSON body's
+ * `retry_after` seconds. Null when the endpoint named no wait.
+ */
+function retryAfterFromResponse(
+  response: Response,
+  body: string,
+): number | null {
+  const header = response.headers.get("retry-after")
+  if (header) {
+    const seconds = Number(header)
+    if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000
+    const until = Date.parse(header)
+    if (!Number.isNaN(until)) return Math.max(0, until - Date.now())
+  }
+  const seconds = retryAfterSecondsFromBody(body)
+  return seconds === null ? null : seconds * 1000
+}
+
+function retryAfterSecondsFromBody(body: string): number | null {
+  try {
+    const parsed = RetryAfterBody.safeParse(JSON.parse(body))
+    return parsed.success ? parsed.data.retry_after : null
+  } catch {
+    return null
   }
 }
 
