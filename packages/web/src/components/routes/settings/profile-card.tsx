@@ -19,7 +19,6 @@ import type { ReactNode } from "react"
 import type { useClickAnchor } from "@/hooks/use-click-anchor"
 import { authClient } from "@/lib/auth-client"
 import { PROFILE_BANNER_ASPECT_CLASS } from "@/lib/banner-layout"
-import { clientLogger } from "@/lib/client-log"
 import { errorMessage } from "@/lib/error-message"
 import { validateDisplayName, validateUsername } from "@/lib/form-validators"
 import {
@@ -32,7 +31,10 @@ import { displayName, userAvatar, UserBanner } from "@/lib/user-display"
 
 import { MediaEditOverlay, type MediaKind } from "./profile-media-controls"
 import { ProfileTextField } from "./profile-text-field"
-import { useSettingsSaveBar } from "./settings-save-context"
+import {
+  useSettingsSaveBar,
+  useSettingsSaveState,
+} from "./settings-save-context"
 import { useProfileMedia } from "./use-profile-media"
 
 type ProfileCardProps = {
@@ -142,6 +144,7 @@ export function ProfileCard({
     save: () => form.handleSubmit(),
     discard: () => form.reset(),
   })
+  const { saveAll } = useSettingsSaveState()
 
   // A clickable region in the live profile preview. When the element already
   // has an image, clicking opens the change/remove menu; otherwise it opens the
@@ -216,11 +219,9 @@ export function ProfileCard({
         onSubmit={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          // Enter submits too; a failure keeps the form dirty, so the save
-          // bar stays up and reports it on the next Save.
-          void form.handleSubmit().catch((cause: unknown) => {
-            clientLogger.warn("[profile] Saving from Enter failed.", cause)
-          })
+          // Enter saves through the save bar, like its Save button, so a
+          // rejection shows there instead of failing silently.
+          void saveAll()
         }}
       >
         <Section>
