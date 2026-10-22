@@ -107,7 +107,7 @@ function bootstrapScript(config: PublicAuthConfig, nonce: string): string {
 }
 
 function withInjectedBootstrap(indexHtml: string, script: string): string {
-  // A function replacer keeps `  return indexHtml.replace(BOOTSTRAP_MARKER, script)`-style patterns in config text literal.
+  // A function replacer keeps `$&`-style patterns in config text literal.
   return indexHtml.replace(BOOTSTRAP_MARKER, () => script)
 }
 

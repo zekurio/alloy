@@ -44,22 +44,16 @@ const BROWSE_API_PREFIXES = [
   "/api/users",
 ] as const
 
-// The signed-in self-service routes under /api/users/me. They authenticate on
-// their own, and reactivation must accept a disabled account, so the browse
-// gate skips them. Every other /api/users path is browsing, including the
-// profile of a user named "me".
-const USER_SELF_SERVICE_ROUTES = new Set([
-  "GET /api/users/me/account",
-  "GET /api/users/me/storage",
-  "POST /api/users/me/disable",
-  "POST /api/users/me/reactivate",
-  "GET /api/users/me/clips/download",
-  "DELETE /api/users/me/clips",
-  "POST /api/users/me/avatar/upload",
-  "POST /api/users/me/banner/upload",
-  "DELETE /api/users/me/avatar",
-  "DELETE /api/users/me/banner",
-])
+// The signed-in self-service routes under /api/users/me, read from the route
+// tables so a new one can't land behind the gate. They authenticate on their
+// own, and reactivation must accept a disabled account, so the browse gate
+// skips them. Every other /api/users path is browsing, including the profile
+// of a user named "me".
+const USER_SELF_SERVICE_ROUTES = new Set(
+  [...usersRoute.routes, ...usersUploadRoute.routes]
+    .filter((route) => route.path.startsWith("/me/"))
+    .map((route) => `${route.method} /api/users${route.path}`),
+)
 
 const API_BODY_LIMIT_BYTES = 1024 * 1024
 
@@ -95,9 +89,11 @@ const requireAuthToBrowse = createMiddleware(async (c, next) => {
     return
   }
 
+  // Hono serves HEAD through the GET handlers.
+  const method = c.req.method === "HEAD" ? "GET" : c.req.method
   const isBrowseRequest =
     BROWSE_API_PREFIXES.some((prefix) => path.startsWith(prefix)) &&
-    !USER_SELF_SERVICE_ROUTES.has(`${c.req.method} ${path}`)
+    !USER_SELF_SERVICE_ROUTES.has(`${method} ${path}`)
   if (!isBrowseRequest) {
     await next()
     return
