@@ -172,7 +172,7 @@ async function commitReadyTransaction(
   if (!current) return noReadyCommit()
   enforceReadyQuota(quota, patch, current)
   const previousRenditions = await tx
-    .select({ storageKey: clipRendition.storage_key })
+    .select({ storageKey: clipRendition.storage_key, og: clipRendition.is_og })
     .from(clipRendition)
     .where(eq(clipRendition.clip_id, id))
   if (!(await markClipReady(tx, id, runId, patch, completion))) {
@@ -203,14 +203,20 @@ async function commitReadyTransaction(
     "media source committed",
     tx,
   )
-  // The fingerprint is written once, here, and never cleared, so a null read
-  // under the lock means this is the clip's first completed encode: the only
-  // media commit that is a publish moment. Re-encodes and backfills keep the
-  // ledger as it is.
-  const firstEncode = current.encodeFingerprint === null
+  // A publish moment is the commit that first makes the clip announceable.
+  // The fingerprint is written only here and never cleared, so a null read
+  // under the lock means no encode has completed before. Rows that predate
+  // fingerprinting are ready with a null one, so a social-preview rendition
+  // from an earlier commit rules the moment out as well. Re-encodes and
+  // backfills therefore keep the ledger as it is.
+  const firstPublishable =
+    current.encodeFingerprint === null &&
+    !previousRenditions.some((rendition) => rendition.og)
   return {
     committed: true,
-    webhookClaims: firstEncode ? await claimClipPublishedDeliveries(tx, id) : 0,
+    webhookClaims: firstPublishable
+      ? await claimClipPublishedDeliveries(tx, id)
+      : 0,
     queuedDeletions: mediaIntents.length + stagedIntents,
   }
 }

@@ -18,8 +18,8 @@ export function wakeClaimedClipPublishedDeliveries(claimed: number): void {
 }
 
 /**
- * Claim a `clip.published` delivery for every enabled webhook that
- * has not already received this clip.
+ * Claim a `clip.published` delivery for every webhook, paused ones included,
+ * that has not already received this clip.
  *
  * Call this only at a publish moment: the clip's first completed encode, or
  * an author making a ready clip public. The ledger cannot tell a publish from
@@ -66,10 +66,9 @@ export async function claimClipPublishedDeliveries(
   // ledger rows behind, and opting back in still announces their next publish.
   if (!row || !row.announcementsEnabled) return 0
 
-  const targets = await executor
-    .select({ id: webhook.id })
-    .from(webhook)
-    .where(eq(webhook.enabled, true))
+  // Paused webhooks claim too. The worker holds their rows until an admin
+  // enables them again, so a clip published meanwhile is not lost to them.
+  const targets = await executor.select({ id: webhook.id }).from(webhook)
   if (targets.length === 0) return 0
 
   const claimed = await executor

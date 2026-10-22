@@ -37,7 +37,7 @@ export const clipsAnnouncementRoutes = new Hono().post(
     if (claimed === 0) {
       return conflict(
         c,
-        "Reannounce requires a public clip with an OG rendition, author announcements enabled, and an enabled webhook",
+        "Reannounce requires a public clip with an OG rendition, author announcements enabled, and a configured webhook",
       )
     }
     wakeClaimedClipPublishedDeliveries(claimed)
