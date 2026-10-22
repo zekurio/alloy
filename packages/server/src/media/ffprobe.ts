@@ -1,8 +1,6 @@
-import { spawn } from "node:child_process"
-
 import { t } from "@alloy/contracts/schema"
 
-import { KILL_GRACE_MS } from "./ffmpeg"
+import { runProcess } from "./run-process"
 import { transcodeSettings } from "./transcode-settings"
 
 /** Probing reads container metadata only; anything slower is a wedged process. */
@@ -39,29 +37,16 @@ export interface FfprobeOutput {
   format: { duration?: string; start_time?: string }
 }
 
-class FfprobeError extends Error {
-  constructor(
-    message: string,
-    readonly exitCode: number | null,
-  ) {
-    super(message)
-    this.name = "FfprobeError"
-  }
-}
-
 /** Run ffprobe on a file and return its parsed stream/format JSON. */
-export function runFfprobe(
+export async function runFfprobe(
   path: string,
   signal?: AbortSignal,
 ): Promise<FfprobeOutput> {
-  if (signal?.aborted) {
-    return Promise.reject(new DOMException("Aborted", "AbortError"))
-  }
-
-  const ffprobePath = transcodeSettings().ffprobePath
-  const child = spawn(
-    ffprobePath,
-    [
+  const stdout: string[] = []
+  await runProcess({
+    name: "ffprobe",
+    command: transcodeSettings().ffprobePath,
+    args: [
       "-v",
       "quiet",
       "-print_format",
@@ -70,65 +55,13 @@ export function runFfprobe(
       "-show_format",
       path,
     ],
-    { stdio: ["ignore", "pipe", "ignore"] },
-  )
-
-  let stdout = ""
-  child.stdout.setEncoding("utf8")
-  child.stdout.on("data", (chunk: string) => {
-    stdout += chunk
+    timeoutMs: PROBE_TIMEOUT_MS,
+    signal,
+    onStdoutLine: (line) => stdout.push(line),
   })
-
-  let timedOut = false
-  let aborted = false
-  const stop = () => {
-    child.kill("SIGTERM")
-    const hardKill = setTimeout(() => child.kill("SIGKILL"), KILL_GRACE_MS)
-    hardKill.unref()
-  }
-  const timeout = setTimeout(() => {
-    timedOut = true
-    stop()
-  }, PROBE_TIMEOUT_MS)
-  const onAbort = () => {
-    aborted = true
-    stop()
-  }
-  signal?.addEventListener("abort", onAbort, { once: true })
-
-  return new Promise<FfprobeOutput>((resolve, reject) => {
-    child.once("error", (err) => {
-      reject(
-        new FfprobeError(
-          `Failed to start ffprobe (${ffprobePath}): ${err.message}`,
-          null,
-        ),
-      )
-    })
-    child.once("close", (code) => {
-      if (aborted) {
-        reject(new DOMException("Aborted", "AbortError"))
-        return
-      }
-      if (timedOut) {
-        reject(new FfprobeError("ffprobe timed out", code))
-        return
-      }
-      if (code !== 0) {
-        reject(new FfprobeError(`ffprobe exited with code ${code}`, code))
-        return
-      }
-      const parsed = parseFfprobeJson(stdout)
-      if (!parsed) {
-        reject(new FfprobeError("ffprobe produced unparseable output", code))
-        return
-      }
-      resolve(parsed)
-    })
-  }).finally(() => {
-    clearTimeout(timeout)
-    signal?.removeEventListener("abort", onAbort)
-  })
+  const parsed = parseFfprobeJson(stdout.join("\n"))
+  if (!parsed) throw new Error("ffprobe produced unparseable output")
+  return parsed
 }
 
 function parseFfprobeJson(stdout: string): FfprobeOutput | null {

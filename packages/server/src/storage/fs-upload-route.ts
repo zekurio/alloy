@@ -1,10 +1,11 @@
 import { uploadTicket } from "@alloy/db/schema"
-import { createLogger } from "@alloy/logging"
+import { createLogger, runWithLogContext } from "@alloy/logging"
 import { secretStore } from "@alloy/server/config/secret-store"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import {
   badRequest,
+  insufficientStorage,
   internalServerError,
   noContent,
   payloadTooLarge,
@@ -25,9 +26,14 @@ import {
   markUploadTicketUsedAndExtendDeadline,
 } from "@alloy/server/uploads/tickets"
 import { and, eq } from "drizzle-orm"
-import { Hono } from "hono"
+import { Hono, type Context } from "hono"
 
-import { decodeUploadToken, UploadPartTooLargeError } from "./fs-driver"
+import {
+  decodeUploadToken,
+  UploadPartSizeMismatchError,
+  UploadPartTooLargeError,
+} from "./fs-driver"
+import { isOsErrorCode } from "./fs-driver-helpers"
 import type { UploadTokenMode, UploadTokenPayload } from "./fs-upload-token"
 
 const logger = createLogger("assets")
@@ -111,8 +117,7 @@ export const storageRoute = new Hono()
           if (limitTripped) {
             return payloadTooLarge(c, "Upload exceeded declared size")
           }
-          logger.error("upload write failed:", err)
-          return internalServerError(c, "Upload write failed")
+          return uploadWriteFailed(c, err, "Upload write failed")
         }
 
         await persistCompletedUpload(ticket.id)
@@ -149,8 +154,14 @@ export const storageRoute = new Hono()
           if (err instanceof UploadPartTooLargeError) {
             return payloadTooLarge(c, "Upload part exceeded declared size")
           }
-          logger.error("upload part write failed:", err)
-          return badRequest(c, "Upload part did not match declared size")
+          if (
+            err instanceof UploadPartSizeMismatchError &&
+            !c.req.raw.signal.aborted
+          ) {
+            logger.warn(`upload part ${partNumber} was short:`, err)
+            return badRequest(c, "Upload part did not match declared size")
+          }
+          return uploadWriteFailed(c, err, "Upload part write failed")
         }
         return noContent(c)
       },
@@ -211,6 +222,7 @@ export const storageRoute = new Hono()
                 contentType: payload.ct,
               })
             ) {
+              if (isDiskFull(err)) return storageFull(c, err)
               logger.error("upload completion failed:", err)
               return badRequest(c, "Upload could not be completed")
             }
@@ -254,8 +266,50 @@ async function withResolvedUploadTicket(
   return gate(decoded.payload.cid, async () => {
     const resolved = await selectUploadTicket(decoded, lookupMode)
     if (resolved instanceof Response) return resolved
-    return operation(resolved)
+    return runWithLogContext(
+      {
+        ticket: resolved.ticket.id,
+        clip: resolved.payload.cid,
+        key: resolved.payload.k,
+      },
+      () => operation(resolved),
+    )
   })
+}
+
+/**
+ * Answer a failed upload write by its cause: a client that went away gets no
+ * error log, a full disk is the server's to fix (507), anything else is 500.
+ */
+function uploadWriteFailed(
+  c: Context,
+  cause: unknown,
+  message: string,
+): Response {
+  if (clientDisconnected(c, cause)) {
+    logger.info("upload stopped: the client disconnected mid-stream")
+    return badRequest(c, "Upload was interrupted")
+  }
+  if (isDiskFull(cause)) return storageFull(c, cause)
+  logger.error(`${message}:`, cause)
+  return internalServerError(c, message)
+}
+
+function storageFull(c: Context, cause: unknown): Response {
+  logger.error("upload rejected, storage is full:", cause)
+  return insufficientStorage(c, "The server is out of storage space")
+}
+
+function isDiskFull(cause: unknown): boolean {
+  return isOsErrorCode(cause, "ENOSPC") || isOsErrorCode(cause, "EDQUOT")
+}
+
+function clientDisconnected(c: Context, cause: unknown): boolean {
+  return (
+    c.req.raw.signal.aborted ||
+    isOsErrorCode(cause, "ECONNRESET") ||
+    isOsErrorCode(cause, "ERR_STREAM_PREMATURE_CLOSE")
+  )
 }
 
 async function resolveUploadToken(

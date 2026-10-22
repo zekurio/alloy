@@ -39,6 +39,8 @@ export interface ClipMediaClaim {
   id: string
   runId: string
   requestId: string
+  /** Runs started for this request, counting this one. */
+  attempt: number
   targetGeneration: number
   force: boolean
   status: typeof clip.$inferSelect.status
@@ -77,6 +79,7 @@ export async function claimClipMedia(
     id: selected.id,
     runId,
     requestId: claimed.encode_request_id,
+    attempt: selected.encodeAttempt,
     targetGeneration: generation.generation,
     force:
       claimed.encode_request_force ||

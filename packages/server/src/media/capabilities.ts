@@ -1,5 +1,3 @@
-import { spawn } from "node:child_process"
-
 import type {
   HardwareAcceleration,
   TranscodingCapabilities,
@@ -13,6 +11,7 @@ import {
   TRANSCODE_VIDEO_CODECS,
   TranscodingConfigSchema,
 } from "@alloy/contracts"
+import { errorMessage } from "@alloy/server/runtime/error-message"
 
 import {
   buildEncoderGlobalArgs,
@@ -21,56 +20,72 @@ import {
   transcodeEncoder,
   transcodeEncoderName,
 } from "./encoders"
+import { processFailureKind, runProcess } from "./run-process"
 import { transcodeSettings } from "./transcode-settings"
 
 const PROBE_TIMEOUT_MS = 15_000
 
-let cachedCapabilities: TranscodingCapabilities | null = null
-let cachedVaapiDevice: string | null = null
+let cached: {
+  vaapiDevice: string
+  capabilities: TranscodingCapabilities
+} | null = null
+let inflight: {
+  vaapiDevice: string
+  promise: Promise<TranscodingCapabilities>
+} | null = null
 
-export async function probeTranscodingCapabilities(options?: {
+/**
+ * Probe what the configured ffmpeg can encode. The result is cached per VAAPI
+ * device, and concurrent callers for one device share a single in-flight
+ * probe, so repeated refreshes don't run the encoder matrix again.
+ */
+export function probeTranscodingCapabilities(options?: {
   refresh?: boolean
   /** VAAPI render node to test against; defaults to the schema default. */
   vaapiDevice?: string
 }): Promise<TranscodingCapabilities> {
   const vaapiDevice = options?.vaapiDevice ?? DEFAULT_VAAPI_DEVICE
-  if (
-    cachedCapabilities &&
-    !options?.refresh &&
-    cachedVaapiDevice === vaapiDevice
-  ) {
-    return cachedCapabilities
+  if (cached && !options?.refresh && cached.vaapiDevice === vaapiDevice) {
+    return Promise.resolve(cached.capabilities)
   }
-  cachedVaapiDevice = vaapiDevice
+  if (inflight?.vaapiDevice === vaapiDevice) return inflight.promise
 
+  const promise = probeCapabilities(vaapiDevice)
+    .then((capabilities) => {
+      cached = { vaapiDevice, capabilities }
+      return capabilities
+    })
+    .finally(() => {
+      if (inflight?.promise === promise) inflight = null
+    })
+  inflight = { vaapiDevice, promise }
+  return promise
+}
+
+async function probeCapabilities(
+  vaapiDevice: string,
+): Promise<TranscodingCapabilities> {
   const ffmpegPath = transcodeSettings().ffmpegPath
-  const versionResult = await runProbe(
-    ffmpegPath,
-    ["-version"],
-    PROBE_TIMEOUT_MS,
-  )
+  const versionResult = await runProbe(ffmpegPath, ["-version"])
   if (versionResult.spawnFailed) {
-    cachedCapabilities = {
+    return {
       ffmpegPath,
       version: null,
       jellyfin: false,
       probedAt: new Date().toISOString(),
       encoders: missingEncoderProbes(),
     }
-    return cachedCapabilities
   }
 
-  const encodersResult = await runProbe(
-    ffmpegPath,
-    ["-hide_banner", "-encoders"],
-    PROBE_TIMEOUT_MS,
-  )
-  const presentEncoders =
-    encodersResult.status === 0
-      ? parseFfmpegEncoders(encodersResult.stdout)
-      : new Set<string>()
+  const encodersResult = await runProbe(ffmpegPath, [
+    "-hide_banner",
+    "-encoders",
+  ])
+  const presentEncoders = encodersResult.ok
+    ? parseFfmpegEncoders(encodersResult.stdout)
+    : new Set<string>()
 
-  cachedCapabilities = {
+  return {
     ffmpegPath,
     version: firstNonEmptyLine(versionResult.stdout),
     jellyfin: /jellyfin/i.test(versionResult.stdout),
@@ -81,7 +96,6 @@ export async function probeTranscodingCapabilities(options?: {
       vaapiDevice,
     ),
   }
-  return cachedCapabilities
 }
 
 function parseFfmpegEncoders(output: string): Set<string> {
@@ -114,14 +128,13 @@ async function probeEncoderMatrix(
       const result = await runProbe(
         ffmpegPath,
         functionalProbeArgs(testConfig(codec, acceleration, vaapiDevice)),
-        PROBE_TIMEOUT_MS,
       )
       probes.push({
         codec,
         acceleration,
         encoder: encoder.name,
-        status: result.status === 0 ? "ok" : "failed",
-        error: result.status === 0 ? undefined : stderrTail(result.stderr),
+        status: result.ok ? "ok" : "failed",
+        error: result.ok ? undefined : stderrTail(result.stderr),
       })
     }
   }
@@ -188,54 +201,51 @@ function stderrTail(value: string): string {
   return lines.findLast(Boolean) ?? "encoder probe failed"
 }
 
-function runProbe(
-  command: string,
-  args: string[],
-  timeoutMs: number,
-): Promise<{
-  status: number | null
+interface ProbeResult {
+  ok: boolean
   stdout: string
   stderr: string
   spawnFailed: boolean
-}> {
-  const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] })
-  let stdout = ""
-  let stderr = ""
-  let timedOut = false
-  const timeout = setTimeout(() => {
-    timedOut = true
-    child.kill("SIGTERM")
-  }, timeoutMs)
-  child.stdout.setEncoding("utf8")
-  child.stderr.setEncoding("utf8")
-  child.stdout.on("data", (chunk: string) => {
-    stdout += chunk
-  })
-  child.stderr.on("data", (chunk: string) => {
-    stderr += chunk
-  })
+}
 
-  return new Promise<{
-    status: number | null
-    stdout: string
-    stderr: string
-    spawnFailed: boolean
-  }>((resolve) => {
-    child.once("error", (err) => {
-      resolve({
-        status: null,
-        stdout,
-        stderr: err.message,
-        spawnFailed: true,
-      })
+/** Run one probe; failures are part of the result, never thrown. */
+async function runProbe(command: string, args: string[]): Promise<ProbeResult> {
+  const stdoutLines: string[] = []
+  const stderrLines: string[] = []
+  try {
+    await runProcess({
+      name: "ffmpeg",
+      command,
+      args,
+      timeoutMs: PROBE_TIMEOUT_MS,
+      onStdoutLine: (line) => stdoutLines.push(line),
+      onStderrLine: (line) => stderrLines.push(line),
     })
-    child.once("close", (code) => {
-      resolve({
-        status: timedOut ? null : code,
+  } catch (cause) {
+    const kind = processFailureKind(cause)
+    const stdout = stdoutLines.join("\n")
+    const stderr = stderrLines.join("\n")
+    if (kind === "exit")
+      return { ok: false, stdout, stderr, spawnFailed: false }
+    if (kind === "timeout") {
+      return {
+        ok: false,
         stdout,
-        stderr: timedOut ? `${stderr}\nprobe timed out` : stderr,
+        stderr: `${stderr}\nprobe timed out`,
         spawnFailed: false,
-      })
-    })
-  }).finally(() => clearTimeout(timeout))
+      }
+    }
+    return {
+      ok: false,
+      stdout,
+      stderr: errorMessage(cause, "probe failed"),
+      spawnFailed: true,
+    }
+  }
+  return {
+    ok: true,
+    stdout: stdoutLines.join("\n"),
+    stderr: stderrLines.join("\n"),
+    spawnFailed: false,
+  }
 }

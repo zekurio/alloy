@@ -106,6 +106,10 @@ export function invalidCursor(c: Context) {
   return badRequest(c, "Invalid cursor")
 }
 
+export function insufficientStorage(c: Context, error: string) {
+  return errorResponse(c, error, 507)
+}
+
 export function internalServerError(
   c: Context,
   error = "Internal Server Error",

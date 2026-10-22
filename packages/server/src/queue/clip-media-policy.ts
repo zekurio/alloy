@@ -50,6 +50,13 @@ export function chooseClipMediaAction(
   return "skip"
 }
 
+/**
+ * Runs a request gets before it fails for good. A run that dies without
+ * reporting (a crash, or a stall until its lease expires) still spends its
+ * attempt, so a clip that takes the server down can't do so on every boot.
+ */
+export const CLIP_MEDIA_MAX_ATTEMPTS = 3
+
 export function clipMediaRetryDelayMs(attempt: number): number {
   return 30_000 * attempt
 }

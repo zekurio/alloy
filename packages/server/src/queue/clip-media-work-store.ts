@@ -6,16 +6,17 @@ import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import type { FingerprintSourceFacts } from "@alloy/server/media/encode-fingerprint"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
-import { and, eq, isNull, sql } from "drizzle-orm"
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm"
 
 import type { ClipMediaClaim } from "./clip-media-claim-store"
-import { clipMediaRetryDelayMs } from "./clip-media-policy"
+import {
+  CLIP_MEDIA_MAX_ATTEMPTS,
+  clipMediaRetryDelayMs,
+} from "./clip-media-policy"
 import {
   clearedStageColumns,
   completeRequestColumns,
 } from "./clip-media-store-columns"
-
-const MAX_ATTEMPTS = 3
 
 export interface RequestClipMediaOptions {
   force: boolean
@@ -194,6 +195,8 @@ async function releaseClipMedia(
       ...clearedStageColumns,
       encode_run_id: null,
       encode_locked_at: null,
+      // The run was stopped, not failed, so it doesn't spend an attempt.
+      encode_attempt: sql`greatest(${clip.encode_attempt} - 1, 0)`,
       encode_run_after: sql`case when ${clip.encode_request_id} = ${claim.requestId} then now() else ${clip.encode_run_after} end`,
       failure_reason: reason,
       updated_at: sql`now()`,
@@ -228,7 +231,7 @@ export async function failClipMedia(
         return "superseded" as const
       }
 
-      if (current.attempt < MAX_ATTEMPTS) {
+      if (current.attempt < CLIP_MEDIA_MAX_ATTEMPTS) {
         await tx
           .update(clip)
           .set({
@@ -280,21 +283,59 @@ export async function failClipMedia(
   return outcome
 }
 
-export async function recoverClipMediaWork(): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx
-      .update(clip)
-      .set({
-        ...clearedStageColumns,
-        encode_request_id: sql`coalesce(${clip.encode_request_id}, ${clip.encode_claimed_request_id}, gen_random_uuid())`,
-        encode_request_force: sql`coalesce(${clip.encode_request_force}, false)`,
-        encode_requested_at: sql`coalesce(${clip.encode_requested_at}, now())`,
-        encode_run_after: sql`now()`,
-        encode_run_id: null,
-        encode_locked_at: null,
-        updated_at: sql`now()`,
+export interface InterruptedClipMediaRun {
+  clipId: string
+  runId: string
+  attempt: number
+  retryDelayMs: number
+}
+
+/**
+ * Requeue runs the previous process left behind. A run that is still
+ * recorded at boot died with its process, so it waits out the same backoff as
+ * a failed attempt instead of restarting right away.
+ */
+export async function recoverClipMediaWork(): Promise<
+  InterruptedClipMediaRun[]
+> {
+  return db.transaction(async (tx) => {
+    const orphaned = await tx
+      .select({
+        clipId: clip.id,
+        runId: clip.encode_run_id,
+        attempt: clip.encode_attempt,
+        requestId: clip.encode_request_id,
+        claimedRequestId: clip.encode_claimed_request_id,
       })
-      .where(sql`${clip.encode_run_id} is not null`)
+      .from(clip)
+      .where(isNotNull(clip.encode_run_id))
+      .for("update")
+
+    const interrupted: InterruptedClipMediaRun[] = []
+    for (const run of orphaned) {
+      const retryDelayMs = interruptedRetryDelayMs(run)
+      await tx
+        .update(clip)
+        .set({
+          ...clearedStageColumns,
+          encode_request_id: sql`coalesce(${clip.encode_request_id}, ${clip.encode_claimed_request_id}, gen_random_uuid())`,
+          encode_request_force: sql`coalesce(${clip.encode_request_force}, false)`,
+          encode_requested_at: sql`coalesce(${clip.encode_requested_at}, now())`,
+          encode_run_after: sql`now() + ${retryDelayMs} * interval '1 millisecond'`,
+          encode_run_id: null,
+          encode_locked_at: null,
+          updated_at: sql`now()`,
+        })
+        .where(eq(clip.id, run.clipId))
+      if (run.runId) {
+        interrupted.push({
+          clipId: run.clipId,
+          runId: run.runId,
+          attempt: run.attempt,
+          retryDelayMs,
+        })
+      }
+    }
 
     await tx
       .update(clip)
@@ -320,7 +361,25 @@ export async function recoverClipMediaWork(): Promise<void> {
         updated_at: sql`now()`,
       })
       .where(and(eq(clip.status, "processing"), isNull(clip.encode_request_id)))
+
+    return interrupted
   })
+}
+
+function interruptedRetryDelayMs(run: {
+  attempt: number
+  requestId: string | null
+  claimedRequestId: string | null
+}): number {
+  // A request that replaced the one the run claimed starts over at attempt
+  // one, so it has nothing to back off from.
+  const sameRequest =
+    run.claimedRequestId !== null &&
+    (run.requestId === null || run.requestId === run.claimedRequestId)
+  if (!sameRequest) return 0
+  // Out of attempts: the next claim fails the clip, so don't hold it back.
+  if (run.attempt >= CLIP_MEDIA_MAX_ATTEMPTS) return 0
+  return clipMediaRetryDelayMs(run.attempt)
 }
 
 async function releaseRun(
