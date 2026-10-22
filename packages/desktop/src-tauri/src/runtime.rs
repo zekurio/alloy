@@ -494,6 +494,9 @@ impl DesktopRuntime {
                 .await
                 .map_err(error)?;
         }
+        // A configured recorder can save replays, whose cross-drive copies
+        // land beside the captures.
+        self.output_swept().await;
         self.recorder.configure().await.map_err(error)?;
         self.emit(json!({ "type": "settings", "settings": settings }));
         Ok(settings)
@@ -509,7 +512,10 @@ impl DesktopRuntime {
         match operation {
             "recording.getSettings" => to_value(self.recorder.get_settings().await),
             "recording.setSettings" => to_value(self.apply_settings(window, arg(args, 0)?).await?),
-            "recording.restartBackend" => to_value(self.recorder.restart().await.map_err(error)?),
+            "recording.restartBackend" => {
+                self.output_swept().await;
+                to_value(self.recorder.restart().await.map_err(error)?)
+            }
             "recording.getStatus" => to_value(self.recorder.get_status().await),
             "recording.getStorageInfo" => {
                 to_value(self.recorder.storage_info().await.map_err(error)?)
