@@ -29,6 +29,7 @@ import { acquireSourceFile, resolveSourceAsset } from "./media-run-source"
 import { resolveWaveformAudio } from "./media-run-waveform"
 import {
   ensureStillPresent,
+  type RunUploads,
   withMediaRunWorkspace,
 } from "./media-run-workspace"
 import type {
@@ -109,7 +110,7 @@ async function runPipelineInWorkDir({
   transcodingConfig: Readonly<TranscodingConfig>
   completion: MediaCompletion
   workDir: string
-  uploadedKeys: string[]
+  uploadedKeys: RunUploads
   retainSourceAsset: (asset: Asset) => void
   retainPublishedKey: (key: string) => void
 }): Promise<void> {

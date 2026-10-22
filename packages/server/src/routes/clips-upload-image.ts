@@ -15,7 +15,10 @@ import { mediaAssetDeletionIntents } from "@alloy/server/storage/deletion-produc
 import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
-import { enqueueUnownedMediaAssets } from "@alloy/server/storage/media-deletion"
+import {
+  adoptStorageWrites,
+  withReservedStorageWrites,
+} from "@alloy/server/storage/write-reservation"
 import { imageBodyLimit } from "@alloy/server/uploads/image-body-limit"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
@@ -78,64 +81,74 @@ export const clipsUploadImageRoutes = new Hono().post(
     const attemptId = crypto.randomUUID()
     const sourceKey = runScopedSourceKey(id, attemptId)
     const thumbKey = runScopedThumbKey(id, attemptId)
-    try {
-      await clipStorage.put(sourceKey, image.bytes, "image/png")
-      await clipThumbnailStorage.put(thumbKey, image.thumbnail, "image/jpeg")
-      const accepted = await db.transaction(async (tx) => {
-        const [current] = await tx
-          .select()
-          .from(clip)
-          .where(eq(clip.id, id))
-          .for("update")
-        if (
-          !current ||
-          current.source_key !== row.source_key ||
-          current.author_id !== row.author_id ||
-          current.status !== "ready" ||
-          current.encode_run_id !== null
-        )
-          return false
-        await tx
-          .update(clip)
-          .set({
-            source_key: sourceKey,
-            source_content_type: "image/png",
-            source_size_bytes: image.bytes.length,
-            width: image.width,
-            height: image.height,
-            thumb_key: thumbKey,
-            thumb_blur_hash: image.blurHash,
-            thumb_failed_at: null,
-            updated_at: new Date(),
-          })
-          .where(eq(clip.id, id))
-        await enqueueStorageDeletions(
-          mediaAssetDeletionIntents({
-            keys: [current.source_key, current.thumb_key],
-            reason: "screenshot edit replaced media",
-            source: { type: "screenshot-edit", id: attemptId },
-          }),
-          { tx },
-        )
-        return true
-      })
-      if (!accepted) {
-        await enqueueUnownedMediaAssets({
-          keys: [sourceKey, thumbKey],
-          reason: "screenshot edit superseded",
-          source: { type: "screenshot-edit", id: attemptId },
+    const writes = [
+      { namespace: "clips", key: sourceKey },
+      { namespace: "thumbnails", key: thumbKey },
+    ] as const
+    // Reserved before the upload and fenced until the swap commits. If
+    // either fails, or the process dies in between, the reservations delete
+    // whatever no row points at.
+    const accepted = await withReservedStorageWrites(
+      writes,
+      attemptId,
+      async () => {
+        await clipStorage.put(sourceKey, image.bytes, "image/png")
+        await clipThumbnailStorage.put(thumbKey, image.thumbnail, "image/jpeg")
+        return db.transaction(async (tx) => {
+          const [current] = await tx
+            .select()
+            .from(clip)
+            .where(eq(clip.id, id))
+            .for("update")
+          if (
+            !current ||
+            current.source_key !== row.source_key ||
+            current.author_id !== row.author_id ||
+            current.status !== "ready" ||
+            current.encode_run_id !== null
+          ) {
+            await enqueueStorageDeletions(
+              mediaAssetDeletionIntents({
+                keys: [sourceKey, thumbKey],
+                reason: "screenshot edit superseded",
+                source: { type: "screenshot-edit", id: attemptId },
+              }),
+              { tx },
+            )
+            return false
+          }
+          await tx
+            .update(clip)
+            .set({
+              source_key: sourceKey,
+              source_content_type: "image/png",
+              source_size_bytes: image.bytes.length,
+              width: image.width,
+              height: image.height,
+              thumb_key: thumbKey,
+              thumb_blur_hash: image.blurHash,
+              thumb_failed_at: null,
+              updated_at: new Date(),
+            })
+            .where(eq(clip.id, id))
+          await adoptStorageWrites(writes, tx)
+          await enqueueStorageDeletions(
+            mediaAssetDeletionIntents({
+              keys: [current.source_key, current.thumb_key],
+              reason: "screenshot edit replaced media",
+              source: { type: "screenshot-edit", id: attemptId },
+            }),
+            { tx },
+          )
+          return true
         })
-        return conflict(c, "Screenshot changed. Reload before editing")
-      }
-    } catch (cause) {
-      await enqueueUnownedMediaAssets({
-        keys: [sourceKey, thumbKey],
-        reason: "screenshot edit failed",
-        source: { type: "screenshot-edit", id: attemptId },
-      })
-      throw cause
-    }
+      },
+    )
+    // Woken only once the fence is gone, which would otherwise defer the
+    // deletions just queued.
     wakeStorageDeletionWorker()
+    if (!accepted)
+      return conflict(c, "Screenshot changed. Reload before editing")
     void publishClipUpsert(row.author_id, id)
     return updatedClipResponse(c, id)
   },

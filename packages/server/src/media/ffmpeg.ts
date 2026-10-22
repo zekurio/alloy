@@ -6,7 +6,7 @@ import { transcodeSettings } from "./transcode-settings"
 const STDERR_TAIL_LINES = 100
 
 /** Grace period between SIGTERM and SIGKILL when stopping a stuck process. */
-const KILL_GRACE_MS = 5_000
+export const KILL_GRACE_MS = 5_000
 
 const MIN_TIMEOUT_MS = 5 * 60 * 1000
 const MAX_TIMEOUT_MS = 2 * 60 * 60 * 1000

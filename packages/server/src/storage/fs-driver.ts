@@ -36,6 +36,7 @@ import {
   isCopyFallbackError,
   isOsErrorCode,
   markLinkedPublishTime,
+  removeLegacyTemporaries,
   uploadPartExpectedBytes,
   UploadPartTooLargeError,
   walkFsFiles,
@@ -193,7 +194,9 @@ export class FsStorageDriver implements StorageDriver {
     }
 
     await mkdir(dirname(dst), { recursive: true })
-    const tmpPath = `${dst}.${crypto.randomUUID()}.tmp`
+    // The joined file is written among the parts, so deleting or aborting
+    // the key removes it even when this process dies before the rename.
+    const tmpPath = this.stagingPath(input.key)
     const partCount = Math.ceil(input.maxBytes / partSizeBytes)
     try {
       for (let partNumber = 1; partNumber <= partCount; partNumber += 1) {
@@ -268,7 +271,7 @@ export class FsStorageDriver implements StorageDriver {
       await link(localPath, dst)
     } catch (err) {
       if (!isCopyFallbackError(err)) throw err
-      await copyFile(localPath, dst)
+      await this.copyIntoPlace(localPath, key)
       const stats = await stat(dst)
       return { size: stats.size }
     }
@@ -292,9 +295,7 @@ export class FsStorageDriver implements StorageDriver {
       await link(src, dst)
     } catch (err) {
       if (!isCopyFallbackError(err)) throw err
-      const tmp = `${dst}.${crypto.randomUUID()}.tmp`
-      await copyFile(src, tmp)
-      await rename(tmp, dst)
+      await this.copyIntoPlace(src, input.toKey)
       const stats = await stat(dst)
       return { size: stats.size }
     }
@@ -311,6 +312,7 @@ export class FsStorageDriver implements StorageDriver {
       if (!isOsErrorCode(err, "ENOENT")) throw err
     }
     await rm(this.partDir(key), { recursive: true, force: true })
+    await removeLegacyTemporaries(full)
     await this.pruneEmptyAncestors(dirname(full))
   }
 
@@ -336,8 +338,36 @@ export class FsStorageDriver implements StorageDriver {
     }
   }
 
+  /**
+   * The key's staging folder: upload parts and every temporary file written
+   * on the way to the key. `delete` and `abortUpload` remove it, so a write
+   * the process never finished leaves nothing beside the object.
+   */
   private partDir(key: string): string {
     return `${this.fullPath(key)}.parts`
+  }
+
+  private stagingPath(key: string): string {
+    return `${this.partDir(key)}/${crypto.randomUUID()}.tmp`
+  }
+
+  /**
+   * Copies a file to `key` through its staging folder, so the key only ever
+   * holds a whole object.
+   */
+  private async copyIntoPlace(src: string, key: string): Promise<void> {
+    await mkdir(this.partDir(key), { recursive: true })
+    const tmp = this.stagingPath(key)
+    try {
+      await copyFile(src, tmp)
+      await rename(tmp, this.fullPath(key))
+    } catch (err) {
+      await rm(tmp, { force: true }).catch(() => undefined)
+      throw err
+    } finally {
+      // Left in place only while another write to the key still stages there.
+      await rmdir(this.partDir(key)).catch(() => undefined)
+    }
   }
 
   private partPath(key: string, partNumber: number): string {

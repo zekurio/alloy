@@ -7,6 +7,7 @@ import { runScopedWaveformKey } from "./media-asset-keys"
 import { acquireSourceFile } from "./media-run-source"
 import {
   ensureStillPresent,
+  type RunUploads,
   withMediaRunWorkspace,
 } from "./media-run-workspace"
 import type { MediaCompletion, MediaRow, MediaStore } from "./media-store"
@@ -20,7 +21,7 @@ export async function resolveWaveformAudio(options: {
   durationMs: number
   hasAudio: boolean
   signal: AbortSignal
-  uploadedKeys: string[]
+  uploadedKeys: RunUploads
 }): Promise<string | null> {
   if (!options.hasAudio) return null
 
@@ -49,7 +50,7 @@ export async function resolveWaveformAudio(options: {
     signal: options.signal,
   })
   const key = runScopedWaveformKey(options.id, options.runId)
-  options.uploadedKeys.push(key)
+  await options.uploadedKeys.reserve(key)
   await clipStorage.uploadFromFile(outputPath, key, "audio/mp4")
   return key
 }

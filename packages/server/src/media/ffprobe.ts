@@ -2,13 +2,11 @@ import { spawn } from "node:child_process"
 
 import { t } from "@alloy/contracts/schema"
 
+import { KILL_GRACE_MS } from "./ffmpeg"
 import { transcodeSettings } from "./transcode-settings"
 
 /** Probing reads container metadata only; anything slower is a wedged process. */
 const PROBE_TIMEOUT_MS = 30_000
-
-/** Grace period between SIGTERM and SIGKILL when stopping a stuck process. */
-const KILL_GRACE_MS = 5_000
 
 const FfprobeRecordSchema = t.record(t.string(), t.unknown())
 const FfprobeInputSchema = t.object({

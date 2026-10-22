@@ -9,6 +9,11 @@ export interface ClipStorageDeletionSnapshot {
   cutKey: string | null
   thumbKey: string | null
   renditionKeys: readonly string[]
+  /** Everything found in the clip's storage folders, attached or not. */
+  storedObjects?: readonly {
+    namespace: "clips" | "thumbnails"
+    key: string
+  }[]
 }
 
 /**
@@ -47,6 +52,10 @@ export function clipStorageDeletionIntents(
     })
   }
 
+  for (const object of snapshot.storedObjects ?? []) {
+    intents.push({ ...object, reason: "clip deleted", source })
+  }
+
   return deduplicateDeletionIntents(intents)
 }
 
@@ -69,10 +78,23 @@ export function prewriteAssetDeletionIntent(input: {
   attemptId: string
   reason?: string
 }): StorageDeletionInput {
-  return {
+  return prewriteDeletionIntent({
+    ...input,
     namespace: "assets",
-    key: input.key,
     reason: input.reason ?? "pending asset upload",
+  })
+}
+
+export function prewriteDeletionIntent(input: {
+  namespace: StorageDeletionInput["namespace"]
+  key: string
+  attemptId: string
+  reason?: string
+}): StorageDeletionInput {
+  return {
+    namespace: input.namespace,
+    key: input.key,
+    reason: input.reason ?? "pending upload",
     source: { type: "storage-prewrite", id: input.attemptId },
   }
 }

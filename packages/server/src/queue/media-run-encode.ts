@@ -15,7 +15,7 @@ import {
   encodeTierCost,
   type EncodeProgressTracker,
 } from "./media-encode-progress"
-import { ensureStillPresent } from "./media-run-workspace"
+import { ensureStillPresent, type RunUploads } from "./media-run-workspace"
 import type { MediaRenditionRecord, MediaStore } from "./media-store"
 
 /**
@@ -32,7 +32,7 @@ export async function encodeAndPublishCut(options: {
   source: { width: number; height: number; fps: number | null }
   trim: { startMs: number; endMs: number } | null
   signal: AbortSignal
-  uploadedKeys: string[]
+  uploadedKeys: RunUploads
   onHardwareFailed: () => void
 }): Promise<{
   key: string | null
@@ -59,7 +59,7 @@ export async function encodeAndPublishCut(options: {
     onHardwareFailed: options.onHardwareFailed,
   })
   const cutKey = runScopedCutKey(options.id, options.runId)
-  options.uploadedKeys.push(cutKey)
+  await options.uploadedKeys.reserve(cutKey)
   await clipStorage.uploadFromFile(cut.filePath, cutKey, "video/mp4")
   return {
     key: cutKey,
@@ -87,7 +87,7 @@ export async function encodeAndUploadRenditions(options: {
   trim?: { startMs: number; endMs: number }
   durationMs: number
   hardwareFailed: boolean
-  uploadedKeys: string[]
+  uploadedKeys: RunUploads
   progress: EncodeProgressTracker
 }): Promise<MediaRenditionRecord[]> {
   let hardwareFailed = options.hardwareFailed
@@ -130,7 +130,7 @@ export async function encodeAndUploadRenditions(options: {
       options.runId,
       step.name,
     )
-    options.uploadedKeys.push(renditionKey)
+    await options.uploadedKeys.reserve(renditionKey)
     await clipStorage.uploadFromFile(
       encoded.filePath,
       renditionKey,

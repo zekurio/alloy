@@ -11,6 +11,7 @@ import { selectVideoTicketKey } from "@alloy/server/uploads/tickets"
 import { abortMediaProcessing } from "./media-abort"
 import { runScopedSourceKey } from "./media-asset-keys"
 import { publishOriginalSource, type SourceAsset } from "./media-publish"
+import type { RunUploads } from "./media-run-workspace"
 import type { MediaRow, MediaStore } from "./media-store"
 
 /**
@@ -61,7 +62,7 @@ export async function resolveSourceAsset(options: {
   sourcePath: string
   sourceContentType: AcceptedContentType
   probe: MediaProbe
-  uploadedKeys: string[]
+  uploadedKeys: RunUploads
 }): Promise<SourceAsset> {
   if (options.row.sourceKey) {
     return {
@@ -78,7 +79,7 @@ export async function resolveSourceAsset(options: {
   const sourceKey = runScopedSourceKey(options.id, options.runId)
   // Register before IO so a throwing driver cannot leave an untracked partial
   // object. Deleting a key that was never created remains idempotent.
-  options.uploadedKeys.push(sourceKey)
+  await options.uploadedKeys.reserve(sourceKey)
   return publishOriginalSource({
     sourcePath: options.sourcePath,
     sourceKey,

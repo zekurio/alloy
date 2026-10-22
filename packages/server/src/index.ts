@@ -14,11 +14,13 @@ import { signInConfigError } from "./auth/sign-in-config"
 import { configStore, initializeConfigStore } from "./config/store"
 import { warmDatabase } from "./db"
 import { env } from "./env"
+import { KILL_GRACE_MS } from "./media/ffmpeg"
 import { configureTranscode } from "./media/transcode-settings"
 import {
   startClipMediaWorker,
   stopClipMediaWorker,
 } from "./queue/clip-media-worker"
+import { clearMediaWorkDirs } from "./queue/media-run-helpers"
 import { requestShutdown } from "./runtime/shutdown"
 import {
   startStorageDeletionWorker,
@@ -68,6 +70,14 @@ if (configStore.get("setupComplete")) {
 const { app } = await import("./app")
 
 try {
+  // Work dirs belong to runs of this process; a killed process strands its
+  // sources and partial renditions there.
+  await clearMediaWorkDirs()
+} catch (err) {
+  logger.warn("failed to clear media scratch from an earlier run:", err)
+}
+
+try {
   // Media requests are durable, but a server that accepts them without a live
   // worker is operationally unhealthy. Gate listen on recovery and generation
   // initialization so startup either succeeds completely or exits.
@@ -98,7 +108,9 @@ const server = serve(
   },
 )
 
-const SHUTDOWN_GRACE_MS = 5000
+// A stopping media run first waits up to the kill grace for ffmpeg to exit,
+// then records which of its objects to delete; exiting sooner strands them.
+const SHUTDOWN_GRACE_MS = KILL_GRACE_MS + 10_000
 
 startWebhookDeliveryWorker()
 
