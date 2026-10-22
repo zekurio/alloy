@@ -209,7 +209,7 @@ export function VideoSettingsMenu(props: VideoSettingsMenuProps) {
                   onClick={() => setView(row.view)}
                 >
                   {row.icon}
-                  <span>{row.label}</span>
+                  <span className="min-w-0 truncate">{row.label}</span>
                   <SettingsRowValue value={row.value} />
                   <ChevronRightIcon />
                 </button>
@@ -229,7 +229,9 @@ export function VideoSettingsMenu(props: VideoSettingsMenuProps) {
         side="top"
         sideOffset={8}
         portalContainer={popoverContainer}
-        className="w-64"
+        // Size to the longest label (e.g. German "Wiedergabegeschwindigkeit")
+        // instead of pushing the value and chevron out of a fixed width.
+        className="w-max max-w-(--available-width) min-w-64 max-md:min-w-64"
       >
         {sub ? (
           <>
@@ -271,7 +273,9 @@ export function VideoSettingsMenu(props: VideoSettingsMenuProps) {
               onClick={() => setView(row.view)}
             >
               {row.icon}
-              <span className="text-foreground">{row.label}</span>
+              <span className="text-foreground min-w-0 truncate">
+                {row.label}
+              </span>
               <SettingsRowValue value={row.value} />
               <ChevronRightIcon className="-mr-1" />
             </DropdownMenuItem>
@@ -287,7 +291,7 @@ const sheetRowClass =
 
 function SettingsRowValue({ value }: { value: ReactNode }) {
   return (
-    <span className="text-foreground-dim ml-auto min-w-0 truncate pl-3 text-xs">
+    <span className="text-foreground-dim ml-auto shrink-0 pl-3 text-xs whitespace-nowrap">
       {value}
     </span>
   )
