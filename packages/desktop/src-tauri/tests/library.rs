@@ -455,8 +455,13 @@ async fn sweep_forgets_captures_deleted_outside_the_app() {
     let library = library(&temp);
     let kept = temp.path().join("captures/Clips/Test Game/kept.mp4");
     let deleted = temp.path().join("captures/Clips/Test Game/deleted.mp4");
+    // Its whole game folder goes, so only an ancestor of it still exists.
+    let folder_deleted = temp.path().join("captures/Clips/Gone Game/gone.mp4");
     fs::create_dir_all(kept.parent().unwrap()).await.unwrap();
-    for media in [&kept, &deleted] {
+    fs::create_dir_all(folder_deleted.parent().unwrap())
+        .await
+        .unwrap();
+    for media in [&kept, &deleted, &folder_deleted] {
         fs::write(media, b"not a real mp4").await.unwrap();
         library
             .remember_capture(&capture(media.to_str().unwrap(), CaptureKind::Replay))
@@ -487,10 +492,13 @@ async fn sweep_forgets_captures_deleted_outside_the_app() {
     elsewhere
         .remember_capture(&capture(remote.to_str().unwrap(), CaptureKind::Replay))
         .unwrap();
-    assert_eq!(library.read_manifest().captures.len(), 3);
+    assert_eq!(library.read_manifest().captures.len(), 4);
 
     // Deleted in Explorer, with the whole other folder gone.
     fs::remove_file(&deleted).await.unwrap();
+    fs::remove_dir_all(folder_deleted.parent().unwrap())
+        .await
+        .unwrap();
     fs::remove_dir_all(temp.path().join("elsewhere"))
         .await
         .unwrap();

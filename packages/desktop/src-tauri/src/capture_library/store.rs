@@ -184,7 +184,11 @@ impl CaptureLibrary {
             let mut pruned = Vec::new();
             manifest.captures.retain(|_, entry| {
                 let path = Path::new(&entry.filename);
-                if ensure_within(&root, path).is_err() {
+                // The root is canonical (`\\?\C:\…` on Windows) and the entry
+                // is not, so the entry is compared in the same form.
+                if canonical_location(path)
+                    .is_none_or(|location| ensure_within(&root, &location).is_err())
+                {
                     return true;
                 }
                 match fs::symlink_metadata(path) {
@@ -1098,6 +1102,26 @@ fn read_manifest_file(path: &Path) -> std::result::Result<CaptureManifest, Manif
         }
     }
     Ok(manifest)
+}
+
+/// `path` with its nearest existing ancestor canonicalized and the missing
+/// rest appended. A deleted clip, or the deleted game folder it lived in,
+/// still compares against a canonical root this way.
+fn canonical_location(path: &Path) -> Option<PathBuf> {
+    let mut missing = Vec::new();
+    let mut current = path;
+    loop {
+        if let Ok(base) = current.canonicalize() {
+            return Some(
+                missing
+                    .into_iter()
+                    .rev()
+                    .fold(base, |base, name| base.join(name)),
+            );
+        }
+        missing.push(current.file_name()?);
+        current = current.parent()?;
+    }
 }
 
 fn manifest_lock_for(path: &Path) -> Arc<Mutex<()>> {

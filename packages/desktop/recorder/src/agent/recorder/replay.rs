@@ -46,15 +46,24 @@ pub(super) fn saved_recording_path(output_folder: &Path, game: Option<&Recording
     unique_recording_path(&directory, "clip")
 }
 
+/// A clip name the output folder does not use yet. A disk save's clip does
+/// not exist until the host joins its staged parts, so those parts hold the
+/// name too; otherwise a second save in the same second would overwrite them.
 fn unique_recording_path(directory: &Path, prefix: &str) -> PathBuf {
     let slug = timestamp_file_slug();
     let mut path = directory.join(format!("{prefix}-{slug}.mp4"));
     let mut counter = 2;
-    while path.exists() {
+    while path.exists() || disk_replay_part_path(&path, 0).is_some_and(|part| part.exists()) {
         path = directory.join(format!("{prefix}-{slug}-{counter}.mp4"));
         counter += 1;
     }
     path
+}
+
+/// The staged part `index` of a disk save that becomes `clip`.
+fn disk_replay_part_path(clip: &Path, index: usize) -> Option<PathBuf> {
+    let stem = clip.file_stem()?.to_str()?;
+    Some(clip.with_file_name(format!(".{stem}.part{index:02}.mp4")))
 }
 
 pub(super) struct DiskReplaySegment {
@@ -301,17 +310,10 @@ fn copy_disk_replay_segment_parts(
     segments: &[DiskReplaySegment],
     output: &Path,
 ) -> Result<Vec<String>, String> {
-    let parent = output
-        .parent()
-        .ok_or_else(|| "Could not determine replay output folder.".to_string())?;
-    let stem = output
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .ok_or_else(|| "Could not determine replay output name.".to_string())?;
-
     let mut parts = Vec::with_capacity(segments.len());
     for (index, segment) in segments.iter().enumerate() {
-        let part = parent.join(format!(".{stem}.part{index:02}.mp4"));
+        let part = disk_replay_part_path(output, index)
+            .ok_or_else(|| "Could not determine replay output name.".to_string())?;
         if let Err(error) = fs::copy(&segment.path, &part) {
             let _ = fs::remove_file(&part);
             for staged in &parts {
