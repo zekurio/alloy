@@ -36,6 +36,7 @@ type ReadyCurrent = {
   waveformKey: string | null
   cutKey: string | null
   thumbKey: string | null
+  encodeFingerprint: string | null
 }
 
 type ReadyCommitResult = {
@@ -62,6 +63,7 @@ async function selectReadyCurrent(
       waveformKey: clip.waveform_key,
       cutKey: clip.cut_key,
       thumbKey: clip.thumb_key,
+      encodeFingerprint: clip.encode_fingerprint,
     })
     .from(clip)
     .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
@@ -201,9 +203,14 @@ async function commitReadyTransaction(
     "media source committed",
     tx,
   )
+  // The fingerprint is written once, here, and never cleared, so a null read
+  // under the lock means this is the clip's first completed encode: the only
+  // media commit that is a publish moment. Re-encodes and backfills keep the
+  // ledger as it is.
+  const firstEncode = current.encodeFingerprint === null
   return {
     committed: true,
-    webhookClaims: await claimClipPublishedDeliveries(tx, id),
+    webhookClaims: firstEncode ? await claimClipPublishedDeliveries(tx, id) : 0,
     queuedDeletions: mediaIntents.length + stagedIntents,
   }
 }

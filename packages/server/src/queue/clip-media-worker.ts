@@ -5,7 +5,6 @@ import { env } from "@alloy/server/env"
 import { encodeFingerprint } from "@alloy/server/media/encode-fingerprint"
 import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
 import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-worker"
-import { announceClipPublished } from "@alloy/server/webhooks/publish"
 
 import {
   claimClipMedia,
@@ -241,9 +240,8 @@ class ClipMediaWorker {
       const stopHeartbeat = this.startHeartbeat(claim, abort)
       const action = actionFor(claim, snapshot)
       try {
-        let completed = true
         if (action === "skip" || action === "quarantine") {
-          completed = await completeClipMediaWithoutPipeline(claim, {
+          await completeClipMediaWithoutPipeline(claim, {
             quarantined: action === "quarantine",
           })
         } else if (action === "waveform") {
@@ -281,9 +279,7 @@ class ClipMediaWorker {
         if (abort.signal.aborted) {
           if (await this.finishCommittedClaim(claim)) return
           await this.handleAbort(claim, abort.signal)
-          return
         }
-        if (completed) await announceReadySideEffects(claim.id)
       } catch (cause) {
         const failureMessage = errorMessage(cause, "Media processing failed")
         if (await this.finishCommittedClaim(claim, failureMessage)) return
@@ -342,7 +338,6 @@ class ClipMediaWorker {
         tailFailure,
       )
     }
-    await announceReadySideEffects(claim.id)
     return true
   }
 
@@ -401,10 +396,6 @@ function completionFor(claim: ClipMediaClaim) {
     requestId: claim.requestId,
     targetGeneration: claim.targetGeneration,
   }
-}
-
-async function announceReadySideEffects(clipId: string): Promise<void> {
-  announceClipPublished(clipId)
 }
 
 function frozenConfig(config: TranscodingConfig): Readonly<TranscodingConfig> {

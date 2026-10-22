@@ -129,7 +129,7 @@ export const ADMIN_MESSAGES = {
   FFmpeg: "FFmpeg",
   Fade: "Ausblendung",
   "Failed to load users": "Nutzer konnten nicht geladen werden",
-  "Failing since {time}": "Fehlerhaft seit {time}",
+  "Failed {time}": "Fehlgeschlagen {time}",
   "File size limits before resizing. These images also have a 24-megapixel decoding limit.":
     "Dateigrößenlimits vor der Größenanpassung. Für diese Bilder gilt außerdem ein Dekodierungslimit von 24 Megapixeln.",
   "Finalizing the instance state.": "Instanzstatus wird abgeschlossen.",

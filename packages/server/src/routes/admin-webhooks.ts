@@ -19,6 +19,7 @@ import {
   deleted,
   notFound,
 } from "@alloy/server/runtime/http-response"
+import { wakeWebhookDeliveryWorker } from "@alloy/server/webhooks/delivery-worker"
 import { sendWebhook } from "@alloy/server/webhooks/send"
 import { desc, eq } from "drizzle-orm"
 import { Hono } from "hono"
@@ -101,6 +102,10 @@ export const adminWebhooksRoute = new Hono()
         })
         .where(eq(webhook.id, id))
         .returning()
+      // A paused webhook keeps its queue; deliver it now rather than at the
+      // next reconciliation scan.
+      if (body.enabled === true && !existing.enabled)
+        wakeWebhookDeliveryWorker()
       return c.json(toAdminWebhookRow(row))
     },
   )

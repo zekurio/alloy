@@ -1,25 +1,12 @@
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipRendition, webhook, webhookDelivery } from "@alloy/db/schema"
-import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { and, eq, isNull } from "drizzle-orm"
 
 import { wakeWebhookDeliveryWorker } from "./delivery-worker"
 
-const logger = createLogger("webhooks")
 type WebhookDbExecutor = typeof db | DbTransaction
-
-/**
- * Fire-and-forget dispatch: a webhook problem must never fail, and therefore
- * re-run, the encode or metadata write it rode in on, so errors are logged
- * rather than thrown.
- */
-export function announceClipPublished(clipId: string): void {
-  void dispatchClipPublished(clipId).catch((error) =>
-    logger.error("webhook dispatch failed", error),
-  )
-}
 
 function clipPublishedDedupKey(clipId: string): string {
   return `clip.published:${clipId}`
@@ -33,6 +20,13 @@ export function wakeClaimedClipPublishedDeliveries(claimed: number): void {
 /**
  * Claim a `clip.published` delivery for every enabled webhook that
  * has not already received this clip.
+ *
+ * Call this only at a publish moment: the clip's first completed encode, or
+ * an author making a ready clip public. The ledger cannot tell a publish from
+ * a re-encode on its own, because it only knows what each webhook has
+ * received and a webhook added last week has received nothing. Claiming from
+ * every media run would therefore announce the whole back catalogue to a new
+ * webhook the next time transcoding settings change.
  *
  * The ledger row is written before anything leaves the server, so an author
  * cannot re-announce by flipping a clip between public and private: the second
@@ -94,12 +88,4 @@ export async function claimClipPublishedDeliveries(
     .returning({ id: webhookDelivery.id })
 
   return claimed.length
-}
-
-async function dispatchClipPublished(clipId: string): Promise<void> {
-  const claimed = await claimClipPublishedDeliveries(db, clipId)
-  // The direct dispatcher writes outside a caller-owned transaction, so its
-  // insert has committed here. Startup/reconciliation scans recover if this
-  // process exits before the latency-only wake.
-  wakeClaimedClipPublishedDeliveries(claimed)
 }

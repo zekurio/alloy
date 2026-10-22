@@ -64,6 +64,32 @@ a restart. Screenshot limits also apply to edits and to queued screenshots
 when processing starts; the size limit covers the stored PNG as well as the
 original upload. These settings do not change local desktop capture limits.
 
+#### Webhooks
+
+Admins can add webhooks under **Settings → Administration → Webhooks**. A
+public clip is announced once per webhook when its first encode finishes or
+when its author makes it public. Re-encodes and transcoding changes never
+announce again; admins can reannounce a clip from its menu. Authors can opt
+out under their preferences. Deliveries retry up to five times, honour
+`Retry-After`, and wait while a webhook is paused.
+
+Discord and Fluxer webhooks receive the clip link as message content, which
+unfurls into a playable preview. A generic webhook receives a JSON `POST`
+with these headers:
+
+- `X-Alloy-Event`: `clip.published`, or `test` for the admin test button.
+- `X-Alloy-Delivery`: a UUID that stays the same across retries. Use it to
+  deduplicate.
+- `X-Alloy-Signature`: `sha256=<hex>`, the HMAC-SHA256 of the raw request
+  body keyed with the webhook's signing secret. Sent only when a secret is
+  set. Verify it over the exact bytes received, before parsing the JSON.
+
+The `clip.published` body carries `event`, `deliveryId`, `timestamp`, a
+`clip` object (`id`, `url`, `title`, `description`, `game`, `durationMs`,
+`thumbnailUrl`, `videoUrl`, `createdAt`, `publishedAt`), and an `author`
+object (`id`, `username`, `displayName`, `url`). The exact shape is
+`ClipPublishedPayload` in `packages/contracts/src/webhooks.ts`.
+
 ### Development
 
 With [devenv](https://devenv.sh/), which provides Node, pnpm, PostgreSQL,
