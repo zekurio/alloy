@@ -260,6 +260,23 @@ in
       description = "Additional trusted browser origins for Alloy requests.";
     };
 
+    trustedProxies = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [
+        "127.0.0.1"
+        "::1"
+      ];
+      example = [ "10.0.0.0/8" ];
+      description = ''
+        IP addresses or CIDR ranges of reverse proxies allowed to report the
+        client address through X-Forwarded-For. Rate limits and session IPs
+        use the right-most address not listed here; requests from other peers
+        are keyed on their socket address. The default trusts a TLS-terminating
+        proxy on the same host. Add the proxy's address when it runs elsewhere,
+        or set this to [ ] when clients connect to Alloy directly.
+      '';
+    };
+
     openFirewall = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -501,6 +518,7 @@ in
           PORT = toString cfg.port;
           PUBLIC_SERVER_URL = publicServerUrlForService;
           TRUSTED_ORIGINS = lib.concatStringsSep "," ([ publicServerUrlForService ] ++ cfg.trustedOrigins);
+          ALLOY_TRUSTED_PROXIES = lib.concatStringsSep "," cfg.trustedProxies;
           ALLOY_UPLOAD_TTL_SEC = toString cfg.limits.uploadTtlSec;
           ALLOY_STORAGE_FS_CLIPS_PATH = toString cfg.storage.fs.clipsPath;
           ALLOY_STORAGE_FS_THUMBNAILS_PATH = toString cfg.storage.fs.thumbnailsPath;

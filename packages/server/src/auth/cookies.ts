@@ -17,7 +17,7 @@ export const SESSION_COOKIE_MAX_AGE_SEC = 400 * 24 * 60 * 60
 const OAUTH_STATE_MAX_AGE_SEC = 10 * 60
 const ACCOUNT_REACTIVATION_MAX_AGE_SEC = 10 * 60
 
-function secureCookies(): boolean {
+export function secureCookies(): boolean {
   return (
     env.NODE_ENV === "production" ||
     new URL(env.PUBLIC_SERVER_URL).protocol === "https:"

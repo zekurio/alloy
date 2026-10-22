@@ -1,7 +1,9 @@
 import { createLogger, getLogContext, runWithLogContext } from "@alloy/logging"
 import { Hono } from "hono"
+import { bodyLimit } from "hono/body-limit"
 import { cors } from "hono/cors"
 import { createMiddleware } from "hono/factory"
+import { HTTPException } from "hono/http-exception"
 import { NONCE, secureHeaders } from "hono/secure-headers"
 
 import { getSession } from "./auth/session"
@@ -38,10 +40,41 @@ const BROWSE_API_PREFIXES = [
   "/api/feed",
   "/api/games",
   "/api/search",
-  "/api/users/search",
+  "/api/tags",
+  "/api/users",
 ] as const
 
-const BROWSE_API_PATTERNS = [/^\/api\/users\/(?!me(?:\/|$))[^/]+(?:\/.*)?$/]
+// The signed-in self-service routes under /api/users/me. They authenticate on
+// their own, and reactivation must accept a disabled account, so the browse
+// gate skips them. Every other /api/users path is browsing, including the
+// profile of a user named "me".
+const USER_SELF_SERVICE_ROUTES = new Set([
+  "GET /api/users/me/account",
+  "GET /api/users/me/storage",
+  "POST /api/users/me/disable",
+  "POST /api/users/me/reactivate",
+  "GET /api/users/me/clips/download",
+  "DELETE /api/users/me/clips",
+  "POST /api/users/me/avatar/upload",
+  "POST /api/users/me/banner/upload",
+  "DELETE /api/users/me/avatar",
+  "DELETE /api/users/me/banner",
+])
+
+const API_BODY_LIMIT_BYTES = 1024 * 1024
+
+// File uploads enforce their own, larger limits: imageBodyLimit on image
+// routes, and the signed ticket's byte budget on /api/assets/upload.
+const OWN_BODY_LIMIT_ROUTES = [
+  /^\/api\/assets\/upload\//,
+  /^\/api\/users\/me\/(?:avatar|banner)\/upload$/,
+  /^\/api\/clips\/[^/]+\/image$/,
+  /^\/api\/admin\/oauth-providers\/[^/]+\/icon$/,
+  /^\/api\/admin\/games(?:\/[^/]+\/assets\/[^/]+)?$/,
+]
+
+// Upload URLs carry their signed bearer token as a path segment.
+const UPLOAD_TOKEN_PATH_RE = /^(\/api\/assets\/upload\/)[^/]+/
 
 const REQUEST_ID_RE = /^[\w-]{1,64}$/
 
@@ -63,8 +96,8 @@ const requireAuthToBrowse = createMiddleware(async (c, next) => {
   }
 
   const isBrowseRequest =
-    BROWSE_API_PREFIXES.some((prefix) => path.startsWith(prefix)) ||
-    BROWSE_API_PATTERNS.some((pattern) => pattern.test(path))
+    BROWSE_API_PREFIXES.some((prefix) => path.startsWith(prefix)) &&
+    !USER_SELF_SERVICE_ROUTES.has(`${c.req.method} ${path}`)
   if (!isBrowseRequest) {
     await next()
     return
@@ -76,6 +109,16 @@ const requireAuthToBrowse = createMiddleware(async (c, next) => {
   }
 
   await next()
+})
+
+const defaultBodyLimit = bodyLimit({ maxSize: API_BODY_LIMIT_BYTES })
+
+const apiBodyLimit = createMiddleware(async (c, next) => {
+  if (OWN_BODY_LIMIT_ROUTES.some((route) => route.test(c.req.path))) {
+    await next()
+    return
+  }
+  return defaultBodyLimit(c, next)
 })
 
 const requestCorrelation = createMiddleware(async (c, next) => {
@@ -94,7 +137,7 @@ const requestCorrelation = createMiddleware(async (c, next) => {
       const durationMs = Math.round(performance.now() - startedAt)
       const status = didThrow ? 500 : c.res.status
       requestLogger.info(
-        `${c.req.method} ${c.req.path} ${status} ${durationMs}ms`,
+        `${c.req.method} ${c.req.path.replace(UPLOAD_TOKEN_PATH_RE, "$1:token")} ${status} ${durationMs}ms`,
       )
     }
   })
@@ -153,6 +196,7 @@ const apiApp = new Hono()
     }),
   )
   .use("/api/*", csrf)
+  .use("/api/*", apiBodyLimit)
   .use("/api/*", requireAuthToBrowse)
   // Secure-by-default: every API response is private and uncacheable unless the
   // handler explicitly sets its own Cache-Control (public clip media, games,
@@ -187,6 +231,17 @@ const apiApp = new Hono()
   .onError((err, c) => {
     const requestId =
       getLogContext().req ?? c.res.headers.get("X-Request-Id") ?? undefined
+    // Client errors thrown by middleware (malformed bodies, body limits) keep
+    // their status instead of surfacing as a server fault.
+    if (err instanceof HTTPException && err.status < 500) {
+      runWithLogContext(requestId ? { req: requestId } : {}, () => {
+        logger.warn(
+          `request rejected with ${err.status}${err.message ? `: ${err.message}` : ""}`,
+        )
+      })
+      if (err.res) return err.getResponse()
+      return c.json({ error: err.message || "Bad Request" }, err.status)
+    }
     runWithLogContext(requestId ? { req: requestId } : {}, () => {
       logger.error("unhandled request error:", err)
     })

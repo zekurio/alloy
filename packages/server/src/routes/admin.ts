@@ -2,6 +2,7 @@ import {
   HardwareAccelerationSchema,
   UploadLimitsSchema,
   RenditionTierConfigSchema,
+  TranscodingConfigSchema,
   VideoCodecSchema,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
@@ -39,7 +40,7 @@ import {
 } from "./admin-oauth-provider-icons"
 import { adminUsersRoute } from "./admin-users"
 import { adminWebhooksRoute } from "./admin-webhooks"
-import { tbValidator } from "./validation"
+import { tbValidator, validationErrorBody } from "./validation"
 
 const RuntimeConfigPatch = t.object({
   setupComplete: t.boolean().optional(),
@@ -274,11 +275,16 @@ export const adminRoute = new Hono()
   })
   .patch("/transcoding", tbValidator("json", TranscodingPatch), async (c) => {
     const patch = c.req.valid("json")
-    // TranscodingConfigSchema rejects an all-disabled ladder inside set().
-    await configStore.set("transcoding", {
+    // Ladder rules (distinct tiers, at most one link preview tier) span the
+    // merged config, so check it here: set() would reject it as a 500.
+    const next = TranscodingConfigSchema.safeParse({
       ...configStore.get("transcoding"),
       ...patch,
     })
+    if (!next.success) {
+      return c.json(validationErrorBody("json", next.error), 400)
+    }
+    await configStore.set("transcoding", next.data)
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
   .get("/transcoding/capabilities", async (c) => {
