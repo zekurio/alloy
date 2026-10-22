@@ -64,6 +64,13 @@ a restart. Screenshot limits also apply to edits and to queued screenshots
 when processing starts; the size limit covers the stored PNG as well as the
 original upload. These settings do not change local desktop capture limits.
 
+#### Container image
+
+The same server build is published as a container image at
+`ghcr.io/zekurio/alloy`. `X.Y.Z` tags are releases, `latest` is the newest
+release, and `unstable` follows `dev`. You still need to provide PostgreSQL and
+the environment above. See [RELEASING.md](.github/RELEASING.md#container-images).
+
 #### Webhooks
 
 Admins can add webhooks under **Settings → Administration → Webhooks**. A

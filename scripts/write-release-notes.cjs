@@ -42,6 +42,7 @@ async function writeReleaseNotes({
         head: tag,
       })
       const categories = new Map([
+        ["Breaking changes", []],
         ["Features", []],
         ["Bug fixes", []],
         ["Performance", []],
@@ -51,21 +52,25 @@ async function writeReleaseNotes({
       ])
 
       for (const commit of comparison.data.commits) {
-        const subject = commit.commit.message.split("\n", 1)[0]
+        const message = commit.commit.message
+        const subject = message.split("\n", 1)[0]
         if (/^chore: release v?\d+\.\d+\.\d+$/i.test(subject)) continue
 
         const match = subject.match(
-          /^(?<type>\w+)(?:\([^)]*\))?!?:\s+(?<summary>.+)$/i,
+          /^(?<type>\w+)(?:\([^)]*\))?(?<bang>!)?:\s+(?<summary>.+)$/i,
         )
         const type = match?.groups?.type?.toLowerCase()
-        const category =
-          {
-            feat: "Features",
-            fix: "Bug fixes",
-            perf: "Performance",
-            refactor: "Improvements",
-            docs: "Documentation",
-          }[type] ?? "Other changes"
+        const isBreaking =
+          Boolean(match?.groups?.bang) || /^BREAKING[ -]CHANGE:/m.test(message)
+        const category = isBreaking
+          ? "Breaking changes"
+          : ({
+              feat: "Features",
+              fix: "Bug fixes",
+              perf: "Performance",
+              refactor: "Improvements",
+              docs: "Documentation",
+            }[type] ?? "Other changes")
         const summary = match?.groups?.summary ?? subject
         categories
           .get(category)
