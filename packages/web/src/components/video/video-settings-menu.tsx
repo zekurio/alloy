@@ -291,7 +291,7 @@ const sheetRowClass =
 
 function SettingsRowValue({ value }: { value: ReactNode }) {
   return (
-    <span className="text-foreground-dim ml-auto min-w-0 truncate pl-3 text-xs">
+    <span className="text-foreground-dim ml-auto shrink-0 pl-3 text-xs whitespace-nowrap">
       {value}
     </span>
   )
