@@ -297,7 +297,14 @@ impl DesktopRuntime {
         media::finalize_capture(&library.library, &mut record)
             .await
             .map_err(error)?;
-        let id = library.library.remember_capture(&record).map_err(error)?;
+        let id = {
+            let record = record.clone();
+            library
+                .library
+                .off_worker(move |library| library.remember_capture(&record))
+                .await
+                .map_err(error)?
+        };
         self.recorder
             .complete_capture(record.clone())
             .await
@@ -473,7 +480,11 @@ impl DesktopRuntime {
                 to_value(self.recorder.storage_info().await.map_err(error)?)
             }
             "recording.getLibrary" => {
-                let mut snapshot = library.library.snapshot().map_err(error)?;
+                let mut snapshot = library
+                    .library
+                    .off_worker(|library| library.snapshot())
+                    .await
+                    .map_err(error)?;
                 for item in &mut snapshot.items {
                     set_item_urls(&library, item)?;
                 }
@@ -497,25 +508,40 @@ impl DesktopRuntime {
                 to_value(export)
             }
             "recording.updateLibraryCapture" => {
-                Ok(json!({ "id": library.library.update_metadata(arg(args, 0)?).map_err(error)? }))
+                let patch = arg(args, 0)?;
+                let id = library
+                    .library
+                    .off_worker(move |library| library.update_metadata(patch))
+                    .await
+                    .map_err(error)?;
+                Ok(json!({ "id": id }))
             }
             "recording.setLibraryCaptureTrim" => {
-                Ok(json!({ "id": library.library.set_trim(arg(args, 0)?).map_err(error)? }))
+                let update = arg(args, 0)?;
+                let id = library
+                    .library
+                    .off_worker(move |library| library.set_trim(update))
+                    .await
+                    .map_err(error)?;
+                Ok(json!({ "id": id }))
             }
             "recording.deleteLibraryCapture" => {
+                let id: String = arg(args, 0)?;
                 library
                     .library
-                    .delete(&arg::<String>(args, 0)?)
+                    .off_worker(move |library| library.delete(&id))
+                    .await
                     .map_err(error)?;
                 Ok(Value::Null)
             }
             "recording.revealLibraryCapture" => {
-                reveal(
-                    &library
-                        .library
-                        .reveal_path(&arg::<String>(args, 0)?)
-                        .map_err(error)?,
-                )?;
+                let id: String = arg(args, 0)?;
+                let path = library
+                    .library
+                    .off_worker(move |library| library.reveal_path(&id))
+                    .await
+                    .map_err(error)?;
+                reveal(&path)?;
                 Ok(Value::Null)
             }
             "recording.importLibraryFiles" => {

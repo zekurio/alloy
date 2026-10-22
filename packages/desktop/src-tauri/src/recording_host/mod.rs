@@ -187,7 +187,7 @@ struct Session {
 }
 
 impl Session {
-    fn spawn(inner: &Arc<Inner>) -> Result<Arc<Self>, RecorderHostError> {
+    async fn spawn(inner: &Arc<Inner>) -> Result<Arc<Self>, RecorderHostError> {
         let options = &inner.options;
         if !options.executable.is_file() {
             return Err(RecorderHostError::MissingExecutable(
@@ -197,8 +197,11 @@ impl Session {
 
         // Disk-mode replay segments are the agent's alone, and it cleans them
         // up when it stops or saves a clip. A crash or a watchdog kill skips
-        // that, so the folder is emptied before the next agent starts.
-        clear_folder_contents(&options.replay_scratch_folder);
+        // that, so the folder is emptied before the next agent starts. Those
+        // segments add up to the whole replay buffer, so the removal runs on
+        // a blocking thread.
+        let scratch = options.replay_scratch_folder.clone();
+        off_worker(move || clear_folder_contents(&scratch)).await?;
 
         let mut command = Command::new(&options.executable);
         command
@@ -527,8 +530,16 @@ impl RecorderHost {
         settings: RecordingSettings,
     ) -> Result<RecordingSettings, RecorderHostError> {
         validate_settings(&settings)?;
-        write_json_atomic(&self.inner.options.state_dir.join(SETTINGS_FILE), &settings)?;
-        *self.inner.settings.write().await = settings.clone();
+        // Holding the lock across the write keeps two saves from sharing the
+        // temporary file and the file in step with the settings in memory.
+        let mut current = self.inner.settings.write().await;
+        write_json_off_worker(
+            self.inner.options.state_dir.join(SETTINGS_FILE),
+            settings.clone(),
+        )
+        .await?;
+        *current = settings.clone();
+        drop(current);
         *self.inner.applied_settings.lock().await = None;
         // New settings may fix what made the last start fail; let the next
         // request try them at once.
@@ -708,31 +719,35 @@ impl RecorderHost {
     pub async fn storage_info(&self) -> Result<RecordingStorageInfo, RecorderHostError> {
         let settings = self.get_settings().await;
         let folder = effective_output_folder(&self.inner.options, &settings);
-        fs::create_dir_all(&folder).map_err(|source| {
-            io_error(
-                format!("Failed to create capture folder {}", folder.display()),
-                source,
-            )
-        })?;
-        let total_bytes = total_space(&folder).map_err(|source| {
-            io_error(
-                format!("Failed to read disk size for {}", folder.display()),
-                source,
-            )
-        })?;
-        let available_bytes = available_space(&folder).map_err(|source| {
-            io_error(
-                format!("Failed to read free disk space for {}", folder.display()),
-                source,
-            )
-        })?;
-        Ok(RecordingStorageInfo {
-            output_folder: folder.to_string_lossy().into_owned(),
-            total_bytes,
-            used_bytes: total_bytes.saturating_sub(available_bytes),
-            available_bytes,
-            clips_bytes: sum_capture_bytes(&folder),
+        // Summing the captures walks the whole output folder.
+        off_worker(move || {
+            fs::create_dir_all(&folder).map_err(|source| {
+                io_error(
+                    format!("Failed to create capture folder {}", folder.display()),
+                    source,
+                )
+            })?;
+            let total_bytes = total_space(&folder).map_err(|source| {
+                io_error(
+                    format!("Failed to read disk size for {}", folder.display()),
+                    source,
+                )
+            })?;
+            let available_bytes = available_space(&folder).map_err(|source| {
+                io_error(
+                    format!("Failed to read free disk space for {}", folder.display()),
+                    source,
+                )
+            })?;
+            Ok(RecordingStorageInfo {
+                output_folder: folder.to_string_lossy().into_owned(),
+                total_bytes,
+                used_bytes: total_bytes.saturating_sub(available_bytes),
+                available_bytes,
+                clips_bytes: sum_capture_bytes(&folder),
+            })
         })
+        .await?
     }
 
     pub async fn captures(&self) -> Vec<RecordingCapture> {
@@ -746,10 +761,11 @@ impl RecorderHost {
         if manifest.captures.len() == before {
             return Ok(false);
         }
-        write_json_atomic(
-            &self.inner.options.state_dir.join(CAPTURES_FILE),
-            &*manifest,
-        )?;
+        write_json_off_worker(
+            self.inner.options.state_dir.join(CAPTURES_FILE),
+            manifest.clone(),
+        )
+        .await?;
         Ok(true)
     }
 
@@ -771,10 +787,11 @@ impl RecorderHost {
             .captures
             .retain(|pending| !captures_match(pending, &capture));
         if manifest.captures.len() != before
-            && let Err(error) = write_json_atomic(
-                &self.inner.options.state_dir.join(CAPTURES_FILE),
-                &*manifest,
+            && let Err(error) = write_json_off_worker(
+                self.inner.options.state_dir.join(CAPTURES_FILE),
+                manifest.clone(),
             )
+            .await
         {
             *manifest = original;
             return Err(error);
@@ -857,25 +874,7 @@ impl RecorderHost {
     }
 
     async fn remember_capture(&self, capture: RecordingCapture) -> Result<(), RecorderHostError> {
-        let mut manifest = self.inner.captures.lock().await;
-        let original = manifest.clone();
-        if let Some(existing) = manifest
-            .captures
-            .iter_mut()
-            .find(|entry| entry.id == capture.id || entry.filename == capture.filename)
-        {
-            *existing = capture;
-        } else {
-            manifest.captures.push(capture);
-        }
-        if let Err(error) = write_json_atomic(
-            &self.inner.options.state_dir.join(CAPTURES_FILE),
-            &*manifest,
-        ) {
-            *manifest = original;
-            return Err(error);
-        }
-        Ok(())
+        remember_capture_inner(&self.inner, capture).await
     }
 
     async fn apply_status(&self, status: RecordingStatus) {
@@ -925,7 +924,7 @@ async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHost
     }
 
     start_discord_detection_refresh(inner);
-    let session = match Session::spawn(inner) {
+    let session = match Session::spawn(inner).await {
         Ok(session) => session,
         Err(error) => {
             record_start_failure(inner, error.to_string()).await;
@@ -1443,7 +1442,13 @@ async fn remember_capture_inner(
     } else {
         manifest.captures.push(capture);
     }
-    if let Err(error) = write_json_atomic(&inner.options.state_dir.join(CAPTURES_FILE), &*manifest)
+    // The write stays under the lock so two captures never race each other
+    // to the file, but it runs off the worker that reads the agent's stdout.
+    if let Err(error) = write_json_off_worker(
+        inner.options.state_dir.join(CAPTURES_FILE),
+        manifest.clone(),
+    )
+    .await
     {
         *manifest = original;
         return Err(error);
@@ -1613,12 +1618,19 @@ where
 }
 
 fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<(), RecorderHostError> {
+    // Each write gets its own temporary file, so two writes that overlap can
+    // never interleave their bytes in one file.
+    static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
     let parent = path.parent().ok_or_else(|| {
         RecorderHostError::Process(format!("No parent folder for {}", path.display()))
     })?;
     fs::create_dir_all(parent)
         .map_err(|source| io_error(format!("Failed to create {}", parent.display()), source))?;
-    let temp = path.with_extension(format!("tmp-{}", std::process::id()));
+    let temp = path.with_extension(format!(
+        "tmp-{}-{}",
+        std::process::id(),
+        NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+    ));
     let bytes = serde_json::to_vec_pretty(value)
         .map_err(|source| json_error(format!("Failed to encode {}", path.display()), source))?;
     {
@@ -1723,7 +1735,12 @@ fn start_discord_detection_refresh(inner: &Arc<Inner>) {
 }
 
 async fn refresh_discord_detection_cache(path: &Path) -> Result<(), String> {
-    if discord_cache_is_fresh(path) {
+    // Checking freshness parses the whole cache file.
+    let cached = path.to_path_buf();
+    if off_worker(move || discord_cache_is_fresh(&cached))
+        .await
+        .map_err(|error| error.to_string())?
+    {
         return Ok(());
     }
 
@@ -1765,10 +1782,41 @@ async fn refresh_discord_detection_cache(path: &Path) -> Result<(), String> {
         }
         body.extend_from_slice(&chunk);
     }
-    let payload: Value = serde_json::from_slice(&body)
-        .map_err(|error| format!("invalid Discord detectable games JSON: {error}"))?;
-    let cache = trim_discord_detections(payload)?;
-    write_json_atomic(path, &cache).map_err(|error| error.to_string())
+    // The body is a dozen megabytes of JSON; decoding and trimming it takes
+    // long enough to stall the workers that handle the agent's events.
+    let path = path.to_path_buf();
+    off_worker(move || {
+        let payload: Value = serde_json::from_slice(&body)
+            .map_err(|error| format!("invalid Discord detectable games JSON: {error}"))?;
+        let cache = trim_discord_detections(payload)?;
+        write_json_atomic(&path, &cache).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+/// Runs blocking file work on a thread of its own. The host's async tasks
+/// read the agent's stdout and answer the native bridge, so none of them may
+/// wait on a disk.
+async fn off_worker<T, F>(run: F) -> Result<T, RecorderHostError>
+where
+    T: Send + 'static,
+    F: FnOnce() -> T + Send + 'static,
+{
+    tokio::task::spawn_blocking(run)
+        .await
+        .map_err(|error| RecorderHostError::Process(format!("Blocking task failed: {error}")))
+}
+
+/// Writes `value` on a blocking thread. That write runs to completion even if
+/// this future is dropped, so callers that hold a lock across it to order
+/// writes and roll back memory must not be cancelled. Today they all run in
+/// spawned tasks or command handlers that are never aborted.
+async fn write_json_off_worker<T>(path: PathBuf, value: T) -> Result<(), RecorderHostError>
+where
+    T: Serialize + Send + 'static,
+{
+    off_worker(move || write_json_atomic(&path, &value)).await?
 }
 
 fn trim_discord_detections(payload: Value) -> Result<DiscordDetectionCache, String> {

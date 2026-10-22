@@ -178,6 +178,20 @@ fn ensure_uploadable_codecs(probed: &ProbedMedia) -> Result<()> {
     Ok(())
 }
 
+/// Prunes a capture's export cache; the directory walk runs off the async
+/// workers like every other library file operation.
+async fn replace_exports(
+    library: &CaptureLibrary,
+    capture_id: &str,
+    keep: Option<&str>,
+) -> Result<()> {
+    let capture_id = capture_id.to_string();
+    let keep = keep.map(str::to_string);
+    library
+        .off_worker(move |library| library.replace_exports(&capture_id, keep.as_deref()))
+        .await
+}
+
 /// Produces the file a publish uploads, without re-encoding when it can:
 /// - A selection that covers the whole capture uploads the capture itself.
 /// - When the caller lets the server cut (`allow_server_trim`), a shorter
@@ -185,9 +199,10 @@ fn ensure_uploadable_codecs(probed: &ProbedMedia) -> Result<()> {
 ///   reports the selection as a trim for the server's one frame-exact encode.
 /// - Anything else is re-encoded to exactly the selection.
 pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<LibraryExport> {
+    let id = request.id.clone();
     let item = library
-        .find_item(&request.id)
-        .ok_or(LibraryError::CaptureNotFound)?;
+        .off_worker(move |library| library.find_item(&id).ok_or(LibraryError::CaptureNotFound))
+        .await?;
     let source = PathBuf::from(&item.filename);
     let probed = probe_media(library, &source).await?;
     // The recorder reports the length it asked for; the file knows its own.
@@ -211,7 +226,7 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
     if full_source && ensure_uploadable_mp4(&source, &probed).is_ok() {
         // The capture is the export, so nothing is copied into the cache and
         // older renders of this capture are no longer needed.
-        library.replace_exports(&item.id, None)?;
+        replace_exports(library, &item.id, None).await?;
         return Ok(LibraryExport {
             id: item.id.clone(),
             // The host fills this from its loopback file server.
@@ -276,7 +291,7 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
     }
     // The editor only ever plays the export it just asked for, so the capture
     // keeps one render instead of one per trim the user tried.
-    library.replace_exports(&item.id, Some(&export_id))?;
+    replace_exports(library, &item.id, Some(&export_id)).await?;
     let size_bytes = tokio::fs::metadata(&output).await?.len();
     Ok(LibraryExport {
         id: export_id,
@@ -349,7 +364,7 @@ async fn export_copy(
             return Err(error);
         }
     };
-    library.replace_exports(&item.id, Some(&export_id))?;
+    replace_exports(library, &item.id, Some(&export_id)).await?;
     // The trim is in the copy's time. Its end is not clamped to the copy:
     // the server clamps against the duration it measures, and a clamped
     // minimum-length selection would fall under its minimum.

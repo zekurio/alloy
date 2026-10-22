@@ -177,6 +177,22 @@ impl CaptureLibrary {
         &self.inner.work
     }
 
+    /// Runs one of the library's synchronous entry points on a blocking
+    /// thread. Manifest reads and writes, library scans and file moves all
+    /// block, and they take the manifest lock, so async callers go through
+    /// here rather than running them on the workers that also serve the
+    /// loopback media routes and the native bridge.
+    pub async fn off_worker<T, F>(&self, run: F) -> Result<T>
+    where
+        T: Send + 'static,
+        F: FnOnce(&CaptureLibrary) -> Result<T> + Send + 'static,
+    {
+        let library = self.clone();
+        tokio::task::spawn_blocking(move || run(&library))
+            .await
+            .map_err(|error| LibraryError::Io(io::Error::other(error)))?
+    }
+
     pub(crate) fn poster_failures(&self) -> &PosterFailures {
         &self.inner.poster_failures
     }

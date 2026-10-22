@@ -38,28 +38,31 @@ pub async fn ensure_poster(library: &CaptureLibrary, id: &str) -> Result<PathBuf
     let _slot = library.work().exclusive(format!("poster:{id}")).await;
     // Manifest reads and writes block, so they run off the async workers
     // that also serve the loopback media routes.
-    let (output, source) = off_worker(library, id, |library, id| {
-        let output = library.thumbnail_path(id)?.join(POSTER_FILE);
-        if output.is_file() && library.thumb_blur_hash(id).is_some() {
-            return Ok((output, None));
-        }
-        let source = library.media_path(id)?;
-        let stamp = FileStamp::of(&source)?;
-        if library.poster_failures().failed(id, stamp) {
-            return Err(LibraryError::PosterFailed);
-        }
-        Ok((output, Some((source, stamp))))
-    })
-    .await?;
+    let capture = id.to_string();
+    let (output, source) = library
+        .off_worker(move |library| {
+            let id = capture.as_str();
+            let output = library.thumbnail_path(id)?.join(POSTER_FILE);
+            if output.is_file() && library.thumb_blur_hash(id).is_some() {
+                return Ok((output, None));
+            }
+            let source = library.media_path(id)?;
+            let stamp = FileStamp::of(&source)?;
+            if library.poster_failures().failed(id, stamp) {
+                return Err(LibraryError::PosterFailed);
+            }
+            Ok((output, Some((source, stamp))))
+        })
+        .await?;
     let Some((source, stamp)) = source else {
         return Ok(output);
     };
     let remembered = match render_poster(library, &source, &output).await {
         Ok(blur_hash) => {
-            off_worker(library, id, move |library, id| {
-                library.remember_poster(id, &source, &blur_hash)
-            })
-            .await
+            let capture = id.to_string();
+            library
+                .off_worker(move |library| library.remember_poster(&capture, &source, &blur_hash))
+                .await
         }
         Err(error) => {
             // Cancellation says nothing about the file; anything else would
@@ -109,8 +112,10 @@ pub fn spawn_poster(library: &CaptureLibrary, id: &str) -> JoinHandle<Result<Pat
 /// cancels it nor strands its temporary files. A screenshot whose poster
 /// cannot be made is its own thumbnail.
 pub(crate) async fn thumbnail_file(library: &CaptureLibrary, id: &str) -> Result<PathBuf> {
-    if let Ok(Some(poster)) =
-        off_worker(library, id, |library, id| Ok(existing_poster(library, id))).await
+    let capture = id.to_string();
+    if let Ok(Some(poster)) = library
+        .off_worker(move |library| Ok(existing_poster(library, &capture)))
+        .await
     {
         return Ok(poster);
     }
@@ -119,7 +124,10 @@ pub(crate) async fn thumbnail_file(library: &CaptureLibrary, id: &str) -> Result
         Ok(Err(error)) => error,
         Err(error) => LibraryError::Io(io::Error::other(error)),
     };
-    let source = off_worker(library, id, |library, id| library.media_path(id)).await?;
+    let capture = id.to_string();
+    let source = library
+        .off_worker(move |library| library.media_path(&capture))
+        .await?;
     if is_image(&source) {
         Ok(source)
     } else {
@@ -135,18 +143,6 @@ pub async fn wait_for_poster(library: &CaptureLibrary, id: &str, wait: Duration)
     if !wait.is_zero() {
         let _ = tokio::time::timeout(wait, poster).await;
     }
-}
-
-async fn off_worker<T, F>(library: &CaptureLibrary, id: &str, run: F) -> Result<T>
-where
-    T: Send + 'static,
-    F: FnOnce(&CaptureLibrary, &str) -> Result<T> + Send + 'static,
-{
-    let library = library.clone();
-    let id = id.to_string();
-    tokio::task::spawn_blocking(move || run(&library, &id))
-        .await
-        .map_err(|error| LibraryError::Io(io::Error::other(error)))?
 }
 
 /// The poster file when it already exists. The loopback server answers from
