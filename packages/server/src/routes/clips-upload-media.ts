@@ -40,7 +40,6 @@ import {
   adoptStorageWrites,
   withReservedStorageWrites,
 } from "@alloy/server/storage/write-reservation"
-import { selectVideoTicketKey } from "@alloy/server/uploads/tickets"
 import { and, eq, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -399,30 +398,32 @@ export const clipsUploadMediaRoutes = new Hono()
       const row = access.row
 
       if (row.status === "failed") {
-        // Without a committed source or a kept upload every attempt would
-        // fail: failed uploads, and earlier servers on a failed run, deleted
-        // the upload.
-        if (
-          row.source_key === null &&
-          (await selectVideoTicketKey({ type: "clip", id })) === null
-        ) {
-          return conflict(c, "The clip's upload is gone; upload it again")
-        }
         // Failed clips are not claimable, so flip it back to processing in the
         // same transaction that creates the durable media request. The run-ID
-        // guard stops a run that just took over from being clobbered.
-        const queued = await db.transaction(async (tx) => {
-          if (!(await resetFailedClipForEncode(id, tx))) return false
-          await requestClipMedia(id, {
-            force: true,
-            priority: 10,
-            clearFailure: true,
-            tx,
-          })
-          return true
+        // guard stops a run that just took over from being clobbered. The
+        // media guard refuses a clip with nothing to encode from, since every
+        // attempt would fail: failed uploads, and earlier servers on a failed
+        // run, deleted the upload.
+        const reset = await db.transaction(async (tx) => {
+          const result = await resetFailedClipForEncode(id, tx)
+          if (result.ok) {
+            await requestClipMedia(id, {
+              force: true,
+              priority: 10,
+              clearFailure: true,
+              tx,
+            })
+          }
+          return result
         })
-        if (!queued) {
-          return conflict(c, "Clip is already processing")
+        if (!reset.ok) {
+          if (reset.reason === "no-media") {
+            return conflict(c, "The clip's upload is gone; upload it again")
+          }
+          if (reset.reason === "active-work") {
+            return conflict(c, "Clip is already processing")
+          }
+          return notFound(c)
         }
 
         wakeClipMediaWorker()
