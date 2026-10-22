@@ -288,7 +288,12 @@ impl DownloadManager {
         let root = self.library.output_folder().join(collection).join(group);
         tokio::fs::create_dir_all(&root).await?;
         let base = safe_component(Some(request.title.as_str()), "clip");
-        let (destination, partial) = reserve_destination(&root, &base, &extension)?;
+        let (destination, partial) = {
+            let (root, extension) = (root.clone(), extension.clone());
+            tokio::task::spawn_blocking(move || reserve_destination(&root, &base, &extension))
+                .await
+                .map_err(|error| LibraryError::Io(std::io::Error::other(error)))??
+        };
         let received = match self
             .write_response(
                 &request.clip_id,
@@ -330,13 +335,22 @@ impl DownloadManager {
             let _ = tokio::fs::remove_file(&destination).await;
             return Err(LibraryError::DownloadCancelled);
         }
-        match self.library.register_download(
-            request,
-            &destination,
-            &response_type,
-            received,
-            media_version.as_deref(),
-        ) {
+        let registered = {
+            let request = request.clone();
+            let destination = destination.clone();
+            self.library
+                .off_worker(move |library| {
+                    library.register_download(
+                        &request,
+                        &destination,
+                        &response_type,
+                        received,
+                        media_version.as_deref(),
+                    )
+                })
+                .await
+        };
+        match registered {
             Ok(id) => Ok(id),
             Err(error) => {
                 let _ = tokio::fs::remove_file(&destination).await;

@@ -166,20 +166,20 @@ async fn handle_request(
         // Resolving an id reads the manifest and may touch the file system, so
         // keep it off the async worker.
         "media" => {
-            let library = state.library.clone();
             let id = id.clone();
-            tokio::task::spawn_blocking(move || library.media_path(&id))
+            state
+                .library
+                .off_worker(move |library| library.media_path(&id))
                 .await
-                .unwrap_or(Err(LibraryError::CaptureNotFound))
         }
         // Exports are filed under their capture, so the id is resolved by a
         // lookup inside the exports folder rather than a direct path join.
         "export" => {
-            let library = state.library.clone();
             let id = id.clone();
-            tokio::task::spawn_blocking(move || library.find_export_path(&id))
+            state
+                .library
+                .off_worker(move |library| library.find_export_path(&id))
                 .await
-                .unwrap_or(Err(LibraryError::CaptureNotFound))
         }
         // New captures usually have their poster by the time they are
         // announced; older ones get it on first request.
