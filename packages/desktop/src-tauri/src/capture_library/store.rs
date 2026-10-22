@@ -2,26 +2,25 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
-use tokio::sync::Notify;
-use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::capture_library::error::{LibraryError, Result};
-use crate::capture_library::media::probe_file_for_library;
+use crate::capture_library::media::probe_file;
 use crate::capture_library::paths::{
     capture_id, ensure_within, extension, is_image, is_media, manifest_key, now_rfc3339,
     safe_component, safe_file_stem, title_for_capture, unique_path,
 };
+use crate::capture_library::poster::{PosterFailures, discard_poster};
 use crate::capture_library::types::{
     CaptureKind, CaptureManifest, CaptureRecord, CaptureSource, CommitImport, FilesImportResult,
     GameGuess, ImportFailure, LibraryGroup, LibraryItem, LibrarySnapshot, ManifestEntry, MetaPatch,
     StagedImport, TrimUpdate, collection_for,
 };
+use crate::capture_library::work::MediaWork;
 
 const MANIFEST_VERSION: u8 = 2;
 const MAX_MANIFEST_BYTES: usize = 64 * 1024 * 1024;
@@ -31,6 +30,8 @@ const MAX_DESCRIPTION_LENGTH: usize = 20_000;
 const MAX_TAGS_LENGTH: usize = 4_000;
 const MAX_MENTIONS: usize = 100;
 const MAX_STAGED_IMPORT_AGE: Duration = Duration::from_secs(24 * 60 * 60);
+const BLURHASH_ALPHABET: &str =
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~";
 
 static MANIFEST_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> = OnceLock::new();
 
@@ -90,21 +91,8 @@ struct LibraryInner {
     config: CaptureLibraryConfig,
     manifest_lock: Arc<Mutex<()>>,
     staged: Mutex<HashMap<String, StagedInternal>>,
-    media_cancel: CancellationToken,
-    media_active: AtomicUsize,
-    media_idle: Notify,
-}
-
-pub(crate) struct MediaActivity {
-    inner: Arc<LibraryInner>,
-}
-
-impl Drop for MediaActivity {
-    fn drop(&mut self) {
-        if self.inner.media_active.fetch_sub(1, Ordering::AcqRel) == 1 {
-            self.inner.media_idle.notify_waiters();
-        }
-    }
+    work: MediaWork,
+    poster_failures: PosterFailures,
 }
 
 #[derive(Clone, Debug)]
@@ -127,14 +115,14 @@ impl CaptureLibrary {
         fs::create_dir_all(&config.user_data_folder)?;
         fs::create_dir_all(&config.cache_folder)?;
         let manifest_lock = manifest_lock_for(&config.manifest_path());
+        let work = MediaWork::new(config.ffmpeg.clone(), config.ffprobe.clone());
         let library = Self {
             inner: Arc::new(LibraryInner {
                 config,
                 manifest_lock,
                 staged: Mutex::new(HashMap::new()),
-                media_cancel: CancellationToken::new(),
-                media_active: AtomicUsize::new(0),
-                media_idle: Notify::new(),
+                work,
+                poster_failures: PosterFailures::default(),
             }),
         };
         Ok(library)
@@ -184,40 +172,26 @@ impl CaptureLibrary {
         &self.inner.config.output_folder
     }
 
+    /// Runs every ffmpeg and ffprobe process for this library.
+    pub(crate) fn work(&self) -> &MediaWork {
+        &self.inner.work
+    }
+
+    pub(crate) fn poster_failures(&self) -> &PosterFailures {
+        &self.inner.poster_failures
+    }
+
     /// Requests cancellation of all ffmpeg and ffprobe work for this library.
     /// A library is not reusable after this call; the shell creates a new one
     /// when it changes the output folder or starts a new session.
     pub fn cancel_media(&self) {
-        self.inner.media_cancel.cancel();
+        self.inner.work.cancel();
     }
 
     /// Cancels media work and waits until every child process has been
     /// released. This is intended for an orderly application shutdown.
     pub async fn shutdown_media(&self) {
-        self.cancel_media();
-        loop {
-            if self.inner.media_active.load(Ordering::Acquire) == 0 {
-                return;
-            }
-            let notified = self.inner.media_idle.notified();
-            tokio::pin!(notified);
-            notified.as_mut().enable();
-            if self.inner.media_active.load(Ordering::Acquire) == 0 {
-                return;
-            }
-            notified.await;
-        }
-    }
-
-    pub(crate) fn begin_media(&self) -> MediaActivity {
-        self.inner.media_active.fetch_add(1, Ordering::AcqRel);
-        MediaActivity {
-            inner: Arc::clone(&self.inner),
-        }
-    }
-
-    pub(crate) fn media_cancellation(&self) -> CancellationToken {
-        self.inner.media_cancel.clone()
+        self.inner.work.shutdown().await;
     }
 
     pub fn media_path(&self, id: &str) -> Result<PathBuf> {
@@ -260,21 +234,27 @@ impl CaptureLibrary {
         Err(LibraryError::CaptureNotFound)
     }
 
-    /// Keeps only the named render among a capture's exports. Older renders
-    /// are unreachable once the editor has a newer one, and every export is
-    /// reproducible from the capture.
-    pub(crate) fn replace_exports(&self, capture_id: &str, export_id: &str) -> Result<()> {
-        let keep = self
-            .export_path(capture_id, export_id)?
-            .file_name()
-            .ok_or(LibraryError::InvalidPath)?
-            .to_os_string();
-        for entry in fs::read_dir(self.exports_folder_for(capture_id)?)? {
+    /// Keeps only the named render among a capture's exports, or none. Older
+    /// renders are unreachable once the editor has a newer one, and every
+    /// export is reproducible from the capture.
+    pub(crate) fn replace_exports(&self, capture_id: &str, keep: Option<&str>) -> Result<()> {
+        let keep = keep
+            .map(|export_id| {
+                self.export_path(capture_id, export_id)?
+                    .file_name()
+                    .map(|name| name.to_os_string())
+                    .ok_or(LibraryError::InvalidPath)
+            })
+            .transpose()?;
+        let Ok(entries) = fs::read_dir(self.exports_folder_for(capture_id)?) else {
+            return Ok(());
+        };
+        for entry in entries {
             let entry = entry?;
             let name = entry.file_name();
             // Renders in flight are written to a dot-prefixed temporary file
             // beside the destination; leave a concurrent export its own.
-            if name == keep || name.to_string_lossy().starts_with('.') {
+            if Some(&name) == keep.as_ref() || name.to_string_lossy().starts_with('.') {
                 continue;
             }
             if entry.file_type()?.is_file() {
@@ -338,6 +318,27 @@ impl CaptureLibrary {
             items,
             groups,
         })
+    }
+
+    /// The item a scan reports for one file, without scanning the library.
+    fn scanned_item(&self, path: &Path, manifest: &CaptureManifest) -> Option<LibraryItem> {
+        [CaptureKind::Replay, CaptureKind::Screenshot]
+            .into_iter()
+            .find_map(|kind| {
+                let root = self
+                    .inner
+                    .config
+                    .output_folder
+                    .join(collection_for(kind))
+                    .canonicalize()
+                    .ok()?;
+                if !path.starts_with(&root) {
+                    return None;
+                }
+                let mut items = Vec::new();
+                add_item(&root, kind, manifest, path.to_path_buf(), &mut items).ok()?;
+                items.pop()
+            })
     }
 
     pub fn find_item(&self, id: &str) -> Option<LibraryItem> {
@@ -412,7 +413,8 @@ impl CaptureLibrary {
         })
     }
 
-    pub fn remember_capture(&self, capture: &CaptureRecord) -> Result<()> {
+    /// Records a finished recorder capture and returns its library id.
+    pub fn remember_capture(&self, capture: &CaptureRecord) -> Result<String> {
         let filename = ensure_media_in_output(&self.inner.config.output_folder, &capture.filename)?;
         if !filename.is_file() || !is_media(&filename) {
             return Err(LibraryError::UnsupportedMedia);
@@ -445,9 +447,60 @@ impl CaptureLibrary {
                 height: capture.height,
                 created_at: capture.created_at.clone(),
                 updated_at: now,
+                // A poster of the file this entry described before does not
+                // describe the new one.
+                thumb_blur_hash: None,
                 ..existing
             };
+            let id = entry.id.clone();
+            discard_poster(self, &id);
             manifest.captures.insert(key, entry);
+            Ok(id)
+        })
+    }
+
+    /// The recorded BlurHash of a capture's poster, when it has one.
+    pub(crate) fn thumb_blur_hash(&self, id: &str) -> Option<String> {
+        self.read_manifest()
+            .captures
+            .into_values()
+            .find(|entry| entry.id == id)
+            .and_then(|entry| entry.thumb_blur_hash)
+            .filter(|value| is_blur_hash(value))
+    }
+
+    /// Records the BlurHash of a freshly written poster of the capture at
+    /// `path`. The entry is found by id, so a capture moved while its poster
+    /// rendered keeps one entry. A capture without an entry gets one with the
+    /// values a scan derives for it, so recording the hash changes nothing
+    /// else about the item.
+    pub(crate) fn remember_poster(&self, id: &str, path: &Path, blur_hash: &str) -> Result<()> {
+        if !is_blur_hash(blur_hash) {
+            return Err(LibraryError::InvalidMetadata("invalid BlurHash".into()));
+        }
+        let manifest = self.read_manifest();
+        let adopted = if manifest.captures.values().any(|entry| entry.id == id) {
+            None
+        } else {
+            Some(
+                self.scanned_item(path, &manifest)
+                    .filter(|item| item.id == id)
+                    .ok_or(LibraryError::CaptureNotFound)?,
+            )
+        };
+        self.mutate_manifest(|manifest| {
+            let entry = match (
+                manifest.captures.values_mut().find(|entry| entry.id == id),
+                adopted,
+            ) {
+                (Some(entry), _) => entry,
+                (None, Some(item)) => manifest
+                    .captures
+                    .entry(manifest_key(Path::new(&item.filename)))
+                    .or_insert_with(|| manifest_entry_from_item(&item)),
+                (None, None) => return Err(LibraryError::CaptureNotFound),
+            };
+            entry.thumb_blur_hash = Some(blur_hash.to_string());
             Ok(())
         })
     }
@@ -567,6 +620,7 @@ impl CaptureLibrary {
         })?;
         // The capture is gone, so its cached thumbnails and export renders
         // have nothing left to belong to.
+        self.inner.poster_failures.forget(id);
         if let Ok(folder) = self.thumbnail_path(id) {
             let _ = fs::remove_dir_all(folder);
         }
@@ -640,6 +694,9 @@ impl CaptureLibrary {
         let id = capture_id(&destination);
         let now = now_rfc3339();
         self.mutate_manifest(|manifest| {
+            // The id comes from the path, so a poster an earlier file at this
+            // path left behind does not describe this one.
+            discard_poster(self, &id);
             manifest.captures.insert(
                 manifest_key(&destination),
                 ManifestEntry {
@@ -687,31 +744,6 @@ impl CaptureLibrary {
         Ok(())
     }
 
-    pub fn store_thumbnail(&self, id: &str, bytes: &[u8]) -> Result<PathBuf> {
-        if bytes.is_empty() || bytes.len() > 20 * 1024 * 1024 {
-            return Err(LibraryError::InvalidMetadata("invalid thumbnail".into()));
-        }
-        let source = self.media_path(id)?;
-        let metadata = fs::metadata(&source)?;
-        let folder = self.thumbnail_path(id)?;
-        fs::create_dir_all(&folder)?;
-        let filename = format!("{}-{}.jpg", id, metadata.len());
-        let path = ensure_within(&folder, &folder.join(filename))?;
-        let temp = path.with_extension(format!("jpg.{}.tmp", Uuid::new_v4()));
-        fs::write(&temp, bytes)?;
-        if let Err(error) = fs::rename(&temp, &path) {
-            let _ = fs::remove_file(&temp);
-            return Err(error.into());
-        }
-        for entry in fs::read_dir(&folder)? {
-            let entry = entry?;
-            if entry.path() != path && entry.file_type()?.is_file() {
-                let _ = fs::remove_file(entry.path());
-            }
-        }
-        Ok(path)
-    }
-
     /// Registers a completed server download after its temporary file has
     /// been moved into the library. The caller must pass a supported content
     /// type and a path below the configured output folder. `media_version` is
@@ -748,6 +780,8 @@ impl CaptureLibrary {
             CaptureKind::Replay
         };
         self.mutate_manifest(|manifest| {
+            // As with imports, the id comes from the path.
+            discard_poster(self, &id);
             manifest.captures.insert(
                 manifest_key(&path),
                 ManifestEntry {
@@ -787,7 +821,7 @@ impl CaptureLibrary {
         tokio::fs::create_dir_all(root).await?;
         let staged_path = root.join(format!("{id}.{extension}"));
         tokio::fs::copy(&source, &staged_path).await?;
-        let meta = probe_file_for_library(self, &source).await.ok();
+        let meta = probe_file(self, &source).await.ok();
         let created_at = file_time(&metadata);
         let title = source
             .file_stem()
@@ -997,6 +1031,10 @@ fn walk_media_files(root: &Path, visit: &mut impl FnMut(PathBuf)) -> Result<()> 
         let entry = entry?;
         let file_type = entry.file_type()?;
         let path = entry.path();
+        // Dot-prefixed files are media still being written.
+        if entry.file_name().to_string_lossy().starts_with('.') {
+            continue;
+        }
         if file_type.is_dir() {
             walk_media_files(&path, visit)?;
         } else if file_type.is_file() && is_media(&path) {
@@ -1077,7 +1115,9 @@ fn add_item(
         // leaves the process.
         media_url: String::new(),
         thumbnail_url: None,
-        thumb_blur_hash: None,
+        thumb_blur_hash: entry
+            .and_then(|value| value.thumb_blur_hash.clone())
+            .filter(|value| is_blur_hash(value)),
         collection: collection_for(actual_kind).to_string(),
         kind: actual_kind,
         source,
@@ -1175,6 +1215,7 @@ fn manifest_entry_from_item(item: &LibraryItem) -> ManifestEntry {
         uploaded_clip_media_version: item.uploaded_clip_media_version.clone(),
         trim_start_ms: item.trim_start_ms,
         trim_end_ms: item.trim_end_ms,
+        thumb_blur_hash: item.thumb_blur_hash.clone(),
     }
 }
 
@@ -1403,6 +1444,22 @@ fn is_capture_id(value: &str) -> bool {
         && value
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+}
+
+/// Mirrors `isBlurHash` in `@alloy/contracts`: a renderer must never be handed
+/// a hash it cannot decode.
+fn is_blur_hash(value: &str) -> bool {
+    let Some(size_flag) = value
+        .chars()
+        .next()
+        .and_then(|first| BLURHASH_ALPHABET.find(first))
+    else {
+        return false;
+    };
+    let expected = 4 + 2 * (size_flag % 9 + 1) * (size_flag / 9 + 1);
+    (6..=166).contains(&value.len())
+        && value.len() == expected
+        && value.chars().all(|char| BLURHASH_ALPHABET.contains(char))
 }
 
 fn is_uuid(value: &str) -> bool {

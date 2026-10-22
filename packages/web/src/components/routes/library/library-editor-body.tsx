@@ -48,7 +48,6 @@ import {
   VideoPlayer,
 } from "@/components/video/video-player"
 import { absoluteClipHref } from "@/lib/app-paths"
-import { useCapturePoster } from "@/lib/capture-poster"
 import {
   CLIP_DESCRIPTION_MAX,
   formatTags,
@@ -222,13 +221,6 @@ function LocalEditorBody({
   useEffect(() => {
     if (handoffPoster && localFrameReady) clearLibraryHandoffPoster(item.id)
   }, [handoffPoster, item.id, localFrameReady])
-  const poster = useCapturePoster({
-    id: item.id,
-    mediaUrl: item.mediaUrl,
-    thumbnailUrl: item.thumbnailUrl,
-    durationMs: item.durationMs,
-    enabled: !isImage,
-  })
   const waveform = useMediaWaveform(
     isImage ? null : item.mediaUrl,
     `desktop:${item.id}:${item.modifiedAt}:${item.sizeBytes}:${item.mediaUrl}`,
@@ -341,7 +333,6 @@ function LocalEditorBody({
         privacy,
         mentions,
         publishClip,
-        posterUrl: poster ?? item.thumbnailUrl,
       })
       if (!clipId) return
       if (privacy === "unlisted") {
@@ -434,7 +425,7 @@ function LocalEditorBody({
                 <VideoPlayer
                   src={item.mediaUrl}
                   sourceIdentity={item.id}
-                  poster={poster ?? undefined}
+                  poster={item.thumbnailUrl ?? undefined}
                   posterBlurHash={item.thumbBlurHash}
                   fallbackSeed={item.id}
                   aspectRatio={aspectRatio}

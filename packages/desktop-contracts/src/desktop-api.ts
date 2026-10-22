@@ -66,8 +66,6 @@ export interface AlloyDesktopRecordingApi {
   ): Promise<RecordingLibraryImportResult>
   /** Deletes a picked file from the temporary import stage. */
   discardStagedLibraryImport(id: string): Promise<void>
-  /** Persists a renderer-decoded JPEG poster for a local video capture. */
-  saveLibraryCaptureThumbnail(id: string, data: Uint8Array): Promise<void>
   /**
    * Persists an uploaded clip into the local capture library. Progress
    * streams out as "library-download" recording events.

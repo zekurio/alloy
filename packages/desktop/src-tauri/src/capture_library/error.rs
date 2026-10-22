@@ -24,6 +24,8 @@ pub enum LibraryError {
     MediaToolTimeout,
     #[error("media operation was cancelled")]
     MediaCancelled,
+    #[error("no poster can be made from this file")]
+    PosterFailed,
     #[error("download failed: {0}")]
     Download(String),
     #[error("download was cancelled")]

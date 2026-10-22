@@ -8,7 +8,6 @@ import type { ComponentType } from "react"
 
 import type { QueueItem } from "@/components/upload/upload-queue-types"
 import { gameHref } from "@/lib/app-paths"
-import { useCapturePoster } from "@/lib/capture-poster"
 import { toClipCardData } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
 import type { RecordingLibraryItem } from "@/lib/desktop"
@@ -30,20 +29,13 @@ export function LibraryCaptureCard({
   transfer?: QueueItem
   onOpen: () => void
 }) {
-  const thumbnail = useCapturePoster({
-    id: item.id,
-    mediaUrl: item.mediaUrl,
-    thumbnailUrl: item.thumbnailUrl,
-    durationMs: item.durationMs,
-    enabled: item.kind !== "screenshot",
-  })
   const source: LibrarySource = "local"
   const renderGameLink = useClipCardGameLink(item.gameSlug)
   const gameUrl = item.gameSlug ? gameHref(item.gameSlug) : null
   const cardThumbnail =
     transfer?.thumbUrl ??
     transfer?.thumbFallbackUrl ??
-    (item.kind === "screenshot" ? item.thumbnailUrl : thumbnail) ??
+    item.thumbnailUrl ??
     undefined
   const cardThumbnailBlurHash = transfer?.thumbBlurHash ?? item.thumbBlurHash
 
@@ -159,15 +151,7 @@ export function UploadedClipCard({
   const card = useMemo(() => toClipCardData(row), [row])
   const source = librarySourceForPrivacy(row.privacy)
   const effectiveTransfer = transfer
-  const localPoster = useCapturePoster({
-    id: localItem?.id ?? "",
-    mediaUrl: localItem?.mediaUrl ?? null,
-    thumbnailUrl: localItem?.thumbnailUrl ?? null,
-    durationMs: localItem?.durationMs ?? null,
-    enabled:
-      Boolean(localItem) && localItem?.kind !== "screenshot" && !card.thumbnail,
-  })
-  const localThumbnail = localPoster ?? localItem?.thumbnailUrl ?? undefined
+  const localThumbnail = localItem?.thumbnailUrl ?? undefined
   const localThumbnailBlurHash = localItem?.thumbBlurHash ?? null
   const thumbnail =
     effectiveTransfer?.thumbUrl ??

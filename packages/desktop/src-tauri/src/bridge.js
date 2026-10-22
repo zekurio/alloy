@@ -72,8 +72,6 @@
   ]) {
     recording[method] = (...args) => call(`recording.${method}`, ...args)
   }
-  recording.saveLibraryCaptureThumbnail = (id, data) =>
-    call("recording.saveLibraryCaptureThumbnail", id, Array.from(data))
   recording.onEvent = (listener) => subscribe("alloy:recording", listener)
 
   // The window is frameless. Honor the web app's `app-region` CSS the way a
