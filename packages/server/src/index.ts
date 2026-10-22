@@ -14,7 +14,7 @@ import { signInConfigError } from "./auth/sign-in-config"
 import { configStore, initializeConfigStore } from "./config/store"
 import { warmDatabase } from "./db"
 import { env } from "./env"
-import { KILL_GRACE_MS } from "./media/ffmpeg"
+import { KILL_GRACE_MS } from "./media/run-process"
 import { configureTranscode } from "./media/transcode-settings"
 import {
   startClipMediaWorker,

@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises"
 
 import { blurHashComponents } from "@alloy/contracts/blurhash"
 import { fetchRemoteImage } from "@alloy/server/media/remote-image"
+import { abortError } from "@alloy/server/runtime/error-message"
 import { encode } from "blurhash"
 import sharp from "sharp"
 
@@ -63,6 +64,5 @@ async function loadImageBytes(
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted)
-    throw new DOMException("BlurHash cancelled", "AbortError")
+  if (signal?.aborted) throw abortError("BlurHash cancelled")
 }

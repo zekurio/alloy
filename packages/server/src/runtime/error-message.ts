@@ -19,6 +19,11 @@ export function toError(cause: unknown, fallback: string): Error {
   return new Error(errorDetail(cause, fallback))
 }
 
+/** The error a cancelled operation rejects with; {@link isAbortError} matches it. */
+export function abortError(message = "Aborted"): DOMException {
+  return new DOMException(message, "AbortError")
+}
+
 export function isAbortError(cause: unknown): boolean {
   return cause instanceof Error && cause.name === "AbortError"
 }

@@ -13,6 +13,7 @@ import {
 } from "./clip-media-claim-store"
 import {
   chooseClipMediaAction,
+  CLIP_MEDIA_MAX_ATTEMPTS,
   type ClipMediaAction,
 } from "./clip-media-policy"
 import { clipMediaStore } from "./clip-media-store"
@@ -41,6 +42,7 @@ const logger = createLogger("media-worker")
 const HEARTBEAT_MS = 30_000
 const RECONCILIATION_INTERVAL_MS = 60_000
 const ERROR_RETRY_MS = 5000
+const ATTEMPTS_EXHAUSTED_REASON = `Media processing gave up after ${CLIP_MEDIA_MAX_ATTEMPTS} attempts; the last one stopped without finishing`
 
 interface GenerationSnapshot {
   generation: MediaGeneration
@@ -85,7 +87,13 @@ class ClipMediaWorker {
   }
 
   private async startInner(): Promise<void> {
-    await recoverClipMediaWork()
+    for (const run of await recoverClipMediaWork()) {
+      runWithLogContext({ clip: run.clipId, run: run.runId }, () => {
+        logger.warn(
+          `media run was interrupted on attempt ${run.attempt}; requeued to start in ${Math.round(run.retryDelayMs / 1000)}s`,
+        )
+      })
+    }
     if (this.stopping) return
     await this.refresh(configStore.get("transcoding"))
     if (this.stopping) return
@@ -244,6 +252,12 @@ class ClipMediaWorker {
           await completeClipMediaWithoutPipeline(claim, {
             quarantined: action === "quarantine",
           })
+        } else if (claim.attempt > CLIP_MEDIA_MAX_ATTEMPTS) {
+          // The previous attempt never reported back: the process died or
+          // the run stalled until its lease expired. Running it again could
+          // take the server down with it once more.
+          logger.warn(ATTEMPTS_EXHAUSTED_REASON)
+          await this.failRun(claim, snapshot, action, ATTEMPTS_EXHAUSTED_REASON)
         } else if (action === "waveform") {
           await runWaveformBackfill(
             clipMediaStore,
@@ -287,19 +301,28 @@ class ClipMediaWorker {
           await this.handleAbort(claim, abort.signal)
           return
         }
-        const facts = await selectClipMediaFacts(claim.id)
-        const failedFingerprint = facts
-          ? encodeFingerprint(snapshot.config, facts)
-          : null
-        const outcome = await failClipMedia(claim, failureMessage, {
-          encodeFailedFingerprint: failedFingerprint,
-          thumbnailOnly: action === "thumbnail",
-        })
-        if (outcome === "retry" || outcome === "superseded") this.wake()
+        await this.failRun(claim, snapshot, action, failureMessage)
       } finally {
         stopHeartbeat()
       }
     })
+  }
+
+  private async failRun(
+    claim: ClipMediaClaim,
+    snapshot: GenerationSnapshot,
+    action: ClipMediaAction,
+    reason: string,
+  ): Promise<void> {
+    const facts = await selectClipMediaFacts(claim.id)
+    const failedFingerprint = facts
+      ? encodeFingerprint(snapshot.config, facts)
+      : null
+    const outcome = await failClipMedia(claim, reason, {
+      encodeFailedFingerprint: failedFingerprint,
+      thumbnailOnly: action === "thumbnail",
+    })
+    if (outcome === "retry" || outcome === "superseded") this.wake()
   }
 
   private startHeartbeat(

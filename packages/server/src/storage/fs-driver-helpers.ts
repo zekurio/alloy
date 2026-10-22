@@ -81,6 +81,13 @@ export class UploadPartTooLargeError extends Error {
   }
 }
 
+export class UploadPartSizeMismatchError extends Error {
+  constructor() {
+    super("Upload part size did not match expected size")
+    this.name = "UploadPartSizeMismatchError"
+  }
+}
+
 export function uploadPartExpectedBytes(
   partNumber: number,
   partSizeBytes: number,

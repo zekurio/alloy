@@ -38,13 +38,17 @@ import {
   markLinkedPublishTime,
   removeLegacyTemporaries,
   uploadPartExpectedBytes,
+  UploadPartSizeMismatchError,
   UploadPartTooLargeError,
   walkFsFiles,
 } from "./fs-driver-helpers"
 import { mintFsUploadTicket, type UploadTokenPayload } from "./fs-upload-token"
 
 export { decodeUploadToken } from "./fs-upload-token"
-export { UploadPartTooLargeError } from "./fs-driver-helpers"
+export {
+  UploadPartSizeMismatchError,
+  UploadPartTooLargeError,
+} from "./fs-driver-helpers"
 
 const FS_UPLOAD_CHUNK_SIZE_BYTES = 32 * 1024 * 1024
 
@@ -169,9 +173,7 @@ export class FsStorageDriver implements StorageDriver {
         }
         await file.write(chunk)
       }
-      if (size !== maxPartBytes) {
-        throw new Error("upload part size did not match expected size")
-      }
+      if (size !== maxPartBytes) throw new UploadPartSizeMismatchError()
       await file.close()
       await rename(tmpPath, finalPath)
       return { size }

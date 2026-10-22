@@ -1,3 +1,5 @@
+import { abortError } from "@alloy/server/runtime/error-message"
+
 /**
  * A bounded runner for media jobs that requests start directly, such as the
  * poster route's frame grabs. The media worker bounds its own runs with
@@ -122,8 +124,4 @@ function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
       .then(resolve, reject)
       .finally(() => signal.removeEventListener("abort", onAbort))
   })
-}
-
-function abortError(): DOMException {
-  return new DOMException("Aborted", "AbortError")
 }

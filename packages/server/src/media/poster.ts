@@ -11,7 +11,8 @@ import { join } from "@alloy/server/runtime/path"
 import sharp, { type Sharp } from "sharp"
 
 import { imageBlurHashFromBytes } from "./blurhash"
-import { ffmpegFailureKind, runFfmpeg } from "./ffmpeg"
+import { runFfmpeg } from "./ffmpeg"
+import { processFailureKind } from "./run-process"
 
 const logger = createLogger("media")
 
@@ -56,7 +57,7 @@ export async function extractPoster(
       frame = await grabFrame(videoPath, framePath, seekMs / 1000, opts.signal)
     } catch (cause) {
       if (opts.signal?.aborted) throw cause
-      const kind = ffmpegFailureKind(cause)
+      const kind = processFailureKind(cause)
       if (kind === "exit") {
         failure ??= errorMessage(cause, "ffmpeg failed")
         continue
