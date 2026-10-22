@@ -58,11 +58,7 @@ struct LogFile {
 
 impl LogFile {
     fn open(dir: &Path) -> std::io::Result<Self> {
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(dir.join(LOG_FILE))?;
-        let len = file.metadata().map_or(0, |metadata| metadata.len());
+        let (file, len) = open_append(&dir.join(LOG_FILE))?;
         Ok(Self {
             dir: dir.to_path_buf(),
             file: Some(file),
@@ -71,6 +67,15 @@ impl LogFile {
     }
 
     fn write(&mut self, line: &[u8]) {
+        // The reopen after a rotation can fail while antivirus or the indexer
+        // holds the path. Retry on later lines rather than log nothing more
+        // until the app restarts.
+        if self.file.is_none()
+            && let Ok((file, len)) = open_append(&self.dir.join(LOG_FILE))
+        {
+            self.file = Some(file);
+            self.len = len;
+        }
         if self.len > 0 && self.len + line.len() as u64 > MAX_LOG_BYTES {
             self.rotate();
         }
@@ -97,6 +102,12 @@ impl LogFile {
             .ok();
         self.len = 0;
     }
+}
+
+fn open_append(path: &Path) -> std::io::Result<(File, u64)> {
+    let file = OpenOptions::new().create(true).append(true).open(path)?;
+    let len = file.metadata().map_or(0, |metadata| metadata.len());
+    Ok((file, len))
 }
 
 /// Appends host diagnostics to `<dir>/alloy-desktop.log`, keeping one rotated
@@ -132,5 +143,18 @@ mod tests {
         assert!(current <= MAX_LOG_BYTES, "{current}");
         assert!(rotated <= MAX_LOG_BYTES, "{rotated}");
         assert!(rotated > MAX_LOG_BYTES - 1024, "{rotated}");
+    }
+
+    #[test]
+    fn a_failed_reopen_is_retried_on_the_next_line() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let mut log = LogFile::open(temp.path()).unwrap();
+        // What `rotate` leaves behind when its reopen fails.
+        log.file = None;
+        log.len = 0;
+        log.write(b"after\n");
+
+        assert_eq!(fs::read(temp.path().join(LOG_FILE)).unwrap(), b"after\n");
+        assert_eq!(log.len, 6);
     }
 }

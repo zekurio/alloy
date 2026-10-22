@@ -974,24 +974,41 @@ async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHost
     }
     .await;
 
+    // An agent that dies during startup also reaches `process_exited`.
+    // Whichever side removes the session counts the failure, so one crash is
+    // counted once and a failure `process_exited` recorded is not cleared.
     if let Err(message) = startup {
-        if inner
-            .session
-            .lock()
-            .await
-            .as_ref()
-            .is_some_and(|current| current.id == session.id)
-        {
-            inner.session.lock().await.take();
-        }
+        let removed = {
+            let mut current = inner.session.lock().await;
+            if current
+                .as_ref()
+                .is_some_and(|current| current.id == session.id)
+            {
+                current.take();
+                true
+            } else {
+                false
+            }
+        };
         session.stop(&inner.options).await;
-        set_error_status(inner, message.clone()).await;
-        let error = RecorderHostError::Protocol(message);
-        record_start_failure(inner, error.to_string()).await;
-        schedule_respawn(inner);
+        let error = RecorderHostError::Protocol(message.clone());
+        if removed {
+            set_error_status(inner, message).await;
+            record_start_failure(inner, error.to_string()).await;
+            schedule_respawn(inner);
+        }
         return Err(error);
     }
     {
+        let current = inner.session.lock().await;
+        if !current
+            .as_ref()
+            .is_some_and(|current| current.id == session.id)
+        {
+            return Err(RecorderHostError::Process(
+                "Alloy recorder exited during startup.".into(),
+            ));
+        }
         let mut respawn = inner.respawn.lock().await;
         respawn.running_since = Some(Instant::now());
         respawn.failure = None;
