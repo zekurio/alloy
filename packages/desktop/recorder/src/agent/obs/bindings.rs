@@ -2,6 +2,7 @@ use std::{
     ffi::{c_char, c_int, c_void, CStr, CString},
     path::Path,
     ptr,
+    sync::atomic::{AtomicBool, Ordering},
 };
 
 use libloading::Library;
@@ -109,6 +110,10 @@ pub(in crate::agent) struct LibObs {
     pub(in crate::agent) screenshots: ScreenshotBindings,
     // Keep the DLL loaded for as long as any of its function pointers are held.
     _library: Library,
+    // Set once this instance's `obs_startup` succeeds. Dropping the instance
+    // shuts OBS down before the DLL unloads, also when a later startup step
+    // failed and the caller returned early.
+    started: AtomicBool,
     pub(in crate::agent) obs_startup:
         unsafe extern "C" fn(*const c_char, *const c_char, *const c_char) -> bool,
     pub(in crate::agent) obs_initialized: unsafe extern "C" fn() -> bool,
@@ -244,6 +249,13 @@ pub(in crate::agent) struct LibObs {
     pub(in crate::agent) calldata_get_string:
         unsafe extern "C" fn(*const CallData, *const c_char, *mut *const c_char) -> bool,
     pub(in crate::agent) bfree: unsafe extern "C" fn(*mut c_void),
+}
+
+impl Drop for LibObs {
+    fn drop(&mut self) {
+        // SAFETY: the library is still loaded; fields drop after this runs.
+        unsafe { self.shutdown() };
+    }
 }
 
 impl LibObs {
@@ -388,6 +400,7 @@ impl LibObs {
             calldata_get_string: load_symbol(&library, b"calldata_get_string\0")?,
             bfree: load_symbol(&library, b"bfree\0")?,
             _library: library,
+            started: AtomicBool::new(false),
         })
     }
 
@@ -402,6 +415,7 @@ impl LibObs {
         if !(self.obs_startup)(locale.as_ptr(), ptr::null(), ptr::null()) {
             return Err("OBS startup failed.".to_string());
         }
+        self.started.store(true, Ordering::Release);
         if !(self.obs_initialized)() {
             return Err("OBS did not finish initialization.".to_string());
         }
@@ -417,7 +431,7 @@ impl LibObs {
     }
 
     pub(in crate::agent) unsafe fn shutdown(&self) {
-        if (self.obs_initialized)() {
+        if self.started.swap(false, Ordering::AcqRel) && (self.obs_initialized)() {
             (self.obs_shutdown)();
         }
     }

@@ -69,8 +69,9 @@ const AUDIO_LEVEL_HEARTBEAT_MS = 4000
 
 /**
  * Live peak levels keyed by `audioLevelKey` while the audio settings are
- * mounted. The desktop backend's subscription auto-expires, so this re-sends
- * it as a heartbeat (which also survives capture sidecar restarts). Stays null
+ * mounted and visible. The desktop backend's subscription auto-expires, so
+ * this re-sends it as a heartbeat (which also survives capture sidecar
+ * restarts). Stays null
  * until the first sample arrives — e.g. outside the desktop app or while the
  * sidecar is missing — so the meters can stay hidden entirely.
  */
@@ -83,8 +84,23 @@ function useAudioLevels(): ReadonlyMap<string, number> | null {
 
     const subscribe = () =>
       void recording.subscribeAudioLevels().catch(() => undefined)
-    subscribe()
-    const heartbeat = setInterval(subscribe, AUDIO_LEVEL_HEARTBEAT_MS)
+    // Meters only matter while they are visible. A window hidden to the tray
+    // stops the heartbeat instead of polling the recorder every few seconds.
+    let heartbeat: ReturnType<typeof setInterval> | null = null
+    const syncVisibility = () => {
+      if (document.hidden) {
+        if (heartbeat === null) return
+        clearInterval(heartbeat)
+        heartbeat = null
+        void recording.stopAudioLevels().catch(() => undefined)
+        return
+      }
+      if (heartbeat !== null) return
+      subscribe()
+      heartbeat = setInterval(subscribe, AUDIO_LEVEL_HEARTBEAT_MS)
+    }
+    syncVisibility()
+    document.addEventListener("visibilitychange", syncVisibility)
     const unsubscribe = recording.onEvent((event) => {
       if (event.type !== "audio-levels") return
       setLevels(
@@ -95,7 +111,8 @@ function useAudioLevels(): ReadonlyMap<string, number> | null {
     })
 
     return () => {
-      clearInterval(heartbeat)
+      document.removeEventListener("visibilitychange", syncVisibility)
+      if (heartbeat !== null) clearInterval(heartbeat)
       unsubscribe()
       void recording.stopAudioLevels().catch(() => undefined)
     }
