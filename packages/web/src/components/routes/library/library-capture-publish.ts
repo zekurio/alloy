@@ -37,7 +37,6 @@ type CapturePublishInput = {
   privacy: ClipPrivacy
   mentions: UserSearchResult[]
   publishClip: PublishClipFn
-  posterUrl?: string | null
 }
 
 function acceptedContentType(value: string): AcceptedContentType {
@@ -58,7 +57,7 @@ export async function exportAndPublishCapture(
     kind: "deferred",
     title: input.title,
     sizeBytes: estimatedExportSizeBytes(input.item, input.trim),
-    thumbUrl: input.posterUrl ?? input.item.thumbnailUrl,
+    thumbUrl: input.item.thumbnailUrl,
     thumbBlurHash: input.item.thumbBlurHash,
     localCaptureId: input.item.id,
     prepare: (signal) => prepareCapturePublishPayload(input, signal),

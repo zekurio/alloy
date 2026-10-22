@@ -34,7 +34,6 @@ import {
   VideoPlayer,
   VolumeControl,
 } from "@/components/video/video-player"
-import { useCapturePoster } from "@/lib/capture-poster"
 import { useSetClipPosterMutation } from "@/lib/clip-queries"
 import type { RecordingLibraryItem } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
@@ -139,13 +138,6 @@ export function useClipEditorMedia(
   const serverPoster = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
     : undefined
-  const localPoster = useCapturePoster({
-    id: localItem?.id ?? "",
-    mediaUrl: localItem?.mediaUrl ?? null,
-    thumbnailUrl: localItem?.thumbnailUrl ?? null,
-    durationMs: localItem?.durationMs ?? null,
-    enabled: row.mediaKind !== "image" && processing && Boolean(localItem),
-  })
   // While the server still owes us a thumbnail, the upload queue may hold an
   // existing local library poster for the pending card.
   const uploadQueue = useUploadQueue().queue
@@ -154,8 +146,7 @@ export function useClipEditorMedia(
     : undefined
   const queuePoster =
     queueEntry?.thumbUrl ?? queueEntry?.thumbFallbackUrl ?? undefined
-  const poster =
-    serverPoster ?? localPoster ?? localItem?.thumbnailUrl ?? queuePoster
+  const poster = serverPoster ?? localItem?.thumbnailUrl ?? queuePoster
   const posterBlurHash = row.thumbBlurHash ?? localItem?.thumbBlurHash ?? null
   const fallbackSeed = row.gameId ?? localItem?.groupLabel ?? row.id
   const playbackSrc = localPlaybackSrc ?? (processing ? null : previewSrc)
