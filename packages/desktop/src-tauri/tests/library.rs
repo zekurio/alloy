@@ -10,7 +10,8 @@ use alloy_desktop::capture_library::protocol::CaptureHttpServer;
 use alloy_desktop::capture_library::store::{CaptureLibrary, CaptureLibraryConfig};
 use alloy_desktop::capture_library::types::{
     CaptureGame, CaptureKind, CaptureRecord, CaptureSource, CommitImport, ExportRequest,
-    ExportSegment, MetaPatch, PostProcess, TrimUpdate,
+    ExportSegment, GameGuess, GameGuessMatchKind, GameGuessSource, MetaPatch, PostProcess,
+    TrimUpdate,
 };
 use alloy_desktop::capture_library::{
     LibraryError, download::DownloadManager, types::DownloadRequest,
@@ -74,18 +75,29 @@ async fn manifest_keeps_valid_entries_beside_malformed_records() {
     let temp = TempDir::new().unwrap();
     let library = library(&temp);
     let path = temp.path().join("user-data/recording-library.json");
-    // A game guess as the recorder reports it, confidence in percent.
-    let guess = serde_json::json!({
-        "source": "discord-detectable",
-        "sourceId": "700136079562375258",
-        "name": "Test Game",
-        "aliases": [],
-        "executable": "game.exe",
-        "confidence": 96,
-        "matchKind": "executable"
+    // An entry the reader accepts, with a game guess as the recorder reports
+    // it, confidence in percent. Each rejected copy below changes one field.
+    let accepted = serde_json::json!({
+        "id": "valid-capture-002",
+        "filename": "guess.mp4",
+        "title": "Guessed game",
+        "kind": "replay",
+        "gameGuess": {
+            "source": "discord-detectable",
+            "sourceId": "700136079562375258",
+            "name": "Test Game",
+            "aliases": [],
+            "executable": "game.exe",
+            "confidence": 96,
+            "matchKind": "executable"
+        }
     });
-    let mut overconfident = guess.clone();
-    overconfident["confidence"] = serde_json::json!(250);
+    // An enum value no build knows.
+    let mut bogus_kind = accepted.clone();
+    bogus_kind["kind"] = serde_json::json!("bogus");
+    // A guess past its bounds.
+    let mut overconfident = accepted.clone();
+    overconfident["gameGuess"]["confidence"] = serde_json::json!(250);
     let fixture = serde_json::json!({
         "version": 2,
         "captures": {
@@ -95,28 +107,13 @@ async fn manifest_keeps_valid_entries_beside_malformed_records() {
                 "title": "Quoted \"title\" with Unicode: 日本語",
                 "unknownFutureField": {"nested": [1, true, null]}
             },
-            "guess.mp4": {
-                "id": "valid-capture-002",
-                "filename": "guess.mp4",
-                "title": "Guessed game",
-                "gameGuess": guess
-            },
+            "guess.mp4": accepted,
             "null.mp4": null,
             "array.mp4": [1, 2, 3],
             "wrong-type.mp4": {"id": 42},
             "invalid.mp4": {"id": "short", "title": "Invalid ID"},
-            // An enum value no build knows, and a guess past its bounds.
-            "bogus-kind.mp4": {
-                "id": "valid-capture-003",
-                "filename": "bogus-kind.mp4",
-                "kind": "bogus"
-            },
-            "overconfident.mp4": {
-                "id": "valid-capture-004",
-                "filename": "overconfident.mp4",
-                "title": "Guessed too well",
-                "gameGuess": overconfident
-            }
+            "bogus-kind.mp4": bogus_kind,
+            "overconfident.mp4": overconfident
         }
     });
     fs::write(&path, serde_json::to_vec(&fixture).unwrap())
@@ -324,8 +321,29 @@ fn display_capture_with_detected_game_keeps_source_and_game_group() {
     std::fs::write(&source, b"not a real mp4").unwrap();
     let mut record = capture(source.to_str().unwrap(), CaptureKind::Replay);
     record.source = CaptureSource::Display;
+    // The recorder reports confidence in percent, like the host models.
+    let guess = GameGuess {
+        source: GameGuessSource::DiscordDetectable,
+        source_id: Some("700136079562375258".to_string()),
+        name: "Test Game".to_string(),
+        aliases: Vec::new(),
+        executable: Some("game.exe".to_string()),
+        path: None,
+        window_title: None,
+        window_class: None,
+        icon_url: None,
+        confidence: 96,
+        match_kind: GameGuessMatchKind::Executable,
+    };
+    record.game.as_mut().unwrap().guess = Some(guess.clone());
 
     library.remember_capture(&record).unwrap();
+
+    // The host writes the guess the way its reader takes it back.
+    let manifest = library.read_manifest();
+    assert_eq!(manifest.captures.len(), 1);
+    let entry = manifest.captures.into_values().next().unwrap();
+    assert_eq!(entry.game_guess, Some(guess));
 
     let snapshot = library.snapshot().unwrap();
     let item = snapshot.items.first().expect("remembered capture");
