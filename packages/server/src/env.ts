@@ -220,6 +220,7 @@ export function parseServerEnv(source: EnvSource = process.env) {
     PORT: raw.PORT,
     WEB_DIST_DIR: raw.WEB_DIST_DIR,
     TRUSTED_ORIGINS: raw.TRUSTED_ORIGINS,
+    trustedProxies: raw.ALLOY_TRUSTED_PROXIES,
     // null = env var unset → the setting is DB-owned (admin UI editable).
     authEnv: {
       openRegistrations: raw.ALLOY_OPEN_REGISTRATIONS,

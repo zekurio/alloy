@@ -159,18 +159,20 @@ export async function getSession(c: Context): Promise<SessionData | null> {
 }
 
 /**
- * Whether a session is still signed in. Long-lived requests such as event
- * streams authenticate once, then call this to notice a sign-out, a
- * revocation from another device, or expiry.
+ * Whether a session is still signed in to an active account. Long-lived
+ * requests such as event streams authenticate once, then call this to notice
+ * a sign-out, a revocation from another device, expiry, or a disabled account.
  */
 export async function isSessionActive(sessionId: string): Promise<boolean> {
   const [row] = await db
     .select({ id: authSession.id })
     .from(authSession)
+    .innerJoin(user, eq(user.id, authSession.user_id))
     .where(
       and(
         eq(authSession.id, sessionId),
         gt(authSession.expires_at, new Date()),
+        eq(user.status, "active"),
       ),
     )
     .limit(1)

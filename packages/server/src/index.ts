@@ -93,6 +93,7 @@ try {
   // Pending clip uploads and detached ticket owners share one globally ordered
   // deadline coordinator. Pending clips retain exact-object crash recovery.
   startUploadExpiryWorker()
+  startWebhookDeliveryWorker()
 } catch (err) {
   logger.error("failed to start durable background workers:", err)
   process.exit(1)
@@ -111,8 +112,6 @@ const server = serve(
 // A stopping media run first waits up to the kill grace for ffmpeg to exit,
 // then records which of its objects to delete; exiting sooner strands them.
 const SHUTDOWN_GRACE_MS = KILL_GRACE_MS + 10_000
-
-startWebhookDeliveryWorker()
 
 let shuttingDown = false
 const shutdown = () => {

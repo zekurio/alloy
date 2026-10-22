@@ -3,6 +3,7 @@ import { constantTimeEqual, hmacSha256 } from "@alloy/server/runtime/crypto"
 import type { Context } from "hono"
 import { getCookie, setCookie } from "hono/cookie"
 
+import { secureCookies } from "./cookies"
 import { getSession } from "./session"
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
 
@@ -56,7 +57,7 @@ export function applyViewerCookie(c: Context, value: string | null): void {
   setCookie(c, COOKIE_NAME, value, {
     httpOnly: true,
     sameSite: "Lax",
-    secure: c.req.url.startsWith("https://"),
+    secure: secureCookies(),
     path: "/",
     maxAge: COOKIE_MAX_AGE_SEC,
   })

@@ -69,7 +69,10 @@ export const authDesktopRoute = new Hono()
   })
   .post("/authorize", async (c) => {
     const locale = requestLocale(c)
-    const body = await c.req.parseBody()
+    // A malformed multipart body fails like a missing field, not a 500.
+    const body = await c.req
+      .parseBody()
+      .catch((): Record<string, string | File> => ({}))
     const redirect = loopbackRedirect(requiredFormString(body, "redirect_uri"))
     const state = requiredFormString(body, "state")
     const codeChallenge = CodeChallenge.safeParse(

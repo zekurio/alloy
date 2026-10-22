@@ -96,7 +96,7 @@ export function optionalNullableBlankToNullTrimmedString(max: number) {
     )
 }
 
-function validationErrorBody(target: string, error: SchemaError) {
+export function validationErrorBody(target: string, error: SchemaError) {
   const issues = error.issues.map((issue) => ({
     path: issue.path.map(String).join("."),
     message: issue.message,

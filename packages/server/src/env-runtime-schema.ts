@@ -1,3 +1,5 @@
+import { isIP } from "node:net"
+
 import type { StorageConfig } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import {
@@ -62,6 +64,16 @@ function serverEnvSchema(defaultPublicServerUrl: string) {
       .transform((value) =>
         normalizeTrustedOrigins(value, defaultPublicServerUrl),
       ),
+    // Peers allowed to report the client address through X-Forwarded-For.
+    // Unset trusts nobody: every request is keyed on its socket address.
+    ALLOY_TRUSTED_PROXIES: t
+      .string()
+      .refine(
+        (value) => splitList(value).every(isIpOrCidr),
+        "Expected comma-separated IP addresses or CIDR ranges",
+      )
+      .$default("")
+      .transform(splitList),
     ALLOY_OPEN_REGISTRATIONS: envBoolOrNull(),
     ALLOY_PASSKEY_ENABLED: envBoolOrNull(),
     ALLOY_REQUIRE_AUTH_TO_BROWSE: envBoolOrNull(),
@@ -146,6 +158,22 @@ function optionalPositiveIntegerOrNull() {
       return value
     }, t.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable())
     .$default(null)
+}
+
+function splitList(value: string): string[] {
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
+function isIpOrCidr(value: string): boolean {
+  const [address = "", prefix, ...rest] = value.split("/")
+  const family = isIP(address)
+  if (family === 0 || rest.length > 0) return false
+  if (prefix === undefined) return true
+  if (!/^\d{1,3}$/.test(prefix)) return false
+  return Number(prefix) <= (family === 4 ? 32 : 128)
 }
 
 function normalizeTrustedOrigins(
