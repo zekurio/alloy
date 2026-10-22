@@ -1618,12 +1618,19 @@ where
 }
 
 fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<(), RecorderHostError> {
+    // Each write gets its own temporary file, so two writes that overlap can
+    // never interleave their bytes in one file.
+    static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
     let parent = path.parent().ok_or_else(|| {
         RecorderHostError::Process(format!("No parent folder for {}", path.display()))
     })?;
     fs::create_dir_all(parent)
         .map_err(|source| io_error(format!("Failed to create {}", parent.display()), source))?;
-    let temp = path.with_extension(format!("tmp-{}", std::process::id()));
+    let temp = path.with_extension(format!(
+        "tmp-{}-{}",
+        std::process::id(),
+        NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+    ));
     let bytes = serde_json::to_vec_pretty(value)
         .map_err(|source| json_error(format!("Failed to encode {}", path.display()), source))?;
     {
@@ -1801,6 +1808,10 @@ where
         .map_err(|error| RecorderHostError::Process(format!("Blocking task failed: {error}")))
 }
 
+/// Writes `value` on a blocking thread. That write runs to completion even if
+/// this future is dropped, so callers that hold a lock across it to order
+/// writes and roll back memory must not be cancelled. Today they all run in
+/// spawned tasks or command handlers that are never aborted.
 async fn write_json_off_worker<T>(path: PathBuf, value: T) -> Result<(), RecorderHostError>
 where
     T: Serialize + Send + 'static,
