@@ -2,7 +2,7 @@ use std::path::Path;
 use std::process::Command;
 
 use alloy_desktop::capture_library::media::{export, finalize_capture, probe_file};
-use alloy_desktop::capture_library::poster::ensure_poster;
+use alloy_desktop::capture_library::poster::{ensure_poster, spawn_poster};
 use alloy_desktop::capture_library::protocol::CaptureHttpServer;
 use alloy_desktop::capture_library::store::{CaptureLibrary, CaptureLibraryConfig};
 use alloy_desktop::capture_library::types::{
@@ -1398,6 +1398,37 @@ fn jpeg_size(bytes: &[u8]) -> (u16, u16) {
         index += 2 + length;
     }
     panic!("not a JPEG");
+}
+
+#[tokio::test]
+async fn posters_finish_when_their_caller_stops_waiting() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let video = temp.path().join("captures/Clips/Test Game/clip.mp4");
+    write_recording(&video);
+    let id = library
+        .remember_capture(&capture(video.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+
+    // A thumbnail request the WebView drops stops waiting right away.
+    drop(spawn_poster(&library, &id));
+    let folder = library.thumbnail_path(&id).unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    while library.snapshot().unwrap().items[0]
+        .thumb_blur_hash
+        .is_none()
+    {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "poster did not finish"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    let files = std::fs::read_dir(&folder)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name())
+        .collect::<Vec<_>>();
+    assert_eq!(files, ["poster.jpg"]);
 }
 
 #[tokio::test]

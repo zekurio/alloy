@@ -1,10 +1,13 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
+use std::time::Duration;
 
 use alloy_desktop::capture_library::{
     CaptureHttpServer, CaptureLibrary, CaptureLibraryConfig, collection_for,
-    download::DownloadManager, media, poster,
+    download::DownloadManager,
+    media,
+    poster::{POSTER_WAIT, wait_for_poster},
 };
 use alloy_desktop::login::{LEGACY_ACCESS_COOKIE, SESSION_COOKIE};
 use alloy_desktop::recording_host::{
@@ -202,7 +205,7 @@ impl DesktopRuntime {
                     }
                     RecordingEvent::CaptureReady { capture, .. } => {
                         tauri::async_runtime::spawn(async move {
-                            if let Err(cause) = runtime.finalize(capture).await {
+                            if let Err(cause) = runtime.finalize(capture, POSTER_WAIT).await {
                                 runtime.report_error(cause).await;
                             }
                         });
@@ -229,7 +232,8 @@ impl DesktopRuntime {
         let library = self.library.read().await.clone();
         tauri::async_runtime::spawn_blocking(move || library.library.remove_orphan_cache_folders());
         for capture in self.recorder.captures().await {
-            if let Err(cause) = self.finalize(capture).await {
+            // Recovered captures don't hold up the recorder for their posters.
+            if let Err(cause) = self.finalize(capture, Duration::ZERO).await {
                 self.report_error(cause).await;
             }
         }
@@ -249,7 +253,11 @@ impl DesktopRuntime {
         });
     }
 
-    async fn finalize(&self, capture: RecordingCapture) -> Result<(), String> {
+    async fn finalize(
+        &self,
+        capture: RecordingCapture,
+        poster_wait: Duration,
+    ) -> Result<(), String> {
         let id = if capture.id.is_empty() {
             capture.filename.clone()
         } else {
@@ -258,12 +266,16 @@ impl DesktopRuntime {
         if !self.finalizing.lock().await.insert(id.clone()) {
             return Ok(());
         }
-        let result = self.finalize_once(capture).await;
+        let result = self.finalize_once(capture, poster_wait).await;
         self.finalizing.lock().await.remove(&id);
         result
     }
 
-    async fn finalize_once(&self, capture: RecordingCapture) -> Result<(), String> {
+    async fn finalize_once(
+        &self,
+        capture: RecordingCapture,
+        poster_wait: Duration,
+    ) -> Result<(), String> {
         if !Path::new(&capture.filename).is_file() {
             // The raw file was deleted or moved. Retrying on every start would
             // fail forever, so drop it from the recorder's recovery queue.
@@ -293,7 +305,7 @@ impl DesktopRuntime {
         let _ = self.preview_sound("clipSaved", false).await;
         // Announce the capture once its poster exists, so the library shows it
         // with its thumbnail and BlurHash from the first render.
-        ensure_poster_logged(&library.library, &id).await;
+        wait_for_poster(&library.library, &id, poster_wait).await;
         let status = self.recorder.get_status().await;
         self.emit(json!({ "type": "capture-ready", "capture": record, "status": status }));
         Ok(())
@@ -530,7 +542,7 @@ impl DesktopRuntime {
                     .commit_staged(arg(args, 0)?)
                     .await
                     .map_err(error)?;
-                ensure_poster_logged(&library.library, &id).await;
+                wait_for_poster(&library.library, &id, POSTER_WAIT).await;
                 Ok(json!({ "id": id }))
             }
             "recording.discardStagedLibraryImport" => {
@@ -651,14 +663,6 @@ impl DesktopRuntime {
             })
             .await
             .map_err(error)
-    }
-}
-
-/// Posters are best effort: a capture without one still enters the library,
-/// and the loopback server retries when the thumbnail is first requested.
-async fn ensure_poster_logged(library: &CaptureLibrary, id: &str) {
-    if let Err(cause) = poster::ensure_poster(library, id).await {
-        log::warn!("could not create a poster for capture {id}: {cause}");
     }
 }
 

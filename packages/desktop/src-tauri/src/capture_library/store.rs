@@ -313,6 +313,27 @@ impl CaptureLibrary {
         })
     }
 
+    /// The item a scan reports for one file, without scanning the library.
+    fn scanned_item(&self, path: &Path, manifest: &CaptureManifest) -> Option<LibraryItem> {
+        [CaptureKind::Replay, CaptureKind::Screenshot]
+            .into_iter()
+            .find_map(|kind| {
+                let root = self
+                    .inner
+                    .config
+                    .output_folder
+                    .join(collection_for(kind))
+                    .canonicalize()
+                    .ok()?;
+                if !path.starts_with(&root) {
+                    return None;
+                }
+                let mut items = Vec::new();
+                add_item(&root, kind, manifest, path.to_path_buf(), &mut items).ok()?;
+                items.pop()
+            })
+    }
+
     pub fn find_item(&self, id: &str) -> Option<LibraryItem> {
         self.snapshot()
             .ok()?
@@ -440,23 +461,24 @@ impl CaptureLibrary {
             .filter(|value| is_blur_hash(value))
     }
 
-    /// Records the BlurHash of a freshly written poster. The entry is found by
-    /// id, so a capture moved while its poster rendered keeps one entry. A
-    /// capture without an entry gets one with the values a scan derives for
-    /// it, so recording the hash changes nothing else about the item.
-    pub(crate) fn remember_poster(&self, id: &str, blur_hash: &str) -> Result<()> {
+    /// Records the BlurHash of a freshly written poster of the capture at
+    /// `path`. The entry is found by id, so a capture moved while its poster
+    /// rendered keeps one entry. A capture without an entry gets one with the
+    /// values a scan derives for it, so recording the hash changes nothing
+    /// else about the item.
+    pub(crate) fn remember_poster(&self, id: &str, path: &Path, blur_hash: &str) -> Result<()> {
         if !is_blur_hash(blur_hash) {
             return Err(LibraryError::InvalidMetadata("invalid BlurHash".into()));
         }
-        let known = self
-            .read_manifest()
-            .captures
-            .values()
-            .any(|entry| entry.id == id);
-        let adopted = if known {
+        let manifest = self.read_manifest();
+        let adopted = if manifest.captures.values().any(|entry| entry.id == id) {
             None
         } else {
-            Some(self.find_item(id).ok_or(LibraryError::CaptureNotFound)?)
+            Some(
+                self.scanned_item(path, &manifest)
+                    .filter(|item| item.id == id)
+                    .ok_or(LibraryError::CaptureNotFound)?,
+            )
         };
         self.mutate_manifest(|manifest| {
             let entry = match (

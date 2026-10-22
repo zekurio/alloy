@@ -4,16 +4,21 @@
 //! same picture, and a video poster starts on the frame the server picks
 //! after an upload.
 
+use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use tokio::task::JoinHandle;
+
 use crate::capture_library::error::{LibraryError, Result};
-use crate::capture_library::media::{probe_file, temporary_path};
+use crate::capture_library::media::{TempFile, probe_file};
 use crate::capture_library::paths::is_image;
 use crate::capture_library::store::CaptureLibrary;
 use crate::capture_library::work::Lane;
 
 const POSTER_FILE: &str = "poster.jpg";
+/// How long a new capture's announcement waits for its poster.
+pub const POSTER_WAIT: Duration = Duration::from_secs(3);
 const FRAME_TIMEOUT: Duration = Duration::from_secs(30);
 /// Longest side of the frame the BlurHash and the blank-frame check read.
 /// Matches `UNIFORM_IMAGE_SAMPLE_MAX_DIMENSION` in `@alloy/contracts`.
@@ -27,16 +32,64 @@ const UNIFORM_CHANNEL_STDEV: f64 = 1.0;
 /// the manifest when it is missing. Concurrent calls for one capture share a
 /// single run.
 pub async fn ensure_poster(library: &CaptureLibrary, id: &str) -> Result<PathBuf> {
-    let output = library.thumbnail_path(id)?.join(POSTER_FILE);
     let _slot = library.work().exclusive(format!("poster:{id}")).await;
-    if output.is_file() && library.thumb_blur_hash(id).is_some() {
+    // Manifest reads and writes block, so they run off the async workers
+    // that also serve the loopback media routes.
+    let (output, source) = off_worker(library, id, |library, id| {
+        let output = library.thumbnail_path(id)?.join(POSTER_FILE);
+        if output.is_file() && library.thumb_blur_hash(id).is_some() {
+            return Ok((output, None));
+        }
+        Ok((output, Some(library.media_path(id)?)))
+    })
+    .await?;
+    let Some(source) = source else {
         return Ok(output);
-    }
-    let source = library.media_path(id)?;
+    };
     let blur_hash = render_poster(library, &source, &output).await?;
-    library.remember_poster(id, &blur_hash)?;
+    off_worker(library, id, move |library, id| {
+        library.remember_poster(id, &source, &blur_hash)
+    })
+    .await?;
     remove_stale_posters(&output).await;
     Ok(output)
+}
+
+/// Runs [`ensure_poster`] as its own task. A caller that stops waiting, such
+/// as a thumbnail request the WebView drops when a card scrolls away, leaves
+/// it running, so the work is not lost and no temporary file is stranded.
+pub fn spawn_poster(library: &CaptureLibrary, id: &str) -> JoinHandle<Result<PathBuf>> {
+    let library = library.clone();
+    let id = id.to_string();
+    tokio::spawn(async move {
+        let result = ensure_poster(&library, &id).await;
+        if let Err(error) = &result {
+            log::warn!("could not create a poster for capture {id}: {error}");
+        }
+        result
+    })
+}
+
+/// Gives a new capture's poster up to `wait`, so the library can show the
+/// capture with its thumbnail and BlurHash from the first render. A slower
+/// poster keeps rendering; the loopback server serves it once it is done.
+pub async fn wait_for_poster(library: &CaptureLibrary, id: &str, wait: Duration) {
+    let poster = spawn_poster(library, id);
+    if !wait.is_zero() {
+        let _ = tokio::time::timeout(wait, poster).await;
+    }
+}
+
+async fn off_worker<T, F>(library: &CaptureLibrary, id: &str, run: F) -> Result<T>
+where
+    T: Send + 'static,
+    F: FnOnce(&CaptureLibrary, &str) -> Result<T> + Send + 'static,
+{
+    let library = library.clone();
+    let id = id.to_string();
+    tokio::task::spawn_blocking(move || run(&library, &id))
+        .await
+        .map_err(|error| LibraryError::Io(io::Error::other(error)))?
 }
 
 /// The poster file when it already exists. The loopback server answers from
@@ -67,40 +120,21 @@ async fn render_poster(library: &CaptureLibrary, source: &Path, output: &Path) -
     };
     // Candidates render beside the poster and only the chosen one replaces
     // it, so a concurrent request never sees a frame that gets rejected.
-    let mut blank: Option<(PathBuf, Vec<u8>)> = None;
-    let chosen = async {
-        for at_ms in candidates {
-            let temp = temporary_path(output);
-            let pixels = match grab_frame(library, source, &temp, at_ms, sample).await {
-                Ok(pixels) => pixels,
-                Err(error) => {
-                    let _ = tokio::fs::remove_file(&temp).await;
-                    return Err(error);
-                }
-            };
-            if !is_uniform(&pixels) {
-                return Ok((temp, pixels));
-            }
-            // Keep the first blank frame: a recording that is black
-            // throughout gets its opening frame as the poster rather than
-            // none.
-            if blank.is_none() {
-                blank = Some((temp, pixels));
-            } else {
-                let _ = tokio::fs::remove_file(&temp).await;
-            }
+    let mut blank: Option<(TempFile, Vec<u8>)> = None;
+    let mut chosen = None;
+    for at_ms in candidates {
+        let temp = TempFile::beside(output);
+        let pixels = grab_frame(library, source, temp.path(), at_ms, sample).await?;
+        if !is_uniform(&pixels) {
+            chosen = Some((temp, pixels));
+            break;
         }
-        blank.take().ok_or(LibraryError::UnsupportedMedia)
+        // Keep the first blank frame: a recording that is black throughout
+        // gets its opening frame as the poster rather than none.
+        blank.get_or_insert((temp, pixels));
     }
-    .await;
-    if let Some((temp, _)) = blank {
-        let _ = tokio::fs::remove_file(temp).await;
-    }
-    let (temp, pixels) = chosen?;
-    if let Err(error) = tokio::fs::rename(&temp, output).await {
-        let _ = tokio::fs::remove_file(&temp).await;
-        return Err(error.into());
-    }
+    let (temp, pixels) = chosen.or(blank).ok_or(LibraryError::UnsupportedMedia)?;
+    temp.persist(output).await?;
     encode_blur_hash(&pixels, sample, (width, height))
 }
 
@@ -210,7 +244,7 @@ fn is_uniform(rgba: &[u8]) -> bool {
         return true;
     }
     (0..3).all(|channel| {
-        let values = rgba.chunks_exact(4).map(|pixel| pixel[channel]);
+        let values = rgba.as_chunks::<4>().0.iter().map(|pixel| pixel[channel]);
         let (min, max) = values
             .clone()
             .fold((u8::MAX, u8::MIN), |(min, max), value| {

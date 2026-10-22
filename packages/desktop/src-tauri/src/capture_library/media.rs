@@ -718,29 +718,56 @@ where
     F: FnOnce(PathBuf) -> Fut,
     Fut: std::future::Future<Output = Result<T>>,
 {
-    let temp = temporary_path(destination);
-    let result = match write(temp.clone()).await {
-        Ok(value) => tokio::fs::rename(&temp, destination)
-            .await
-            .map(|()| value)
-            .map_err(LibraryError::from),
-        Err(error) => Err(error),
-    };
-    if result.is_err() {
-        let _ = tokio::fs::remove_file(&temp).await;
-    }
-    result
+    let temp = TempFile::beside(destination);
+    let value = write(temp.path().to_path_buf()).await?;
+    temp.persist(destination).await?;
+    Ok(value)
 }
 
-/// A dot-prefixed name beside `output` that keeps its extension, so ffmpeg
-/// still picks the right muxer and folder sweeps can skip work in flight.
-pub(crate) fn temporary_path(output: &Path) -> PathBuf {
-    let file_name = output
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or("media");
-    let (stem, extension) = file_name.rsplit_once('.').unwrap_or((file_name, "tmp"));
-    output.with_file_name(format!(".{stem}.{}.tmp.{extension}", Uuid::new_v4()))
+/// A temporary file beside the one it will replace. It is deleted when
+/// dropped, so a job that fails, is cancelled, or whose future is dropped
+/// never strands it.
+pub(crate) struct TempFile(Option<PathBuf>);
+
+impl TempFile {
+    /// A dot-prefixed name beside `output` that keeps its extension, so
+    /// ffmpeg still picks the right muxer and folder sweeps skip it.
+    pub(crate) fn beside(output: &Path) -> Self {
+        let file_name = output
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("media");
+        let (stem, extension) = file_name.rsplit_once('.').unwrap_or((file_name, "tmp"));
+        Self(Some(output.with_file_name(format!(
+            ".{stem}.{}.tmp.{extension}",
+            Uuid::new_v4()
+        ))))
+    }
+
+    pub(crate) fn path(&self) -> &Path {
+        self.0.as_deref().unwrap_or(Path::new(""))
+    }
+
+    /// Replaces `destination` in one rename, which leaves the old file
+    /// intact when it fails.
+    pub(crate) async fn persist(mut self, destination: &Path) -> Result<()> {
+        let Some(path) = self.0.take() else {
+            return Err(LibraryError::InvalidPath);
+        };
+        if let Err(error) = tokio::fs::rename(&path, destination).await {
+            let _ = tokio::fs::remove_file(&path).await;
+            return Err(error.into());
+        }
+        Ok(())
+    }
+}
+
+impl Drop for TempFile {
+    fn drop(&mut self) {
+        if let Some(path) = self.0.take() {
+            let _ = std::fs::remove_file(path);
+        }
+    }
 }
 
 async fn remove_segments_except(paths: &[String], keep: &Path) {
