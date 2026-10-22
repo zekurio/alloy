@@ -51,7 +51,10 @@ use self::{
         active_settings_require_restart, nonnegative_c_int, ns_to_ms, percent, plan_audio_sources,
     },
     output::GameCaptureHookRefresh,
-    replay::{cleanup_disk_replay_segments, replay_buffer_duration, saved_recording_path},
+    replay::{
+        create_session_scratch_folder, prune_disk_replay_segments, remove_session_scratch_folder,
+        replay_buffer_duration, saved_recording_path,
+    },
 };
 
 /// Codec support cached independently of an active recording.
@@ -547,7 +550,8 @@ impl Recorder {
         let target_game =
             self.capture_target_game("No detected game is available for replay buffer.")?;
         let output_folder = self.current_output_folder()?;
-        let replay_scratch_folder = self.current_replay_scratch_folder()?;
+        let replay_scratch_folder =
+            create_session_scratch_folder(&self.current_replay_scratch_folder()?)?;
         let path = saved_recording_path(
             &output_folder,
             self.active_game.as_ref().map(|game| &game.game),
@@ -559,17 +563,24 @@ impl Recorder {
             path.to_string_lossy().into_owned(),
         );
 
-        let session = self.start_output(
+        let output_config = ReplayBufferConfig {
+            scratch_directory: replay_scratch_folder,
+            output_directory: output_folder,
+            storage: settings.buffer_storage.clone(),
+            replay_seconds: settings.replay_buffer_seconds,
+        };
+        let session = match self.start_output(
             &settings,
             target_game.as_ref(),
             capture,
-            ReplayBufferConfig {
-                scratch_directory: replay_scratch_folder,
-                output_directory: output_folder,
-                storage: settings.buffer_storage.clone(),
-                replay_seconds: settings.replay_buffer_seconds,
-            },
-        )?;
+            output_config.clone(),
+        ) {
+            Ok(session) => session,
+            Err(error) => {
+                remove_session_scratch_folder(&output_config);
+                return Err(error);
+            }
+        };
 
         self.replay_session = Some(session);
         self.last_capture = None;
@@ -588,7 +599,7 @@ impl Recorder {
         // SAFETY: `session` was created by this recorder for the current OBS
         // instance and is consumed here exactly once.
         let stop_result = unsafe { self.stop_output(session) };
-        cleanup_disk_replay_segments(&output_config, None);
+        remove_session_scratch_folder(&output_config);
         let status = self.status();
         emit_event(RecordingEvent::Status { status });
         stop_result?;
@@ -670,9 +681,11 @@ impl Recorder {
 
     pub(super) fn shutdown(&mut self) {
         if let Some(session) = self.replay_session.take() {
+            let output_config = session.output_config.clone();
             unsafe {
                 let _ = self.stop_output(session);
             }
+            remove_session_scratch_folder(&output_config);
         }
         self.shutdown_obs();
     }
@@ -989,6 +1002,9 @@ impl Recorder {
                 let status = self.status();
                 emit_event(RecordingEvent::Error { error, status });
                 return;
+            }
+            if let Some(session) = self.replay_session.as_ref() {
+                prune_disk_replay_segments(&session.output_config);
             }
             self.emit_telemetry_if_due();
         } else {

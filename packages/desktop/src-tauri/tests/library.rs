@@ -1,7 +1,9 @@
 use std::path::Path;
 use std::process::Command;
 
-use alloy_desktop::capture_library::media::{export, finalize_capture, probe_file};
+use alloy_desktop::capture_library::media::{
+    capture_sources_present, discard_capture_sources, export, finalize_capture, probe_file,
+};
 use alloy_desktop::capture_library::poster::{ensure_poster, spawn_poster};
 use alloy_desktop::capture_library::protocol::CaptureHttpServer;
 use alloy_desktop::capture_library::store::{CaptureLibrary, CaptureLibraryConfig};
@@ -438,13 +440,172 @@ async fn pruning_drops_cache_folders_without_a_capture() {
     drop(first);
 
     let reopened = library(&temp);
-    reopened.remove_orphan_cache_folders();
+    reopened.remove_orphans();
 
     assert_eq!(reopened.snapshot().unwrap().total_count, 1);
     assert!(!orphan_thumbnails.exists());
     assert!(!orphan_export.exists());
     assert!(thumbnails.is_dir());
     assert!(export.is_file());
+}
+
+#[tokio::test]
+async fn sweep_forgets_captures_deleted_outside_the_app() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let kept = temp.path().join("captures/Clips/Test Game/kept.mp4");
+    let deleted = temp.path().join("captures/Clips/Test Game/deleted.mp4");
+    // Its whole game folder goes, so only an ancestor of it still exists.
+    let folder_deleted = temp.path().join("captures/Clips/Gone Game/gone.mp4");
+    fs::create_dir_all(kept.parent().unwrap()).await.unwrap();
+    fs::create_dir_all(folder_deleted.parent().unwrap())
+        .await
+        .unwrap();
+    for media in [&kept, &deleted, &folder_deleted] {
+        fs::write(media, b"not a real mp4").await.unwrap();
+        library
+            .remember_capture(&capture(media.to_str().unwrap(), CaptureKind::Replay))
+            .unwrap();
+    }
+    let deleted_id = library
+        .read_manifest()
+        .captures
+        .into_values()
+        .find(|entry| entry.filename.ends_with("deleted.mp4"))
+        .unwrap()
+        .id;
+    write_cached_poster(&library, &deleted_id).await;
+    let thumbnails = library.thumbnail_path(&deleted_id).unwrap();
+    // A capture in another output folder: that folder may be unplugged, so
+    // its entry must survive even though its file cannot be found.
+    let elsewhere = CaptureLibrary::new(CaptureLibraryConfig::new(
+        temp.path().join("elsewhere"),
+        temp.path().join("user-data"),
+        temp.path().join("cache"),
+        Path::new("ffmpeg"),
+        Path::new("ffprobe"),
+    ))
+    .unwrap();
+    let remote = temp.path().join("elsewhere/Clips/Other/remote.mp4");
+    fs::create_dir_all(remote.parent().unwrap()).await.unwrap();
+    fs::write(&remote, b"not a real mp4").await.unwrap();
+    elsewhere
+        .remember_capture(&capture(remote.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+    assert_eq!(library.read_manifest().captures.len(), 4);
+
+    // Deleted in Explorer, with the whole other folder gone.
+    fs::remove_file(&deleted).await.unwrap();
+    fs::remove_dir_all(folder_deleted.parent().unwrap())
+        .await
+        .unwrap();
+    fs::remove_dir_all(temp.path().join("elsewhere"))
+        .await
+        .unwrap();
+    library.remove_orphans();
+
+    let manifest = library.read_manifest();
+    assert_eq!(manifest.captures.len(), 2);
+    assert!(
+        !manifest
+            .captures
+            .values()
+            .any(|entry| entry.id == deleted_id)
+    );
+    assert!(
+        manifest
+            .captures
+            .values()
+            .any(|entry| entry.filename.ends_with("remote.mp4"))
+    );
+    assert!(!thumbnails.exists());
+    assert_eq!(library.snapshot().unwrap().total_count, 1);
+}
+
+#[tokio::test]
+async fn manifest_writes_refuse_a_manifest_they_could_not_read() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let media = temp.path().join("captures/Clips/Test Game/clip.mp4");
+    fs::create_dir_all(media.parent().unwrap()).await.unwrap();
+    fs::write(&media, b"not a real mp4").await.unwrap();
+    library
+        .remember_capture(&capture(media.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+    let id = library.snapshot().unwrap().items[0].id.clone();
+    library
+        .update_metadata(MetaPatch {
+            id: id.clone(),
+            title: Some("Kept".to_string()),
+            game_name: None,
+            game_icon_url: None,
+            game_guess: None,
+            description: None,
+            tags: None,
+            mentions: None,
+            privacy: None,
+            uploaded_clip_id: None,
+            uploaded_clip_source_start_ms: None,
+            uploaded_clip_source_duration_ms: None,
+        })
+        .unwrap();
+    let manifest_path = temp.path().join("user-data/recording-library.json");
+
+    // Written by a newer build, which may shape its entries differently: a
+    // downgraded build must neither write its empty view of it back nor set
+    // it aside as corrupt. The startup sweep keeps the cache of a capture
+    // only that manifest knows about, here one in another output folder.
+    let elsewhere = "capture-in-another-folder";
+    write_cached_poster(&library, elsewhere).await;
+    let future = serde_json::to_vec(&serde_json::json!({
+        "version": 300,
+        "captures": [{ "id": id, "title": "Kept" }],
+    }))
+    .unwrap();
+    fs::write(&manifest_path, &future).await.unwrap();
+    assert!(
+        library
+            .set_trim(TrimUpdate {
+                id: id.clone(),
+                trim_start_ms: Some(100),
+                trim_end_ms: Some(900),
+            })
+            .is_err()
+    );
+    library.remove_orphans();
+    assert_eq!(fs::read(&manifest_path).await.unwrap(), future);
+    assert!(library.thumbnail_path(elsewhere).unwrap().is_dir());
+
+    // Unreadable right now (a folder stands in for a sharing violation).
+    fs::remove_file(&manifest_path).await.unwrap();
+    fs::create_dir_all(&manifest_path).await.unwrap();
+    assert!(
+        library
+            .remember_capture(&capture(media.to_str().unwrap(), CaptureKind::Replay))
+            .is_err()
+    );
+    assert!(manifest_path.is_dir());
+    fs::remove_dir_all(&manifest_path).await.unwrap();
+
+    // Not JSON at all: set aside, never written over, and writes go on.
+    fs::write(&manifest_path, b"{\"version\":2,\"captures\":{")
+        .await
+        .unwrap();
+    library
+        .remember_capture(&capture(media.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+    let mut entries = std::fs::read_dir(temp.path().join("user-data"))
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
+    entries.sort();
+    assert!(
+        entries
+            .iter()
+            .any(|name| name.starts_with("recording-library.json.corrupt-")),
+        "{entries:?}"
+    );
+    assert_eq!(library.read_manifest().captures.len(), 1);
 }
 
 #[tokio::test]
@@ -1030,19 +1191,28 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     assert_eq!(whole.id, id);
     assert!(!library.export_path(&id, &second.id).unwrap().exists());
 
-    let first_segment = media.with_file_name("first-segment.mp4");
-    fs::copy(&media, &first_segment).await.unwrap();
-    let mut joined = capture(media.to_str().unwrap(), CaptureKind::Replay);
+    // A disk replay arrives as segments staged beside a clip that does not
+    // exist yet.
+    let joined_path = media.with_file_name("joined.mp4");
+    let parts = [
+        media.with_file_name(".joined.part00.mp4"),
+        media.with_file_name(".joined.part01.mp4"),
+    ];
+    for part in &parts {
+        fs::copy(&media, part).await.unwrap();
+    }
+    let mut joined = capture(joined_path.to_str().unwrap(), CaptureKind::Replay);
     joined.post_process = Some(PostProcess::ConcatSegments {
-        segment_paths: vec![
-            first_segment.to_string_lossy().into_owned(),
-            media.to_string_lossy().into_owned(),
-        ],
+        segment_paths: parts
+            .iter()
+            .map(|part| part.to_string_lossy().into_owned())
+            .collect(),
     });
     finalize_capture(&library, &mut joined).await.unwrap();
     assert!(joined.post_process.is_none());
     assert!(joined.duration_ms.unwrap().abs_diff(4_000) < 150);
-    assert!(!first_segment.exists());
+    assert!(parts.iter().all(|part| !part.exists()));
+    assert!(joined_path.is_file());
     assert!(media.is_file());
 
     // The joined file has keyframes at 0 s and 2 s, so keeping its last
@@ -1051,6 +1221,132 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     finalize_capture(&library, &mut joined).await.unwrap();
     assert!(joined.post_process.is_none());
     assert!(joined.duration_ms.unwrap().abs_diff(2_000) < 150);
+}
+
+#[tokio::test]
+async fn disk_replay_segments_are_joined_into_a_clip_that_does_not_exist_yet() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = CaptureLibrary::new(CaptureLibraryConfig::new(
+        temp.path().join("captures"),
+        temp.path().join("user-data"),
+        temp.path().join("cache"),
+        which("ffmpeg"),
+        which("ffprobe"),
+    ))
+    .unwrap();
+    // The recorder stages the segments beside the clip it names, dot-prefixed
+    // so a library scan does not list them, and reports the clip before it
+    // exists.
+    let folder = temp.path().join("captures/Clips/Test Game");
+    let clip = folder.join("clip-20260101-000000.mp4");
+    let parts = [
+        folder.join(".clip-20260101-000000.part00.mp4"),
+        folder.join(".clip-20260101-000000.part01.mp4"),
+    ];
+    for part in &parts {
+        write_recording(part);
+    }
+    let mut joined = capture(clip.to_str().unwrap(), CaptureKind::Replay);
+    joined.post_process = Some(PostProcess::ConcatSegments {
+        segment_paths: parts
+            .iter()
+            .map(|part| part.to_string_lossy().into_owned())
+            .collect(),
+    });
+    assert!(capture_sources_present(&joined));
+    assert_eq!(library.snapshot().unwrap().total_count, 0);
+
+    finalize_capture(&library, &mut joined).await.unwrap();
+
+    assert!(clip.is_file());
+    assert!(parts.iter().all(|part| !part.exists()));
+    assert!(joined.post_process.is_none());
+    assert!(joined.duration_ms.unwrap().abs_diff(6_000) < 150);
+    assert!(std::fs::read_dir(&folder).unwrap().all(|entry| {
+        !entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with('.')
+    }));
+    library.remember_capture(&joined).unwrap();
+    assert_eq!(library.snapshot().unwrap().total_count, 1);
+
+    // Joined, but the host stopped before it deleted every segment or
+    // recorded the clip: finalizing again keeps the clip as it is and only
+    // drops the segment left over.
+    let modified = std::fs::metadata(&clip).unwrap().modified().unwrap();
+    write_recording(&parts[1]);
+    joined.post_process = Some(PostProcess::ConcatSegments {
+        segment_paths: parts
+            .iter()
+            .map(|part| part.to_string_lossy().into_owned())
+            .collect(),
+    });
+    assert!(capture_sources_present(&joined));
+    finalize_capture(&library, &mut joined).await.unwrap();
+    assert_eq!(
+        std::fs::metadata(&clip).unwrap().modified().unwrap(),
+        modified
+    );
+    assert!(joined.duration_ms.unwrap().abs_diff(6_000) < 150);
+    assert!(!parts[1].exists());
+
+    // A segment went missing before the join, so the clip can never be
+    // made. Dropping the capture deletes the segments it staged, and nothing
+    // else it names.
+    let other = folder.join("other.mp4");
+    write_recording(&other);
+    let remaining = folder.join(".lost.part01.mp4");
+    write_recording(&remaining);
+    let mut lost = capture(
+        folder.join("lost.mp4").to_str().unwrap(),
+        CaptureKind::Replay,
+    );
+    lost.post_process = Some(PostProcess::ConcatSegments {
+        segment_paths: [
+            folder.join(".lost.part00.mp4"),
+            remaining.clone(),
+            other.clone(),
+        ]
+        .iter()
+        .map(|part| part.to_string_lossy().into_owned())
+        .collect(),
+    });
+    assert!(!capture_sources_present(&lost));
+    discard_capture_sources(&lost).await;
+    assert!(!remaining.exists());
+    assert!(other.is_file());
+
+    // A join that fails keeps its segments, the only copy of the replay, for
+    // the next attempt, and leaves no temporary files behind.
+    let broken = folder.join(".broken.part00.mp4");
+    std::fs::write(&broken, b"not a real mp4").unwrap();
+    let mut unjoinable = capture(
+        folder.join("broken.mp4").to_str().unwrap(),
+        CaptureKind::Replay,
+    );
+    unjoinable.post_process = Some(PostProcess::ConcatSegments {
+        segment_paths: vec![broken.to_string_lossy().into_owned()],
+    });
+    finalize_capture(&library, &mut unjoinable)
+        .await
+        .unwrap_err();
+    assert!(broken.is_file());
+    assert!(!folder.join("broken.mp4").exists());
+    let mut names = std::fs::read_dir(&folder)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
+    names.sort();
+    assert_eq!(
+        names,
+        [
+            ".broken.part00.mp4",
+            "clip-20260101-000000.mp4",
+            "other.mp4"
+        ]
+    );
 }
 
 /// Writes a 30 fps recording that shows red, green, blue and white for two

@@ -78,7 +78,11 @@ export interface AlloyDesktopRecordingApi {
   /** Snapshot of active + finished (undismissed) clip downloads. */
   listClipDownloads(): Promise<RecordingLibraryDownload[]>
   onEvent(listener: (event: RecordingEvent) => void): () => void
-  /** Opens a native folder picker; returns the chosen path or null if cancelled. */
+  /**
+   * Opens a native folder picker and makes the chosen folder the capture
+   * folder; returns it, or null if cancelled. Older hosts only return the
+   * path, so callers save it with `setSettings` when the settings lack it.
+   */
   selectOutputFolder(): Promise<string | null>
   /** Returns running processes that can be added to the game allow list. */
   listGameProcesses(): Promise<RecordingGameProcess[]>

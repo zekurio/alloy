@@ -166,16 +166,17 @@ export function DesktopRecordingProvider({
     try {
       const folder = await recording.selectOutputFolder()
       if (!folder) return
-      const [nextSettings, nextStorage] = await Promise.all([
-        recording.getSettings(),
-        recording.getStorageInfo(),
-      ])
-      setSettings(nextSettings)
-      setStorageInfo(nextStorage)
+      // Newer hosts apply the picked folder themselves. Older ones only
+      // return it, so save it through the settings path, which moves the
+      // library and recorder onto it.
+      const current = await recording.getSettings()
+      if (current.outputFolder === folder) setSettings(current)
+      else await save({ ...current, outputFolder: folder })
+      setStorageInfo(await recording.getStorageInfo())
     } catch (cause) {
       setError(errorText(cause, t("Couldn't change the capture folder.")))
     }
-  }, [recording])
+  }, [recording, save])
 
   const restartBackend = useCallback(async () => {
     if (!recording) return
