@@ -100,9 +100,10 @@ async fn loopback_media_performance() {
     drop(file);
     drop(block);
     let id = library.snapshot().unwrap().items[0].id.clone();
-    library
-        .store_thumbnail(&id, &vec![0x5a; 64 * 1024])
-        .unwrap();
+    // A cached poster, so the scenario measures serving rather than ffmpeg.
+    let posters = library.thumbnail_path(&id).unwrap();
+    std::fs::create_dir_all(&posters).unwrap();
+    std::fs::write(posters.join("poster.jpg"), vec![0x5a; 64 * 1024]).unwrap();
     let server = CaptureHttpServer::start(library.clone()).await.unwrap();
     let client = reqwest::Client::builder().no_proxy().build().unwrap();
     let media = server.media_url(&id).unwrap();

@@ -14,6 +14,7 @@ use url::Url;
 
 use crate::capture_library::error::{LibraryError, Result};
 use crate::capture_library::paths::{extension_for_content_type, safe_component};
+use crate::capture_library::poster::ensure_poster;
 use crate::capture_library::store::CaptureLibrary;
 use crate::capture_library::types::{DownloadRequest, DownloadState, DownloadStatus};
 
@@ -188,6 +189,12 @@ impl DownloadManager {
         let result = self.run_download(&request, &cancel).await;
         match result {
             Ok(id) => {
+                // The library shows the download once it completes, so its
+                // poster is ready by then. A missing poster is generated on
+                // first view instead.
+                if let Err(error) = ensure_poster(&self.library, &id).await {
+                    log::warn!("could not create a poster for download {id}: {error}");
+                }
                 if let Some(state) = self.update(&request.clip_id, |state| {
                     state.status = DownloadStatus::Completed;
                     state.library_item_id = Some(id);

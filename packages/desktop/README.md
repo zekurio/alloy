@@ -32,6 +32,25 @@ Use Rust modules and explicit imports, not textual `include!` files or a shared
 import prelude. Keep implementation types private to their owning module unless
 a caller needs them.
 
+## Capture library media work
+
+`src-tauri/src/capture_library/` owns everything the host does to capture
+files after the recorder writes them. Jobs are async functions; each one
+starts its tools through `work.rs`, never through its own `Command`:
+
+- `MediaWork` is the only ffmpeg/ffprobe runner. It bounds concurrent
+  processes per lane (`Heavy` for whole-file encodes and copies, `Light` for
+  probes and frame grabs), cancels them when the library shuts down, and
+  collapses concurrent requests for one job key (`exclusive`).
+- `media.rs` probes captures, finalizes recorder post-processing, and renders
+  exports. A selection covering a whole uploadable MP4 exports the capture
+  itself instead of copying it into the cache.
+- `poster.rs` makes the thumbnail and BlurHash for videos and screenshots.
+  The host creates the poster before announcing a new capture, import, or
+  download, keeps the BlurHash in the manifest, and the loopback server
+  creates a missing poster on first request. The renderer never decodes
+  frames for thumbnails.
+
 ## Run
 
 Requires Windows, Node 24, the pinned pnpm version, Rust, Windows C++ build tools,
@@ -69,6 +88,8 @@ check on Windows:
   switching or closing it. Verify clip/screenshot game metadata and folders while
   the selected display and replay buffer stay unchanged.
 - H.264, HEVC, and AV1 playback, seeking, editing, export, and upload.
+- Thumbnails and BlurHash placeholders for new clips, screenshots, imports,
+  and downloads, and for captures saved by an older build.
 - Installer setup, updates, and uninstall.
 
 For cookie changes, test HTTPS on a registrable domain and loopback with stale

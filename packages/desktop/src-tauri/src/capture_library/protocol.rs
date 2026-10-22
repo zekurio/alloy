@@ -1,6 +1,5 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, RwLock};
-use std::time::SystemTime;
 
 use axum::Router;
 use axum::body::Body;
@@ -16,8 +15,8 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::capture_library::error::{LibraryError, Result};
-use crate::capture_library::media::generate_thumbnail;
-use crate::capture_library::paths::{content_type, extension, is_image, is_media};
+use crate::capture_library::paths::{content_type, is_media};
+use crate::capture_library::poster::{ensure_poster, existing_poster};
 use crate::capture_library::store::CaptureLibrary;
 
 const TOKEN_QUERY: &str = "token";
@@ -182,7 +181,12 @@ async fn handle_request(
                 .await
                 .unwrap_or(Err(LibraryError::CaptureNotFound))
         }
-        "thumbnail" => thumbnail_file(&state.library, &id).await,
+        // New captures get their poster before they are announced; older ones
+        // get it on first request.
+        "thumbnail" => match existing_poster(&state.library, &id) {
+            Some(path) => Ok(path),
+            None => ensure_poster(&state.library, &id).await,
+        },
         _ => Err(LibraryError::CaptureNotFound),
     };
     let path = match path {
@@ -238,38 +242,6 @@ fn authorize(
         return Err(StatusCode::FORBIDDEN);
     }
     Ok(access.selected_origin.clone())
-}
-
-async fn thumbnail_file(library: &CaptureLibrary, id: &str) -> Result<PathBuf> {
-    let folder = library.thumbnail_path(id)?;
-    if let Ok(mut entries) = tokio::fs::read_dir(&folder).await {
-        let mut newest: Option<(SystemTime, PathBuf)> = None;
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            let file_type = entry.file_type().await?;
-            if !file_type.is_file() || extension(&path).as_deref() != Some("jpg") {
-                continue;
-            }
-            let metadata = entry.metadata().await?;
-            let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
-            if newest.as_ref().is_none_or(|(time, _)| modified > *time) {
-                newest = Some((modified, path));
-            }
-        }
-        if let Some((_, path)) = newest {
-            let folder = folder.canonicalize()?;
-            let path = path.canonicalize()?;
-            if !path.starts_with(&folder) {
-                return Err(LibraryError::InvalidPath);
-            }
-            return Ok(path);
-        }
-    }
-    let source = library.media_path(id)?.canonicalize()?;
-    if is_image(&source) {
-        return Ok(source);
-    }
-    generate_thumbnail(library, id, &source).await
 }
 
 async fn ranged_response(

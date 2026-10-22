@@ -59,6 +59,9 @@ pub struct ManifestEntry {
     pub uploaded_clip_media_version: Option<String>,
     pub trim_start_ms: Option<u64>,
     pub trim_end_ms: Option<u64>,
+    /// BlurHash of the cached poster. The poster job writes it; the cache
+    /// holds the JPEG, which is regenerated when missing.
+    pub thumb_blur_hash: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -210,6 +213,10 @@ pub struct LibraryExport {
     /// The range of the capture this export contains, in capture time.
     pub source_start_ms: u64,
     pub source_end_ms: u64,
+    /// The capture itself is the export, so `id` is the capture id and the
+    /// host serves it from the media route instead of the export cache.
+    #[serde(skip)]
+    pub whole_capture: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

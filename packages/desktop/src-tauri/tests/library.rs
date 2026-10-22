@@ -1,7 +1,8 @@
 use std::path::Path;
 use std::process::Command;
 
-use alloy_desktop::capture_library::media::{export, generate_thumbnail, probe_file};
+use alloy_desktop::capture_library::media::{export, finalize_capture, probe_file};
+use alloy_desktop::capture_library::poster::ensure_poster;
 use alloy_desktop::capture_library::protocol::CaptureHttpServer;
 use alloy_desktop::capture_library::store::{CaptureLibrary, CaptureLibraryConfig};
 use alloy_desktop::capture_library::types::{
@@ -396,7 +397,7 @@ async fn deleting_a_capture_drops_its_cached_thumbnails_and_exports() {
         .remember_capture(&capture(media.to_str().unwrap(), CaptureKind::Screenshot))
         .unwrap();
     let id = library.snapshot().unwrap().items[0].id.clone();
-    library.store_thumbnail(&id, b"thumbnail").unwrap();
+    write_cached_poster(&library, &id).await;
     let export = library.export_path(&id, "export-id-12345678").unwrap();
     fs::create_dir_all(export.parent().unwrap()).await.unwrap();
     fs::write(&export, b"render").await.unwrap();
@@ -421,7 +422,7 @@ async fn pruning_drops_cache_folders_without_a_capture() {
         .remember_capture(&capture(media.to_str().unwrap(), CaptureKind::Replay))
         .unwrap();
     let id = first.snapshot().unwrap().items[0].id.clone();
-    first.store_thumbnail(&id, b"thumbnail").unwrap();
+    write_cached_poster(&first, &id).await;
     let thumbnails = first.thumbnail_path(&id).unwrap();
     let export = first.export_path(&id, "export-id-12345678").unwrap();
     fs::create_dir_all(export.parent().unwrap()).await.unwrap();
@@ -948,7 +949,7 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
         "ffmpeg failed: {:?}",
         output.stderr
     );
-    let meta = probe_file(&which("ffprobe"), &media).await.unwrap();
+    let meta = probe_file(&library, &media).await.unwrap();
     let mut recorded = capture(media.to_str().unwrap(), CaptureKind::Replay);
     // Export must probe files that were discovered without a manifest entry
     // duration.
@@ -978,7 +979,7 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     assert!(library.find_export_path(&result.id).unwrap().is_file());
     assert!(media.is_file());
 
-    let exported = probe_file(&ffprobe, &first_export).await.unwrap();
+    let exported = probe_file(&library, &first_export).await.unwrap();
     assert!(exported.duration_ms.unwrap().abs_diff(1_250) < 150);
 
     // A capture keeps one render: the next export of the same capture takes
@@ -1020,6 +1021,11 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
         (0, source_duration)
     );
     assert_eq!(whole.duration_ms, source_duration);
+    // An uploadable capture is its own export: nothing is copied into the
+    // cache, and the render before it is no longer kept.
+    assert!(whole.whole_capture);
+    assert_eq!(whole.id, id);
+    assert!(!library.export_path(&id, &second.id).unwrap().exists());
 
     let first_segment = media.with_file_name("first-segment.mp4");
     fs::copy(&media, &first_segment).await.unwrap();
@@ -1030,24 +1036,16 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
             media.to_string_lossy().into_owned(),
         ],
     });
-    alloy_desktop::capture_library::media::finalize_capture_record(&library, &mut joined)
-        .await
-        .unwrap();
+    finalize_capture(&library, &mut joined).await.unwrap();
     assert!(joined.post_process.is_none());
     assert!(joined.duration_ms.unwrap().abs_diff(4_000) < 150);
     assert!(!first_segment.exists());
     assert!(media.is_file());
 
     joined.post_process = Some(PostProcess::TrimTail { keep_ms: 500 });
-    alloy_desktop::capture_library::media::finalize_capture_record(&library, &mut joined)
-        .await
-        .unwrap();
+    finalize_capture(&library, &mut joined).await.unwrap();
     assert!(joined.post_process.is_none());
     assert!(joined.duration_ms.unwrap().abs_diff(500) < 150);
-    let thumbnail = generate_thumbnail(&library, "capture-id-1234", &media)
-        .await
-        .unwrap();
-    assert!(fs::metadata(thumbnail).await.unwrap().len() > 0);
 }
 
 #[tokio::test]
@@ -1058,8 +1056,9 @@ async fn shutdown_media_cancels_future_tool_work() {
     fs::create_dir_all(source.parent().unwrap()).await.unwrap();
     fs::write(&source, b"not a video").await.unwrap();
 
+    let id = library.snapshot().unwrap().items[0].id.clone();
     library.cancel_media();
-    let error = generate_thumbnail(&library, "capture-id-1234", &source)
+    let error = ensure_poster(&library, &id)
         .await
         .expect_err("cancelled media should fail");
     assert!(matches!(
@@ -1068,6 +1067,254 @@ async fn shutdown_media_cancels_future_tool_work() {
     ));
     library.shutdown_media().await;
     assert!(source.is_file());
+}
+
+/// Stands in for a poster the library made earlier.
+async fn write_cached_poster(library: &CaptureLibrary, id: &str) {
+    let folder = library.thumbnail_path(id).unwrap();
+    fs::create_dir_all(&folder).await.unwrap();
+    fs::write(folder.join("poster.jpg"), b"poster")
+        .await
+        .unwrap();
+}
+
+/// Writes a short H.264 recording whose first second is black and whose
+/// rest is a test pattern.
+fn write_recording(path: &Path) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let output = Command::new("ffmpeg")
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=s=320x180:r=10:d=3",
+            "-vf",
+            "drawbox=c=black:t=fill:enable='lt(t,1)'",
+            "-c:v",
+            "libx264",
+            "-g",
+            "5",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            "-y",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("ffmpeg starts");
+    assert!(
+        output.status.success(),
+        "ffmpeg failed: {:?}",
+        output.stderr
+    );
+}
+
+fn write_screenshot(path: &Path) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let output = Command::new("ffmpeg")
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=s=1920x1080",
+            "-frames:v",
+            "1",
+            "-y",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("ffmpeg starts");
+    assert!(
+        output.status.success(),
+        "ffmpeg failed: {:?}",
+        output.stderr
+    );
+}
+
+/// Width and height from a baseline or progressive JPEG's frame header.
+fn jpeg_size(bytes: &[u8]) -> (u16, u16) {
+    let mut index = 2;
+    while index + 9 < bytes.len() {
+        let marker = bytes[index + 1];
+        let length = usize::from(u16::from_be_bytes([bytes[index + 2], bytes[index + 3]]));
+        if (0xc0..=0xc2).contains(&marker) {
+            let height = u16::from_be_bytes([bytes[index + 5], bytes[index + 6]]);
+            let width = u16::from_be_bytes([bytes[index + 7], bytes[index + 8]]);
+            return (width, height);
+        }
+        index += 2 + length;
+    }
+    panic!("not a JPEG");
+}
+
+#[tokio::test]
+async fn posters_carry_a_blur_hash_into_the_snapshot() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let video = temp.path().join("captures/Clips/Test Game/clip.mp4");
+    write_recording(&video);
+    let mut record = capture(video.to_str().unwrap(), CaptureKind::Replay);
+    record.duration_ms = Some(3_000);
+    let video_id = library.remember_capture(&record).unwrap();
+    let screenshot = temp.path().join("captures/Screenshots/Desktop/shot.png");
+    write_screenshot(&screenshot);
+    // No manifest entry: a file the library only found by scanning.
+    let screenshot_id = library
+        .snapshot()
+        .unwrap()
+        .items
+        .into_iter()
+        .find(|item| item.kind == CaptureKind::Screenshot)
+        .unwrap()
+        .id;
+    // A thumbnail an older build cached is replaced by the poster.
+    let legacy = library
+        .thumbnail_path(&video_id)
+        .unwrap()
+        .join("generated.jpg");
+    fs::create_dir_all(legacy.parent().unwrap()).await.unwrap();
+    fs::write(&legacy, b"legacy").await.unwrap();
+    assert!(
+        library
+            .snapshot()
+            .unwrap()
+            .items
+            .iter()
+            .all(|item| item.thumb_blur_hash.is_none())
+    );
+
+    // Concurrent requests for one capture share a single run.
+    let (first, second) = tokio::join!(
+        ensure_poster(&library, &video_id),
+        ensure_poster(&library, &video_id)
+    );
+    let poster = first.unwrap();
+    assert_eq!(poster, second.unwrap());
+    let shot_poster = ensure_poster(&library, &screenshot_id).await.unwrap();
+
+    let jpeg = fs::read(&poster).await.unwrap();
+    assert_eq!(jpeg_size(&jpeg), (320, 180));
+    assert!(!legacy.exists());
+    // The rejected black frames leave nothing behind.
+    let mut files = std::fs::read_dir(poster.parent().unwrap())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name())
+        .collect::<Vec<_>>();
+    files.sort();
+    assert_eq!(files, ["poster.jpg"]);
+    // Screenshots get a downscaled JPEG instead of serving the full image.
+    assert_eq!(
+        jpeg_size(&fs::read(&shot_poster).await.unwrap()),
+        (1280, 720)
+    );
+
+    let snapshot = library.snapshot().unwrap();
+    let hash = |id: &str| {
+        snapshot
+            .items
+            .iter()
+            .find(|item| item.id == id)
+            .unwrap()
+            .thumb_blur_hash
+            .clone()
+            .expect("snapshot carries the poster's BlurHash")
+    };
+    let video_hash = hash(&video_id);
+    let shot_hash = hash(&screenshot_id);
+    // 16:9 picks the same 6x4 components as `blurHashComponents`.
+    assert_eq!(video_hash.len(), 4 + 2 * 6 * 4);
+    assert_eq!(shot_hash.len(), 4 + 2 * 6 * 4);
+    // The opening second is black, so the poster skips to a later frame: its
+    // BlurHash's average color (characters 2..6) is not black.
+    assert_ne!(&video_hash[2..6], "0000");
+    // Adopting the scanned screenshot into the manifest kept its scan values.
+    let shot = snapshot
+        .items
+        .iter()
+        .find(|item| item.id == screenshot_id)
+        .unwrap();
+    assert_eq!(shot.group_label, "Uncategorized");
+    assert_eq!(shot.source, CaptureSource::Display);
+
+    // A second request reuses the poster without running ffmpeg again.
+    let modified = fs::metadata(&poster).await.unwrap().modified().unwrap();
+    ensure_poster(&library, &video_id).await.unwrap();
+    assert_eq!(
+        fs::metadata(&poster).await.unwrap().modified().unwrap(),
+        modified
+    );
+
+    // The loopback server serves the poster, creating it on first request.
+    fs::remove_file(&shot_poster).await.unwrap();
+    let server = CaptureHttpServer::start(library.clone()).await.unwrap();
+    let response = reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .unwrap()
+        .get(server.thumbnail_url(&screenshot_id).unwrap())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers()["content-type"].to_str().unwrap(),
+        "image/jpeg"
+    );
+    assert_eq!(jpeg_size(&response.bytes().await.unwrap()), (1280, 720));
+    server.shutdown().await;
+
+    // Filing the display screenshot under a game moves the file but keeps
+    // its id, so the poster and BlurHash stay with it.
+    let shot_modified = fs::metadata(&shot_poster)
+        .await
+        .unwrap()
+        .modified()
+        .unwrap();
+    library
+        .update_metadata(MetaPatch {
+            id: screenshot_id.clone(),
+            title: None,
+            game_name: Some(Some("Test Game".to_string())),
+            game_icon_url: None,
+            game_guess: None,
+            description: None,
+            tags: None,
+            mentions: None,
+            privacy: None,
+            uploaded_clip_id: None,
+            uploaded_clip_source_start_ms: None,
+            uploaded_clip_source_duration_ms: None,
+        })
+        .unwrap();
+    assert!(!screenshot.exists());
+    let moved = library.snapshot().unwrap();
+    let shots = moved
+        .items
+        .iter()
+        .filter(|item| item.kind == CaptureKind::Screenshot)
+        .collect::<Vec<_>>();
+    assert_eq!(shots.len(), 1);
+    assert_eq!(shots[0].id, screenshot_id);
+    assert_eq!(shots[0].group_label, "Test Game");
+    assert_eq!(
+        shots[0].thumb_blur_hash.as_deref(),
+        Some(shot_hash.as_str())
+    );
+    ensure_poster(&library, &screenshot_id).await.unwrap();
+    assert_eq!(
+        fs::metadata(&shot_poster)
+            .await
+            .unwrap()
+            .modified()
+            .unwrap(),
+        shot_modified
+    );
 }
 
 fn which(binary: &str) -> std::path::PathBuf {
