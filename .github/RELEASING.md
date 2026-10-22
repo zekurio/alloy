@@ -5,7 +5,8 @@ Releases are cut on demand by the **publish** workflow, tagged `vX.Y.Z`, and
 named after the tag.
 
 Server distribution is handled by the Nix flake package and NixOS module. We do
-not attach server artifacts to GitHub Releases.
+not attach server artifacts to GitHub Releases. The same Nix build is also
+published as a container image (see [Container Images](#container-images)).
 
 GitHub Release assets are intentionally limited to the desktop app and
 auto-update files:
@@ -26,8 +27,29 @@ Dispatch the **publish** workflow from the Actions tab (it only runs on
 3. Commits `chore: release vX.Y.Z` to `dev` and tags that commit `vX.Y.Z`
    (pushed atomically).
 4. Builds the Windows desktop installer from the tagged commit.
-5. Publishes the GitHub Release with categorized generated notes, the installer,
+5. Builds and pushes the server container image tagged with the release
+   version, then publishes the GitHub Release with categorized generated notes, the installer,
    `latest.json`, update signatures, and checksums.
+
+## Container Images
+
+The server image is built from the flake's `dockerImage` output and pushed to
+`ghcr.io/zekurio/alloy` (the lowercased repository name). It exposes port 2552. Three kinds of tag exist:
+
+| Tag        | Pushed by                | Meaning                                                                                |
+| ---------- | ------------------------ | -------------------------------------------------------------------------------------- |
+| `X.Y.Z`    | **publish**, `image` job | The release `vX.Y.Z` (no `v` prefix). Built from the tagged commit; never overwritten. |
+| `latest`   | **publish**, `promote`   | Points at the newest release. Moves only after the GitHub Release is published.        |
+| `unstable` | **dev image** workflow   | The head of `dev`. Rebuilt on every merge that touches server inputs.                  |
+
+`unstable` is not a release: it carries the version checked into `dev` (the
+last release's version), so it is not a pinned or reproducible reference.
+Merges that only touch desktop code or docs do not rebuild it. Pin `X.Y.Z` (or
+an image digest) for anything you want to stay put.
+
+If a publish run fails after the `image` job, `X.Y.Z` can exist while
+`latest` and the GitHub Release do not. Dispatching **publish** again converges
+as described under [Recovery](#recovery).
 
 ## Changelog Policy
 

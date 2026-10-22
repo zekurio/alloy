@@ -76,6 +76,12 @@ pnpm desktop:obs:install --version 32.1.2
 pnpm tauri:dev
 ```
 
+The installer checks the OBS ZIP against a SHA-256 pinned in
+`scripts/install-obs-runtime.mjs` (32.1.2 today), or against the digest GitHub
+publishes with the release. It fails if neither is available. When you install
+another version for local development, set `ALLOY_OBS_ALLOW_UNVERIFIED=1` to skip
+the check; CI and release builds never should.
+
 Enter the server origin serving both the web UI and `/api/*`. HTTP is allowed
 only on loopback; other servers require HTTPS. Restart Tauri after changing the
 bundled connection screen.

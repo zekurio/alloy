@@ -16,9 +16,11 @@ import { config } from "./config.mjs"
 const MARKER = "<!-- alloy-gardener -->"
 const FOOTER = `\n\n<sub>🌱 alloy-gardener · automated, may be wrong · maintainers: \`/gardener review\` or \`/gardener triage\` to re-run</sub>\n${MARKER}`
 
+// GitHub passes a missing secret or variable as an empty string, so treat that
+// as missing too.
 const env = (name, fallback) => {
-  const value = process.env[name] ?? fallback
-  if (value === undefined) throw new Error(`missing env ${name}`)
+  const value = process.env[name] || fallback
+  if (!value) throw new Error(`missing env ${name}`)
   return value
 }
 
@@ -561,19 +563,32 @@ async function lock() {
 // ------------------------------------------------------------------- Main ---
 
 const [mode, arg] = process.argv.slice(2)
-const number = Number(arg)
 const commands = {
-  triage: () => triage(number),
-  review: () => review(number),
-  changelog: () => changelog(number),
+  triage: (number) => triage(number),
+  review: (number) => review(number),
+  changelog: (number) => changelog(number),
   lock,
 }
 
-if (!commands[mode] || (mode !== "lock" && !Number.isInteger(number))) {
+const usage = (reason) => {
   process.stderr.write(
-    "usage: gardener.mjs <triage|review|changelog> <number> | gardener.mjs lock\n",
+    `${reason}\nusage: gardener.mjs <triage|review|changelog> <number> | gardener.mjs lock\n`,
   )
   process.exit(2)
 }
 
-await commands[mode]()
+if (!commands[mode]) usage(`unknown command: ${mode ?? "(none)"}`)
+
+// `Number("")` is 0, so require a plain positive integer string.
+let number
+if (mode !== "lock") {
+  if (!/^[1-9][0-9]*$/.test(arg ?? "")) {
+    usage(`${mode} needs a positive issue/PR number, got: "${arg ?? ""}"`)
+  }
+  number = Number(arg)
+}
+
+// Fail once, up front, instead of once per issue at the first model call.
+if (mode === "triage" || mode === "review") env("ANTHROPIC_API_KEY")
+
+await commands[mode](number)

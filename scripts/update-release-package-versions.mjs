@@ -12,24 +12,25 @@ const releasePackageFiles = [
   "packages/desktop/src-tauri/tauri.conf.json",
 ]
 const cargoPackageFiles = [
-  "packages/desktop/recorder/Cargo.toml",
-  "packages/desktop/src-tauri/Cargo.toml",
+  ["packages/desktop/recorder/Cargo.toml", "alloy-agent"],
+  ["packages/desktop/src-tauri/Cargo.toml", "alloy-desktop"],
 ]
 const cargoLockPackageFiles = [
   ["Cargo.lock", "alloy-agent"],
   ["Cargo.lock", "alloy-desktop"],
 ]
 
-if (!version || process.argv.length > 3) {
-  console.error(
-    "Usage: node scripts/update-release-package-versions.mjs <version>",
-  )
+const fail = (message) => {
+  console.error(message)
   process.exit(1)
 }
 
+if (!version || process.argv.length > 3) {
+  fail("Usage: node scripts/update-release-package-versions.mjs <version>")
+}
+
 if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(version)) {
-  console.error(`Invalid release version: ${version}`)
-  process.exit(1)
+  fail(`Invalid release version: ${version}`)
 }
 
 for (const filePath of releasePackageFiles) {
@@ -50,41 +51,58 @@ for (const filePath of releasePackageFiles) {
   )
 
   if (updated === original) {
-    console.error(`No top-level "version" field found in ${filePath}.`)
-    process.exit(1)
+    fail(`No top-level "version" field found in ${filePath}.`)
   }
 
   writeFileSync(filePath, updated)
 }
 
-for (const filePath of cargoPackageFiles) {
+for (const [filePath, packageName] of cargoPackageFiles) {
   const original = readFileSync(filePath, "utf8")
-  const updated = original.replace(
-    /^version = ".*"$/m,
-    `version = "${version}"`,
-  )
-
-  if (updated === original) {
+  // Only touch the `[package]` table, and only when it is the expected crate
+  // with a literal version (not `version.workspace = true`).
+  const packageTable = original.match(
+    /^\[package\]\n(?:(?!\[)[^\n]*\n?)*/m,
+  )?.[0]
+  if (!packageTable?.includes(`\nname = "${packageName}"\n`)) {
+    fail(`${filePath} has no [package] named "${packageName}".`)
+  }
+  const versionLine = /^version = "([^"]+)"$/m
+  const current = packageTable.match(versionLine)?.[1]
+  if (current === undefined) {
+    fail(
+      `No literal [package] version found for "${packageName}" in ${filePath}.`,
+    )
+  }
+  if (current === version) {
     console.log(`${filePath} is already at version ${version}.`)
     continue
   }
 
-  writeFileSync(filePath, updated)
+  writeFileSync(
+    filePath,
+    original.replace(
+      packageTable,
+      packageTable.replace(versionLine, `version = "${version}"`),
+    ),
+  )
 }
 
 for (const [filePath, packageName] of cargoLockPackageFiles) {
   const original = readFileSync(filePath, "utf8")
-  const updated = original.replace(
-    new RegExp(
-      `(\\[\\[package\\]\\]\\nname = "${packageName}"\\nversion = ")[^"]+(")`,
-    ),
-    `$1${version}$2`,
+  const entry = new RegExp(
+    `(\\[\\[package\\]\\]\\nname = "${packageName}"\\nversion = ")([^"]+)(")`,
   )
-
-  if (updated === original) {
-    console.log(`${filePath} is already at version ${version}.`)
+  const current = original.match(entry)?.[2]
+  if (current === undefined) {
+    fail(`No Cargo.lock entry found for "${packageName}" in ${filePath}.`)
+  }
+  if (current === version) {
+    console.log(
+      `${filePath} (${packageName}) is already at version ${version}.`,
+    )
     continue
   }
 
-  writeFileSync(filePath, updated)
+  writeFileSync(filePath, original.replace(entry, `$1${version}$3`))
 }

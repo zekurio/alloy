@@ -26,6 +26,17 @@ const obsRepoApi = "https://api.github.com/repos/obsproject/obs-studio"
 const version =
   optionValue("--version") ?? process.env.ALLOY_OBS_VERSION ?? "latest"
 const force = process.argv.includes("--force")
+const allowUnverified = process.env.ALLOY_OBS_ALLOW_UNVERIFIED === "1"
+
+// SHA-256 of the portable ZIP per pinned OBS release, like FFmpeg in
+// prepare-native.mjs. Add an entry when CI moves to a new --version. Other
+// versions (and "latest") must carry a digest in the release metadata.
+const pinnedSha256 = {
+  "32.1.2": {
+    "OBS-Studio-32.1.2-Windows-x64.zip":
+      "8d97e4563bd8d22d03e63042aa7dccede1d555c9bd35ce8a9e5019b0d0201bf6",
+  },
+}
 
 if (process.platform !== "win32") {
   console.error("OBS runtime installation is only supported on Windows.")
@@ -50,7 +61,29 @@ if (!asset) {
   process.exit(1)
 }
 
-const sha256 = releaseAssetSha256(release, asset)
+const pinned = pinnedSha256[release.tag_name]?.[asset.name] ?? null
+const published = releaseAssetSha256(release, asset)
+if (pinned && published && pinned !== published) {
+  console.error(
+    [
+      `OBS release digest for ${asset.name} does not match the pinned SHA-256.`,
+      `Pinned:    ${pinned}`,
+      `Published: ${published}`,
+    ].join("\n"),
+  )
+  process.exit(1)
+}
+const sha256 = pinned ?? published
+if (!sha256 && !allowUnverified) {
+  console.error(
+    [
+      `No SHA-256 digest is available for ${asset.name} (OBS ${release.tag_name}).`,
+      "Pin it in install-obs-runtime.mjs, or set ALLOY_OBS_ALLOW_UNVERIFIED=1 to",
+      "install without verification (local development only).",
+    ].join("\n"),
+  )
+  process.exit(1)
+}
 const workDir = join(cacheDir, "obs-runtime-download")
 const zipPath = join(workDir, asset.name)
 const extractDir = join(workDir, "extract")
@@ -74,7 +107,9 @@ if (sha256) {
     process.exit(1)
   }
 } else {
-  console.warn("OBS release did not include a SHA-256 digest for this asset.")
+  console.warn(
+    "ALLOY_OBS_ALLOW_UNVERIFIED=1: installing OBS runtime without a SHA-256 check.",
+  )
 }
 
 writeOutput("Extracting OBS portable runtime...")

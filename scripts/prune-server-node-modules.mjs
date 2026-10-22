@@ -14,15 +14,18 @@ import {
 } from "node:fs"
 import { dirname, join, relative, resolve, sep } from "node:path"
 
-const repoRoot = resolve(process.argv[2] ?? "")
-const outServerDir = resolve(process.argv[3] ?? "")
+const [repoRootArg, outServerDirArg] = process.argv.slice(2)
 
-if (!repoRoot || !outServerDir) {
+// `resolve("")` is the working directory, so check the raw arguments.
+if (!repoRootArg || !outServerDirArg || process.argv.length > 4) {
   console.error(
     "Usage: node scripts/prune-server-node-modules.mjs <repoRoot> <outServerDir>",
   )
   process.exit(1)
 }
+
+const repoRoot = resolve(repoRootArg)
+const outServerDir = resolve(outServerDirArg)
 
 const serverDir = join(repoRoot, "packages", "server")
 const pnpmStore = join(repoRoot, "node_modules", ".pnpm")
