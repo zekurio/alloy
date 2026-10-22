@@ -67,9 +67,9 @@ function AppShell({ className, children, ...props }: ComponentProps<"div">) {
  * focusable, so it takes a temporary tabindex that it drops again on blur.
  */
 function skipToMain(event: MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault()
   const main = document.getElementById(APP_MAIN_ID)
   if (!main) return
-  event.preventDefault()
   if (!main.hasAttribute("tabindex")) {
     main.setAttribute("tabindex", "-1")
     main.addEventListener("blur", () => main.removeAttribute("tabindex"), {
