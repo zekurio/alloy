@@ -94,6 +94,14 @@ export interface StorageDriver {
   downloadToFile(key: string, destPath: string): Promise<void>
 
   /**
+   * Run `fn` with a path media tools can read a stored object from, for work
+   * that only reads it, such as a poster grab. The filesystem driver hands
+   * over the stored file itself rather than a copy. The path is only valid
+   * inside `fn` and must not be written to.
+   */
+  withLocalFile<T>(key: string, fn: (path: string) => Promise<T>): Promise<T>
+
+  /**
    * Publish a local file under a storage key. The filesystem driver hardlinks
    * where possible. Returns the size committed.
    */

@@ -231,11 +231,17 @@ async function runPipelineInWorkDir({
           }
         : { thumbKey: null, thumbBlurHash: null }
   const { thumbKey, thumbBlurHash } = thumb
+  // A clip with no usable frame is marked so the thumbnail backfill leaves it
+  // alone. commitReady writes the mark again, since its source columns reset
+  // it and the backfill would otherwise re-run the same grabs after every
+  // full run.
+  const thumbFailedAt =
+    poster.kind === "permanent-empty" ? new Date() : undefined
   if (
     !(await store.commitThumb(id, runId, {
       thumbKey,
       thumbBlurHash,
-      thumbFailedAt: poster.kind === "permanent-empty" ? new Date() : undefined,
+      thumbFailedAt,
     }))
   )
     throw abortMediaProcessing()
@@ -272,6 +278,7 @@ async function runPipelineInWorkDir({
       ...sourcePatch,
       thumbKey,
       thumbBlurHash,
+      thumbFailedAt,
       encodeFingerprint: encodeFingerprint(transcodingConfig, fingerprintFacts),
     },
     renditions,
