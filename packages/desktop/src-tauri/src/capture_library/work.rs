@@ -33,16 +33,22 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const MAX_TOOL_OUTPUT: usize = 2 * 1024 * 1024;
 /// Encodes and stream copies over whole recordings.
 const HEAVY_SLOTS: usize = 2;
-/// Probes and single-frame grabs.
+/// Single-frame grabs.
 const LIGHT_SLOTS: usize = 2;
+/// Container and packet probes.
+const PROBE_SLOTS: usize = 4;
 
 /// How expensive a tool run is. Each lane has its own process limit.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Lane {
     /// Reads or writes a whole recording: finalizing, exporting.
     Heavy,
-    /// Reads a few frames or the container header: probes, posters.
+    /// Decodes a few frames: posters.
     Light,
+    /// Reads container headers and packet tables. Every job starts with one,
+    /// so probes have slots of their own and never queue behind a backlog of
+    /// posters or encodes.
+    Probe,
 }
 
 pub(crate) struct ToolOutput {
@@ -54,6 +60,7 @@ pub(crate) struct MediaWork {
     ffprobe: PathBuf,
     heavy: Semaphore,
     light: Semaphore,
+    probe: Semaphore,
     cancel: CancellationToken,
     active: AtomicUsize,
     idle: Notify,
@@ -67,6 +74,7 @@ impl MediaWork {
             ffprobe,
             heavy: Semaphore::new(HEAVY_SLOTS),
             light: Semaphore::new(LIGHT_SLOTS),
+            probe: Semaphore::new(PROBE_SLOTS),
             cancel: CancellationToken::new(),
             active: AtomicUsize::new(0),
             idle: Notify::new(),
@@ -84,7 +92,7 @@ impl MediaWork {
     }
 
     pub(crate) async fn ffprobe(&self, args: &[&str], limit: Duration) -> Result<ToolOutput> {
-        self.run(&self.ffprobe, Lane::Light, args, limit).await
+        self.run(&self.ffprobe, Lane::Probe, args, limit).await
     }
 
     /// Waits until no other caller holds `key`. Jobs whose output is a file
@@ -139,6 +147,7 @@ impl MediaWork {
         let slots = match lane {
             Lane::Heavy => &self.heavy,
             Lane::Light => &self.light,
+            Lane::Probe => &self.probe,
         };
         let _permit = tokio::select! {
             biased;

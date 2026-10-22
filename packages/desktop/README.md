@@ -40,8 +40,11 @@ starts its tools through `work.rs`, never through its own `Command`:
 
 - `MediaWork` is the only ffmpeg/ffprobe runner. It bounds concurrent
   processes per lane (`Heavy` for whole-file encodes and copies, `Light` for
-  probes and frame grabs), cancels them when the library shuts down, and
-  collapses concurrent requests for one job key (`exclusive`).
+  frame grabs, `Probe` for ffprobe), cancels them when the library shuts
+  down, and collapses concurrent requests for one job key (`exclusive`).
+  Manifest and file system calls in async jobs go through `spawn_blocking`,
+  and temporary files are `TempFile`s, which delete themselves when a job
+  fails or its future is dropped.
 - `media.rs` probes captures, finalizes recorder post-processing, and
   exports. Exports avoid re-encoding: a selection covering a whole uploadable
   MP4 exports the capture itself, and a publish stream-copies a shorter
@@ -50,10 +53,11 @@ starts its tools through `work.rs`, never through its own `Command`:
   Replay tails are stream-copied the same way. Re-encoding is the fallback
   for codecs the server rejects and for keyframes more than 10 s apart.
 - `poster.rs` makes the thumbnail and BlurHash for videos and screenshots.
-  The host creates the poster before announcing a new capture, import, or
-  download, keeps the BlurHash in the manifest, and the loopback server
-  creates a missing poster on first request. The renderer never decodes
-  frames for thumbnails.
+  Posters render in their own task. A new capture, import, or download is
+  announced once its poster is done or after `POSTER_WAIT`; captures
+  recovered at startup don't wait. The BlurHash lives in the manifest, and
+  the loopback server creates a missing poster on first request. The
+  renderer never decodes frames for thumbnails.
 
 ## Run
 
