@@ -359,4 +359,5 @@ export const MEDIA_MESSAGES = {
   "{count} games": "{count} Spiele",
   "{count} linked clips": "{count} verknüpfte Clips",
   "{count} {label}": "{count} {label}",
+  "{current} of {duration}": "{current} von {duration}",
 } satisfies TranslationCatalog

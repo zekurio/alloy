@@ -9,6 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@alloy/ui/components/alert-dialog"
+import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { CircleAlertIcon } from "lucide-react"
@@ -16,6 +17,7 @@ import { useState } from "react"
 
 import { api } from "@/lib/api"
 import { authClient } from "@/lib/auth-client"
+import { completeSignOutFlow } from "@/lib/auth-flow"
 import { errorMessage } from "@/lib/error-message"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
@@ -27,6 +29,7 @@ function isDisabledSessionUser(
 
 export function ReactivateAccountPrompt() {
   const session = useSuspenseSession()
+  const navigate = useNavigate()
   const router = useRouter()
   const open = isDisabledSessionUser(session?.user)
 
@@ -40,6 +43,12 @@ export function ReactivateAccountPrompt() {
         await authClient.getSession()
         await router.invalidate()
       }}
+      signOut={() =>
+        completeSignOutFlow({
+          invalidateRouter: () => router.invalidate(),
+          navigate: () => navigate({ to: "/login", replace: true }),
+        })
+      }
     />
   )
 }
@@ -74,28 +83,43 @@ export function SignInReactivationPrompt({
   )
 }
 
+type DialogAction = "reactivate" | "sign-out"
+
+/**
+ * Offers reactivation plus one way out: `onDismiss` while signing in, or
+ * `signOut` for a session that is already disabled and cannot just close it.
+ */
 function AccountReactivationDialog({
   open,
   onDismiss,
   reactivate,
+  signOut,
 }: {
   open: boolean
   onDismiss?: () => void
   reactivate: () => Promise<void>
+  signOut?: () => Promise<void>
 }) {
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState<DialogAction | null>(null)
+  const [error, setError] = useState<{
+    action: DialogAction
+    message: string
+  } | null>(null)
 
-  async function onReactivate() {
+  async function run(
+    action: DialogAction,
+    task: () => Promise<void>,
+    fallback: string,
+  ) {
     if (pending) return
     setError(null)
-    setPending(true)
+    setPending(action)
     try {
-      await reactivate()
+      await task()
     } catch (cause) {
-      setError(errorMessage(cause, t("Couldn't reactivate account")))
+      setError({ action, message: errorMessage(cause, fallback) })
     } finally {
-      setPending(false)
+      setPending(null)
     }
   }
 
@@ -118,25 +142,41 @@ function AccountReactivationDialog({
         {error ? (
           <Callout tone="destructive">
             <CircleAlertIcon />
-            <span>{error}</span>
+            <span>{error.message}</span>
           </Callout>
         ) : null}
-        <AlertDialogFooter className={onDismiss ? undefined : "grid-cols-1"}>
+        <AlertDialogFooter
+          className={onDismiss || signOut ? undefined : "grid-cols-1"}
+        >
           {onDismiss ? (
-            <AlertDialogCancel disabled={pending}>
+            <AlertDialogCancel disabled={pending !== null}>
               {t("Cancel")}
             </AlertDialogCancel>
+          ) : signOut ? (
+            <Button
+              variant="outline"
+              disabled={pending !== null}
+              onClick={() =>
+                void run("sign-out", signOut, t("Couldn't sign out"))
+              }
+            >
+              {pending === "sign-out" ? t("Signing out…") : t("Sign out")}
+            </Button>
           ) : null}
           <AlertDialogAction
             onClick={(event) => {
               event.preventDefault()
-              void onReactivate()
+              void run(
+                "reactivate",
+                reactivate,
+                t("Couldn't reactivate account"),
+              )
             }}
-            disabled={pending}
+            disabled={pending !== null}
           >
-            {pending
+            {pending === "reactivate"
               ? t("Reactivating…")
-              : error
+              : error?.action === "reactivate"
                 ? t("Try again")
                 : t("Reactivate account")}
           </AlertDialogAction>

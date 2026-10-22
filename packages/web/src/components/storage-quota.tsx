@@ -74,7 +74,11 @@ export function StorageQuota({ className }: { className?: string }) {
           {formatUsage(usedBytes, quotaBytes)}
         </div>
       </div>
-      <Progress value={pct} indicatorClassName={tone.indicator} />
+      <Progress
+        value={pct}
+        indicatorClassName={tone.indicator}
+        aria-label={t("Storage")}
+      />
     </div>
   )
 }
@@ -101,7 +105,11 @@ export function StorageQuotaCompact({ className }: { className?: string }) {
           {formatUsage(usedBytes, quotaBytes)}
         </span>
       </div>
-      <Progress value={pct} indicatorClassName={tone.indicator} />
+      <Progress
+        value={pct}
+        indicatorClassName={tone.indicator}
+        aria-label={t("Storage")}
+      />
     </div>
   )
 }

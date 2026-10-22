@@ -14,7 +14,7 @@ export function audioDeviceMultiSelectLabel(
 ): string {
   if (!settings) return t("Loading")
   if (selected.length === 0) return t("Off")
-  if (selected.length === 1) return selected[0]?.label ?? "Off"
+  if (selected.length === 1) return selected[0]?.label ?? t("Off")
   return t("{count} selected", { count: selected.length })
 }
 

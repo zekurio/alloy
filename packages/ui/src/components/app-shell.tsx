@@ -1,5 +1,9 @@
+import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
-import type { ComponentProps } from "react"
+import type { ComponentProps, MouseEvent } from "react"
+
+/** Target of the shell's skip link; every main variant carries it. */
+const APP_MAIN_ID = "app-main"
 
 function AppShell({ className, children, ...props }: ComponentProps<"div">) {
   return (
@@ -24,6 +28,19 @@ function AppShell({ className, children, ...props }: ComponentProps<"div">) {
       )}
       {...props}
     >
+      <a
+        href={`#${APP_MAIN_ID}`}
+        onClick={skipToMain}
+        className={cn(
+          // Out of the grid flow either way: absolute while hidden, fixed once
+          // focused, so it never claims a grid cell.
+          "fixed top-2 left-2 z-[100] not-focus:sr-only",
+          "rounded-md border border-border bg-popover px-3 py-2 text-sm font-medium text-popover-foreground shadow-lg",
+          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        )}
+      >
+        {t("Skip to content")}
+      </a>
       {children}
       <span
         aria-hidden
@@ -44,6 +61,24 @@ function AppShell({ className, children, ...props }: ComponentProps<"div">) {
   )
 }
 
+/**
+ * Moves focus into the main region without following the fragment, which would
+ * add a history entry the router treats as a navigation. `<main>` is not
+ * focusable, so it takes a temporary tabindex that it drops again on blur.
+ */
+function skipToMain(event: MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault()
+  const main = document.getElementById(APP_MAIN_ID)
+  if (!main) return
+  if (!main.hasAttribute("tabindex")) {
+    main.setAttribute("tabindex", "-1")
+    main.addEventListener("blur", () => main.removeAttribute("tabindex"), {
+      once: true,
+    })
+  }
+  main.focus()
+}
+
 const scrollRegionClass = cn(
   "overflow-x-hidden overflow-y-auto p-[var(--app-content-padding)]",
   // Clear the fixed mobile bottom-nav (hidden on md+) so the last row of
@@ -58,6 +93,7 @@ const scrollRegionClass = cn(
 function AppMain({ className, ...props }: ComponentProps<"main">) {
   return (
     <main
+      id={APP_MAIN_ID}
       data-slot="app-main"
       className={cn(scrollRegionClass, className)}
       {...props}
@@ -75,6 +111,7 @@ function AppMain({ className, ...props }: ComponentProps<"main">) {
 function AppMainColumn({ className, ...props }: ComponentProps<"main">) {
   return (
     <main
+      id={APP_MAIN_ID}
       data-slot="app-main"
       className={cn("flex min-h-0 flex-col overflow-hidden", className)}
       {...props}

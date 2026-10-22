@@ -41,9 +41,7 @@ export function useActiveVideoPlayer({
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (activeVideoPlayerId !== playerId) return
-      if (
-        !shouldHandleGlobalVideoShortcut(event.target, containerRef.current)
-      ) {
+      if (!shouldHandleGlobalVideoShortcut(event, containerRef.current)) {
         return
       }
       if (

@@ -80,6 +80,7 @@ export const ERRORS_MESSAGES = {
   "Something went wrong": "Etwas ist schiefgelaufen",
   "The page may have moved, been deleted, or never existed.":
     "Die Seite wurde vielleicht verschoben, gelöscht oder hat nie existiert.",
+  "This view failed to load.": "Diese Ansicht konnte nicht geladen werden.",
   "Timed out while reading video metadata":
     "Zeitüberschreitung beim Lesen der Videometadaten",
   "Too many requests": "Zu viele Anfragen",

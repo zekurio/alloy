@@ -3,6 +3,8 @@ import { cn } from "@alloy/ui/lib/utils"
 import { useCallback, useRef } from "react"
 import type { KeyboardEvent, PointerEvent } from "react"
 
+import { formatMediaDurationMs } from "@/lib/media-time"
+
 export function VideoScrubber({
   currentTime,
   duration,
@@ -84,6 +86,10 @@ export function VideoScrubber({
       aria-valuemin={0}
       aria-valuemax={Math.max(0, Math.round(duration))}
       aria-valuenow={Math.round(currentTime)}
+      aria-valuetext={t("{current} of {duration}", {
+        current: formatMediaDurationMs(currentTime * 1000),
+        duration: formatMediaDurationMs(duration * 1000),
+      })}
       tabIndex={0}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

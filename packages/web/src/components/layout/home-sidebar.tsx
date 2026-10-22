@@ -4,6 +4,7 @@ import {
   AppSidebarGroup,
   AppSidebarItem,
   AppSidebarItemTooltip,
+  AppSidebarNav,
 } from "@alloy/ui/components/app-sidebar"
 import { TooltipProvider } from "@alloy/ui/components/tooltip"
 import { Link } from "@tanstack/react-router"
@@ -29,11 +30,11 @@ export function HomeSidebar() {
   return (
     <AppSidebar className="hidden md:flex">
       <TooltipProvider delay={300}>
-        <AppSidebarGroup>
+        <AppSidebarNav aria-label={t("Primary")}>
           <Suspense fallback={<SidebarNavFallback />}>
             <SidebarNav />
           </Suspense>
-        </AppSidebarGroup>
+        </AppSidebarNav>
         <AppSidebarGroup className="mt-auto">
           <DesktopRecordingStatus />
           <DesktopUpdatePill />
