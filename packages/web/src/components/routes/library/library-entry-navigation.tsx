@@ -1,14 +1,18 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
-import { useQueryClient } from "@tanstack/react-query"
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { useCallback, useEffect, useEffectEvent, useMemo } from "react"
 
 import { compareLibraryItemNewestFirst } from "@/components/clip/use-local-clip-playback"
 import { useSession } from "@/lib/auth-client"
-import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
+import {
+  flattenUserClipPages,
+  userClipsInfiniteQueryOptions,
+  warmClipDetailCache,
+} from "@/lib/clip-queries"
 import { alloyDesktop } from "@/lib/desktop"
 import {
   libraryMedia,
@@ -48,11 +52,18 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry) {
   const { snapshot, error, refreshing, refresh } = useLibrarySnapshot(desktop)
   const gamesByName = useLibraryGameLookup(snapshot)
   const { data: session } = useSession()
-  const uploadedQuery = useUserClipsQuery(session?.user?.username ?? "")
-  const uploaded = useMemo(() => uploadedQuery.data ?? [], [uploadedQuery.data])
   const search = useLibrarySearch()
   const media = libraryMedia(search)
   const sort = librarySort(search)
+  // The same paged list as the grid, so the pages it loaded carry over.
+  const uploadedQuery = useInfiniteQuery(
+    userClipsInfiniteQueryOptions(session?.user?.username ?? "", sort),
+  )
+  const uploaded = useMemo(
+    () => flattenUserClipPages(uploadedQuery.data?.pages),
+    [uploadedQuery.data],
+  )
+  const uploadedComplete = !uploadedQuery.hasNextPage
   // Mirrors the library page: without the desktop API there are no local
   // captures, so a stray ?source= must not empty the list.
   const source = desktop ? librarySource(search) : "all"
@@ -60,20 +71,52 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry) {
   const entries = useMemo(() => {
     // Editor navigation walks the same filtered, ordered list as the grid the
     // item was opened from, so it never crosses into a hidden media kind.
-    const filtered = buildLibraryEntries({
+    return buildLibraryEntries({
       snapshot,
       gamesByName,
       uploaded,
+      uploadedComplete,
       active: null,
       media,
       source,
       query: "",
+      sort,
     }).filter(isNavigableEntry)
-    return sort === "oldest" ? filtered.toReversed() : filtered
-  }, [snapshot, gamesByName, uploaded, media, source, sort])
+  }, [snapshot, gamesByName, uploaded, uploadedComplete, media, source, sort])
   const index = entries.findIndex((entry) =>
     entryMatchesCurrent(entry, current),
   )
+  // A current item that is already loaded but hidden by the grid's filters
+  // has no neighbours to reach, so the remaining pages are not walked for it.
+  const currentLoaded = useMemo(() => {
+    if (current.type === "cloud") {
+      return uploaded.some((row) => row.id === current.id)
+    }
+    const item = snapshot?.items.find(
+      (candidate) => candidate.id === current.id,
+    )
+    if (!item) return false
+    return (
+      !item.uploadedClipId ||
+      uploaded.some((row) => row.id === item.uploadedClipId)
+    )
+  }, [current, uploaded, snapshot])
+  // Load the next page when the current item is the last loaded entry (so
+  // "next" can reach past it) or isn't loaded yet (opened from a deep link).
+  const {
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+  } = uploadedQuery
+  const needsNextPage =
+    hasNextPage &&
+    !isFetchingNextPage &&
+    !isFetchNextPageError &&
+    (index < 0 ? !currentLoaded : index === entries.length - 1)
+  useEffect(() => {
+    if (needsNextPage) void fetchNextPage()
+  }, [needsNextPage, fetchNextPage])
   const directLocalItem =
     current.type === "local"
       ? (snapshot?.items.find((item) => item.id === current.id) ?? null)
@@ -82,7 +125,7 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry) {
     ? ({
         type: "local",
         key: `local:${directLocalItem.id}`,
-        createdAt: directLocalItem.createdAt,
+        listedAt: directLocalItem.createdAt,
         status: "local",
         item: enrichLibraryItem(directLocalItem, gamesByName),
       } satisfies NavigableLibraryEntry)
@@ -208,11 +251,14 @@ export function LibraryEntryNavButton({
 export function useLibraryEditorShortcuts({
   prevEntry,
   nextEntry,
+  hasUnsavedEdits,
   onDelete,
   togglePlayback,
 }: {
   prevEntry: NavigableLibraryEntry | null
   nextEntry: NavigableLibraryEntry | null
+  /** Leaving shortcuts are ignored while true, so a stray key can't drop edits. */
+  hasUnsavedEdits: boolean
   onDelete: () => void
   togglePlayback: () => void
 }) {
@@ -223,6 +269,12 @@ export function useLibraryEditorShortcuts({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event)) return
+      if (event.key === " ") {
+        event.preventDefault()
+        toggleEntryPlayback()
+        return
+      }
+      if (hasUnsavedEdits) return
       if (event.key === "ArrowLeft" && prevEntry) {
         event.preventDefault()
         navigateToEntry(prevEntry)
@@ -232,14 +284,19 @@ export function useLibraryEditorShortcuts({
       } else if (event.key === "Delete") {
         event.preventDefault()
         deleteEntry()
-      } else if (event.key === " ") {
-        event.preventDefault()
-        toggleEntryPlayback()
       }
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [navigateToEntry, nextEntry, prevEntry])
+  }, [hasUnsavedEdits, navigateToEntry, nextEntry, prevEntry])
+
+  // Closing or reloading the window would drop the edits too; ask first.
+  useEffect(() => {
+    if (!hasUnsavedEdits) return
+    const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault()
+    window.addEventListener("beforeunload", onBeforeUnload)
+    return () => window.removeEventListener("beforeunload", onBeforeUnload)
+  }, [hasUnsavedEdits])
 }
 
 function isEditableTarget(event: KeyboardEvent): boolean {

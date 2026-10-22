@@ -2,11 +2,14 @@ import type { ClipRow } from "@alloy/api"
 import type { MediaFilter } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { AppMainColumn, AppMainScroll } from "@alloy/ui/components/app-shell"
+import { Button } from "@alloy/ui/components/button"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
-import { useQueryClient } from "@tanstack/react-query"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
+  AlertCircleIcon,
   BanIcon,
   CloudIcon,
   FolderXIcon,
@@ -34,13 +37,18 @@ import { useAppSearch } from "@/components/search/app-search"
 import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import type { QueueItem } from "@/components/upload/upload-queue-types"
 import { useSession } from "@/lib/auth-client"
-import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
+import {
+  flattenUserClipPages,
+  userClipsInfiniteQueryOptions,
+  warmClipDetailCache,
+} from "@/lib/clip-queries"
 import { alloyDesktop, type AlloyTauriDesktop } from "@/lib/desktop"
 import {
   type LibrarySort,
   type LibrarySource,
   toLibrarySearch,
 } from "@/lib/library-search"
+import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
 
 import {
   buildLibraryGroups,
@@ -114,15 +122,11 @@ function LibraryContent({
     source: effectiveSource,
     query: deferredQuery,
     groupKey,
+    sort,
   })
   // The defaults stay out of the URL; the editors get the same filters so
   // prev/next and "back" mirror this grid.
   const search = toLibrarySearch({ sort, source: effectiveSource, media })
-  // Entries arrive newest-first from the model; "oldest" is its mirror.
-  const orderedEntries = useMemo(
-    () => (sort === "oldest" ? model.entries.toReversed() : model.entries),
-    [model.entries, sort],
-  )
   const warmCloudClip = useCallback(
     (row: ClipRow) => warmClipDetailCache(queryClient, row),
     [queryClient],
@@ -196,7 +200,7 @@ function LibraryContent({
       <AppMainScroll className="!pt-0">
         <section className="flex w-full flex-col gap-6">
           <LibraryBody
-            entries={orderedEntries}
+            entries={model.entries}
             transferByClipId={transferMaps.byClipId}
             transferByLocalCaptureId={transferMaps.byLocalCaptureId}
             loading={model.loading}
@@ -220,6 +224,7 @@ function LibraryContent({
             }}
             onCloudIntent={warmCloudClip}
           />
+          <LibraryPagingSentinel paging={model.paging} />
         </section>
       </AppMainScroll>
     </AppMainColumn>
@@ -232,19 +237,27 @@ function useLibraryContentModel({
   source,
   query,
   groupKey,
+  sort,
 }: {
   desktop: AlloyTauriDesktop | null
   media: MediaFilter
   source: LibrarySource
   query: string
   groupKey: string | null
+  sort: LibrarySort
 }) {
   const { snapshot, error } = useLibrarySnapshot(desktop)
 
   const { data: session } = useSession()
   const handle = session?.user?.username ?? ""
-  const uploadedQuery = useUserClipsQuery(handle)
-  const uploaded = useMemo(() => uploadedQuery.data ?? [], [uploadedQuery.data])
+  const uploadedQuery = useInfiniteQuery(
+    userClipsInfiniteQueryOptions(handle, sort),
+  )
+  const uploaded = useMemo(
+    () => flattenUserClipPages(uploadedQuery.data?.pages),
+    [uploadedQuery.data],
+  )
+  const uploadedComplete = !uploadedQuery.hasNextPage
   const gamesByName = useLibraryGameLookup(snapshot)
 
   const localGroups = useMemo(
@@ -275,18 +288,97 @@ function useLibraryContentModel({
       snapshot,
       gamesByName,
       uploaded,
+      uploadedComplete,
       active,
       media,
       source,
       query,
+      sort,
     })
-  }, [snapshot, gamesByName, uploaded, groups, groupKey, media, source, query])
+  }, [
+    snapshot,
+    gamesByName,
+    uploaded,
+    uploadedComplete,
+    groups,
+    groupKey,
+    media,
+    source,
+    query,
+    sort,
+  ])
+  const pagingError = uploadedQuery.isFetchNextPageError
+  // A filter can hide every loaded entry while older pages may still match;
+  // keep loading rather than claiming the library has nothing here.
   const loading =
     (desktop !== null && !snapshot && !error) ||
-    (handle.length > 0 && uploadedQuery.isLoading)
+    (handle.length > 0 && uploadedQuery.isLoading) ||
+    (!uploadedComplete && !pagingError)
   const hasAnything = (snapshot?.totalCount ?? 0) > 0 || uploaded.length > 0
+  const paging: LibraryPaging = {
+    pageCount: uploadedQuery.data?.pages.length ?? 0,
+    hasNextPage: uploadedQuery.hasNextPage,
+    isFetchingNextPage: uploadedQuery.isFetchingNextPage,
+    error: pagingError,
+    fetchNextPage: async () => {
+      await uploadedQuery.fetchNextPage()
+    },
+  }
 
-  return { groups, entries: visibleEntries, loading, error, hasAnything }
+  return {
+    groups,
+    entries: visibleEntries,
+    loading,
+    error,
+    hasAnything,
+    paging,
+  }
+}
+
+type LibraryPaging = {
+  pageCount: number
+  hasNextPage: boolean
+  isFetchingNextPage: boolean
+  error: boolean
+  fetchNextPage: () => Promise<void>
+}
+
+function LibraryPagingSentinel({ paging }: { paging: LibraryPaging }) {
+  const sentinelRef = useInfiniteScrollSentinel(
+    paging.fetchNextPage,
+    paging.hasNextPage && !paging.error,
+    paging.isFetchingNextPage,
+  )
+  if (!paging.hasNextPage) return null
+  return (
+    <div
+      // Remount per page so a sentinel still in view after a page lands (a
+      // filter can hide most of it) is observed afresh and loads the next.
+      key={paging.pageCount}
+      ref={sentinelRef}
+      className="flex min-h-6 items-center justify-center"
+    >
+      {paging.isFetchingNextPage ? (
+        <Spinner className="size-3" />
+      ) : paging.error ? (
+        <div
+          role="alert"
+          className="text-foreground-muted flex items-center gap-2 text-xs"
+        >
+          <AlertCircleIcon className="text-destructive size-4" />
+          <span>{t("Couldn't load more clips")}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => void paging.fetchNextPage()}
+          >
+            {t("Retry")}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 function LibraryToolbar({

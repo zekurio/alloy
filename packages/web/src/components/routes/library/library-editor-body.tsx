@@ -240,18 +240,19 @@ function LocalEditorBody({
     !titleInvalid &&
     (isImage || rangeMs >= MIN_TRIM_MS)
 
-  useLibraryEditorShortcuts({
-    prevEntry,
-    nextEntry,
-    onDelete: onRequestDelete,
-    togglePlayback: playback.togglePlayback,
-  })
-
   // Full-range == no trim: the persisted state for an untrimmed capture is
   // null on both bounds, matching FULL_CLIP_TOLERANCE_MS semantics.
   const currentTrim = toPersistedTrimRange(trim, trimmed)
   const trimDirty =
     playback.durationMs > 0 && !sameTrimRange(currentTrim, savedTrim)
+
+  useLibraryEditorShortcuts({
+    prevEntry,
+    nextEntry,
+    hasUnsavedEdits: dirty || trimDirty,
+    onDelete: onRequestDelete,
+    togglePlayback: playback.togglePlayback,
+  })
 
   const handleSave = () => {
     if (saving || publishing || deleting || titleInvalid) return

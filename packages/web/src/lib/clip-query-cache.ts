@@ -8,11 +8,44 @@ import { searchKeys } from "./search-api"
 import { tagKeys } from "./tag-queries"
 import { invalidateStorageUsage } from "./user-queries"
 
+type ClipPages = InfiniteData<ClipPage, string | null>
+
+// Every paged list that holds clip rows: the clip family itself plus the
+// home feed and tag pages, so edits show up wherever the clip is listed.
+const PAGED_CLIP_KEYS = [
+  clipKeys.infinite(),
+  feedKeys.lists(),
+  tagKeys.allClips(),
+] as const
+
+function pagedClipQueries(qc: QueryClient) {
+  return PAGED_CLIP_KEYS.flatMap((queryKey) =>
+    qc.getQueriesData<ClipPages>({ queryKey }),
+  )
+}
+
+function updatePagedClips(
+  qc: QueryClient,
+  updateItems: (items: ClipRow[]) => ClipRow[],
+) {
+  for (const queryKey of PAGED_CLIP_KEYS) {
+    qc.setQueriesData<ClipPages | undefined>(
+      { queryKey },
+      (old) =>
+        old && {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            items: updateItems(page.items),
+          })),
+        },
+    )
+  }
+}
+
 export interface ClipsSnapshot {
   lists: Array<[readonly unknown[], ClipRow[] | undefined]>
-  infinite: Array<
-    [readonly unknown[], InfiniteData<ClipPage, string | null> | undefined]
-  >
+  infinite: Array<[readonly unknown[], ClipPages | undefined]>
   details: Array<[readonly unknown[], ClipRow | undefined]>
 }
 
@@ -29,9 +62,7 @@ export function findClipInCaches(
     const row = rows?.find((candidate) => candidate.id === clipId)
     if (row) return row
   }
-  for (const [, data] of qc.getQueriesData<
-    InfiniteData<ClipPage, string | null>
-  >({ queryKey: clipKeys.infinite() })) {
+  for (const [, data] of pagedClipQueries(qc)) {
     for (const page of data?.pages ?? []) {
       const row = page.items.find((candidate) => candidate.id === clipId)
       if (row) return row
@@ -50,18 +81,8 @@ export function patchClipInCaches(
     (old) =>
       old?.map((row) => (row.id === clipId ? { ...row, ...patch } : row)),
   )
-  qc.setQueriesData<InfiniteData<ClipPage, string | null> | undefined>(
-    { queryKey: clipKeys.infinite() },
-    (old) =>
-      old && {
-        ...old,
-        pages: old.pages.map((page) => ({
-          ...page,
-          items: page.items.map((row) =>
-            row.id === clipId ? { ...row, ...patch } : row,
-          ),
-        })),
-      },
+  updatePagedClips(qc, (items) =>
+    items.map((row) => (row.id === clipId ? { ...row, ...patch } : row)),
   )
   qc.setQueryData<ClipRow | undefined>(
     clipKeys.detail(clipId),
@@ -78,22 +99,20 @@ export function removeClipFromCaches(
     { queryKey: clipKeys.lists() },
     (old) => old?.filter((row) => row.id !== clipId),
   )
-  qc.setQueriesData<InfiniteData<ClipPage, string | null> | undefined>(
-    { queryKey: clipKeys.infinite() },
-    (old) =>
-      old && {
-        ...old,
-        pages: old.pages.map((page) => ({
-          ...page,
-          items: page.items.filter((row) => row.id !== clipId),
-        })),
-      },
-  )
+  updatePagedClips(qc, (items) => items.filter((row) => row.id !== clipId))
   if (removeDetail) removeClipDetailFromCache(qc, clipId)
 }
 
 export function removeClipDetailFromCache(qc: QueryClient, clipId: string) {
   qc.removeQueries({ queryKey: clipKeys.detail(clipId), exact: true })
+}
+
+/** Pauses in-flight fetches of every cache an optimistic write touches. */
+export async function cancelClipCaches(qc: QueryClient): Promise<void> {
+  await Promise.all([
+    qc.cancelQueries({ queryKey: clipKeys.all }),
+    ...PAGED_CLIP_KEYS.map((queryKey) => qc.cancelQueries({ queryKey })),
+  ])
 }
 
 export function invalidateClipCaches(qc: QueryClient): void {
@@ -108,9 +127,7 @@ export function invalidateClipCaches(qc: QueryClient): void {
 export function snapshotClips(qc: QueryClient): ClipsSnapshot {
   return {
     lists: qc.getQueriesData<ClipRow[]>({ queryKey: clipKeys.lists() }),
-    infinite: qc.getQueriesData<InfiniteData<ClipPage, string | null>>({
-      queryKey: clipKeys.infinite(),
-    }),
+    infinite: pagedClipQueries(qc),
     details: qc.getQueriesData<ClipRow>({
       queryKey: clipKeys.details(),
     }),

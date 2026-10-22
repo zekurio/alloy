@@ -31,8 +31,10 @@ export function feedFilterId(filter: FeedFilter): string {
 export const feedKeys = {
   all: ["feed"] as const,
   chips: () => [...feedKeys.all, "chips"] as const,
+  /** Paged feed lists, holding `InfiniteData<ClipPage>`. */
+  lists: () => [...feedKeys.all, "list"] as const,
   list: (filter: FeedFilter, sort: ClipFeedSort, limit: number) =>
-    [...feedKeys.all, "list", ...filterKey(filter), { sort, limit }] as const,
+    [...feedKeys.lists(), ...filterKey(filter), { sort, limit }] as const,
 }
 
 export function feedInfiniteQueryOptions(

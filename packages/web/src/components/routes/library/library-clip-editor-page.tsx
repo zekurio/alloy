@@ -162,9 +162,14 @@ function ClipEditorBody({
     handoffPoster: media.handoffPoster,
   })
 
+  const [detailsDirty, setDetailsDirty] = useState(false)
+  const mediaDirty =
+    row.mediaKind === "image" ? screenshot.changed : canTrim && trimChanged
+
   useLibraryEditorShortcuts({
     prevEntry,
     nextEntry,
+    hasUnsavedEdits: detailsDirty || mediaDirty,
     onDelete: () => {
       if (canManage) deleteFlow.openDialog()
     },
@@ -205,6 +210,7 @@ function ClipEditorBody({
           ? errorMessage(trimMutation.error, t("Couldn't trim the clip"))
           : null,
     onSaveMedia: row.mediaKind === "image" ? screenshot.save : handleSaveTrim,
+    onDirtyChange: setDetailsDirty,
   }
 
   return (

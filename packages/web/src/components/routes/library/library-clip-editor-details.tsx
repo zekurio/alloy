@@ -19,7 +19,7 @@ import {
   Link2OffIcon,
   SaveIcon,
 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { ComponentType } from "react"
 
 import { useClipMetadataDraft } from "@/components/clip-editor/use-clip-metadata-draft"
@@ -100,6 +100,8 @@ interface ClipDetailsProps {
   mediaError: string | null
   /** Save the media edit with the metadata fields. */
   onSaveMedia: () => void
+  /** Reports whether the metadata fields hold unsaved edits. */
+  onDirtyChange: (dirty: boolean) => void
 }
 
 function gameRowFromRef(row: ClipRow): GameRow | null {
@@ -132,6 +134,7 @@ export function ClipEditorDetails({
   mediaPending,
   mediaError,
   onSaveMedia,
+  onDirtyChange,
 }: ClipDetailsProps) {
   const {
     title,
@@ -170,6 +173,11 @@ export function ClipEditorDetails({
       tags: row.tags,
     },
   )
+  useEffect(() => {
+    onDirtyChange(dirty)
+    // The draft goes with this sheet, so its edits stop counting on unmount.
+    return () => onDirtyChange(false)
+  }, [dirty, onDirtyChange])
   const saveMutation = useUpdateClipMutation()
   const visibilityMutation = useUpdateClipMutation()
   const librarySearch = useLibrarySearch()

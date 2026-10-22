@@ -6,7 +6,7 @@ import type {
   RecordingLibraryItem,
   RecordingLibrarySnapshot,
 } from "@/lib/desktop"
-import type { LibrarySource } from "@/lib/library-search"
+import type { LibrarySort, LibrarySource } from "@/lib/library-search"
 
 import {
   gameNameKey,
@@ -20,14 +20,15 @@ export type LibraryEntry =
   | {
       type: "local"
       key: string
-      createdAt: string
+      /** When the entry sorts into the grid; see `clipListedAt`. */
+      listedAt: string
       status: "local"
       item: LibraryItemView
     }
   | {
       type: "cloud"
       key: string
-      createdAt: string
+      listedAt: string
       status: "cloud" | "synced"
       row: ClipRow
       /**
@@ -96,6 +97,11 @@ function filterUploadedClips(
   })
 }
 
+/** The server's listing time, so merged entries keep its page order. */
+function clipListedAt(row: ClipRow): string {
+  return row.publishedAt ?? row.createdAt
+}
+
 function libraryServerIdForItem(item: RecordingLibraryItem): string | null {
   return item.uploadedClipId
 }
@@ -118,23 +124,38 @@ export function buildLibraryEntries({
   snapshot,
   gamesByName,
   uploaded,
+  uploadedComplete,
   active,
   media,
   source,
   query,
+  sort,
 }: {
   snapshot: RecordingLibrarySnapshot | null
   gamesByName: Map<string, GameNameLookupResult>
+  /** Uploaded clips loaded so far, in server listing order for `sort`. */
   uploaded: ClipRow[]
+  /** False while more upload pages remain on the server. */
+  uploadedComplete: boolean
   active: LibraryGroupView | null
   media: MediaFilter
   source: LibrarySource
   query: string
+  sort: LibrarySort
 }): LibraryEntry[] {
+  const direction = sort === "oldest" ? 1 : -1
   const cloudIds = new Set(uploaded.map((row) => row.id))
+  // Until every upload page is in, a capture past the last loaded clip could
+  // belong after clips not fetched yet, and one linked to an unloaded clip
+  // can't be told apart from an unsynced capture. Both wait for more pages.
+  const lastLoaded = uploadedComplete ? undefined : uploaded.at(-1)
+  const boundary = lastLoaded ? Date.parse(clipListedAt(lastLoaded)) : null
   const localItems = (snapshot?.items ?? []).filter((item) => {
     const serverId = libraryServerIdForItem(item)
-    return !(serverId && cloudIds.has(serverId))
+    if (serverId && cloudIds.has(serverId)) return false
+    if (boundary === null) return true
+    if (serverId) return false
+    return (Date.parse(item.createdAt) - boundary) * direction <= 0
   })
   const localByClipId = new Map<string, RecordingLibraryItem[]>()
   for (const item of snapshot?.items ?? []) {
@@ -159,7 +180,7 @@ export function buildLibraryEntries({
         return {
           type: "local",
           key: `local:${view.id}`,
-          createdAt: view.createdAt,
+          listedAt: view.createdAt,
           status: "local",
           item: view,
         }
@@ -179,7 +200,7 @@ export function buildLibraryEntries({
       return {
         type: "cloud",
         key: `cloud:${row.id}`,
-        createdAt: row.createdAt,
+        listedAt: clipListedAt(row),
         status: localItem ? "synced" : "cloud",
         row,
         localItems: linked,
@@ -188,6 +209,6 @@ export function buildLibraryEntries({
     })
 
   return [...local, ...cloud].sort(
-    (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+    (a, b) => (Date.parse(a.listedAt) - Date.parse(b.listedAt)) * direction,
   )
 }

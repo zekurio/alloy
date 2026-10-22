@@ -2,6 +2,7 @@ import type { ClipRow, QueueClip, UpdateClipInput, UserClip } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import {
+  infiniteQueryOptions,
   type QueryClient,
   queryOptions,
   useMutation,
@@ -14,6 +15,7 @@ import { api } from "./api"
 import {
   type ClipsSnapshot,
   findClipInCaches,
+  cancelClipCaches,
   invalidateClipCaches,
   patchClipInCaches,
   removeClipDetailFromCache,
@@ -24,7 +26,6 @@ import {
 import { clipKeys } from "./clip-query-keys"
 import { useUploadQueueStream } from "./clip-queue-stream"
 import { errorMessage } from "./error-message"
-import { invalidateGameQueries } from "./game-queries"
 import { invalidateStorageUsage } from "./user-queries"
 
 export { profileMediaQueryOptions } from "./profile-media-queries"
@@ -70,16 +71,62 @@ export function warmClipDetailCache(qc: QueryClient, row: ClipRow): void {
   void qc.prefetchQuery(clipDetailQueryOptions(row.id))
 }
 
-export function useUserClipsQuery(handle: string) {
-  return useQuery(userClipsQueryOptions(handle))
-}
+// The server's maximum page size for user media listings.
+const USER_CLIPS_PAGE_LIMIT = 50
 
-export function userClipsQueryOptions(handle: string) {
-  return queryOptions({
-    queryKey: clipKeys.userList(handle),
-    queryFn: () => api.users.fetchMedia(handle, { media: "all", limit: 50 }),
+export type UserClipsSort = "recent" | "oldest"
+
+/**
+ * Every clip a user has uploaded, all media kinds, paged in listing order.
+ * Lives under the infinite key family so the shared patch and invalidate
+ * helpers keep it in step with edits and deletes.
+ */
+export function userClipsInfiniteQueryOptions(
+  handle: string,
+  sort: UserClipsSort = "recent",
+) {
+  return infiniteQueryOptions({
+    queryKey: [...clipKeys.infinite(), "user-clips", handle, { sort }],
+    // SAFETY: The offset cursor is a string; null denotes the first page.
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const offset = Number(pageParam ?? 0)
+      const items = await api.users.fetchMedia(handle, {
+        media: "all",
+        sort,
+        limit: USER_CLIPS_PAGE_LIMIT,
+        offset,
+      })
+      return {
+        items,
+        nextCursor:
+          items.length === USER_CLIPS_PAGE_LIMIT
+            ? String(offset + items.length)
+            : null,
+      }
+    },
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: handle.length > 0,
   })
+}
+
+/**
+ * Flattens loaded pages. Offset paging can repeat a row when an upload lands
+ * between page fetches, so later copies are dropped.
+ */
+export function flattenUserClipPages(
+  pages: ReadonlyArray<{ items: UserClip[] }> | undefined,
+): UserClip[] {
+  const seen = new Set<string>()
+  const rows: UserClip[] = []
+  for (const page of pages ?? []) {
+    for (const row of page.items) {
+      if (seen.has(row.id)) continue
+      seen.add(row.id)
+      rows.push(row)
+    }
+  }
+  return rows
 }
 
 export function useUploadQueueQuery({ enabled }: { enabled: boolean }) {
@@ -106,7 +153,7 @@ export function useUpdateClipMutation() {
     onMutate: async ({ clipId, input }) => {
       // Pause in-flight refetches so our optimistic write isn't
       // immediately overwritten by a stale response.
-      await qc.cancelQueries({ queryKey: clipKeys.all })
+      await cancelClipCaches(qc)
       const snap = snapshotClips(qc)
       // SAFETY: UpdateClipInput contains only mutable ClipRow fields with the
       // same value types.
@@ -121,16 +168,11 @@ export function useUpdateClipMutation() {
       // vs empty string for description) land here.
       patchClipInCaches(qc, row.id, row)
     },
-    onSettled: (_data, _error, variables) => {
+    onSettled: () => {
       // Schedule a background refresh so we don't drift from the server
-      // on fields we don't patch locally (view count, etc.).
-      void qc.invalidateQueries({ queryKey: clipKeys.all })
-      if (
-        variables.input.gameId !== undefined ||
-        variables.input.privacy !== undefined
-      ) {
-        void invalidateGameQueries(qc)
-      }
+      // on fields we don't patch locally (view count, etc.), including the
+      // feed, tag and search lists a privacy or game change reshapes.
+      invalidateClipCaches(qc)
     },
   })
 }
@@ -151,9 +193,7 @@ export function useTrimClipMutation() {
       patchClipInCaches(qc, row.id, row)
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: clipKeys.all })
-      void invalidateGameQueries(qc)
-      void invalidateStorageUsage(qc)
+      invalidateClipCaches(qc)
     },
   })
 }
@@ -172,8 +212,7 @@ export function useUpdateClipImageMutation() {
     }) => api.clips.updateImage(clipId, file, sourceVersion),
     onSuccess: (row) => patchClipInCaches(qc, row.id, row),
     onSettled: () => {
-      void invalidateClipCaches(qc)
-      void invalidateStorageUsage(qc)
+      invalidateClipCaches(qc)
     },
   })
 }
@@ -189,7 +228,7 @@ export function useReEncodeClipMutation() {
   >({
     mutationFn: ({ clipId }) => api.clips.reEncode(clipId),
     onMutate: async ({ clipId }) => {
-      await qc.cancelQueries({ queryKey: clipKeys.all })
+      await cancelClipCaches(qc)
       // A ready clip remains playable from its committed media. encodeActive
       // exposes the background work without overloading its publication state.
       const current = findClipInCaches(qc, clipId)
@@ -227,7 +266,7 @@ export function useReEncodeClipMutation() {
       patchClipInCaches(qc, row.id, row)
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: clipKeys.all })
+      invalidateClipCaches(qc)
     },
   })
 }
@@ -253,7 +292,7 @@ export function useSetClipPosterMutation() {
       patchClipInCaches(qc, row.id, row)
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: clipKeys.all })
+      invalidateClipCaches(qc)
     },
   })
 }
@@ -273,7 +312,7 @@ export function useDeleteClipMutation() {
   >({
     mutationFn: ({ clipId }) => api.clips.delete(clipId),
     onMutate: async ({ clipId, removeDetail = true }) => {
-      await qc.cancelQueries({ queryKey: clipKeys.all })
+      await cancelClipCaches(qc)
       const snap = snapshotClips(qc)
       removeClipFromCaches(qc, clipId, { removeDetail })
       return snap

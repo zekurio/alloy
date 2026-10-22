@@ -9,7 +9,7 @@ import { BlockedGate } from "@/components/routes/profile/blocked-gate"
 import { ProfileIdentity } from "@/components/routes/profile/profile-identity"
 import { ProfileIdentitySkeleton } from "@/components/routes/profile/profile-identity-skeleton"
 import { ProfileTabsNav } from "@/components/routes/profile/profile-tabs-nav"
-import { userClipsQueryOptions, useUserClipsQuery } from "@/lib/clip-queries"
+import { userClipsInfiniteQueryOptions } from "@/lib/clip-queries"
 import {
   useProfileCachePatchers,
   userProfileQueryOptions,
@@ -21,11 +21,11 @@ import {
 export const Route = createFileRoute("/(app)/_app/u/$username")({
   loader: async ({ context, params }) => {
     const profileOptions = userProfileQueryOptions(params.username)
-    const clipsOptions = userClipsQueryOptions(params.username)
+    const clipsOptions = userClipsInfiniteQueryOptions(params.username)
     const viewerOptions = userProfileViewerQueryOptions(params.username)
     const profile = await context.queryClient.ensureQueryData(profileOptions)
     await context.queryClient.ensureQueryData(viewerOptions)
-    void context.queryClient.prefetchQuery(clipsOptions)
+    void context.queryClient.prefetchInfiniteQuery(clipsOptions)
     return { profile }
   },
   component: UserProfileLayout,
@@ -36,9 +36,6 @@ function UserProfileLayout() {
   const navigate = useNavigate()
   const profileQuery = useUserProfileQuery(username)
   const viewerQuery = useUserProfileViewerQuery(username)
-  // Prime the clips cache from the layout — children read the same query key
-  // via `useUserClipsQuery` and will get instant data on route change.
-  useUserClipsQuery(username)
   const { setViewer } = useProfileCachePatchers(username)
   const baseProfile = profileQuery.data ?? null
   const viewer = viewerQuery.data?.viewer
