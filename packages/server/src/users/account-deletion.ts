@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto"
 
-import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipView, uploadTicket } from "@alloy/db/schema"
 import type { AccountDisableSource } from "@alloy/server/auth/account-state"
@@ -10,6 +9,7 @@ import {
 } from "@alloy/server/auth/identity"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { db } from "@alloy/server/db/index"
+import { postgresErrorHasCode } from "@alloy/server/db/postgres-error"
 import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
@@ -20,10 +20,6 @@ import { accountDeletionState } from "./account-deletion-state"
 import { userAssetDeletionIntents } from "./user-asset-deletion"
 
 const FINAL_TRANSACTION_DEADLOCK_RETRIES = 4
-const PostgreSqlErrorSchema = t.object({
-  cause: t.unknown().optional(),
-  code: t.string().optional(),
-})
 
 export type AccountDeletionResult = "deleted" | "not-found"
 
@@ -225,20 +221,6 @@ async function finalizeAccountDeletion(
 
 export function canonicalIds(ids: readonly string[]): string[] {
   return [...new Set(ids.map((id) => id.toLowerCase()))].sort()
-}
-
-export function postgresErrorHasCode(
-  cause: unknown,
-  expectedCode: string,
-): boolean {
-  let current = cause
-  for (let depth = 0; depth < 4; depth += 1) {
-    const parsed = PostgreSqlErrorSchema.safeParse(current)
-    if (!parsed.success) return false
-    if (parsed.data.code === expectedCode) return true
-    current = parsed.data.cause
-  }
-  return false
 }
 
 export async function retryPostgresDeadlocks<T>(

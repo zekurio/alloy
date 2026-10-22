@@ -33,6 +33,13 @@ export const game = pgTable(
     icon_url: text(),
     created_at: timestamp().notNull().defaultNow(),
     updated_at: timestamp().notNull().defaultNow(),
+    // SteamGridDB refresh schedule. `refresh_after` is the earliest time the
+    // next refresh may run; null means "derive from updated_at" for rows that
+    // predate the column. Failed refreshes stamp a backoff here and count in
+    // `refresh_failures`, so an upstream outage or a deleted game does not
+    // cost a SteamGridDB round-trip on every read.
+    refresh_after: timestamp(),
+    refresh_failures: integer().notNull().default(0),
   },
   (t) => [
     index("game_name_idx").on(t.name),

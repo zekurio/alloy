@@ -1,4 +1,4 @@
-import type { Context, MiddlewareHandler } from "hono"
+import type { Context, Env, MiddlewareHandler } from "hono"
 
 import { tooManyRequests } from "./http-response"
 
@@ -9,12 +9,12 @@ type Bucket = {
 
 const MAX_SWEEP_INTERVAL_MS = 60 * 1000
 
-export function rateLimiter(opts: {
+export function rateLimiter<E extends Env = Env>(opts: {
   windowMs: number
   max: number
-  key: (c: Context) => string | null
+  key: (c: Context<E>) => string | null
   now?: () => number
-}): MiddlewareHandler {
+}): MiddlewareHandler<E> {
   const buckets = new Map<string, Bucket>()
   const now = opts.now ?? Date.now
 

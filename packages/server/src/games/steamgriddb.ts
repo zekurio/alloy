@@ -3,14 +3,15 @@ import type {
   SteamGridDBAsset,
   SteamGridDBSearchResult,
 } from "@alloy/contracts"
+import { game } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
+import { db } from "@alloy/server/db/index"
 import { imageBlurHash } from "@alloy/server/media/blurhash"
+import { inArray } from "drizzle-orm"
 
 import {
-  getFirstGrid,
-  getFirstHero,
-  getFirstIcon,
-  getFirstLogo,
+  fetchFirstGameAsset,
+  type GameAssetFetch,
   listGameAssets,
   searchSteamGridDBGames,
 } from "./steamgriddb-client"
@@ -74,94 +75,77 @@ export async function searchGames(
   return rankSearchResults(await searchSteamGridDBGames(trimmed), trimmed)
 }
 
-const ICON_CACHE_MAX = 512
-const iconUrlCache = new Map<number, string | null>()
-const logoUrlCache = new Map<number, string | null>()
+type SearchArtwork = { iconUrl: string | null; logoUrl: string | null }
 
-function cacheGet(
-  cache: Map<number, string | null>,
-  id: number,
-): string | null | undefined {
-  if (!cache.has(id)) return undefined
-  const value = cache.get(id)
-  // Touch LRU order: delete + re-insert puts it at the tail.
-  cache.delete(id)
-  cache.set(id, value ?? null)
-  return value ?? null
-}
-
-function cacheSet(
-  cache: Map<number, string | null>,
-  id: number,
-  url: string | null,
-) {
-  if (cache.has(id)) cache.delete(id)
-  cache.set(id, url)
-  if (cache.size > ICON_CACHE_MAX) {
-    const oldest = cache.keys().next().value
-    if (oldest !== undefined) cache.delete(oldest)
+/**
+ * Artwork for games the catalogue already knows, keyed by SteamGridDB id.
+ * Their rows are the source of truth (an admin may have replaced the icon),
+ * and reading them costs no upstream call.
+ */
+async function knownSearchArtwork(
+  steamgriddbIds: number[],
+): Promise<Map<number, SearchArtwork>> {
+  const known = new Map<number, SearchArtwork>()
+  if (steamgriddbIds.length === 0) return known
+  const rows = await db
+    .select({
+      steamgriddbId: game.steamgriddb_id,
+      iconUrl: game.icon_url,
+      logoUrl: game.logo_url,
+    })
+    .from(game)
+    .where(inArray(game.steamgriddb_id, steamgriddbIds))
+  for (const row of rows) {
+    if (row.steamgriddbId === null) continue
+    known.set(row.steamgriddbId, { iconUrl: row.iconUrl, logoUrl: row.logoUrl })
   }
+  return known
 }
 
-async function resolveIconUrl(id: number): Promise<string | null> {
-  const cached = cacheGet(iconUrlCache, id)
-  if (cached !== undefined) return cached
-  const asset = await optionalSteamGridDBAsset("icon", id, () =>
-    getFirstIcon(id),
-  )
-  const url = asset?.url ?? null
-  cacheSet(iconUrlCache, id, url)
-  return url
-}
-
-async function resolveLogoUrl(id: number): Promise<string | null> {
-  const cached = cacheGet(logoUrlCache, id)
-  if (cached !== undefined) return cached
-  const asset = await optionalSteamGridDBAsset("logo", id, () =>
-    getFirstLogo(id),
-  )
-  const url = asset?.url ?? null
-  cacheSet(logoUrlCache, id, url)
-  return url
-}
-
-async function optionalSteamGridDBAsset<T>(
-  label: string,
+async function upstreamSearchArtwork(
   steamgriddbId: number,
-  load: () => Promise<T | null>,
-): Promise<T | null> {
-  try {
-    return await load()
-  } catch (err) {
-    logger.warn(`failed to fetch ${label} for ${steamgriddbId}:`, err)
-    return null
+): Promise<SearchArtwork> {
+  const icon = await fetchFirstGameAsset(steamgriddbId, "icon")
+  if (icon.kind === "asset") return { iconUrl: icon.asset.url, logoUrl: null }
+  if (icon.kind === "failed") {
+    logger.warn(`failed to fetch icon for ${steamgriddbId}:`, icon.error)
+    return { iconUrl: null, logoUrl: null }
+  }
+  const logo = await fetchFirstGameAsset(steamgriddbId, "logo")
+  if (logo.kind === "failed") {
+    logger.warn(`failed to fetch logo for ${steamgriddbId}:`, logo.error)
+  }
+  return {
+    iconUrl: null,
+    logoUrl: logo.kind === "asset" ? logo.asset.url : null,
   }
 }
 
+/**
+ * Adds an icon (or logo) to the first `topN` results. Known games answer from
+ * their rows; the rest cost up to two SteamGridDB listings each, bounded and
+ * cached by the client layer.
+ */
 export async function enrichSearchResultsWithIcons(
   results: SteamGridDBSearchResult[],
   topN: number,
-): Promise<
-  Array<
-    SteamGridDBSearchResult & { iconUrl: string | null; logoUrl: string | null }
-  >
-> {
+): Promise<Array<SteamGridDBSearchResult & SearchArtwork>> {
   const head = results.slice(0, topN)
   const tail = results.slice(topN)
-  const assets = await Promise.all(
-    head.map(async (r) => {
-      const iconUrl = await resolveIconUrl(r.id)
-      const logoUrl = iconUrl ? null : await resolveLogoUrl(r.id)
-      return { iconUrl, logoUrl }
-    }),
+  const known = await knownSearchArtwork(head.map((result) => result.id))
+  const artwork = await Promise.all(
+    head.map(
+      async (result) =>
+        known.get(result.id) ?? (await upstreamSearchArtwork(result.id)),
+    ),
   )
   return [
-    ...head.map((r, i) => ({
-      ...r,
-      iconUrl: assets[i]?.iconUrl ?? null,
-      logoUrl: assets[i]?.logoUrl ?? null,
+    ...head.map((result, index) => ({
+      ...result,
+      iconUrl: artwork[index]?.iconUrl ?? null,
+      logoUrl: artwork[index]?.logoUrl ?? null,
     })),
-    ...tail.map((r) => ({ ...r, iconUrl: null, logoUrl: null })),
+    ...tail.map((result) => ({ ...result, iconUrl: null, logoUrl: null })),
   ]
 }
 
@@ -180,48 +164,83 @@ export async function browseGameArtwork(
   return assets.slice(0, GAME_ARTWORK_MAX)
 }
 
-export async function getGameAssets(steamgriddbId: number): Promise<{
+/**
+ * The first asset per role for ingestion. Each role tells "SteamGridDB lists
+ * nothing" apart from "the listing failed" so a refresh during an outage
+ * keeps the artwork a game already has.
+ */
+export type GameArtwork = {
+  hero: GameAssetFetch
+  heroBlurHash: string | null
+  grid: GameAssetFetch
+  gridBlurHash: string | null
+  logo: GameAssetFetch
+  icon: GameAssetFetch
+}
+
+export function artworkUrl(fetched: GameAssetFetch): string | null {
+  return fetched.kind === "asset" ? fetched.asset.url : null
+}
+
+export function artworkFailed(artwork: GameArtwork): boolean {
+  return [artwork.hero, artwork.grid, artwork.logo, artwork.icon].some(
+    (fetched) => fetched.kind === "failed",
+  )
+}
+
+/** Stored artwork whose BlurHash a refresh reuses while its URL is unchanged. */
+type KnownArtwork = {
   heroUrl: string | null
   heroBlurHash: string | null
   gridUrl: string | null
   gridBlurHash: string | null
-  logoUrl: string | null
-  iconUrl: string | null
-}> {
-  const [hero, grid, logo, icon] = await Promise.all([
-    optionalSteamGridDBAsset("hero", steamgriddbId, () =>
-      getFirstHero(steamgriddbId),
-    ),
-    optionalSteamGridDBAsset("grid", steamgriddbId, () =>
-      getFirstGrid(steamgriddbId),
-    ),
-    optionalSteamGridDBAsset("logo", steamgriddbId, () =>
-      getFirstLogo(steamgriddbId),
-    ),
-    optionalSteamGridDBAsset("icon", steamgriddbId, () =>
-      getFirstIcon(steamgriddbId),
-    ),
-  ])
-  const [heroBlurHash, gridBlurHash] = await Promise.all([
-    computeGameAssetBlurHash("hero", steamgriddbId, hero?.url ?? null),
-    computeGameAssetBlurHash("grid", steamgriddbId, grid?.url ?? null),
-  ])
-  return {
-    heroUrl: hero?.url ?? null,
-    heroBlurHash,
-    gridUrl: grid?.url ?? null,
-    gridBlurHash,
-    logoUrl: logo?.url ?? null,
-    iconUrl: icon?.url ?? null,
-  }
 }
 
-async function computeGameAssetBlurHash(
+export async function getGameArtwork(
+  steamgriddbId: number,
+  known: KnownArtwork | null,
+): Promise<GameArtwork> {
+  const [hero, grid, logo, icon] = await Promise.all([
+    fetchFirstGameAsset(steamgriddbId, "hero"),
+    fetchFirstGameAsset(steamgriddbId, "grid"),
+    fetchFirstGameAsset(steamgriddbId, "logo"),
+    fetchFirstGameAsset(steamgriddbId, "icon"),
+  ])
+  for (const [label, fetched] of [
+    ["hero", hero],
+    ["grid", grid],
+    ["logo", logo],
+    ["icon", icon],
+  ] as const) {
+    if (fetched.kind === "failed") {
+      logger.warn(
+        `failed to fetch ${label} for ${steamgriddbId}:`,
+        fetched.error,
+      )
+    }
+  }
+  const [heroBlurHash, gridBlurHash] = await Promise.all([
+    gameAssetBlurHash("hero", steamgriddbId, artworkUrl(hero), {
+      url: known?.heroUrl ?? null,
+      blurHash: known?.heroBlurHash ?? null,
+    }),
+    gameAssetBlurHash("grid", steamgriddbId, artworkUrl(grid), {
+      url: known?.gridUrl ?? null,
+      blurHash: known?.gridBlurHash ?? null,
+    }),
+  ])
+  return { hero, heroBlurHash, grid, gridBlurHash, logo, icon }
+}
+
+async function gameAssetBlurHash(
   label: "hero" | "grid",
   steamgriddbId: number,
   url: string | null,
+  known: { url: string | null; blurHash: string | null },
 ): Promise<string | null> {
   if (!url) return null
+  // Downloading the image again would only reproduce the stored hash.
+  if (url === known.url && known.blurHash) return known.blurHash
   if (!isSteamGridDBAssetUrl(url)) {
     logger.warn(
       `rejected ${label} blurhash URL for ${steamgriddbId}: unexpected origin`,

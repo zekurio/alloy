@@ -13,6 +13,7 @@ import { requireSession } from "@alloy/server/auth/require-session"
 import { db } from "@alloy/server/db/index"
 import { lookupGamesByName } from "@alloy/server/games/lookup"
 import {
+  findSteamGridDBGameRef,
   gameSelection,
   getSteamGridDBGameRef,
   getSteamGridDBGameRefBySlug,
@@ -23,6 +24,7 @@ import {
   searchGames,
 } from "@alloy/server/games/steamgriddb"
 import { errorResult, notFound } from "@alloy/server/runtime/http-response"
+import { rateLimiter } from "@alloy/server/runtime/rate-limit"
 import { and, desc, eq, ilike, isNull, type SQL, sql } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 
@@ -43,6 +45,19 @@ const CreatorsQuery = t.object({
   limit: limitQueryParam(24, 12),
 })
 
+// Icons for the first few autocomplete rows; the rest render without one.
+// Known games answer from their rows, unknown ones cost SteamGridDB calls.
+const SEARCH_ARTWORK_LIMIT = 12
+
+// Creating catalogue rows costs several SteamGridDB calls each and is the
+// only way signed-in users can grow the game table, so it is metered per
+// viewer. Reads of existing rows are not.
+const gameCreateRateLimit = rateLimiter<{ Variables: { viewerId: string } }>({
+  windowMs: 60_000,
+  max: 30,
+  key: (c) => c.var.viewerId,
+})
+
 type ResolvedGameRef =
   | { row: GameRow; response?: never }
   | { row?: never; response: Response }
@@ -58,6 +73,17 @@ async function resolveSteamGridDBGameRef(
   } catch (err) {
     return { response: errorResult(c, steamgriddbErrorResponse(err)) }
   }
+}
+
+// Read routes only serve games the catalogue already has. Numeric links to
+// games nobody has attached a clip to answer 404 instead of ingesting them.
+async function findSteamGridDBGameRefForRead(
+  c: Context,
+  steamgriddbId: number,
+): Promise<ResolvedGameRef> {
+  const row = await findSteamGridDBGameRef(steamgriddbId)
+  if (!row) return { response: notFound(c, "Unknown SteamGridDB game id") }
+  return { row }
 }
 
 async function resolveSteamGridDBGameRefBySlug(
@@ -87,7 +113,7 @@ async function resolveSteamGridDBGameRefByParam(
     Number.isSafeInteger(steamgriddbId) &&
     steamgriddbId > 0
   ) {
-    return resolveSteamGridDBGameRef(c, steamgriddbId)
+    return findSteamGridDBGameRefForRead(c, steamgriddbId)
   }
 
   return resolveSteamGridDBGameRefBySlug(c, value)
@@ -104,7 +130,7 @@ export const gamesRoute = new Hono()
         const results = await searchGames(q)
         const enriched = await enrichSearchResultsWithIcons(
           results,
-          results.length,
+          SEARCH_ARTWORK_LIMIT,
         )
         return c.json(enriched)
       } catch (err) {
@@ -134,6 +160,7 @@ export const gamesRoute = new Hono()
   .post(
     "/resolve",
     requireSession,
+    gameCreateRateLimit,
     tbValidator("json", ResolveBody),
     async (c) => {
       const { steamgriddbId } = c.req.valid("json")
@@ -145,6 +172,7 @@ export const gamesRoute = new Hono()
   .post(
     "/lookup",
     requireSession,
+    gameCreateRateLimit,
     tbValidator("json", LookupBody),
     async (c) => {
       const { names } = c.req.valid("json")
