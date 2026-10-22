@@ -298,7 +298,7 @@ async fn ranged_response(
     if length > MEDIA_STREAM_BUFFER_BYTES {
         // Bound file reads independently of the stream's capacity. The 256 KiB
         // read batches retain high loopback throughput without multi-megabyte
-        // in-flight chunks (see the desktop performance benchmark).
+        // in-flight chunks.
         file.set_max_buf_size(capacity / 2);
     }
     let stream = ReaderStream::with_capacity(file.take(length), capacity);

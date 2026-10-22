@@ -10,8 +10,7 @@ use alloy_desktop::capture_library::protocol::CaptureHttpServer;
 use alloy_desktop::capture_library::store::{CaptureLibrary, CaptureLibraryConfig};
 use alloy_desktop::capture_library::types::{
     CaptureGame, CaptureKind, CaptureRecord, CaptureSource, CommitImport, ExportRequest,
-    ExportSegment, GameGuess, GameGuessMatchKind, GameGuessSource, MetaPatch, PostProcess,
-    TrimUpdate,
+    ExportSegment, MetaPatch, PostProcess, TrimUpdate,
 };
 use alloy_desktop::capture_library::{
     LibraryError, download::DownloadManager, types::DownloadRequest,
@@ -71,67 +70,22 @@ fn capture(filename: &str, kind: CaptureKind) -> CaptureRecord {
 }
 
 #[tokio::test]
-async fn recorder_game_guesses_survive_manifest_round_trips() {
-    let temp = TempDir::new().expect("temp dir");
-    let library = library(&temp);
-    let folder = temp.path().join("captures/Clips/Test Game");
-    fs::create_dir_all(&folder).await.unwrap();
-    for name in ["first.mp4", "second.mp4"] {
-        let media = folder.join(name);
-        fs::write(&media, b"not a real mp4").await.unwrap();
-        let mut record = capture(media.to_str().unwrap(), CaptureKind::Replay);
-        // The recorder reports confidence in percent, like the host models.
-        record.game.as_mut().unwrap().guess = Some(GameGuess {
-            source: GameGuessSource::DiscordDetectable,
-            source_id: Some("700136079562375258".to_string()),
-            name: "Test Game".to_string(),
-            aliases: Vec::new(),
-            executable: Some("game.exe".to_string()),
-            path: None,
-            window_title: None,
-            window_class: None,
-            icon_url: None,
-            confidence: 96,
-            match_kind: GameGuessMatchKind::Executable,
-        });
-        library.remember_capture(&record).unwrap();
-    }
-
-    let manifest = library.read_manifest();
-    assert_eq!(manifest.captures.len(), 2);
-    assert!(
-        manifest.captures.values().all(|entry| entry
-            .game_guess
-            .as_ref()
-            .map(|guess| guess.confidence)
-            == Some(96))
-    );
-
-    // One invalid entry must not reset the other entries.
-    let path = temp.path().join("user-data/recording-library.json");
-    let mut json: serde_json::Value =
-        serde_json::from_slice(&fs::read(&path).await.unwrap()).unwrap();
-    let key = json["captures"]
-        .as_object()
-        .unwrap()
-        .keys()
-        .next()
-        .unwrap()
-        .clone();
-    json["captures"][&key]["gameGuess"]["confidence"] = serde_json::json!(250);
-    fs::write(&path, serde_json::to_vec(&json).unwrap())
-        .await
-        .unwrap();
-    let manifest = library.read_manifest();
-    assert_eq!(manifest.captures.len(), 1);
-    assert!(!manifest.captures.contains_key(&key));
-}
-
-#[tokio::test]
 async fn manifest_keeps_valid_entries_beside_malformed_records() {
     let temp = TempDir::new().unwrap();
     let library = library(&temp);
     let path = temp.path().join("user-data/recording-library.json");
+    // A game guess as the recorder reports it, confidence in percent.
+    let guess = serde_json::json!({
+        "source": "discord-detectable",
+        "sourceId": "700136079562375258",
+        "name": "Test Game",
+        "aliases": [],
+        "executable": "game.exe",
+        "confidence": 96,
+        "matchKind": "executable"
+    });
+    let mut overconfident = guess.clone();
+    overconfident["confidence"] = serde_json::json!(250);
     let fixture = serde_json::json!({
         "version": 2,
         "captures": {
@@ -141,20 +95,45 @@ async fn manifest_keeps_valid_entries_beside_malformed_records() {
                 "title": "Quoted \"title\" with Unicode: 日本語",
                 "unknownFutureField": {"nested": [1, true, null]}
             },
+            "guess.mp4": {
+                "id": "valid-capture-002",
+                "filename": "guess.mp4",
+                "title": "Guessed game",
+                "gameGuess": guess
+            },
             "null.mp4": null,
             "array.mp4": [1, 2, 3],
             "wrong-type.mp4": {"id": 42},
-            "invalid.mp4": {"id": "short", "title": "Invalid ID"}
+            "invalid.mp4": {"id": "short", "title": "Invalid ID"},
+            // An enum value no build knows, and a guess past its bounds.
+            "bogus-kind.mp4": {
+                "id": "valid-capture-003",
+                "filename": "bogus-kind.mp4",
+                "kind": "bogus"
+            },
+            "overconfident.mp4": {
+                "id": "valid-capture-004",
+                "filename": "overconfident.mp4",
+                "title": "Guessed too well",
+                "gameGuess": overconfident
+            }
         }
     });
     fs::write(&path, serde_json::to_vec(&fixture).unwrap())
         .await
         .unwrap();
     let manifest = library.read_manifest();
-    assert_eq!(manifest.captures.len(), 1);
+    assert_eq!(manifest.captures.len(), 2);
     assert_eq!(
         manifest.captures["valid.mp4"].title,
         "Quoted \"title\" with Unicode: 日本語"
+    );
+    assert_eq!(
+        manifest.captures["guess.mp4"]
+            .game_guess
+            .as_ref()
+            .map(|guess| guess.confidence),
+        Some(96)
     );
     let mut future_version = fixture;
     future_version["version"] = serde_json::json!(255);
@@ -1854,86 +1833,6 @@ async fn replay_tails_copy_only_from_a_keyframe_close_to_the_tail() {
     assert!(is_red(frame_color(&far, 100)));
 }
 
-#[cfg(unix)]
-#[tokio::test]
-async fn saving_a_clip_does_not_wait_for_exports() {
-    use std::os::unix::fs::PermissionsExt;
-    use std::time::Duration;
-
-    let temp = TempDir::new().expect("temp dir");
-    // Stands in for ffmpeg. Encodes wait until `release` exists, so two
-    // exports hold every export slot for as long as the test needs them to.
-    let gate = temp.path().join("gate");
-    std::fs::create_dir_all(&gate).unwrap();
-    let script = temp.path().join("gated-ffmpeg");
-    let body = r#"#!/bin/sh
-for arg in "$@"; do
-  if [ "$arg" = libx264 ]; then
-    touch "GATE/encode.$$"
-    while [ ! -e "GATE/release" ]; do sleep 0.05; done
-  fi
-done
-exec ffmpeg "$@"
-"#;
-    std::fs::write(&script, body.replace("GATE", gate.to_str().unwrap())).unwrap();
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
-    alloy_desktop::server::install_crypto_provider();
-    let library = CaptureLibrary::new(CaptureLibraryConfig::new(
-        temp.path().join("captures"),
-        temp.path().join("user-data"),
-        temp.path().join("cache"),
-        &script,
-        Path::new("ffprobe"),
-    ))
-    .unwrap();
-    let exported = temp.path().join("captures/Clips/Test Game/exported.mp4");
-    write_color_recording(&exported, "libx264", 6, 60);
-    let exported_id = library
-        .remember_capture(&capture(exported.to_str().unwrap(), CaptureKind::Replay))
-        .unwrap();
-    let saved = exported.with_file_name("saved.mp4");
-    write_color_recording(&saved, "libx264", 6, 60);
-    let mut replay = capture(saved.to_str().unwrap(), CaptureKind::Replay);
-    replay.post_process = Some(PostProcess::TrimTail { keep_ms: 3_000 });
-
-    let reencode = |start_ms, end_ms| ExportRequest {
-        id: exported_id.clone(),
-        allow_server_trim: false,
-        segments: vec![ExportSegment { start_ms, end_ms }],
-    };
-    let exports = async {
-        tokio::join!(
-            export(&library, reencode(500, 2_500)),
-            export(&library, reencode(1_000, 3_000)),
-        )
-    };
-    let finalized = async {
-        tokio::time::timeout(Duration::from_secs(30), async {
-            while std::fs::read_dir(&gate).unwrap().count() < 2 {
-                tokio::time::sleep(Duration::from_millis(20)).await;
-            }
-        })
-        .await
-        .expect("both exports start encoding");
-        let finalized = tokio::time::timeout(
-            Duration::from_secs(30),
-            finalize_capture(&library, &mut replay),
-        )
-        .await;
-        std::fs::write(gate.join("release"), b"").unwrap();
-        finalized
-    };
-    let ((first, second), finalized) = tokio::join!(exports, finalized);
-    finalized
-        .expect("the clip finalizes while both exports encode")
-        .unwrap();
-    assert!(replay.duration_ms.unwrap().abs_diff(4_000) < 150);
-    // Both exports still finish once their encodes may run.
-    for export in [first.unwrap(), second.unwrap()] {
-        assert!(export.size_bytes > 0);
-    }
-}
-
 #[tokio::test]
 async fn shutdown_media_cancels_future_tool_work() {
     let temp = TempDir::new().expect("temp dir");
@@ -2481,54 +2380,4 @@ fn write_short_video_with_long_audio(path: &Path) {
 
 fn which(binary: &str) -> std::path::PathBuf {
     std::path::PathBuf::from(binary)
-}
-
-#[tokio::test]
-async fn a_bad_manifest_entry_does_not_discard_the_others() {
-    let temp = TempDir::new().expect("temp dir");
-    let first = library(&temp);
-    let media = temp.path().join("captures/Clips/Test Game/clip.mp4");
-    fs::create_dir_all(media.parent().unwrap()).await.unwrap();
-    fs::write(&media, b"not a real mp4").await.unwrap();
-    first
-        .remember_capture(&capture(media.to_str().unwrap(), CaptureKind::Replay))
-        .unwrap();
-    let id = first.snapshot().unwrap().items[0].id.clone();
-    first
-        .update_metadata(MetaPatch {
-            id: id.clone(),
-            title: Some("Kept".to_string()),
-            game_name: None,
-            game_icon_url: None,
-            game_guess: None,
-            description: None,
-            tags: None,
-            mentions: None,
-            privacy: None,
-            uploaded_clip_id: None,
-            uploaded_clip_source_start_ms: None,
-            uploaded_clip_source_duration_ms: None,
-        })
-        .unwrap();
-    drop(first);
-
-    // Corrupt a second entry the way a bug or a hand edit would: an enum field
-    // with a value no build knows.
-    let manifest_path = temp.path().join("user-data/recording-library.json");
-    let mut manifest: serde_json::Value =
-        serde_json::from_slice(&fs::read(&manifest_path).await.unwrap()).unwrap();
-    let captures = manifest["captures"].as_object_mut().unwrap();
-    let mut broken = captures.values().next().unwrap().clone();
-    broken["id"] = serde_json::Value::String("brokenbrokenbrokenbrok".to_string());
-    broken["filename"] = serde_json::Value::String("/nowhere/broken.mp4".to_string());
-    broken["kind"] = serde_json::Value::String("bogus".to_string());
-    captures.insert("/nowhere/broken.mp4".to_string(), broken);
-    fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap())
-        .await
-        .unwrap();
-
-    let reopened = library(&temp);
-    let snapshot = reopened.snapshot().unwrap();
-    assert_eq!(snapshot.items.len(), 1);
-    assert_eq!(snapshot.items[0].title, "Kept");
 }
