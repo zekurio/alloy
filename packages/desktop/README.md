@@ -42,9 +42,13 @@ starts its tools through `work.rs`, never through its own `Command`:
   processes per lane (`Heavy` for whole-file encodes and copies, `Light` for
   probes and frame grabs), cancels them when the library shuts down, and
   collapses concurrent requests for one job key (`exclusive`).
-- `media.rs` probes captures, finalizes recorder post-processing, and renders
-  exports. A selection covering a whole uploadable MP4 exports the capture
-  itself instead of copying it into the cache.
+- `media.rs` probes captures, finalizes recorder post-processing, and
+  exports. Exports avoid re-encoding: a selection covering a whole uploadable
+  MP4 exports the capture itself, and a publish stream-copies a shorter
+  selection from the keyframe before it and hands the selection to the server
+  as an ingest trim, so the server's frame-exact cut is the only encode.
+  Replay tails are stream-copied the same way. Re-encoding is the fallback
+  for codecs the server rejects and for keyframes more than 10 s apart.
 - `poster.rs` makes the thumbnail and BlurHash for videos and screenshots.
   The host creates the poster before announcing a new capture, import, or
   download, keeps the BlurHash in the manifest, and the loopback server

@@ -962,6 +962,7 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
         &library,
         ExportRequest {
             id: id.clone(),
+            allow_server_trim: false,
             segments: vec![ExportSegment {
                 start_ms: 250,
                 end_ms: 1_500,
@@ -988,6 +989,7 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
         &library,
         ExportRequest {
             id: id.clone(),
+            allow_server_trim: false,
             segments: vec![ExportSegment {
                 start_ms: 500,
                 end_ms: 1_800,
@@ -1008,6 +1010,7 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
         &library,
         ExportRequest {
             id: id.clone(),
+            allow_server_trim: false,
             segments: vec![ExportSegment {
                 start_ms: 20,
                 end_ms: source_duration - 20,
@@ -1042,10 +1045,254 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     assert!(!first_segment.exists());
     assert!(media.is_file());
 
+    // The joined file has keyframes at 0 s and 2 s, so keeping its last
+    // 500 ms keeps everything from the keyframe at 2 s.
     joined.post_process = Some(PostProcess::TrimTail { keep_ms: 500 });
     finalize_capture(&library, &mut joined).await.unwrap();
     assert!(joined.post_process.is_none());
-    assert!(joined.duration_ms.unwrap().abs_diff(500) < 150);
+    assert!(joined.duration_ms.unwrap().abs_diff(2_000) < 150);
+}
+
+/// Writes a 30 fps recording that shows red, green, blue and white for two
+/// seconds each, in turn, over a tone, with a keyframe every `gop` frames.
+fn write_color_recording(path: &Path, codec: &str, seconds: u32, gop: u32) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let colors = ["red", "green", "blue", "white"];
+    let count = seconds.div_ceil(2) as usize;
+    let mut graph = (0..count)
+        .map(|index| {
+            format!(
+                "color=c={}:s=160x90:r=30:d=2[c{index}];",
+                colors[index % colors.len()]
+            )
+        })
+        .collect::<String>();
+    graph.push_str(
+        &(0..count)
+            .map(|index| format!("[c{index}]"))
+            .collect::<String>(),
+    );
+    graph.push_str(&format!(
+        "concat=n={count}:v=1:a=0[v];sine=f=440:d={seconds}[a]"
+    ));
+    let gop = gop.to_string();
+    let mut args = vec![
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-filter_complex",
+        &graph,
+        "-map",
+        "[v]",
+        "-map",
+        "[a]",
+        "-c:v",
+        codec,
+        "-g",
+        &gop,
+        "-keyint_min",
+        &gop,
+        "-sc_threshold",
+        "0",
+        "-bf",
+        "2",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-y",
+    ];
+    if codec == "libx265" {
+        args.extend([
+            "-x265-params",
+            "log-level=error:scenecut=0",
+            "-tag:v",
+            "hvc1",
+        ]);
+    }
+    args.push(path.to_str().unwrap());
+    let output = Command::new("ffmpeg")
+        .args(&args)
+        .output()
+        .expect("ffmpeg starts");
+    assert!(
+        output.status.success(),
+        "ffmpeg failed: {:?}",
+        output.stderr
+    );
+}
+
+fn video_codec(path: &Path) -> String {
+    let output = Command::new("ffprobe")
+        .args([
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=codec_name",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("ffprobe starts");
+    String::from_utf8(output.stdout).unwrap().trim().to_string()
+}
+
+/// The average color of the frame shown at `at_ms`.
+fn frame_color(path: &Path, at_ms: u64) -> [u8; 3] {
+    let output = Command::new("ffmpeg")
+        .args([
+            "-v",
+            "error",
+            "-ss",
+            &format!("{}.{:03}", at_ms / 1_000, at_ms % 1_000),
+            "-i",
+            path.to_str().unwrap(),
+            "-frames:v",
+            "1",
+            "-vf",
+            "scale=1:1",
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "rgb24",
+            "-",
+        ])
+        .output()
+        .expect("ffmpeg starts");
+    output.stdout.try_into().expect("one RGB pixel")
+}
+
+fn is_white([red, green, blue]: [u8; 3]) -> bool {
+    red > 200 && green > 200 && blue > 200
+}
+
+fn is_red([red, green, blue]: [u8; 3]) -> bool {
+    red > 200 && green < 60 && blue < 60
+}
+
+fn is_blue([red, green, blue]: [u8; 3]) -> bool {
+    red < 60 && green < 60 && blue > 200
+}
+
+#[tokio::test]
+async fn trimmed_publishes_copy_the_recording_and_leave_the_cut_to_the_server() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let media = temp.path().join("captures/Clips/Test Game/hevc.mp4");
+    write_color_recording(&media, "libx265", 8, 60);
+    let mut record = capture(media.to_str().unwrap(), CaptureKind::Replay);
+    record.duration_ms = Some(8_000);
+    let id = library.remember_capture(&record).unwrap();
+    let selection = ExportSegment {
+        start_ms: 4_500,
+        end_ms: 7_000,
+    };
+
+    let copied = export(
+        &library,
+        ExportRequest {
+            id: id.clone(),
+            allow_server_trim: true,
+            segments: vec![selection],
+        },
+    )
+    .await
+    .unwrap();
+    let file = library.find_export_path(&copied.id).unwrap();
+    // The recording's own HEVC packets, not a local H.264 encode.
+    assert_eq!(video_codec(&file), "hevc");
+    assert!(!copied.whole_capture);
+    // The copy starts on the keyframe at 4 s; audio from just before it may
+    // pull its time zero a little earlier.
+    let start = copied.source_start_ms;
+    assert!((3_850..=4_000).contains(&start), "copy starts at {start}");
+    assert_eq!(copied.source_end_ms, start + copied.duration_ms);
+    assert_eq!(copied.trim_start_ms, Some(selection.start_ms - start));
+    assert_eq!(copied.trim_end_ms, Some(selection.end_ms - start));
+    assert!(copied.duration_ms + 50 >= selection.end_ms - start);
+    // The reported offset maps the copy onto the recording to the frame:
+    // white starts at 6 s in the recording.
+    let white_at = 6_000 - start;
+    assert!(is_blue(frame_color(&file, white_at - 50)));
+    assert!(is_white(frame_color(&file, white_at + 40)));
+
+    // From the recording's first keyframe on, the copy keeps its timeline.
+    let opening = export(
+        &library,
+        ExportRequest {
+            id: id.clone(),
+            allow_server_trim: true,
+            segments: vec![ExportSegment {
+                start_ms: 300,
+                end_ms: 2_500,
+            }],
+        },
+    )
+    .await
+    .unwrap();
+    let file = library.find_export_path(&opening.id).unwrap();
+    assert_eq!(opening.source_start_ms, 0);
+    assert_eq!(
+        (opening.trim_start_ms, opening.trim_end_ms),
+        (Some(300), Some(2_500))
+    );
+    assert!(is_red(frame_color(&file, 1_950)));
+    assert!(!is_red(frame_color(&file, 2_040)));
+
+    // Without the server's cut, a selection is still re-encoded exactly.
+    let exact = export(
+        &library,
+        ExportRequest {
+            id: id.clone(),
+            allow_server_trim: false,
+            segments: vec![selection],
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        video_codec(&library.find_export_path(&exact.id).unwrap()),
+        "h264"
+    );
+    assert_eq!((exact.source_start_ms, exact.source_end_ms), (4_500, 7_000));
+    assert_eq!((exact.trim_start_ms, exact.trim_end_ms), (None, None));
+
+    // A keyframe too far before the selection would upload a long lead-in,
+    // so that selection is re-encoded exactly instead.
+    let sparse = temp.path().join("captures/Clips/Test Game/sparse.mp4");
+    write_color_recording(&sparse, "libx264", 14, 900);
+    let sparse_id = library
+        .remember_capture(&capture(sparse.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+    let fallback = export(
+        &library,
+        ExportRequest {
+            id: sparse_id,
+            allow_server_trim: true,
+            segments: vec![ExportSegment {
+                start_ms: 12_000,
+                end_ms: 13_500,
+            }],
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        (fallback.source_start_ms, fallback.source_end_ms),
+        (12_000, 13_500)
+    );
+    assert_eq!((fallback.trim_start_ms, fallback.trim_end_ms), (None, None));
+
+    // Keeping a replay's tail copies from the keyframe before it too.
+    let mut replay = capture(media.to_str().unwrap(), CaptureKind::Replay);
+    replay.post_process = Some(PostProcess::TrimTail { keep_ms: 3_000 });
+    finalize_capture(&library, &mut replay).await.unwrap();
+    assert_eq!(video_codec(&media), "hevc");
+    assert!(replay.duration_ms.unwrap().abs_diff(4_000) < 150);
+    assert!(is_blue(frame_color(&media, 100)));
 }
 
 #[tokio::test]

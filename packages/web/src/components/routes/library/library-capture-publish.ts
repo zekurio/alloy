@@ -4,7 +4,10 @@ import type {
   GameRow,
   UserSearchResult,
 } from "@alloy/api"
-import { contentTypeForFile } from "@alloy/desktop-contracts"
+import {
+  contentTypeForFile,
+  type RecordingLibraryExport,
+} from "@alloy/desktop-contracts"
 import { t } from "@alloy/i18n"
 
 import type { ScreenshotEdit } from "@/components/media/screenshot-edit"
@@ -82,9 +85,12 @@ async function prepareCapturePublishPayload(
     )
     return { ...payload, localCaptureId: input.item.id }
   }
+  // The host stream-copies the selection from the keyframe before it and
+  // reports the selection as a trim, so the server's cut is the only encode.
   const exported = await input.desktop.recording.exportLibraryCapture({
     id: input.item.id,
     segments: [{ startMs: input.trim.startMs, endMs: input.trim.endMs }],
+    allowServerTrim: true,
   })
   throwIfAborted(signal)
   const response = await fetch(exported.mediaUrl, { signal })
@@ -96,29 +102,54 @@ async function prepareCapturePublishPayload(
     type: contentType,
     lastModified: Date.now(),
   })
-  const selected = await prepareSelectedClipFile(file)
+  // The host measured the export with ffprobe. Probing it again in a video
+  // element would also fail for codecs this WebView cannot decode, such as
+  // HEVC without a platform decoder, although the server takes them.
+  const media = exportedMedia(exported) ?? (await prepareSelectedClipFile(file))
   throwIfAborted(signal)
+  const serverTrim = exportTrim(exported)
   const payload: PublishPayload = {
-    file: selected.file,
-    contentType: selected.contentType,
+    file,
+    contentType,
     title: input.title,
     description: nullableClipDescription(input.description),
     tags: parseTagString(input.tags),
     gameId: input.game?.id ?? null,
     privacy: input.privacy,
-    width: selected.width,
-    height: selected.height,
-    durationMs: selected.durationMs,
-    sizeBytes: selected.sizeBytes,
+    width: media.width,
+    height: media.height,
+    durationMs: media.durationMs,
+    sizeBytes: file.size,
     mentionedUserIds: input.mentions.map((mention) => mention.id),
+    trimStartMs: serverTrim?.startMs,
+    trimEndMs: serverTrim?.endMs,
     localCaptureId: input.item.id,
-    // The export is already the exact cut, so the upload carries no trim.
+    // The upload is this range of the capture, trimmed or not.
     localClipSource: {
       startMs: exported.sourceStartMs,
       durationMs: exported.sourceEndMs - exported.sourceStartMs,
     },
   }
   return payload
+}
+
+/** The export's shape as the host measured it, when it reported all of it. */
+function exportedMedia(
+  exported: RecordingLibraryExport,
+): { width: number; height: number; durationMs: number } | null {
+  const { width, height, durationMs } = exported
+  if (width === null || height === null || !(durationMs > 0)) return null
+  return { width, height, durationMs }
+}
+
+/** The selection within a wider export; null when the export is the cut. */
+function exportTrim(
+  exported: RecordingLibraryExport,
+): { startMs: number; endMs: number } | null {
+  const startMs = exported.trimStartMs ?? null
+  const endMs = exported.trimEndMs ?? null
+  if (startMs === null || endMs === null) return null
+  return { startMs, endMs }
 }
 
 function estimatedExportSizeBytes(

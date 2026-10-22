@@ -100,6 +100,12 @@ export interface RecordingLibraryExportRequest {
    * sequences are rejected.
    */
   segments: Array<{ startMs: number; endMs: number }>
+  /**
+   * The caller uploads the export with the trim it reports, so the host may
+   * stream-copy from the keyframe before the range instead of re-encoding
+   * it. Hosts that predate this ignore it and return an exact cut.
+   */
+  allowServerTrim?: boolean
 }
 
 export interface RecordingLibraryMetaPatch {
@@ -151,6 +157,13 @@ export interface RecordingLibraryExport {
    */
   sourceStartMs: number
   sourceEndMs: number
+  /**
+   * The requested range within the export, in export time, when the export
+   * covers more than it. Set only for `allowServerTrim` requests; absent from
+   * hosts that predate it.
+   */
+  trimStartMs?: number | null
+  trimEndMs?: number | null
 }
 
 export interface RecordingLibraryImportResult {

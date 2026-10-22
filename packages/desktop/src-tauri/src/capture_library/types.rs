@@ -185,7 +185,7 @@ pub struct TrimUpdate {
     pub trim_end_ms: Option<u64>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExportSegment {
     pub start_ms: u64,
@@ -197,6 +197,11 @@ pub struct ExportSegment {
 pub struct ExportRequest {
     pub id: String,
     pub segments: Vec<ExportSegment>,
+    /// The caller uploads the export with the trim it reports, so the export
+    /// may cover more than the selection. Older web builds leave it out and
+    /// get an exact cut.
+    #[serde(default)]
+    pub allow_server_trim: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -213,6 +218,10 @@ pub struct LibraryExport {
     /// The range of the capture this export contains, in capture time.
     pub source_start_ms: u64,
     pub source_end_ms: u64,
+    /// The selection within the export, in export time, when the export
+    /// covers more than the selection. Only set for `allow_server_trim`.
+    pub trim_start_ms: Option<u64>,
+    pub trim_end_ms: Option<u64>,
     /// The capture itself is the export, so `id` is the capture id and the
     /// host serves it from the media route instead of the export cache.
     #[serde(skip)]

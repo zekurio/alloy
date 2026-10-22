@@ -40,8 +40,8 @@ export interface PublishPayload {
   sizeBytes: number
   /**
    * Kept source range in the uploaded file's timeline; the server derives
-   * the cut at ingest. Absent when the whole file is kept, which includes
-   * desktop publishes: they upload an already-cut export.
+   * the cut at ingest. Absent when the whole file is kept. Desktop publishes
+   * set it when the host exported a stream copy wider than the selection.
    */
   trimStartMs?: number
   trimEndMs?: number

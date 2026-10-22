@@ -11,7 +11,7 @@ use crate::capture_library::store::{
     CaptureLibrary, ensure_media_in_output, ensure_media_location,
 };
 use crate::capture_library::types::{
-    CaptureRecord, ExportRequest, ExportSegment, LibraryExport, PostProcess, VideoMeta,
+    CaptureRecord, ExportRequest, ExportSegment, LibraryExport, LibraryItem, PostProcess, VideoMeta,
 };
 use crate::capture_library::work::Lane;
 
@@ -19,6 +19,16 @@ pub(crate) const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
 const MEDIA_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 const MIN_EXPORT_SEGMENT_MS: u64 = 100;
 const MIN_EXPORT_TOTAL_MS: u64 = 1_000;
+/// Longest lead-in a stream copy may carry before the range it is for.
+/// Recordings have a keyframe every two seconds; a file with sparser
+/// keyframes is re-encoded rather than copied with a long lead-in.
+const MAX_COPY_LEAD_IN_MS: u64 = 10_000;
+/// Copied past the end of a range, so the frames that close it decode.
+const COPY_END_MARGIN_MS: u64 = 250;
+/// Slack between packet timestamps and probed durations. Matches the
+/// server's `TRIM_FULL_RANGE_TOLERANCE_MS`, which decides when a trim keeps
+/// the whole upload.
+const COPY_TOLERANCE_MS: u64 = 50;
 
 #[derive(Debug, Deserialize)]
 struct ProbeOutput {
@@ -30,6 +40,7 @@ struct ProbeOutput {
 #[derive(Debug, Deserialize)]
 struct ProbeFormat {
     duration: Option<String>,
+    start_time: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,6 +49,19 @@ struct ProbeStream {
     codec_name: Option<String>,
     width: Option<u32>,
     height: Option<u32>,
+    start_time: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PacketProbeOutput {
+    #[serde(default)]
+    packets: Vec<ProbePacket>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ProbePacket {
+    pts_time: Option<String>,
+    flags: Option<String>,
 }
 
 /// What one ffprobe run reports about a capture.
@@ -45,6 +69,11 @@ struct ProbedMedia {
     meta: VideoMeta,
     video_codec: Option<String>,
     audio_codecs: Vec<String>,
+    /// Container start in seconds. Times in the library, in ffmpeg's `-ss`,
+    /// and on the server count from here.
+    start_seconds: f64,
+    /// When the first video frame shows, in ms from the container start.
+    video_offset_ms: Option<i64>,
 }
 
 /// Reads a capture's duration and dimensions.
@@ -84,6 +113,11 @@ async fn probe_media(library: &CaptureLibrary, path: &Path) -> Result<ProbedMedi
         .and_then(|value| value.parse::<f64>().ok())
         .filter(|value| value.is_finite() && *value > 0.0)
         .map(|value| (value * 1_000.0).round() as u64);
+    let start_seconds = parsed
+        .format
+        .as_ref()
+        .and_then(|format| parse_seconds(format.start_time.as_deref()))
+        .unwrap_or(0.0);
     Ok(ProbedMedia {
         meta: VideoMeta {
             duration_ms,
@@ -97,7 +131,17 @@ async fn probe_media(library: &CaptureLibrary, path: &Path) -> Result<ProbedMedi
             .filter(|stream| stream.codec_type.as_deref() == Some("audio"))
             .map(|stream| stream.codec_name.clone().unwrap_or_default())
             .collect(),
+        start_seconds,
+        video_offset_ms: video
+            .and_then(|value| parse_seconds(value.start_time.as_deref()))
+            .map(|value| ((value - start_seconds) * 1_000.0).round() as i64),
     })
+}
+
+fn parse_seconds(value: Option<&str>) -> Option<f64> {
+    value
+        .and_then(|value| value.parse::<f64>().ok())
+        .filter(|value| value.is_finite())
 }
 
 /// The server accepts MP4 with H.264, HEVC, or AV1 video and AAC audio. A
@@ -106,6 +150,12 @@ fn ensure_uploadable_mp4(path: &Path, probed: &ProbedMedia) -> Result<()> {
     if extension(path).as_deref() != Some("mp4") {
         return Err(LibraryError::UnsupportedMedia);
     }
+    ensure_uploadable_codecs(probed)
+}
+
+/// Streams the server accepts, in any container: these copy into an MP4
+/// upload without re-encoding.
+fn ensure_uploadable_codecs(probed: &ProbedMedia) -> Result<()> {
     let Some(codec) = probed.video_codec.as_deref() else {
         return Err(LibraryError::MediaTool("MP4 has no video track".into()));
     };
@@ -122,18 +172,23 @@ fn ensure_uploadable_mp4(path: &Path, probed: &ProbedMedia) -> Result<()> {
     Ok(())
 }
 
-/// Produces the file a publish uploads. A selection that covers the whole
-/// capture uploads the capture itself; anything shorter is rendered into the
-/// export cache.
+/// Produces the file a publish uploads, without re-encoding when it can:
+/// - A selection that covers the whole capture uploads the capture itself.
+/// - When the caller lets the server cut (`allow_server_trim`), a shorter
+///   selection is stream-copied from the keyframe before it, and the export
+///   reports the selection as a trim for the server's one frame-exact encode.
+/// - Anything else is re-encoded to exactly the selection.
 pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<LibraryExport> {
     let item = library
         .find_item(&request.id)
         .ok_or(LibraryError::CaptureNotFound)?;
     let source = PathBuf::from(&item.filename);
     let probed = probe_media(library, &source).await?;
-    let source_duration = item
+    // The recorder reports the length it asked for; the file knows its own.
+    let source_duration = probed
+        .meta
         .duration_ms
-        .or(probed.meta.duration_ms)
+        .or(item.duration_ms)
         .ok_or_else(|| LibraryError::InvalidExport("capture has no duration".into()))?;
     let segment = sanitize_segment(request.segments.first(), source_duration)?;
     if request.segments.len() != 1 {
@@ -161,12 +216,24 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
             // A whole-file export contains the entire capture, including the
             // few milliseconds the requested segment may have left out.
             duration_ms: source_duration,
-            width: item.width,
-            height: item.height,
+            width: probed.meta.width.or(item.width),
+            height: probed.meta.height.or(item.height),
             source_start_ms: 0,
             source_end_ms: source_duration,
+            trim_start_ms: None,
+            trim_end_ms: None,
             whole_capture: true,
         });
+    }
+    if request.allow_server_trim && ensure_uploadable_codecs(&probed).is_ok() {
+        match export_copy(library, &item, &source, &probed, segment).await {
+            Ok(export) => return Ok(export),
+            Err(LibraryError::MediaCancelled) => return Err(LibraryError::MediaCancelled),
+            Err(error) => log::warn!(
+                "could not stream-copy {} for upload, re-encoding it: {error}",
+                item.file_name
+            ),
+        }
     }
     // A whole capture the server cannot take as it is gets re-encoded like
     // any other selection.
@@ -205,11 +272,237 @@ pub async fn export(library: &CaptureLibrary, request: ExportRequest) -> Result<
         content_type: CONTENT_TYPE_MP4.to_string(),
         size_bytes,
         duration_ms: source_end_ms - source_start_ms,
-        width: item.width,
-        height: item.height,
+        width: probed.meta.width.or(item.width),
+        height: probed.meta.height.or(item.height),
         source_start_ms,
         source_end_ms,
+        trim_start_ms: None,
+        trim_end_ms: None,
         whole_capture: false,
+    })
+}
+
+/// Exports a selection as a stream copy that starts on the keyframe before
+/// it, so the upload keeps the recorder's encode and codec. The server's
+/// frame-exact cut is then the only encode the published clip goes through.
+async fn export_copy(
+    library: &CaptureLibrary,
+    item: &LibraryItem,
+    source: &Path,
+    probed: &ProbedMedia,
+    segment: ExportSegment,
+) -> Result<LibraryExport> {
+    let keyframe = keyframe_at_or_before(library, source, probed, segment.start_ms)
+        .await?
+        .ok_or_else(|| {
+            LibraryError::MediaTool("no keyframe shortly before the selection".into())
+        })?;
+    // Selections that start within one keyframe interval share a copy.
+    let export_key = format!(
+        "export:copy:{}:{}:{}:{}",
+        item.filename, item.modified_at, keyframe, segment.end_ms
+    );
+    let export_id = crate::capture_library::paths::capture_id(export_key.as_str());
+    let output = library.export_path(&item.id, &export_id)?;
+    tokio::fs::create_dir_all(output.parent().ok_or(LibraryError::InvalidPath)?).await?;
+    {
+        let _slot = library.work().exclusive(export_key).await;
+        if !output.exists() || tokio::fs::metadata(&output).await?.len() == 0 {
+            replace_with(&output, |temp| async move {
+                copy_packets(
+                    library,
+                    source,
+                    probed,
+                    &temp,
+                    keyframe,
+                    segment.end_ms + COPY_END_MARGIN_MS,
+                )
+                .await
+            })
+            .await?;
+        }
+    }
+    let copied = match measure_copy(library, &output, keyframe, segment).await {
+        Ok(copied) => copied,
+        Err(error) => {
+            let _ = tokio::fs::remove_file(&output).await;
+            return Err(error);
+        }
+    };
+    library.replace_exports(&item.id, Some(&export_id))?;
+    // The trim is in the copy's time. Its end is not clamped to the copy:
+    // the server clamps against the duration it measures, and a clamped
+    // minimum-length selection would fall under its minimum.
+    let trim_start = segment.start_ms.saturating_sub(copied.start_ms);
+    let trim_end = segment.end_ms - copied.start_ms;
+    let keeps_all =
+        trim_start <= COPY_TOLERANCE_MS && trim_end + COPY_TOLERANCE_MS >= copied.duration_ms;
+    Ok(LibraryExport {
+        id: export_id,
+        // The host fills this from its loopback file server.
+        media_url: String::new(),
+        file_name: export_file_name(&item.file_name, segment, false),
+        content_type: CONTENT_TYPE_MP4.to_string(),
+        size_bytes: tokio::fs::metadata(&output).await?.len(),
+        duration_ms: copied.duration_ms,
+        width: probed.meta.width.or(item.width),
+        height: probed.meta.height.or(item.height),
+        source_start_ms: copied.start_ms,
+        source_end_ms: copied.start_ms + copied.duration_ms,
+        trim_start_ms: (!keeps_all).then_some(trim_start),
+        trim_end_ms: (!keeps_all).then_some(trim_end),
+        whole_capture: false,
+    })
+}
+
+/// Where a stream copy sits in the capture it was copied from.
+struct CopiedRange {
+    /// Capture time of the copy's time zero.
+    start_ms: u64,
+    duration_ms: u64,
+}
+
+/// The latest keyframe at or before `at_ms`, at most
+/// [`MAX_COPY_LEAD_IN_MS`] before it. Reads packet flags only, nothing is
+/// decoded.
+async fn keyframe_at_or_before(
+    library: &CaptureLibrary,
+    source: &Path,
+    probed: &ProbedMedia,
+    at_ms: u64,
+) -> Result<Option<u64>> {
+    let earliest_ms = at_ms.saturating_sub(MAX_COPY_LEAD_IN_MS);
+    // Packet times are absolute; library times count from the container
+    // start.
+    let interval = format!(
+        "{:.3}%{:.3}",
+        probed.start_seconds + earliest_ms as f64 / 1_000.0,
+        probed.start_seconds + (at_ms + 1) as f64 / 1_000.0
+    );
+    let output = library
+        .work()
+        .ffprobe(
+            &[
+                "-v",
+                "error",
+                "-protocol_whitelist",
+                "file,pipe",
+                "-select_streams",
+                "v:0",
+                "-read_intervals",
+                &interval,
+                "-show_entries",
+                "packet=pts_time,flags",
+                "-print_format",
+                "json",
+                "-i",
+                &source.to_string_lossy(),
+            ],
+            PROBE_TIMEOUT,
+        )
+        .await?;
+    let parsed: PacketProbeOutput = serde_json::from_slice(&output.stdout)
+        .map_err(|_| LibraryError::MediaTool("ffprobe returned invalid JSON".into()))?;
+    Ok(parsed
+        .packets
+        .iter()
+        .filter(|packet| {
+            packet
+                .flags
+                .as_deref()
+                .is_some_and(|flags| flags.starts_with('K'))
+        })
+        .filter_map(|packet| parse_seconds(packet.pts_time.as_deref()))
+        .map(|seconds| ((seconds - probed.start_seconds) * 1_000.0).round())
+        .filter(|ms| *ms >= 0.0)
+        .map(|ms| ms as u64)
+        .filter(|ms| *ms <= at_ms && at_ms - ms <= MAX_COPY_LEAD_IN_MS)
+        .max())
+}
+
+/// Copies the capture's packets from the keyframe at `keyframe_ms` up to
+/// `until_ms` into `output`.
+async fn copy_packets(
+    library: &CaptureLibrary,
+    source: &Path,
+    probed: &ProbedMedia,
+    output: &Path,
+    keyframe_ms: u64,
+    until_ms: u64,
+) -> Result<()> {
+    let source_text = source.to_string_lossy().into_owned();
+    let output_text = output.to_string_lossy().into_owned();
+    // From the first frame on, a remux keeps the capture's own timeline.
+    // Later, seeking just past the keyframe lands on it however its
+    // timestamp rounds, and a stream copy keeps every packet from it on.
+    // Shifting the timestamps to start at zero, instead of letting the
+    // muxer hide the lead-in behind an edit list, keeps frames where their
+    // timestamps say: an edit list over B-frames moves them by a frame.
+    let from_start = keyframe_ms as i64 <= probed.video_offset_ms.unwrap_or(0).max(0);
+    let start = format_seconds(keyframe_ms + 1);
+    let duration = format_seconds(until_ms.saturating_sub(keyframe_ms + 1));
+    let mut args = vec![
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-protocol_whitelist",
+        "file,pipe",
+    ];
+    if !from_start {
+        args.extend(["-ss", &start]);
+    }
+    args.extend([
+        "-i",
+        &source_text,
+        "-t",
+        &duration,
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a?",
+        "-c",
+        "copy",
+    ]);
+    if !from_start {
+        args.extend(["-avoid_negative_ts", "make_zero"]);
+    }
+    args.extend(["-movflags", "+faststart", "-y", &output_text]);
+    library
+        .work()
+        .ffmpeg(Lane::Heavy, &args, MEDIA_TIMEOUT)
+        .await?;
+    Ok(())
+}
+
+/// Measures where a copy made by [`copy_packets`] sits in its capture and
+/// checks that it holds `range`.
+async fn measure_copy(
+    library: &CaptureLibrary,
+    copy: &Path,
+    keyframe_ms: u64,
+    range: ExportSegment,
+) -> Result<CopiedRange> {
+    let probed = probe_media(library, copy).await?;
+    let duration_ms = probed
+        .meta
+        .duration_ms
+        .ok_or_else(|| LibraryError::MediaTool("stream copy has no duration".into()))?;
+    // The copy's first video frame is the keyframe. Shifting timestamps to
+    // zero moves it off zero by the B-frame delay, or by audio that starts
+    // before it, so measure where it shows.
+    let start_ms = u64::try_from(keyframe_ms as i64 - probed.video_offset_ms.unwrap_or(0))
+        .map_err(|_| LibraryError::MediaTool("stream copy starts before its capture".into()))?;
+    if start_ms > range.start_ms + COPY_TOLERANCE_MS
+        || range.start_ms.saturating_sub(start_ms) > MAX_COPY_LEAD_IN_MS + COPY_TOLERANCE_MS
+        || start_ms + duration_ms + COPY_TOLERANCE_MS < range.end_ms
+    {
+        return Err(LibraryError::MediaTool(
+            "stream copy does not cover the selection".into(),
+        ));
+    }
+    Ok(CopiedRange {
+        start_ms,
+        duration_ms,
     })
 }
 
@@ -242,16 +535,58 @@ pub async fn finalize_capture(library: &CaptureLibrary, capture: &mut CaptureRec
     Ok(())
 }
 
+/// Keeps the last `keep_ms` of a replay, from the keyframe at or before
+/// that point. Copying keeps the recorder's encode and codec and spares the
+/// CPU while a game may still run; the clip runs up to one keyframe interval
+/// longer, the way disk replays keep whole segments. Without a keyframe
+/// close enough, the tail is re-encoded to the exact length.
 async fn trim_tail(library: &CaptureLibrary, source: &Path, keep_ms: u64) -> Result<()> {
-    let meta = probe_file(library, source).await?;
-    let duration = meta
+    let probed = probe_media(library, source).await?;
+    let duration = probed
+        .meta
         .duration_ms
         .ok_or_else(|| LibraryError::MediaTool("could not probe trim source".into()))?;
     if duration <= keep_ms {
         return Ok(());
     }
+    let tail = ExportSegment {
+        start_ms: duration - keep_ms,
+        end_ms: duration,
+    };
+    let copied = match keyframe_at_or_before(library, source, &probed, tail.start_ms).await {
+        Ok(Some(keyframe)) => {
+            replace_with(source, |temp| async move {
+                copy_packets(
+                    library,
+                    source,
+                    &probed,
+                    &temp,
+                    keyframe,
+                    duration + COPY_END_MARGIN_MS,
+                )
+                .await?;
+                // Check the copy before it replaces the recording.
+                measure_copy(library, &temp, keyframe, tail)
+                    .await
+                    .map(|_| ())
+            })
+            .await
+        }
+        Ok(None) => Err(LibraryError::MediaTool(
+            "no keyframe shortly before the tail".into(),
+        )),
+        Err(error) => Err(error),
+    };
+    match copied {
+        Ok(()) => return Ok(()),
+        Err(LibraryError::MediaCancelled) => return Err(LibraryError::MediaCancelled),
+        Err(error) => log::warn!(
+            "could not stream-copy the tail of {}, re-encoding it: {error}",
+            source.display()
+        ),
+    }
     replace_with(source, |temp| async move {
-        transcode_range(library, source, &temp, duration - keep_ms, duration).await
+        transcode_range(library, source, &temp, tail.start_ms, tail.end_ms).await
     })
     .await
 }
