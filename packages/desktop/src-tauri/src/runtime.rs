@@ -230,7 +230,7 @@ impl DesktopRuntime {
         }
         // One-time cache validation, off the startup path.
         let library = self.library.read().await.clone();
-        tauri::async_runtime::spawn_blocking(move || library.library.remove_orphan_cache_folders());
+        tauri::async_runtime::spawn_blocking(move || library.library.remove_orphans());
         for capture in self.recorder.captures().await {
             // Recovered captures don't hold up the recorder for their posters.
             if let Err(cause) = self.finalize(capture, Duration::ZERO).await {
@@ -276,9 +276,11 @@ impl DesktopRuntime {
         capture: RecordingCapture,
         poster_wait: Duration,
     ) -> Result<(), String> {
-        if !Path::new(&capture.filename).is_file() {
-            // The raw file was deleted or moved. Retrying on every start would
-            // fail forever, so drop it from the recorder's recovery queue.
+        if !media::capture_sources_present(&capture) {
+            // The raw file, or a segment it is joined from, was deleted or
+            // moved. Retrying on every start would fail forever, so drop it
+            // from the recorder's recovery queue with the segments left.
+            media::discard_capture_sources(&capture).await;
             let removed = self
                 .recorder
                 .remove_capture(&capture.id)
@@ -425,6 +427,52 @@ impl DesktopRuntime {
         Ok(())
     }
 
+    /// Saves recording settings. A new capture folder gets its own library
+    /// runtime before the recorder starts saving into it.
+    async fn apply_settings(
+        self: &Arc<Self>,
+        window: &WebviewWindow,
+        settings: RecordingSettings,
+    ) -> Result<RecordingSettings, String> {
+        // Reject bad input before a new capture folder gets created.
+        self.recorder.validate(&settings).map_err(error)?;
+        let previous = self.recorder.get_settings().await;
+        if previous.output_folder != settings.output_folder {
+            let mut config = self.config.clone();
+            config.output_folder = if settings.output_folder.is_empty() {
+                self.default_output.clone()
+            } else {
+                PathBuf::from(&settings.output_folder)
+            };
+            let replacement = Self::open_library(config).await?;
+            let _selection = self.selection_lock.lock().await;
+            let origin = self.selected(window)?;
+            replacement
+                .files
+                .set_selected_origin(Some(origin))
+                .await
+                .map_err(error)?;
+            self.recorder
+                .set_settings(settings.clone())
+                .await
+                .map_err(error)?;
+            self.libraries
+                .lock()
+                .await
+                .push(Arc::downgrade(&replacement));
+            *self.library.write().await = replacement.clone();
+            self.watch_downloads(replacement);
+        } else {
+            self.recorder
+                .set_settings(settings.clone())
+                .await
+                .map_err(error)?;
+        }
+        self.recorder.configure().await.map_err(error)?;
+        self.emit(json!({ "type": "settings", "settings": settings }));
+        Ok(settings)
+    }
+
     pub async fn invoke(
         self: &Arc<Self>,
         window: &WebviewWindow,
@@ -434,46 +482,7 @@ impl DesktopRuntime {
         let library = self.library.read().await.clone();
         match operation {
             "recording.getSettings" => to_value(self.recorder.get_settings().await),
-            "recording.setSettings" => {
-                let settings: RecordingSettings = arg(args, 0)?;
-                // Reject bad input before a new capture folder gets created.
-                self.recorder.validate(&settings).map_err(error)?;
-                let previous = self.recorder.get_settings().await;
-                if previous.output_folder != settings.output_folder {
-                    let mut config = self.config.clone();
-                    config.output_folder = if settings.output_folder.is_empty() {
-                        self.default_output.clone()
-                    } else {
-                        PathBuf::from(&settings.output_folder)
-                    };
-                    let replacement = Self::open_library(config).await?;
-                    let _selection = self.selection_lock.lock().await;
-                    let origin = self.selected(window)?;
-                    replacement
-                        .files
-                        .set_selected_origin(Some(origin))
-                        .await
-                        .map_err(error)?;
-                    self.recorder
-                        .set_settings(settings.clone())
-                        .await
-                        .map_err(error)?;
-                    self.libraries
-                        .lock()
-                        .await
-                        .push(Arc::downgrade(&replacement));
-                    *self.library.write().await = replacement.clone();
-                    self.watch_downloads(replacement);
-                } else {
-                    self.recorder
-                        .set_settings(settings.clone())
-                        .await
-                        .map_err(error)?;
-                }
-                self.recorder.configure().await.map_err(error)?;
-                self.emit(json!({ "type": "settings", "settings": settings }));
-                to_value(settings)
-            }
+            "recording.setSettings" => to_value(self.apply_settings(window, arg(args, 0)?).await?),
             "recording.restartBackend" => to_value(self.recorder.restart().await.map_err(error)?),
             "recording.getStatus" => to_value(self.recorder.get_status().await),
             "recording.getStorageInfo" => {
@@ -609,7 +618,16 @@ impl DesktopRuntime {
             "recording.selectOutputFolder" => {
                 let folder = rfd::AsyncFileDialog::new().pick_folder().await;
                 self.selected(window)?;
-                to_value(folder.map(|file| file.path().to_string_lossy().into_owned()))
+                let Some(folder) = folder else {
+                    return Ok(Value::Null);
+                };
+                // Picking the folder applies it. Web builds before this only
+                // reload the settings after the picker returns; newer ones
+                // save the folder themselves when the settings lack it.
+                let mut settings = self.recorder.get_settings().await;
+                settings.output_folder = folder.path().to_string_lossy().into_owned();
+                let settings = self.apply_settings(window, settings).await?;
+                to_value(&settings.output_folder)
             }
             "recording.listGameProcesses" => {
                 to_value(self.recorder.list_game_processes().await.map_err(error)?)
@@ -729,14 +747,21 @@ fn is_sound(path: &Path) -> bool {
         })
 }
 
+/// Whether a capture path lies below an output folder. The capture may not
+/// exist yet: a disk replay is joined into its destination only when it is
+/// finalized, so its folder stands in for it.
 fn capture_is_in_output(filename: &Path, output: &Path) -> bool {
     let Ok(output) = output.canonicalize() else {
         return false;
     };
-    let Ok(filename) = filename.canonicalize() else {
+    let Ok(folder) = filename
+        .parent()
+        .ok_or(())
+        .and_then(|parent| parent.canonicalize().map_err(|_| ()))
+    else {
         return false;
     };
-    filename.starts_with(output)
+    folder.starts_with(output)
 }
 
 fn infer_capture_output_folder(filename: &Path, kind: RecordingCaptureKind) -> Option<PathBuf> {

@@ -7,13 +7,32 @@ use std::{
 
 use crate::agent::time::timestamp_file_slug;
 use crate::names::file_component;
+use crate::protocol::SIDE_CAR_NAME;
 use crate::types::{RecordingBufferStorage, RecordingCapturePostProcess, RecordingGame};
 
 use super::{ActiveSession, ReplayBufferConfig};
 
 pub(super) const DISK_REPLAY_PREFIX: &str = "alloy-replay-buffer-";
 pub(super) const MEMORY_REPLAY_PREFIX: &str = "alloy-replay-";
+/// OBS names every split segment from this pattern, so it keeps the prefix
+/// the segment scan looks for. Two splits within one second get a numeric
+/// suffix from OBS, since overwriting is off.
+pub(super) const DISK_REPLAY_SEGMENT_FORMAT: &str = "alloy-replay-buffer-%CCYY%MM%DD-%hh%mm%ss";
 const DISK_REPLAY_SEGMENT_SECONDS: u32 = 15;
+
+/// A scratch folder for one replay session, below the shared scratch root.
+/// Each session writes only here, so a save never picks up segments of an
+/// earlier game or codec, and stopping the session deletes the folder whole.
+pub(super) fn create_session_scratch_folder(root: &Path) -> Result<PathBuf, String> {
+    let folder = root.join(format!("session-{}", timestamp_file_slug()));
+    fs::create_dir_all(&folder).map_err(|error| {
+        format!(
+            "Could not create replay scratch folder {}: {error}",
+            folder.display()
+        )
+    })?;
+    Ok(folder)
+}
 
 pub(super) fn recording_context_folder(game: Option<&RecordingGame>) -> String {
     game.map(|game| file_component(&game.name, "Desktop"))
@@ -210,15 +229,8 @@ pub(super) fn save_disk_replay_clip(
         .ok_or_else(|| "Could not determine replay output folder.".to_string())?;
     fs::create_dir_all(output_parent)
         .map_err(|error| format!("Could not create replay output folder: {error}"))?;
-    if selected.len() == 1 {
-        fs::copy(&selected[0].path, &output)
-            .map_err(|error| format!("Could not save disk replay clip: {error}"))?;
-        return Ok(SavedReplayClip {
-            path: output.to_string_lossy().into_owned(),
-            post_process: None,
-        });
-    }
-
+    // A lone segment is joined too: scratch segments skip faststart, and the
+    // host's join is the remux that adds it.
     let segment_paths = copy_disk_replay_segment_parts(&selected, &output)?;
     Ok(SavedReplayClip {
         path: output.to_string_lossy().into_owned(),
@@ -278,6 +290,13 @@ fn replay_trim_post_process(
     })
 }
 
+/// Stages the segments of a disk save beside the clip they will become, as
+/// `.<clip>.partNN.mp4`. The host joins them into `<clip>.mp4`, which does
+/// not exist until then, and deletes them. The dot prefix keeps library
+/// scans from listing them, and the `.mp4` extension lets the host accept
+/// them as media. The parts, not the scratch segments, are what the host
+/// recovers after a restart: the scratch folder is emptied whenever a new
+/// recorder starts.
 fn copy_disk_replay_segment_parts(
     segments: &[DiskReplaySegment],
     output: &Path,
@@ -290,16 +309,19 @@ fn copy_disk_replay_segment_parts(
         .and_then(|stem| stem.to_str())
         .ok_or_else(|| "Could not determine replay output name.".to_string())?;
 
-    segments
-        .iter()
-        .enumerate()
-        .map(|(index, segment)| {
-            let part = parent.join(format!("{stem}.part{index:02}.tmp"));
-            fs::copy(&segment.path, &part)
-                .map(|_| part.to_string_lossy().into_owned())
-                .map_err(|error| format!("Could not stage disk replay segment: {error}"))
-        })
-        .collect()
+    let mut parts = Vec::with_capacity(segments.len());
+    for (index, segment) in segments.iter().enumerate() {
+        let part = parent.join(format!(".{stem}.part{index:02}.mp4"));
+        if let Err(error) = fs::copy(&segment.path, &part) {
+            let _ = fs::remove_file(&part);
+            for staged in &parts {
+                let _ = fs::remove_file(staged);
+            }
+            return Err(format!("Could not stage disk replay segment: {error}"));
+        }
+        parts.push(part.to_string_lossy().into_owned());
+    }
+    Ok(parts)
 }
 
 pub(super) fn disk_replay_segment_seconds(replay_seconds: u32) -> u32 {
@@ -315,7 +337,10 @@ pub(super) fn replay_buffer_duration(session: &ActiveSession) -> Duration {
     Duration::from_secs(u64::from(session.output_config.replay_seconds.max(1)))
 }
 
-pub(super) fn cleanup_disk_replay_segments(config: &ReplayBufferConfig, keep: Option<&str>) {
+/// Deletes every scratch segment older than the ones a save can still use.
+/// OBS writes only the newest segment and never looks back, so without this
+/// the folder grows for as long as the session runs.
+pub(super) fn prune_disk_replay_segments(config: &ReplayBufferConfig) {
     let ReplayBufferConfig {
         scratch_directory,
         output_directory: _,
@@ -332,9 +357,19 @@ pub(super) fn cleanup_disk_replay_segments(config: &ReplayBufferConfig, keep: Op
         .len()
         .saturating_sub(disk_replay_segment_count(*replay_seconds));
     for segment in segments.into_iter().take(remove_count) {
-        if keep.is_some_and(|keep| Path::new(keep) == segment.path) {
-            continue;
-        }
         let _ = fs::remove_file(segment.path);
+    }
+}
+
+/// Removes a session's scratch folder with whatever OBS left in it. Saved
+/// clips were copied or moved out before this runs.
+pub(super) fn remove_session_scratch_folder(config: &ReplayBufferConfig) {
+    match fs::remove_dir_all(&config.scratch_directory) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => eprintln!(
+            "[{SIDE_CAR_NAME}] could not remove replay scratch folder {}: {error}",
+            config.scratch_directory.display()
+        ),
     }
 }

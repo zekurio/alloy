@@ -32,9 +32,9 @@ use crate::types::{RecordingBufferStorage, RecordingCapture, RecordingSettings};
 
 use super::{
     replay::{
-        cleanup_disk_replay_segments, disk_replay_segment_seconds, move_saved_replay_to_output,
-        newest_disk_replay_segment, newest_memory_replay_file, replay_file_modified_at_or_after,
-        save_disk_replay_clip, SavedReplayClip, DISK_REPLAY_PREFIX,
+        disk_replay_segment_seconds, move_saved_replay_to_output, newest_disk_replay_segment,
+        newest_memory_replay_file, prune_disk_replay_segments, replay_file_modified_at_or_after,
+        save_disk_replay_clip, SavedReplayClip, DISK_REPLAY_PREFIX, DISK_REPLAY_SEGMENT_FORMAT,
     },
     ActiveSession, Recorder, ReplayBufferConfig,
 };
@@ -150,11 +150,24 @@ impl Recorder {
             ..
         } = &output_config;
         let output_id = if storage == &RecordingBufferStorage::Disk {
+            // `path` names the first segment. OBS names every later split
+            // from `directory`, `format` and `extension`, so those must point
+            // at the same scratch folder or the first split fails. Scratch
+            // segments skip the faststart remux: the host remuxes the saved
+            // clip anyway, and it would double the disk writes.
             let path = scratch_directory
                 .join(format!("{DISK_REPLAY_PREFIX}{}.mp4", timestamp_file_slug()));
             let result = unsafe {
                 obs.set_string(output_settings, "path", &path.to_string_lossy())?;
-                obs.set_string(output_settings, "muxer_settings", "movflags=+faststart")?;
+                obs.set_string(
+                    output_settings,
+                    "directory",
+                    &scratch_directory.to_string_lossy(),
+                )?;
+                obs.set_string(output_settings, "format", DISK_REPLAY_SEGMENT_FORMAT)?;
+                obs.set_string(output_settings, "extension", "mp4")?;
+                obs.set_bool(output_settings, "allow_spaces", false)?;
+                obs.set_bool(output_settings, "allow_overwrite", false)?;
                 obs.set_bool(output_settings, "split_file", true)?;
                 obs.set_int(
                     output_settings,
@@ -505,7 +518,7 @@ impl Recorder {
             replay_seconds,
             &segment.path,
         )?;
-        cleanup_disk_replay_segments(&session.output_config, Some(&saved.path));
+        prune_disk_replay_segments(&session.output_config);
         Ok(saved)
     }
 }

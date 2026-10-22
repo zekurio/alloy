@@ -540,6 +540,29 @@ async fn measure_copy(
     })
 }
 
+/// Whether the files a raw capture is made of still exist. A disk replay is
+/// joined from segments into a destination that does not exist until the
+/// join creates it, so its segments stand in for it until then.
+pub fn capture_sources_present(capture: &CaptureRecord) -> bool {
+    if Path::new(&capture.filename).is_file() {
+        return true;
+    }
+    match &capture.post_process {
+        Some(PostProcess::ConcatSegments { segment_paths }) => {
+            !segment_paths.is_empty() && segment_paths.iter().all(|path| Path::new(path).is_file())
+        }
+        _ => false,
+    }
+}
+
+/// Deletes what remains of the staged segments of a capture that will never
+/// be joined, because a segment or the whole recording is gone.
+pub async fn discard_capture_sources(capture: &CaptureRecord) {
+    if let Some(PostProcess::ConcatSegments { segment_paths }) = &capture.post_process {
+        remove_staged_parts(Path::new(&capture.filename), segment_paths).await;
+    }
+}
+
 /// Applies the recorder's post-processing to a raw capture, then records the
 /// file's final size and duration. Without post-processing there is nothing
 /// to do. On failure the original destination and every concat source stay
@@ -552,7 +575,13 @@ pub async fn finalize_capture(library: &CaptureLibrary, capture: &mut CaptureRec
     match &post_process {
         PostProcess::TrimTail { keep_ms } => trim_tail(library, &filename, *keep_ms).await?,
         PostProcess::ConcatSegments { segment_paths } => {
-            concat_segments(library, segment_paths, &filename).await?;
+            // Only the join creates the destination, in one rename. If it
+            // exists, an earlier run joined the segments and stopped before
+            // it deleted them all or recorded the clip.
+            if !filename.is_file() {
+                concat_segments(library, segment_paths, &filename).await?;
+            }
+            remove_staged_parts(Path::new(&capture.filename), segment_paths).await;
         }
     }
     // The recorder reports what it asked for; the file says what it holds.
@@ -662,9 +691,11 @@ async fn concat_segments(
             .replace('\'', "'\\''");
         contents.push_str(&format!("file '{escaped}'\n"));
     }
-    let list = output.with_extension("concat.txt");
-    tokio::fs::write(&list, contents).await?;
-    let list_text = list.to_string_lossy().into_owned();
+    // A temporary like the join's output, so a failed or dropped join never
+    // leaves it in the clip folder.
+    let list = TempFile::beside(&output.with_extension("txt"));
+    tokio::fs::write(list.path(), contents).await?;
+    let list_text = list.path().to_string_lossy().into_owned();
     let result = replace_with(output, |temp| async move {
         let temp_text = temp.to_string_lossy().into_owned();
         let args = [
@@ -697,10 +728,8 @@ async fn concat_segments(
             .map(|_| ())
     })
     .await;
-    let _ = tokio::fs::remove_file(&list).await;
-    result?;
-    remove_segments_except(segment_paths, output).await;
-    Ok(())
+    drop(list);
+    result
 }
 
 async fn transcode_range(
@@ -814,18 +843,31 @@ impl Drop for TempFile {
     }
 }
 
-async fn remove_segments_except(paths: &[String], keep: &Path) {
-    let keep = keep.canonicalize().ok();
+/// Deletes the segments the recorder staged for `destination`, which it
+/// names `.<clip>.partNN.mp4` beside the clip. Any other path a capture
+/// lists is not the host's to delete.
+async fn remove_staged_parts(destination: &Path, paths: &[String]) {
+    let (Some(folder), Some(stem)) = (
+        destination.parent(),
+        destination.file_stem().and_then(|value| value.to_str()),
+    ) else {
+        return;
+    };
+    let prefix = format!(".{stem}.part");
     for path in paths {
-        let candidate = Path::new(path);
-        if keep
-            .as_ref()
-            .zip(candidate.canonicalize().ok().as_ref())
-            .is_some_and(|(keep, candidate)| keep == candidate)
-        {
-            continue;
+        let part = Path::new(path);
+        let staged = part.parent() == Some(folder)
+            && part
+                .file_name()
+                .and_then(|value| value.to_str())
+                .and_then(|name| name.strip_prefix(&prefix))
+                .and_then(|rest| rest.strip_suffix(".mp4"))
+                .is_some_and(|index| {
+                    !index.is_empty() && index.bytes().all(|byte| byte.is_ascii_digit())
+                });
+        if staged {
+            let _ = tokio::fs::remove_file(part).await;
         }
-        let _ = tokio::fs::remove_file(candidate).await;
     }
 }
 

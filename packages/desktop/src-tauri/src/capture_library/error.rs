@@ -36,6 +36,8 @@ pub enum LibraryError {
     RangeNotSatisfiable,
     #[error("manifest is invalid")]
     InvalidManifest,
+    #[error("capture manifest is unavailable: {0}")]
+    ManifestUnavailable(String),
     #[error(transparent)]
     Io(#[from] io::Error),
     #[error(transparent)]

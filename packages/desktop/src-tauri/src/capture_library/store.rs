@@ -128,13 +128,20 @@ impl CaptureLibrary {
         Ok(library)
     }
 
-    /// Drops thumbnail and export folders whose capture no longer exists in
-    /// the output folder or the manifest. The cache is shared by every output
-    /// folder and the files are regenerable, so the host runs this once at
-    /// startup in the background, not on every open or on a timer.
-    pub fn remove_orphan_cache_folders(&self) {
-        let mut known: std::collections::HashSet<String> = self
-            .read_manifest()
+    /// Drops manifest entries whose file is gone from this output folder,
+    /// together with their cached posters and exports, then thumbnail and
+    /// export folders whose capture no longer exists in the output folder or
+    /// the manifest. The cache is shared by every output folder and the files
+    /// are regenerable, so the host runs this once at startup in the
+    /// background, not on every open or on a timer.
+    pub fn remove_orphans(&self) {
+        self.prune_missing_captures();
+        // Captures under other output folders are known only to the manifest,
+        // so without it every cache folder stays.
+        let Ok(manifest) = self.try_read_manifest() else {
+            return;
+        };
+        let mut known: std::collections::HashSet<String> = manifest
             .captures
             .into_values()
             .map(|entry| entry.id)
@@ -161,6 +168,55 @@ impl CaptureLibrary {
                 }
                 let _ = fs::remove_dir_all(entry.path());
             }
+        }
+    }
+
+    /// Forgets captures that were deleted or moved outside the app. Only
+    /// entries below this library's output folder are judged: the folder is
+    /// reachable, so a missing file there is really gone. Entries under other
+    /// output folders are kept, since an unplugged drive or a folder the user
+    /// switched away from says nothing about its files.
+    fn prune_missing_captures(&self) {
+        let Ok(root) = self.inner.config.output_folder.canonicalize() else {
+            return;
+        };
+        let pruned = self.mutate_manifest_if(|manifest| {
+            let mut pruned = Vec::new();
+            manifest.captures.retain(|_, entry| {
+                let path = Path::new(&entry.filename);
+                if ensure_within(&root, path).is_err() {
+                    return true;
+                }
+                match fs::symlink_metadata(path) {
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                        pruned.push(entry.id.clone());
+                        false
+                    }
+                    // Present, or unknowable right now: keep it.
+                    _ => true,
+                }
+            });
+            let changed = !pruned.is_empty();
+            Ok((pruned, changed))
+        });
+        match pruned {
+            Ok(ids) => {
+                for id in ids {
+                    self.remove_capture_caches(&id);
+                }
+            }
+            Err(error) => log::warn!("could not prune missing captures: {error}"),
+        }
+    }
+
+    /// Drops everything the cache holds for a capture that no longer exists.
+    fn remove_capture_caches(&self, id: &str) {
+        self.inner.poster_failures.forget(id);
+        if let Ok(folder) = self.thumbnail_path(id) {
+            let _ = fs::remove_dir_all(folder);
+        }
+        if let Ok(folder) = self.exports_folder_for(id) {
+            let _ = fs::remove_dir_all(folder);
         }
     }
 
@@ -302,7 +358,15 @@ impl CaptureLibrary {
         Ok(folder)
     }
 
+    /// The manifest as far as it can be read. A manifest that cannot be read
+    /// reads as empty, so the library still lists its files with the values a
+    /// scan derives; writes go through [`Self::mutate_manifest`], which
+    /// refuses to replace a manifest it could not read.
     pub fn read_manifest(&self) -> CaptureManifest {
+        self.try_read_manifest().unwrap_or_default()
+    }
+
+    fn try_read_manifest(&self) -> std::result::Result<CaptureManifest, ManifestReadError> {
         let _guard = self
             .inner
             .manifest_lock
@@ -636,13 +700,7 @@ impl CaptureLibrary {
         })?;
         // The capture is gone, so its cached thumbnails and export renders
         // have nothing left to belong to.
-        self.inner.poster_failures.forget(id);
-        if let Ok(folder) = self.thumbnail_path(id) {
-            let _ = fs::remove_dir_all(folder);
-        }
-        if let Ok(folder) = self.exports_folder_for(id) {
-            let _ = fs::remove_dir_all(folder);
-        }
+        self.remove_capture_caches(id);
         Ok(())
     }
 
@@ -915,45 +973,122 @@ impl CaptureLibrary {
         &self,
         mutate: impl FnOnce(&mut CaptureManifest) -> Result<T>,
     ) -> Result<T> {
+        self.mutate_manifest_if(|manifest| mutate(manifest).map(|value| (value, true)))
+    }
+
+    /// Applies `mutate` to the manifest on disk and writes it back when the
+    /// closure reports a change. The write never replaces a manifest that
+    /// could not be read: a sharing violation, a folder that is briefly
+    /// unavailable, or a manifest a newer build wrote would otherwise come
+    /// back as an empty manifest and erase every title, trim and upload link.
+    /// A manifest no build can parse is set aside under a `.corrupt-*` name
+    /// instead, so it stays recoverable without blocking every later write.
+    fn mutate_manifest_if<T>(
+        &self,
+        mutate: impl FnOnce(&mut CaptureManifest) -> Result<(T, bool)>,
+    ) -> Result<T> {
         let _guard = self
             .inner
             .manifest_lock
             .lock()
             .expect("manifest lock poisoned");
-        let mut manifest = read_manifest_file(&self.inner.config.manifest_path());
-        let result = mutate(&mut manifest)?;
-        write_manifest_file(&self.inner.config.manifest_path(), &manifest)?;
+        let path = self.inner.config.manifest_path();
+        let mut manifest = match read_manifest_file(&path) {
+            Ok(manifest) => manifest,
+            Err(ManifestReadError::Corrupt) => {
+                let backup = path.with_extension(format!(
+                    "json.corrupt-{}",
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs()
+                ));
+                fs::rename(&path, &backup)?;
+                log::warn!(
+                    "capture manifest {} could not be parsed and was moved to {}",
+                    path.display(),
+                    backup.display()
+                );
+                CaptureManifest::default()
+            }
+            Err(error) => return Err(LibraryError::ManifestUnavailable(error.to_string())),
+        };
+        let (result, changed) = mutate(&mut manifest)?;
+        if changed {
+            write_manifest_file(&path, &manifest)?;
+        }
         Ok(result)
     }
 }
 
-fn read_manifest_file(path: &Path) -> CaptureManifest {
-    let Ok(bytes) = fs::read(path) else {
-        return CaptureManifest::default();
+/// Why a manifest on disk could not be used.
+#[derive(Debug)]
+enum ManifestReadError {
+    Unreadable(io::Error),
+    Corrupt,
+    Unsupported(u64),
+    TooLarge,
+}
+
+impl std::fmt::Display for ManifestReadError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unreadable(error) => write!(formatter, "could not read the manifest: {error}"),
+            Self::Corrupt => formatter.write_str("the manifest could not be parsed"),
+            Self::Unsupported(version) => write!(
+                formatter,
+                "the manifest was written by another version ({version})"
+            ),
+            Self::TooLarge => formatter.write_str("the manifest is too large"),
+        }
+    }
+}
+
+/// Reads the manifest at `path`. A missing file is an empty manifest; every
+/// other failure is reported so callers can decide whether an empty manifest
+/// may stand in for it.
+fn read_manifest_file(path: &Path) -> std::result::Result<CaptureManifest, ManifestReadError> {
+    let bytes = match fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok(CaptureManifest::default());
+        }
+        Err(error) => return Err(ManifestReadError::Unreadable(error)),
     };
     if bytes.len() > MAX_MANIFEST_BYTES {
-        return CaptureManifest::default();
+        return Err(ManifestReadError::TooLarge);
     }
     // Entries are decoded one at a time. Resetting the whole manifest would
     // discard titles, trims, and upload links of every other capture because
     // of one bad record, whether it fails to decode or fails validation.
     #[derive(Deserialize)]
     struct RawManifest<'a> {
-        version: u8,
-        // Borrow each entry's JSON from the input instead of allocating an
-        // intermediate tree of every field in the library. Decode entries
-        // independently so a malformed record cannot discard healthy ones.
+        version: u64,
+        // Only read once the version is known: another version may shape
+        // it differently, and that manifest is not corrupt.
         #[serde(default, borrow)]
-        captures: BTreeMap<String, &'a serde_json::value::RawValue>,
+        captures: Option<&'a serde_json::value::RawValue>,
     }
-    let Ok(raw) = serde_json::from_slice::<RawManifest>(&bytes) else {
-        return CaptureManifest::default();
+    let raw =
+        serde_json::from_slice::<RawManifest>(&bytes).map_err(|_| ManifestReadError::Corrupt)?;
+    if raw.version != u64::from(MANIFEST_VERSION) {
+        return Err(ManifestReadError::Unsupported(raw.version));
+    }
+    // Borrow each entry's JSON from the input instead of allocating an
+    // intermediate tree of every field in the library. Decode entries
+    // independently so a malformed record cannot discard healthy ones.
+    let captures = match raw.captures {
+        Some(captures) => {
+            serde_json::from_str::<BTreeMap<String, &serde_json::value::RawValue>>(captures.get())
+                .map_err(|_| ManifestReadError::Corrupt)?
+        }
+        None => BTreeMap::new(),
     };
-    if raw.version != MANIFEST_VERSION || raw.captures.len() > MAX_MANIFEST_ENTRIES {
-        return CaptureManifest::default();
+    if captures.len() > MAX_MANIFEST_ENTRIES {
+        return Err(ManifestReadError::TooLarge);
     }
     let mut manifest = CaptureManifest::default();
-    for (key, value) in raw.captures {
+    for (key, value) in captures {
         match serde_json::from_str::<ManifestEntry>(value.get()) {
             Ok(entry) if validate_manifest_entry(&key, &entry) => {
                 manifest.captures.insert(key, entry);
@@ -962,7 +1097,7 @@ fn read_manifest_file(path: &Path) -> CaptureManifest {
             Err(error) => log::warn!("dropped undecodable manifest entry {key}: {error}"),
         }
     }
-    manifest
+    Ok(manifest)
 }
 
 fn manifest_lock_for(path: &Path) -> Arc<Mutex<()>> {
