@@ -19,8 +19,10 @@ export const tagKeys = {
   games: (tag: string) => [...tagKeys.all, "games", tag] as const,
   summary: (tag: string) => [...tagKeys.all, "summary", tag] as const,
   search: (query: string) => [...tagKeys.all, "search", query] as const,
+  /** Paged tag clip lists, holding `InfiniteData<ClipPage>`. */
+  allClips: () => [...tagKeys.all, "clips"] as const,
   clips: (tag: string, filters: TagClipsFilters) =>
-    [...tagKeys.all, "clips", tag, filters] as const,
+    [...tagKeys.allClips(), tag, filters] as const,
 }
 
 const TAG_PAGE_LIMIT = 24

@@ -69,17 +69,20 @@ function FeedSentinelStatus({
   }
   if (error && hasRows) {
     return (
-      <button
-        type="button"
-        onClick={onRetry}
-        className={cn(
-          "rounded-md px-2 py-1 text-xs font-medium tracking-wide text-accent uppercase",
-          "hover:bg-accent-soft",
-          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-        )}
-      >
-        {t("Retry")}
-      </button>
+      <div role="alert">
+        <span className="sr-only">{t("Couldn't load more clips")}</span>
+        <button
+          type="button"
+          onClick={onRetry}
+          className={cn(
+            "rounded-md px-2 py-1 text-xs font-medium tracking-wide text-accent uppercase",
+            "hover:bg-accent-soft",
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          )}
+        >
+          {t("Retry")}
+        </button>
+      </div>
     )
   }
   return null
@@ -230,7 +233,6 @@ export function FeedSection({ filter, sort, viewerId }: FeedSectionProps) {
       {state.showSentinel ? (
         <div
           ref={sentinelRef}
-          aria-hidden
           className="mt-6 flex min-h-6 items-center justify-center"
         >
           <FeedSentinelStatus

@@ -1,8 +1,12 @@
 import { t } from "@alloy/i18n"
+import { useInfiniteQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Suspense, lazy } from "react"
+import { Suspense, lazy, useMemo } from "react"
 
-import { useUserClipsQuery } from "@/lib/clip-queries"
+import {
+  flattenUserClipPages,
+  userClipsInfiniteQueryOptions,
+} from "@/lib/clip-queries"
 import {
   parseProfileClipSearch,
   type ProfileClipSort,
@@ -28,9 +32,15 @@ export const Route = createFileRoute("/(app)/_app/u/$username/all")({
 function ProfileAllTab() {
   const { username } = Route.useParams()
   const search = Route.useSearch()
-  const clipsQuery = useUserClipsQuery(username)
+  // The newest uploads across every game, which keep the game filter's
+  // options listed while one game is selected.
+  const clipsQuery = useInfiniteQuery(userClipsInfiniteQueryOptions(username))
   const viewerQuery = useUserProfileViewerQuery(username)
-  const clips = clipsQuery.data ?? null
+  const clips = useMemo(
+    () =>
+      clipsQuery.data ? flattenUserClipPages(clipsQuery.data.pages) : null,
+    [clipsQuery.data],
+  )
   const clipsError = clipsQuery.error ?? null
   const isSelf = viewerQuery.data?.viewer?.isSelf ?? false
 

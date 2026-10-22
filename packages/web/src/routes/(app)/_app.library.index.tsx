@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Suspense, lazy } from "react"
 
 import { requireStrictAuthBeforeLoad } from "@/lib/auth-guards"
-import { userClipsQueryOptions } from "@/lib/clip-queries"
+import { userClipsInfiniteQueryOptions } from "@/lib/clip-queries"
 import {
   librarySort,
   libraryMedia,
@@ -20,11 +20,14 @@ const LibraryPage = lazy(loadLibraryPage)
 export const Route = createFileRoute("/(app)/_app/library/")({
   validateSearch: parseLibrarySearch,
   beforeLoad: requireStrictAuthBeforeLoad,
-  loader: ({ context }) => {
+  loaderDeps: ({ search }) => ({ sort: librarySort(search) }),
+  loader: ({ context, deps }) => {
     const handle = context.session?.user.username
     void loadLibraryPage()
     if (handle)
-      void context.queryClient.prefetchQuery(userClipsQueryOptions(handle))
+      void context.queryClient.prefetchInfiniteQuery(
+        userClipsInfiniteQueryOptions(handle, deps.sort),
+      )
   },
   component: LibraryIndexPage,
 })

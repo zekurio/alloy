@@ -1,14 +1,16 @@
-import { useEffect, useEffectEvent, useRef } from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 
 /**
- * Returns a ref to attach to a sentinel element near the end of a list. When
- * the sentinel scrolls into view (with a generous root margin so the next page
- * lands before the user hits the bottom) the supplied `fetchNextPage` runs,
- * unless a fetch is already in flight or there are no more pages.
+ * Returns a callback ref to attach to a sentinel element near the end of a
+ * list. When the sentinel scrolls into view (with a generous root margin so
+ * the next page lands before the user hits the bottom) the supplied
+ * `fetchNextPage` runs, unless a fetch is already in flight or there are no
+ * more pages.
  *
- * The intersection handler is an effect event, so it reads the latest values
- * while the observer is created once and never re-subscribes as query state
- * changes.
+ * The element is held in state, so a sentinel that mounts after the first
+ * render (lists often render it only once a page has loaded) is still
+ * observed. The intersection handler is an effect event, so it reads the
+ * latest values without re-subscribing as query state changes.
  */
 export function useInfiniteScrollSentinel<Result>(
   fetchNextPage: () => Promise<Result>,
@@ -21,17 +23,16 @@ export function useInfiniteScrollSentinel<Result>(
     void fetchNextPage()
   })
 
-  const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const [element, setElement] = useState<HTMLDivElement | null>(null)
   useEffect(() => {
-    const el = sentinelRef.current
-    if (!el || !globalThis.IntersectionObserver) return
+    if (!element || !globalThis.IntersectionObserver) return
     const observer = new IntersectionObserver(
       (entries) => onIntersect(entries),
       { rootMargin: "800px" },
     )
-    observer.observe(el)
+    observer.observe(element)
     return () => observer.disconnect()
-  }, [])
+  }, [element])
 
-  return sentinelRef
+  return setElement
 }
