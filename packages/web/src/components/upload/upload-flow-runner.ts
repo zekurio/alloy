@@ -3,6 +3,7 @@ import { uploadToTicket } from "@alloy/api"
 import { api } from "@/lib/api"
 import { clientLogger } from "@/lib/client-log"
 import { alloyDesktop, notifyLibraryCapturesChanged } from "@/lib/desktop"
+import { randomId } from "@/lib/random-id"
 
 import type { PublishPayload } from "./new-clip-helpers"
 import type { ActiveUpload } from "./upload-queue-mapping"
@@ -42,7 +43,7 @@ export async function startUpload(
   bump: () => void,
   invalidateClips: () => void,
 ): Promise<{ clipId: string; completion: Promise<void> }> {
-  const localClipId = entry.clipId ?? crypto.randomUUID()
+  const localClipId = entry.clipId ?? randomId()
   entry.clipId = localClipId
   bump()
 

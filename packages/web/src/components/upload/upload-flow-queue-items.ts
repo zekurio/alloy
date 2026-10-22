@@ -11,6 +11,7 @@ import { publicOrigin } from "@/lib/env"
 
 import {
   type ActiveUpload,
+  canRetryActiveUpload,
   downloadToQueueItem,
   localToQueueItem,
   serverToQueueItem,
@@ -60,10 +61,9 @@ function useLocalQueueItems(
         localToQueueItem(entry, {
           onCancel: () =>
             handlers.cancelRow(entry.localId, entry.clipId ?? null),
-          onRetry:
-            entry.status === "error"
-              ? () => handlers.retryUpload(entry.localId)
-              : undefined,
+          onRetry: canRetryActiveUpload(entry)
+            ? () => handlers.retryUpload(entry.localId)
+            : undefined,
         }),
       ),
     [queueVersion, activeRef, handlers.cancelRow, handlers.retryUpload],

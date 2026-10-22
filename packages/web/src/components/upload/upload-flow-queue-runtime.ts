@@ -26,6 +26,9 @@ export function useUploadQueueRuntime() {
   useEffect(() => {
     return () => {
       for (const active of activeRef.current.values()) {
+        // Stop the transfer too: a detached XHR keeps sending bytes for a
+        // clip no queue can show, cancel or finalize any more.
+        active.abort.abort()
         revokeUploadThumbUrl(active.thumbUrl, "local upload thumbnail URL")
       }
       activeRef.current.clear()
@@ -35,6 +38,22 @@ export function useUploadQueueRuntime() {
       retainedThumbsRef.current.clear()
     }
   }, [])
+
+  const uploadInFlight = Array.from(activeRef.current.values()).some(
+    (active) => active.status !== "error",
+  )
+  useEffect(() => {
+    if (!uploadInFlight) return
+    // Leaving the page drops the transfer and its prepared media, so ask
+    // first while any upload still has work left on this page.
+    const confirmLeave = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      // WebKit and older engines only prompt when returnValue is set.
+      event.returnValue = ""
+    }
+    window.addEventListener("beforeunload", confirmLeave)
+    return () => window.removeEventListener("beforeunload", confirmLeave)
+  }, [uploadInFlight])
 
   return { activeRef, retainedThumbsRef, queueVersion, bump }
 }

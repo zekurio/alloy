@@ -5,6 +5,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { refreshLibrarySnapshotCache } from "@/components/routes/library/library-data"
+import { clientLogger } from "@/lib/client-log"
 import { normalizeClipTitle } from "@/lib/clip-fields"
 import type {
   AlloyTauriDesktop,
@@ -127,12 +128,25 @@ export function useImportClipAction(
           gameIconUrl: game.iconUrl ?? game.logoUrl,
         })
         committed = true
-        await refreshLibrarySnapshotCache(queryClient, desktop)
-        await navigate({
-          to: "/library/$captureId",
-          params: { captureId: result.id },
-        })
         setStaged(null)
+        // The clip is in the library now. Refreshing the snapshot and opening
+        // it are follow-ups whose failure must not report a failed import.
+        try {
+          await refreshLibrarySnapshotCache(queryClient, desktop)
+        } catch (cause) {
+          clientLogger.warn("[import] Failed to refresh library.", cause)
+        }
+        try {
+          await navigate({
+            to: "/library/$captureId",
+            params: { captureId: result.id },
+          })
+        } catch (cause) {
+          clientLogger.warn(
+            `[import] Failed to open capture ${result.id}.`,
+            cause,
+          )
+        }
       } catch (cause) {
         setError(errorMessage(cause, t("Could not import clip.")))
       } finally {

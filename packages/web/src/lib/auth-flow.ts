@@ -1,3 +1,4 @@
+import { isAbortError } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { messageFromUnknown } from "@alloy/ui/lib/error-message"
 import { toast } from "@alloy/ui/lib/toast"
@@ -58,8 +59,9 @@ function causeMessage(cause: unknown): string | null {
 }
 
 export function isAuthAttemptCancellation(cause: unknown): boolean {
-  const name = causeName(cause)
-  if (name === "AbortError" || name === "NotAllowedError") return true
+  if (isAbortError(cause) || causeName(cause) === "NotAllowedError") {
+    return true
+  }
 
   const message = causeMessage(cause)?.toLowerCase()
   if (!message) return false

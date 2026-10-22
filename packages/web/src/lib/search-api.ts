@@ -20,7 +20,7 @@ export function useSearchQuery(
   const trimmed = query.trim()
   return useQuery({
     queryKey: searchKeys.query(trimmed, limit),
-    queryFn: () => api.search.fetch(trimmed, limit),
+    queryFn: ({ signal }) => api.search.fetch(trimmed, limit, signal),
     enabled: enabled && trimmed.length > 0,
     staleTime: 5_000,
     refetchOnWindowFocus: false,
