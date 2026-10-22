@@ -111,8 +111,11 @@ export async function deleteClipRowAndAssets(
 /**
  * Every object in the clip's storage folders. Rows point at most of them,
  * but a run or poster request that died before attaching its object left it
- * there with nothing pointing at it. Media and uploads are stopped while a
- * clip is deleted, so only reserved writes can still add one.
+ * there with nothing pointing at it. Media runs and uploads are stopped while
+ * a clip is deleted, but the poster and screenshot-edit routes are not: they
+ * stay safe only because they write through `withReservedStorageWrites`, so
+ * their swap sees the clip gone and queues the object's deletion. Any other
+ * route that writes into a clip folder must reserve its writes the same way.
  */
 async function listStoredClipObjects(
   clipId: string,
