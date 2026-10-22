@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use alloy_desktop::capture_library::{
     CaptureHttpServer, CaptureLibrary, CaptureLibraryConfig, collection_for,
@@ -17,7 +17,7 @@ use alloy_desktop::recording_host::{
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{Mutex, RwLock, watch};
 use url::Url;
 
 use crate::{Host, require_remote_window};
@@ -40,6 +40,13 @@ pub struct DesktopRuntime {
     finalizing: Mutex<HashSet<String>>,
     sounds: PathBuf,
     startup_error: Mutex<Option<String>>,
+    /// Set once `start` has swept what interrupted jobs left beside the
+    /// captures. Jobs that write there wait for it, so the sweep never
+    /// takes a file one of them has just created.
+    output_swept: watch::Sender<bool>,
+    /// Taken before the library serves anything. Cache files written before
+    /// it belong to an earlier session.
+    started_at: SystemTime,
 }
 
 impl DesktopRuntime {
@@ -113,6 +120,10 @@ impl DesktopRuntime {
                 Self::open_library(config.clone()).await?
             }
         };
+        // The web app reaches the library only once this returns, so no
+        // export is being written into the cache yet.
+        let started_at = SystemTime::now();
+        library.library.sweep_cache_leftovers();
         let sounds = data.join("notification-sounds");
         std::fs::create_dir_all(&sounds).map_err(error)?;
         for (name, bytes) in [
@@ -142,6 +153,8 @@ impl DesktopRuntime {
             config,
             sounds,
             startup_error: Mutex::new(startup_error),
+            output_swept: watch::Sender::new(false),
+            started_at,
         });
         runtime.start_events();
         Ok(runtime)
@@ -224,13 +237,27 @@ impl DesktopRuntime {
     }
 
     pub async fn start(self: &Arc<Self>) {
+        // What interrupted jobs left beside the captures goes before any job
+        // that writes there starts; `output_swept` holds them back until
+        // then. Walking the capture folder can be slow, so it is not done
+        // while the app starts.
+        let library = self.library.read().await.clone();
+        let _ = tauri::async_runtime::spawn_blocking(move || {
+            library.library.sweep_output_leftovers();
+        })
+        .await;
+        self.output_swept.send_replace(true);
         self.watch_downloads(self.library.read().await.clone());
         if let Some(cause) = self.startup_error.lock().await.take() {
             self.report_error(cause).await;
         }
         // One-time cache validation, off the startup path.
         let library = self.library.read().await.clone();
-        tauri::async_runtime::spawn_blocking(move || library.library.remove_orphans());
+        let started_at = self.started_at;
+        tauri::async_runtime::spawn_blocking(move || {
+            library.library.sweep_poster_leftovers(started_at);
+            library.library.remove_orphans();
+        });
         for capture in self.recorder.captures().await {
             // Recovered captures don't hold up the recorder for their posters.
             if let Err(cause) = self.finalize(capture, Duration::ZERO).await {
@@ -263,6 +290,8 @@ impl DesktopRuntime {
         } else {
             capture.id.clone()
         };
+        // Post-processing writes temporary files beside the capture.
+        self.output_swept().await;
         if !self.finalizing.lock().await.insert(id.clone()) {
             return Ok(());
         }
@@ -419,6 +448,12 @@ impl DesktopRuntime {
             .filter_map(Weak::upgrade)
             .collect::<Vec<_>>();
         for library in libraries {
+            // A finished download waits for its poster; cancelled media work
+            // ends that wait at once.
+            library.library.cancel_media();
+            // A cancelled download still removes its partial file, which has
+            // to happen before the process exits.
+            library.downloads.shutdown().await;
             library.library.shutdown_media().await;
         }
         if !stopped {
@@ -468,6 +503,9 @@ impl DesktopRuntime {
                 .await
                 .map_err(error)?;
         }
+        // A configured recorder can save replays, whose cross-drive copies
+        // land beside the captures.
+        self.output_swept().await;
         self.recorder.configure().await.map_err(error)?;
         self.emit(json!({ "type": "settings", "settings": settings }));
         Ok(settings)
@@ -483,7 +521,10 @@ impl DesktopRuntime {
         match operation {
             "recording.getSettings" => to_value(self.recorder.get_settings().await),
             "recording.setSettings" => to_value(self.apply_settings(window, arg(args, 0)?).await?),
-            "recording.restartBackend" => to_value(self.recorder.restart().await.map_err(error)?),
+            "recording.restartBackend" => {
+                self.output_swept().await;
+                to_value(self.recorder.restart().await.map_err(error)?)
+            }
             "recording.getStatus" => to_value(self.recorder.get_status().await),
             "recording.getStorageInfo" => {
                 to_value(self.recorder.storage_info().await.map_err(error)?)
@@ -508,13 +549,31 @@ impl DesktopRuntime {
                 let mut export = media::export(&library.library, arg(args, 0)?)
                     .await
                     .map_err(error)?;
-                export.media_url = if export.whole_capture {
+                let media_url = if export.whole_capture {
                     library.files.media_url(&export.id)
                 } else {
                     library.files.export_url(&export.id)
-                }
-                .map_err(error)?;
+                };
+                export.media_url = match media_url {
+                    Ok(media_url) => media_url,
+                    Err(cause) => {
+                        // The renderer never learns this id, so it cannot
+                        // give back the lease the render was handed out on.
+                        if !export.whole_capture {
+                            let _ = library.library.release_export(&export.id).await;
+                        }
+                        return Err(error(cause));
+                    }
+                };
                 to_value(export)
+            }
+            "recording.releaseLibraryExport" => {
+                library
+                    .library
+                    .release_export(&arg::<String>(args, 0)?)
+                    .await
+                    .map_err(error)?;
+                Ok(Value::Null)
             }
             "recording.updateLibraryCapture" => {
                 let patch = arg(args, 0)?;
@@ -554,24 +613,24 @@ impl DesktopRuntime {
                 Ok(Value::Null)
             }
             "recording.importLibraryFiles" => {
+                // The web app imports one file per pick; the result keeps its
+                // list shape for older web builds.
                 let picked = rfd::AsyncFileDialog::new()
                     .add_filter(
                         "Videos and images",
                         &["mp4", "mkv", "mov", "webm", "png", "jpg", "jpeg", "webp"],
                     )
-                    .pick_files()
+                    .pick_file()
                     .await;
                 self.selected(window)?;
                 let Some(picked) = picked else {
                     return Ok(json!({ "staged": [], "failed": [], "canceled": true }));
                 };
-                let paths = picked
-                    .into_iter()
-                    .map(|file| file.path().to_path_buf())
-                    .collect::<Vec<_>>();
+                let paths = vec![picked.path().to_path_buf()];
                 to_value(library.library.stage_files(&paths).await)
             }
             "recording.commitStagedLibraryImport" => {
+                self.output_swept().await;
                 let id = library
                     .library
                     .commit_staged(arg(args, 0)?)
@@ -589,6 +648,7 @@ impl DesktopRuntime {
                 Ok(Value::Null)
             }
             "recording.downloadClip" => {
+                self.output_swept().await;
                 let _selection = self.selection_lock.lock().await;
                 let origin = self.selected(window)?;
                 let cookies = window.cookies_for_url(origin.clone()).map_err(error)?;
@@ -667,6 +727,11 @@ impl DesktopRuntime {
             }
             _ => Err("Unknown native recording operation.".into()),
         }
+    }
+
+    /// Waits until `start` has swept the capture folder.
+    async fn output_swept(&self) {
+        let _ = self.output_swept.subscribe().wait_for(|swept| *swept).await;
     }
 
     fn selected(&self, window: &WebviewWindow) -> Result<Url, String> {

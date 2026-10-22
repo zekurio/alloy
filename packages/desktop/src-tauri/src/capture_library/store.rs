@@ -3,13 +3,13 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::capture_library::error::{LibraryError, Result};
-use crate::capture_library::media::probe_file;
+use crate::capture_library::media::{TempFile, probe_file};
 use crate::capture_library::paths::{
     capture_id, ensure_within, extension, is_image, is_media, manifest_key, now_rfc3339,
     safe_component, safe_file_stem, title_for_capture, unique_path,
@@ -29,7 +29,15 @@ const MAX_TITLE_LENGTH: usize = 256;
 const MAX_DESCRIPTION_LENGTH: usize = 20_000;
 const MAX_TAGS_LENGTH: usize = 4_000;
 const MAX_MENTIONS: usize = 100;
+/// A picked file the renderer neither committed nor discarded within this
+/// time is forgotten. Staging only records the path, so this bounds memory,
+/// not disk.
 const MAX_STAGED_IMPORT_AGE: Duration = Duration::from_secs(24 * 60 * 60);
+/// How long an export render is protected for the renderer that asked for
+/// it. The renderer fetches the render right away and releases it, so a
+/// lease this old was taken by a web build that never releases; a newer
+/// render of the same capture may then replace it.
+const EXPORT_LEASE_TTL: Duration = Duration::from_secs(15 * 60);
 const BLURHASH_ALPHABET: &str =
     "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~";
 
@@ -69,6 +77,8 @@ impl CaptureLibraryConfig {
         self.user_data_folder.join("recording-library.json")
     }
 
+    /// Where older builds copied every picked file before the user confirmed
+    /// an import. Imports now stage by reference, so this only gets swept.
     fn imports_folder(&self) -> PathBuf {
         self.cache_folder.join("recording-library-imports")
     }
@@ -91,14 +101,19 @@ struct LibraryInner {
     config: CaptureLibraryConfig,
     manifest_lock: Arc<Mutex<()>>,
     staged: Mutex<HashMap<String, StagedInternal>>,
+    /// Export renders the renderer has asked for and not yet released, by
+    /// export id.
+    exports: Mutex<HashMap<String, ExportLease>>,
     work: MediaWork,
     poster_failures: PosterFailures,
 }
 
+/// A picked file waiting for the user to confirm its import. Nothing is
+/// copied until then, so an import the user abandons costs no disk.
 #[derive(Clone, Debug)]
 struct StagedInternal {
     id: String,
-    staged_path: PathBuf,
+    source: PathBuf,
     file_name: String,
     extension: String,
     title: String,
@@ -107,6 +122,25 @@ struct StagedInternal {
     width: Option<u32>,
     height: Option<u32>,
     created_at: String,
+    staged_at: Instant,
+}
+
+/// Who still needs an export render. The renderer takes a lease when it
+/// asks for the render and releases it once it has read the file; the last
+/// release deletes the render.
+#[derive(Debug)]
+struct ExportLease {
+    capture_id: String,
+    holders: usize,
+    since: Instant,
+}
+
+impl ExportLease {
+    /// Whether the render must be kept for a renderer that is still reading
+    /// it. Older web builds never release, so their leases expire.
+    fn protects(&self) -> bool {
+        self.holders > 0 && self.since.elapsed() < EXPORT_LEASE_TTL
+    }
 }
 
 impl CaptureLibrary {
@@ -121,11 +155,51 @@ impl CaptureLibrary {
                 config,
                 manifest_lock,
                 staged: Mutex::new(HashMap::new()),
+                exports: Mutex::new(HashMap::new()),
                 work,
                 poster_failures: PosterFailures::default(),
             }),
         };
         Ok(library)
+    }
+
+    /// Empties the cache of what earlier sessions left: every export render
+    /// and the copies older builds staged for imports. A renderer reads a
+    /// render right after asking for it, so no render outlives the session
+    /// that made it. The host runs this once at startup, before the library
+    /// serves anything, so nothing it removes is in use.
+    pub fn sweep_cache_leftovers(&self) {
+        let _ = fs::remove_dir_all(self.inner.config.exports_folder());
+        let _ = fs::remove_dir_all(self.inner.config.imports_folder());
+    }
+
+    /// Removes the posters earlier sessions were still writing when they
+    /// ended. The thumbnail cache holds a folder per capture, so the host
+    /// walks it in the background while this session writes posters again;
+    /// only files last written before `session_start` go.
+    pub fn sweep_poster_leftovers(&self, session_start: SystemTime) {
+        remove_matching_files(&self.inner.config.thumbnails_folder(), |entry| {
+            is_job_leftover(&entry.file_name().to_string_lossy())
+                && entry
+                    .metadata()
+                    .and_then(|metadata| metadata.modified())
+                    .is_ok_and(|modified| modified < session_start)
+        });
+    }
+
+    /// Removes what interrupted jobs left beside the captures: partial
+    /// downloads, temporary files and concat lists. Scans skip them, but
+    /// they hold disk space, and a partial download holds its clip's file
+    /// name. The host runs this once at startup and holds back jobs that
+    /// write to the capture folder until it is done. Only files go; the
+    /// manifest is left alone.
+    pub fn sweep_output_leftovers(&self) {
+        for kind in [CaptureKind::Replay, CaptureKind::Screenshot] {
+            let root = self.inner.config.output_folder.join(collection_for(kind));
+            remove_matching_files(&root, |entry| {
+                is_job_leftover(&entry.file_name().to_string_lossy())
+            });
+        }
     }
 
     /// Drops manifest entries whose file is gone from this output folder,
@@ -216,6 +290,7 @@ impl CaptureLibrary {
     /// Drops everything the cache holds for a capture that no longer exists.
     fn remove_capture_caches(&self, id: &str) {
         self.inner.poster_failures.forget(id);
+        self.forget_export_leases(id);
         if let Ok(folder) = self.thumbnail_path(id) {
             let _ = fs::remove_dir_all(folder);
         }
@@ -310,34 +385,105 @@ impl CaptureLibrary {
         Err(LibraryError::CaptureNotFound)
     }
 
-    /// Keeps only the named render among a capture's exports, or none. Older
-    /// renders are unreachable once the editor has a newer one, and every
-    /// export is reproducible from the capture.
-    pub(crate) fn replace_exports(&self, capture_id: &str, keep: Option<&str>) -> Result<()> {
+    /// Keeps only the named render among a capture's exports, or none, plus
+    /// any render a renderer still holds a lease on. Every export is
+    /// reproducible from the capture, so this bounds the cache to one render
+    /// per capture for web builds that never release theirs. Cleanup only:
+    /// a render it cannot remove stays until the next startup.
+    pub(crate) fn replace_exports(&self, capture_id: &str, keep: Option<&str>) {
         let keep = keep
-            .map(|export_id| {
-                self.export_path(capture_id, export_id)?
-                    .file_name()
-                    .map(|name| name.to_os_string())
-                    .ok_or(LibraryError::InvalidPath)
-            })
-            .transpose()?;
-        let Ok(entries) = fs::read_dir(self.exports_folder_for(capture_id)?) else {
-            return Ok(());
+            .and_then(|export_id| self.export_path(capture_id, export_id).ok())
+            .and_then(|path| path.file_name().map(|name| name.to_os_string()));
+        let Some(entries) = self
+            .exports_folder_for(capture_id)
+            .ok()
+            .and_then(|folder| fs::read_dir(folder).ok())
+        else {
+            return;
         };
-        for entry in entries {
-            let entry = entry?;
+        for entry in entries.flatten() {
             let name = entry.file_name();
             // Renders in flight are written to a dot-prefixed temporary file
             // beside the destination; leave a concurrent export its own.
             if Some(&name) == keep.as_ref() || name.to_string_lossy().starts_with('.') {
                 continue;
             }
-            if entry.file_type()?.is_file() {
+            let leased = Path::new(&name)
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .is_some_and(|export_id| self.export_leased(export_id));
+            if !leased && entry.file_type().is_ok_and(|kind| kind.is_file()) {
                 let _ = fs::remove_file(entry.path());
             }
         }
+    }
+
+    /// Records that a renderer is about to read the render `export_id` of
+    /// `capture_id`. Each lease is matched by one [`release_export`].
+    ///
+    /// [`release_export`]: Self::release_export
+    pub(crate) fn lease_export(&self, capture_id: &str, export_id: &str) {
+        let mut leases = self.export_leases();
+        // Older web builds never release, so expired leases go here rather
+        // than pile up for the session. A late release of one is a no-op, and
+        // its render goes with the next export of the capture or at startup.
+        leases.retain(|_, lease| lease.protects());
+        let lease = leases
+            .entry(export_id.to_string())
+            .or_insert_with(|| ExportLease {
+                capture_id: capture_id.to_string(),
+                holders: 0,
+                since: Instant::now(),
+            });
+        lease.holders += 1;
+        lease.since = Instant::now();
+    }
+
+    /// Gives back one lease on a render. The last release deletes the
+    /// render: the renderer holds the bytes it uploads, so nothing reads the
+    /// file again. Ids without a lease, such as a whole-capture export or a
+    /// render an older build made, are ignored. The capture's exports folder
+    /// stays, since a concurrent export may be about to write into it; the
+    /// startup sweep removes it.
+    pub async fn release_export(&self, export_id: &str) -> Result<()> {
+        if !is_capture_id(export_id) {
+            return Err(LibraryError::InvalidPath);
+        }
+        // Exports of this id take the same slot, so a release never removes
+        // a render an export in flight is about to hand out.
+        let _slot = self.inner.work.exclusive(export_job_key(export_id)).await;
+        let released = {
+            let mut leases = self.export_leases();
+            let Some(lease) = leases.get_mut(export_id) else {
+                return Ok(());
+            };
+            lease.holders = lease.holders.saturating_sub(1);
+            (lease.holders == 0)
+                .then(|| leases.remove(export_id))
+                .flatten()
+        };
+        if let Some(lease) = released {
+            let _ = tokio::fs::remove_file(self.export_path(&lease.capture_id, export_id)?).await;
+        }
         Ok(())
+    }
+
+    fn export_leased(&self, export_id: &str) -> bool {
+        self.export_leases()
+            .get(export_id)
+            .is_some_and(ExportLease::protects)
+    }
+
+    fn forget_export_leases(&self, capture_id: &str) {
+        self.export_leases()
+            .retain(|_, lease| lease.capture_id != capture_id);
+    }
+
+    fn export_leases(&self) -> std::sync::MutexGuard<'_, HashMap<String, ExportLease>> {
+        self.inner
+            .exports
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     fn exports_folder_for(&self, capture_id: &str) -> Result<PathBuf> {
@@ -712,8 +858,11 @@ impl CaptureLibrary {
         self.media_path(id)
     }
 
+    /// Records picked files for import. Nothing is copied yet: the file is
+    /// probed where it is, and `commit_staged` copies it into the library
+    /// once the user confirms.
     pub async fn stage_files(&self, paths: &[PathBuf]) -> FilesImportResult {
-        self.cleanup_stale_staged().await;
+        self.forget_stale_staged();
         let mut staged = Vec::new();
         let mut failed = Vec::new();
         for source in paths {
@@ -746,6 +895,16 @@ impl CaptureLibrary {
             .get(&request.id)
             .cloned()
             .ok_or(LibraryError::StagedImportNotFound)?;
+        if !staged.source.is_file() {
+            // The picked file was moved or deleted since; it cannot come back
+            // under this id.
+            self.inner
+                .staged
+                .lock()
+                .expect("staged lock poisoned")
+                .remove(&request.id);
+            return Err(LibraryError::StagedImportNotFound);
+        }
         let collection = if is_image(Path::new(&staged.file_name)) {
             "Screenshots"
         } else {
@@ -767,8 +926,11 @@ impl CaptureLibrary {
             &safe_file_stem(Some(request.title.as_str()), "import"),
             &extension,
         );
-        move_file(&staged.staged_path, &destination).await?;
+        copy_into(&staged.source, &destination).await?;
         let destination = ensure_media_in_output(&self.inner.config.output_folder, &destination)?;
+        // The pick is copied only now, so record what was copied, not the
+        // size the file had when it was picked.
+        let size_bytes = fs::metadata(&destination)?.len();
         let id = capture_id(&destination);
         let now = now_rfc3339();
         self.mutate_manifest(|manifest| {
@@ -790,7 +952,7 @@ impl CaptureLibrary {
                     game_name: request.game_name.clone(),
                     game_icon_url: request.game_icon_url.clone(),
                     game_guess: None,
-                    size_bytes: Some(staged.size_bytes),
+                    size_bytes: Some(size_bytes),
                     duration_ms: staged.duration_ms,
                     width: staged.width,
                     height: staged.height,
@@ -809,16 +971,14 @@ impl CaptureLibrary {
         Ok(id)
     }
 
+    /// Forgets a picked file. Staging copied nothing, so there is nothing to
+    /// delete.
     pub async fn discard_staged(&self, id: &str) -> Result<()> {
-        let staged = self
-            .inner
+        self.inner
             .staged
             .lock()
             .expect("staged lock poisoned")
             .remove(id);
-        if let Some(staged) = staged {
-            let _ = tokio::fs::remove_file(staged.staged_path).await;
-        }
         Ok(())
     }
 
@@ -895,10 +1055,6 @@ impl CaptureLibrary {
         let metadata = fs::metadata(&source)?;
         let extension = extension(&source).ok_or(LibraryError::UnsupportedMedia)?;
         let id = Uuid::new_v4().to_string();
-        let root = &self.inner.config.imports_folder();
-        tokio::fs::create_dir_all(root).await?;
-        let staged_path = root.join(format!("{id}.{extension}"));
-        tokio::fs::copy(&source, &staged_path).await?;
         let meta = probe_file(self, &source).await.ok();
         let created_at = file_time(&metadata);
         let title = source
@@ -908,7 +1064,6 @@ impl CaptureLibrary {
             .unwrap_or_else(|| title_for_capture(&created_at));
         let internal = StagedInternal {
             id: id.clone(),
-            staged_path,
             file_name: source
                 .file_name()
                 .and_then(|value| value.to_str())
@@ -921,6 +1076,8 @@ impl CaptureLibrary {
             width: meta.as_ref().and_then(|value| value.width),
             height: meta.as_ref().and_then(|value| value.height),
             created_at,
+            source,
+            staged_at: Instant::now(),
         };
         let value = StagedImport {
             id: internal.id.clone(),
@@ -939,38 +1096,14 @@ impl CaptureLibrary {
         Ok(value)
     }
 
-    async fn cleanup_stale_staged(&self) {
-        let root = &self.inner.config.imports_folder();
-        let active: std::collections::HashSet<PathBuf> = self
-            .inner
+    /// Drops picks the renderer abandoned, such as a popover closed while
+    /// the native picker was still open.
+    fn forget_stale_staged(&self) {
+        self.inner
             .staged
             .lock()
             .expect("staged lock poisoned")
-            .values()
-            .map(|value| value.staged_path.clone())
-            .collect();
-        let Ok(mut entries) = tokio::fs::read_dir(root).await else {
-            return;
-        };
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            let path = entry.path();
-            if active.contains(&path) {
-                continue;
-            }
-            let Ok(metadata) = entry.metadata().await else {
-                continue;
-            };
-            let Ok(modified) = metadata.modified() else {
-                continue;
-            };
-            if SystemTime::now()
-                .duration_since(modified)
-                .unwrap_or_default()
-                > MAX_STAGED_IMPORT_AGE
-            {
-                let _ = tokio::fs::remove_file(path).await;
-            }
-        }
+            .retain(|_, value| value.staged_at.elapsed() <= MAX_STAGED_IMPORT_AGE);
     }
 
     fn mutate_manifest<T>(
@@ -1577,16 +1710,46 @@ pub(crate) fn ensure_media_location(output: &Path, path: impl AsRef<Path>) -> Re
     Ok(path)
 }
 
-async fn move_file(source: &Path, destination: &Path) -> Result<()> {
-    match tokio::fs::rename(source, destination).await {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == io::ErrorKind::CrossesDevices => {
-            tokio::fs::copy(source, destination).await?;
-            tokio::fs::remove_file(source).await?;
-            Ok(())
+/// Copies a file from outside the library to `destination` through a
+/// temporary file beside it, so readers only ever see the whole file and a
+/// failed copy leaves nothing behind.
+async fn copy_into(source: &Path, destination: &Path) -> Result<()> {
+    let temp = TempFile::beside(destination);
+    tokio::fs::copy(source, temp.path()).await?;
+    temp.persist(destination).await
+}
+
+/// Files a job writes beside its destination and renames or deletes when it
+/// finishes. Only an interrupted job leaves one behind.
+fn is_job_leftover(name: &str) -> bool {
+    // A download's partial file, `<clip>.<media extension>.part`.
+    name.strip_suffix(".part").is_some_and(|clip| is_media(Path::new(clip)))
+        // The list `concat_segments` hands ffmpeg.
+        || name.ends_with(".concat.txt")
+        // A `TempFile`, or the recorder's copy out of its scratch folder.
+        || (name.starts_with('.') && name.contains(".tmp."))
+}
+
+/// Deletes every file below `root` that `matches`. Folders stay.
+fn remove_matching_files(root: &Path, matches: impl Fn(&fs::DirEntry) -> bool + Copy) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_dir() {
+            remove_matching_files(&entry.path(), matches);
+        } else if file_type.is_file() && matches(&entry) {
+            let _ = fs::remove_file(entry.path());
         }
-        Err(error) => Err(LibraryError::Io(error)),
     }
+}
+
+/// The job key an export of `export_id` and its release share.
+pub(crate) fn export_job_key(export_id: &str) -> String {
+    format!("export:{export_id}")
 }
 
 fn file_time(metadata: &fs::Metadata) -> String {

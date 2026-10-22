@@ -44,6 +44,13 @@ export interface AlloyDesktopRecordingApi {
   exportLibraryCapture(
     request: RecordingLibraryExportRequest,
   ): Promise<RecordingLibraryExport>
+  /**
+   * Gives back an export once its bytes have been read. The host deletes a
+   * render nobody holds any more; a whole-capture export has nothing to
+   * delete. Absent on older hosts, which keep renders until the next export
+   * of the same capture.
+   */
+  releaseLibraryExport?(id: string): Promise<void>
   /** Persists draft upload metadata for a capture across app restarts. */
   updateLibraryCapture(
     patch: RecordingLibraryMetaPatch,
@@ -58,13 +65,17 @@ export interface AlloyDesktopRecordingApi {
   ): Promise<RecordingLibraryMetaUpdateResult>
   /** Moves a capture's file to the OS trash and forgets its metadata. */
   deleteLibraryCapture(id: string): Promise<void>
-  /** Opens a native picker and copies the chosen video files into a temporary import stage. */
+  /**
+   * Opens a native picker and stages the chosen media file. Current hosts
+   * pick one file and stage it by reference; older hosts allow several and
+   * copy each one, so callers discard any staged file they do not commit.
+   */
   importLibraryFiles(): Promise<RecordingLibraryFilesImportResult>
-  /** Commits a staged picked file into the capture library. */
+  /** Copies a staged picked file into the capture library. */
   commitStagedLibraryImport(
     request: RecordingLibraryCommitStagedImportRequest,
   ): Promise<RecordingLibraryImportResult>
-  /** Deletes a picked file from the temporary import stage. */
+  /** Forgets a staged picked file. */
   discardStagedLibraryImport(id: string): Promise<void>
   /**
    * Persists an uploaded clip into the local capture library. Progress

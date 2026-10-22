@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::process::Command;
+use std::time::{Duration, SystemTime};
 
 use alloy_desktop::capture_library::media::{
     capture_sources_present, discard_capture_sources, export, finalize_capture, probe_file,
@@ -12,7 +13,9 @@ use alloy_desktop::capture_library::types::{
     ExportSegment, GameGuess, GameGuessMatchKind, GameGuessSource, MetaPatch, PostProcess,
     TrimUpdate,
 };
-use alloy_desktop::capture_library::{download::DownloadManager, types::DownloadRequest};
+use alloy_desktop::capture_library::{
+    LibraryError, download::DownloadManager, types::DownloadRequest,
+};
 use axum::Router;
 use axum::body::Body;
 use axum::http::{HeaderMap, StatusCode};
@@ -386,6 +389,150 @@ async fn staged_image_import_commits_with_safe_path() {
         item.filename
             .starts_with(temp.path().canonicalize().unwrap().to_str().unwrap())
     );
+}
+
+#[tokio::test]
+async fn imports_copy_nothing_until_they_are_committed() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let picked = temp.path().join("picked");
+    fs::create_dir_all(&picked).await.unwrap();
+    let first = picked.join("first.png");
+    let second = picked.join("second.png");
+    for path in [&first, &second] {
+        fs::write(path, b"\x89PNG\r\n\x1a\n").await.unwrap();
+    }
+    let staged = library
+        .stage_files(&[first.clone(), second.clone()])
+        .await
+        .staged;
+    assert_eq!(staged.len(), 2);
+    // Staging probes the picks where they are: nothing lands in the cache,
+    // so a pick the renderer never commits costs no disk.
+    let cache = temp.path().join("cache");
+    assert!(!cache.join("recording-library-imports").exists());
+    library.discard_staged(&staged[1].id).await.unwrap();
+    assert!(second.is_file());
+
+    // The pick changed after it was staged; the library records what it
+    // copied.
+    fs::write(&first, b"\x89PNG\r\n\x1a\nmore").await.unwrap();
+    let id = library
+        .commit_staged(CommitImport {
+            id: staged[0].id.clone(),
+            title: "First".to_string(),
+            game_name: Some("Test Game".to_string()),
+            game_icon_url: None,
+        })
+        .await
+        .unwrap();
+    let item = library.find_item(&id).expect("imported item");
+    assert_eq!(item.size_bytes, 12);
+    assert!(first.is_file(), "the picked file stays where it was");
+    let folder = Path::new(&item.filename).parent().unwrap().to_path_buf();
+    let mut names = Vec::new();
+    let mut entries = fs::read_dir(&folder).await.unwrap();
+    while let Some(entry) = entries.next_entry().await.unwrap() {
+        names.push(entry.file_name().to_string_lossy().into_owned());
+    }
+    assert_eq!(names, vec!["First.png".to_string()]);
+
+    // A pick that disappeared before its commit is gone for good.
+    let gone = library
+        .stage_files(std::slice::from_ref(&second))
+        .await
+        .staged;
+    fs::remove_file(&second).await.unwrap();
+    let commit = CommitImport {
+        id: gone[0].id.clone(),
+        title: "Second".to_string(),
+        game_name: None,
+        game_icon_url: None,
+    };
+    assert!(matches!(
+        library.commit_staged(commit.clone()).await,
+        Err(LibraryError::StagedImportNotFound)
+    ));
+    fs::write(&second, b"\x89PNG\r\n\x1a\n").await.unwrap();
+    assert!(matches!(
+        library.commit_staged(commit).await,
+        Err(LibraryError::StagedImportNotFound)
+    ));
+}
+
+#[tokio::test]
+async fn startup_sweeps_what_interrupted_jobs_left() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let clips = temp.path().join("captures/Clips/Test Game");
+    let screenshots = temp.path().join("captures/Screenshots/Desktop");
+    fs::create_dir_all(&clips).await.unwrap();
+    fs::create_dir_all(&screenshots).await.unwrap();
+    let clip = clips.join("clip.mp4");
+    fs::write(&clip, b"not a real mp4").await.unwrap();
+    let id = library
+        .remember_capture(&capture(clip.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+    write_cached_poster(&library, &id).await;
+    let thumbnails = library.thumbnail_path(&id).unwrap();
+    let export = library.export_path(&id, "export-id-12345678").unwrap();
+    fs::create_dir_all(export.parent().unwrap()).await.unwrap();
+    let staged_copy = temp
+        .path()
+        .join("cache/recording-library-imports/old-import.mp4");
+    fs::create_dir_all(staged_copy.parent().unwrap())
+        .await
+        .unwrap();
+    let leftovers = [
+        clips.join("Downloaded clip.mp4.part"),
+        clips.join("clip.concat.txt"),
+        clips.join(".clip.0f6b8c1e-7a1d-4a8e-9f00-3c1b2a4d5e6f.tmp.mp4"),
+        clips.join(".replay.4242.tmp.mp4"),
+        screenshots.join("Downloaded shot.png.part"),
+        thumbnails.join(".poster.0f6b8c1e-7a1d-4a8e-9f00-3c1b2a4d5e6f.tmp.jpg"),
+        export.clone(),
+        export.with_file_name(".render.0f6b8c1e-7a1d-4a8e-9f00-3c1b2a4d5e6f.tmp.mp4"),
+        staged_copy,
+    ];
+    // Files that only look alike: someone else's partial download and a
+    // dot file that is not ours.
+    // And a poster this session is still writing.
+    let writing = thumbnails.join(".poster.5d1c0a9e-2b3f-4c6d-8e7f-9a0b1c2d3e4f.tmp.jpg");
+    let kept = [
+        clip.clone(),
+        clips.join("notes.part"),
+        clips.join(".hidden.mp4"),
+        thumbnails.join("poster.jpg"),
+        writing.clone(),
+    ];
+    for path in leftovers.iter().chain(&kept) {
+        if !path.exists() {
+            fs::write(path, b"leftover").await.unwrap();
+        }
+    }
+    // The leftovers are from a session that ended before this one started.
+    let session_start = SystemTime::now() - Duration::from_secs(60);
+    for path in &leftovers {
+        std::fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(session_start - Duration::from_secs(3600))
+            .unwrap();
+    }
+
+    library.sweep_cache_leftovers();
+    library.sweep_poster_leftovers(session_start);
+    library.sweep_output_leftovers();
+
+    for path in &leftovers {
+        assert!(!path.exists(), "{} was left behind", path.display());
+    }
+    for path in &kept {
+        assert!(path.is_file(), "{} was removed", path.display());
+    }
+    assert!(!temp.path().join("cache/recording-exports").exists());
+    assert_eq!(library.snapshot().unwrap().total_count, 1);
 }
 
 #[tokio::test]
@@ -794,6 +941,80 @@ async fn download_manager_uses_native_server_and_cookie_state() {
 }
 
 #[tokio::test]
+async fn shutdown_waits_for_downloads_to_remove_their_partial_files() {
+    let (shutdown, signal) = tokio::sync::oneshot::channel();
+    // Sends a few bytes, then stalls the way a slow server does.
+    let app = Router::new().route(
+        "/api/clips/clip-slow/download",
+        get(|| async {
+            let stream = futures_util::StreamExt::chain(
+                futures_util::stream::once(async {
+                    Ok::<_, std::io::Error>(axum::body::Bytes::from_static(b"partial"))
+                }),
+                futures_util::stream::pending(),
+            );
+            Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "video/mp4")
+                .header("Content-Length", "1000")
+                .body(Body::from_stream(stream))
+                .expect("download response")
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, app)
+            .with_graceful_shutdown(async {
+                let _ = signal.await;
+            })
+            .await;
+    });
+
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let manager = DownloadManager::new(library.clone()).unwrap();
+    manager
+        .set_selected_server(
+            Url::parse(&format!("http://127.0.0.1:{port}")).unwrap(),
+            None,
+        )
+        .unwrap();
+    manager
+        .start(DownloadRequest {
+            clip_id: "clip-slow".to_string(),
+            title: "Slow clip".to_string(),
+            size_bytes: None,
+            duration_ms: None,
+            width: None,
+            height: None,
+            game_name: None,
+        })
+        .unwrap();
+    let partial = temp
+        .path()
+        .join("captures/Clips/Uncategorized/Slow clip.mp4.part");
+    for _ in 0..200 {
+        if fs::metadata(&partial)
+            .await
+            .is_ok_and(|metadata| metadata.len() > 0)
+        {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    assert!(partial.is_file(), "the download started");
+
+    manager.shutdown().await;
+
+    assert!(!partial.exists());
+    assert_eq!(library.snapshot().unwrap().total_count, 0);
+    let _ = shutdown.send(());
+}
+
+#[tokio::test]
 async fn concurrent_downloads_with_one_title_keep_separate_files() {
     let (shutdown, signal) = tokio::sync::oneshot::channel();
     let body = |clip: &'static str| {
@@ -1144,8 +1365,8 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     let exported = probe_file(&library, &first_export).await.unwrap();
     assert!(exported.duration_ms.unwrap().abs_diff(1_250) < 150);
 
-    // A capture keeps one render: the next export of the same capture takes
-    // the place of the one before it.
+    // A render stays while the publish that asked for it still reads it,
+    // even when another export of the same capture finishes meanwhile.
     let second = export(
         &library,
         ExportRequest {
@@ -1160,9 +1381,17 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     .await
     .unwrap();
     assert_ne!(second.id, result.id);
-    assert!(library.export_path(&id, &second.id).unwrap().is_file());
+    let second_export = library.export_path(&id, &second.id).unwrap();
+    assert!(second_export.is_file());
+    assert!(first_export.is_file());
+    // Once read, a render is given back and nothing keeps it.
+    library.release_export(&result.id).await.unwrap();
     assert!(!first_export.exists());
     assert!(library.find_export_path(&result.id).is_err());
+    // A second release, or one from an older build that never leased the
+    // render, changes nothing.
+    library.release_export(&result.id).await.unwrap();
+    assert!(second_export.is_file());
 
     // A selection that reaches both edges exports the whole file and reports
     // the capture's full range, not the few milliseconds short it asked for.
@@ -1186,10 +1415,14 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     );
     assert_eq!(whole.duration_ms, source_duration);
     // An uploadable capture is its own export: nothing is copied into the
-    // cache, and the render before it is no longer kept.
+    // cache, and releasing it leaves the capture alone.
     assert!(whole.whole_capture);
     assert_eq!(whole.id, id);
-    assert!(!library.export_path(&id, &second.id).unwrap().exists());
+    library.release_export(&whole.id).await.unwrap();
+    assert!(media.is_file());
+    assert!(second_export.is_file());
+    library.release_export(&second.id).await.unwrap();
+    assert!(!second_export.exists());
 
     // A disk replay arrives as segments staged beside a clip that does not
     // exist yet.

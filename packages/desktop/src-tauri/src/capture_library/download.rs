@@ -17,6 +17,7 @@ use crate::capture_library::paths::{extension_for_content_type, safe_component};
 use crate::capture_library::poster::{POSTER_WAIT, wait_for_poster};
 use crate::capture_library::store::CaptureLibrary;
 use crate::capture_library::types::{DownloadRequest, DownloadState, DownloadStatus};
+use crate::capture_library::work::Drain;
 
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(200);
 const DOWNLOAD_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -31,6 +32,9 @@ pub struct DownloadManager {
     server: Arc<RwLock<Option<SelectedServer>>>,
     jobs: Arc<Mutex<HashMap<String, DownloadJob>>>,
     events: broadcast::Sender<DownloadState>,
+    /// Downloads in flight, so a shutdown can wait for their partial files
+    /// to be renamed or removed.
+    drain: Arc<Drain>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -62,6 +66,7 @@ impl DownloadManager {
             server: Arc::new(RwLock::new(None)),
             jobs: Arc::new(Mutex::new(HashMap::new())),
             events,
+            drain: Arc::new(Drain::default()),
         }
     }
 
@@ -153,10 +158,21 @@ impl DownloadManager {
         drop(jobs);
         self.emit(state.clone());
         let manager = self.clone();
+        // Counted from here, not from inside the task: a shutdown that starts
+        // before the task is polled must still wait for it.
+        let activity = self.drain.begin_owned();
         tokio::spawn(async move {
             manager.run(request, token).await;
+            drop(activity);
         });
         Ok(state)
+    }
+
+    /// Cancels every download and waits until each has removed its partial
+    /// file or moved it into place.
+    pub async fn shutdown(&self) {
+        self.cancel_all();
+        self.drain.idle().await;
     }
 
     pub fn cancel(&self, clip_id: &str) {

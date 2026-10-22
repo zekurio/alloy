@@ -92,10 +92,20 @@ async function prepareCapturePublishPayload(
     segments: [{ startMs: input.trim.startMs, endMs: input.trim.endMs }],
     allowServerTrim: true,
   })
-  throwIfAborted(signal)
-  const response = await fetch(exported.mediaUrl, { signal })
-  if (!response.ok) throw new Error("Could not read exported clip.")
-  const blob = await response.blob()
+  let blob: Blob
+  try {
+    throwIfAborted(signal)
+    const response = await fetch(exported.mediaUrl, { signal })
+    if (!response.ok) throw new Error("Could not read exported clip.")
+    blob = await response.blob()
+  } finally {
+    // The blob holds the bytes from here on, whether or not the upload
+    // succeeds; retries reuse it. The host may delete its render now.
+    // Hosts that predate the release keep it until the next export.
+    void input.desktop.recording
+      .releaseLibraryExport?.(exported.id)
+      .catch(() => {})
+  }
   throwIfAborted(signal)
   const contentType = acceptedContentType(exported.contentType)
   const file = new File([blob], exported.fileName, {
