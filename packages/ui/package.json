@@ -9,7 +9,6 @@
     "./hooks/*": "./src/hooks/*.ts"
   },
   "scripts": {
-    "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

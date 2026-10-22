@@ -2,8 +2,10 @@ name: tauri desktop
 
 # Windows-only desktop CI: the Tauri host, the recorder, and the installer
 # bundle. JavaScript and TypeScript, including the desktop connection screen,
-# is built and tested by `checks` on ubuntu, so shared TS packages, lockfiles,
-# and docs do not start a Windows run.
+# is formatted, linted, typechecked, and built by `checks` on ubuntu (no JS
+# tests exist yet), so shared TS packages, lockfiles, and docs do not start a
+# Windows run. Files outside packages/desktop that the Rust tests or the Tauri
+# build read directly must be listed below.
 on:
   pull_request:
     branches: [dev]
@@ -11,6 +13,9 @@ on:
       - "packages/desktop/**"
       - "Cargo.toml"
       - "Cargo.lock"
+      # `tests/connection.rs` embeds this fixture; `tauri.conf.json` embeds the logo.
+      - "packages/contracts/fixtures/**"
+      - "public/logo.png"
       - ".github/workflows/desktop-tauri.yml"
       - "!**/*.md"
   schedule:
@@ -28,6 +33,7 @@ jobs:
   audit:
     name: cargo dependency audit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: checkout repository
@@ -56,9 +62,12 @@ jobs:
     name: check rust workspace
     if: github.event_name != 'schedule'
     runs-on: windows-latest
+    timeout-minutes: 90
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: set up pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -126,9 +135,12 @@ jobs:
     name: build windows installer
     if: github.event_name != 'schedule'
     runs-on: windows-latest
+    timeout-minutes: 90
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: set up pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0

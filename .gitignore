@@ -9,6 +9,7 @@ node_modules
 .env
 .env.local
 .env.prod
+.env.production
 
 # Vercel
 .vercel
@@ -34,6 +35,9 @@ npm-debug.log*
 # Misc
 .DS_Store
 *.pem
+*.key
+*.p12
+*.pfx
 .direnv/
 
 # devenv local state
