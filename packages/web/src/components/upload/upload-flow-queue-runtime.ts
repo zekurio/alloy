@@ -48,6 +48,8 @@ export function useUploadQueueRuntime() {
     // first while any upload still has work left on this page.
     const confirmLeave = (event: BeforeUnloadEvent) => {
       event.preventDefault()
+      // WebKit and older engines only prompt when returnValue is set.
+      event.returnValue = ""
     }
     window.addEventListener("beforeunload", confirmLeave)
     return () => window.removeEventListener("beforeunload", confirmLeave)

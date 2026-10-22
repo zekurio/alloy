@@ -1,9 +1,10 @@
 /**
- * Returns a random UUID v4. `crypto.randomUUID` only exists in secure
- * contexts, so plain-HTTP LAN deployments build one from `getRandomValues`.
+ * Returns a random UUID v4. `crypto.randomUUID` is missing outside secure
+ * contexts (plain-HTTP LAN deployments) and in older engines, so build one
+ * from `getRandomValues` there.
  */
 export function randomId(): string {
-  if (isSecureContext) return crypto.randomUUID()
+  if (crypto.randomUUID) return crypto.randomUUID()
 
   const bytes = crypto.getRandomValues(new Uint8Array(16))
   bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40
