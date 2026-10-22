@@ -17,6 +17,7 @@ import {
   LinkIcon,
   LogInIcon,
   PlusIcon,
+  RefreshCcwIcon,
   Trash2Icon,
 } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -51,11 +52,8 @@ export function DesktopAppPanel() {
   const [forgetting, setForgetting] = useState(false)
   const [forgetError, setForgetError] = useState<string | null>(null)
 
-  const { servers, setServers, currentServerUrl } = useSavedServers(
-    serverApi,
-    setError,
-    setPhase,
-  )
+  const { servers, setServers, currentServerUrl, loadError, reload } =
+    useSavedServers(serverApi, setPhase)
 
   if (!serverApi) return null
   const activeServerApi = serverApi
@@ -131,17 +129,37 @@ export function DesktopAppPanel() {
       />
 
       <div className="border-border border-t pt-4">
-        <SavedServerList
-          servers={servers}
-          currentServerUrl={currentServerUrl}
-          connectingServerUrl={connectingServerUrl}
-          busy={busy}
-          connectTo={connectTo}
-          forgetServer={(serverUrl) => {
-            setForgetError(null)
-            setServerToForget(serverUrl)
-          }}
-        />
+        {loadError ? (
+          // A failed read says nothing about saved servers, so don't follow
+          // it with "No saved servers yet."
+          <Callout tone="destructive" className="text-xs">
+            <CircleAlertIcon />
+            <div className="flex flex-1 items-center justify-between gap-3">
+              <span>{loadError}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={reload}
+              >
+                <RefreshCcwIcon />
+                {t("Try again")}
+              </Button>
+            </div>
+          </Callout>
+        ) : (
+          <SavedServerList
+            servers={servers}
+            currentServerUrl={currentServerUrl}
+            connectingServerUrl={connectingServerUrl}
+            busy={busy}
+            connectTo={connectTo}
+            forgetServer={(serverUrl) => {
+              setForgetError(null)
+              setServerToForget(serverUrl)
+            }}
+          />
+        )}
       </div>
       <ConfirmActionDialog
         open={serverToConnect !== null}
@@ -221,17 +239,18 @@ export function DesktopAppPanel() {
 
 function useSavedServers(
   serverApi: ServerApi | undefined,
-  setError: (value: string | null) => void,
   setPhase: (value: Phase) => void,
 ) {
   const [servers, setServers] = useState<DesktopSavedServer[]>([])
   const [currentServerUrl, setCurrentServerUrl] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadNonce, setReloadNonce] = useState(0)
   useEffect(() => {
     let cancelled = false
 
     async function load() {
       if (!serverApi) return
-      setError(null)
+      setLoadError(null)
       setPhase("loading")
       try {
         const [savedServers, currentServer] = await Promise.all([
@@ -243,7 +262,7 @@ function useSavedServers(
         setCurrentServerUrl(currentServer)
       } catch (cause) {
         if (!cancelled) {
-          setError(errorText(cause, t("Couldn't load servers.")))
+          setLoadError(errorText(cause, t("Couldn't load servers.")))
         }
       } finally {
         if (!cancelled) setPhase("idle")
@@ -255,9 +274,15 @@ function useSavedServers(
     return () => {
       cancelled = true
     }
-  }, [serverApi, setError, setPhase])
+  }, [serverApi, setPhase, reloadNonce])
 
-  return { servers, setServers, currentServerUrl }
+  return {
+    servers,
+    setServers,
+    currentServerUrl,
+    loadError,
+    reload: () => setReloadNonce((nonce) => nonce + 1),
+  }
 }
 
 function ServerConnectForm({

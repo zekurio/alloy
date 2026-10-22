@@ -260,7 +260,12 @@ function createUserActions(request: RequestFn, store: SessionStore) {
         "Could not update user",
         validateUserUpdateResponse,
       )
-      if (!update.error) await store.refetch()
+      // The response carries the saved user, so apply it to the session
+      // directly. Refetching here could fail after the write landed and
+      // reject a save that succeeded.
+      const current = store.getSnapshot().data
+      if (update.data && current)
+        store.set({ ...current, user: update.data.user })
       return update
     },
     deleteUser: () =>

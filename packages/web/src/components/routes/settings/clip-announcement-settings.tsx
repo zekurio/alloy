@@ -46,9 +46,8 @@ export function ClipAnnouncementRow() {
           return
         }
       })
-      // updateUser only rejects when the session refetch after a successful
-      // save fails; the store still holds the stale value then, so revert to
-      // stay consistent with it.
+      // updateUser applies the saved user to the session itself and reports
+      // failures through `error`, so a rejection means nothing was saved.
       .catch((cause) => {
         setEnabled(previous)
         setSaveError(errorMessage(cause, t("Couldn't save preference")))

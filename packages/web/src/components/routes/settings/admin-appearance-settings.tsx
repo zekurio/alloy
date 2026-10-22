@@ -1,16 +1,9 @@
 import type { AdminRuntimeConfig } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
-import { FeedbackButton } from "@alloy/ui/components/feedback-button"
-import {
-  Section,
-  SectionContent,
-  SectionFooter,
-} from "@alloy/ui/components/section"
+import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
 import { useQueryClient } from "@tanstack/react-query"
-import { SaveIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import { LoginAppearancePreview } from "@/components/routes/admin-settings/login-appearance-preview"
@@ -23,7 +16,6 @@ import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
-import { useActionFeedback } from "@/lib/use-action-feedback"
 
 export function AppearanceSettingsContent({
   config,
@@ -34,7 +26,6 @@ export function AppearanceSettingsContent({
   const [enabledPending, setEnabledPending] = useState(false)
   const [enabledError, setEnabledError] = useState<string | null>(null)
   const [treatmentPending, setTreatmentPending] = useState(false)
-  const treatmentFeedback = useActionFeedback()
   const splash = config.appearance.loginSplash
   const [draftBlurPx, setDraftBlurPx] = useState(splash.blurPx)
   const [draftDarkenOpacity, setDraftDarkenOpacity] = useState(
@@ -74,7 +65,6 @@ export function AppearanceSettingsContent({
   }
 
   function cancelTreatment() {
-    treatmentFeedback.reset()
     setDraftBlurPx(splash.blurPx)
     setDraftDarkenOpacity(splash.darkenOpacity)
   }
@@ -98,7 +88,7 @@ export function AppearanceSettingsContent({
 
   // The enabled switch applies immediately; only the blur/darkening treatment
   // is deferred, so that's what goes through the unified save bar.
-  const inSettingsDialog = useSettingsSaveBar({
+  useSettingsSaveBar({
     dirty: treatmentChanged,
     saving: treatmentPending,
     save: saveTreatment,
@@ -154,46 +144,6 @@ export function AppearanceSettingsContent({
           </SettingsSubsection>
         </SettingsSections>
       </SectionContent>
-      {!inSettingsDialog && (
-        <SectionFooter>
-          <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-            <Button
-              className="flex-1 sm:flex-initial"
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={cancelTreatment}
-              disabled={treatmentPending || !treatmentChanged}
-            >
-              {t("Cancel")}
-            </Button>
-            <FeedbackButton
-              className="flex-1 sm:flex-initial"
-              type="button"
-              variant="primary"
-              size="sm"
-              state={treatmentFeedback.feedback.state}
-              pendingLabel={t("Saving...")}
-              successLabel={t("Saved")}
-              errorLabel={
-                treatmentFeedback.feedback.state === "error"
-                  ? treatmentFeedback.feedback.message
-                  : t("Try again")
-              }
-              onClick={() =>
-                void treatmentFeedback.run(
-                  saveTreatment,
-                  t("Couldn't save appearance settings"),
-                )
-              }
-              disabled={treatmentPending || !treatmentChanged}
-            >
-              <SaveIcon />
-              {t("Save")}
-            </FeedbackButton>
-          </div>
-        </SectionFooter>
-      )}
     </Section>
   )
 }

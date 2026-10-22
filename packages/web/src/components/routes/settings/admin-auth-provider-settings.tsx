@@ -374,11 +374,17 @@ function ProviderDialog({
   const [draft, setDraft] = useState<ProviderDraft>(() =>
     providerToDraft(provider),
   )
+  const [draftOpen, setDraftOpen] = useState(open)
   const editing = provider !== null && providerIndex !== null
 
-  function resetDraft() {
-    setDraft(providerToDraft(provider))
-    setAdvancedOpen(false)
+  // Start every opening from the provider as it is now. Resetting after a
+  // save instead would use the pre-save provider captured by that render.
+  if (open !== draftOpen) {
+    setDraftOpen(open)
+    if (open) {
+      setDraft(providerToDraft(provider))
+      setAdvancedOpen(false)
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -394,18 +400,10 @@ function ProviderDialog({
       : undefined
     if (!(await onSave(nextProviders, iconUpload))) return
     onOpenChange(false)
-    resetDraft()
   }
 
   return (
-    <ResponsiveDialog
-      open={open}
-      onOpenChange={(next) => {
-        onOpenChange(next)
-        if (next) return
-        resetDraft()
-      }}
-    >
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       {trigger ? <ResponsiveDialogTrigger render={trigger} /> : null}
       <ResponsiveDialogContent className="md:max-w-[760px]">
         <ResponsiveDialogHeader>

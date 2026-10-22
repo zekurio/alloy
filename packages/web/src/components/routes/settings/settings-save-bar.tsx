@@ -5,13 +5,7 @@ import { cn } from "@alloy/ui/lib/utils"
 import { SaveIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
-import { errorMessage } from "@/lib/error-message"
-
 import { useSettingsSaveState } from "./settings-save-context"
-
-type SaveFeedback =
-  | { state: "idle" | "pending" | "success" }
-  | { state: "error"; message: string }
 
 /**
  * Bottom-anchored Cancel/Save bar for the settings dialog. Slides in whenever
@@ -19,16 +13,14 @@ type SaveFeedback =
  * blocked it shakes and rephrases itself as a warning.
  */
 export function SettingsSaveBar() {
-  const { dirty, saving, valid, attention, saveAll, discardAll } =
+  const { dirty, saving, valid, attention, feedback, saveAll, discardAll } =
     useSettingsSaveState()
 
   // Warn for a moment after each blocked attempt. Compare against the last
   // seen counter so a bump from an earlier dirty episode doesn't re-warn when
   // the bar reappears.
   const [warned, setWarned] = useState(false)
-  const [feedback, setFeedback] = useState<SaveFeedback>({ state: "idle" })
   const lastAttention = useRef(attention)
-  const resetTimer = useRef<number | null>(null)
   useEffect(() => {
     if (attention === lastAttention.current) return
     lastAttention.current = attention
@@ -36,39 +28,6 @@ export function SettingsSaveBar() {
     const timer = window.setTimeout(() => setWarned(false), 1600)
     return () => window.clearTimeout(timer)
   }, [attention])
-
-  useEffect(
-    () => () => {
-      if (resetTimer.current !== null) window.clearTimeout(resetTimer.current)
-    },
-    [],
-  )
-
-  async function handleSave() {
-    if (saving || !valid || feedback.state === "pending") return
-    if (resetTimer.current !== null) window.clearTimeout(resetTimer.current)
-    setFeedback({ state: "pending" })
-    try {
-      await saveAll()
-      setFeedback({ state: "success" })
-      resetTimer.current = window.setTimeout(() => {
-        setFeedback({ state: "idle" })
-        resetTimer.current = null
-      }, 1400)
-    } catch (cause) {
-      setFeedback({
-        state: "error",
-        message: errorMessage(cause, t("Couldn't save changes")),
-      })
-    }
-  }
-
-  function handleDiscard() {
-    if (resetTimer.current !== null) window.clearTimeout(resetTimer.current)
-    resetTimer.current = null
-    setFeedback({ state: "idle" })
-    discardAll()
-  }
 
   if (!dirty && feedback.state === "idle") return null
 
@@ -107,7 +66,7 @@ export function SettingsSaveBar() {
           variant="ghost"
           size="sm"
           disabled={saving}
-          onClick={handleDiscard}
+          onClick={discardAll}
         >
           {t("Cancel")}
         </Button>
@@ -120,7 +79,7 @@ export function SettingsSaveBar() {
           successLabel={t("Saved")}
           errorLabel={t("Try again")}
           disabled={saving || !valid || feedback.state === "success"}
-          onClick={() => void handleSave()}
+          onClick={() => void saveAll()}
         >
           <SaveIcon />
           {t("Save")}

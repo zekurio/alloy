@@ -9,15 +9,10 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
-import { FeedbackButton } from "@alloy/ui/components/feedback-button"
-import {
-  Section,
-  SectionContent,
-  SectionFooter,
-} from "@alloy/ui/components/section"
+import { Section, SectionContent } from "@alloy/ui/components/section"
 import { cn } from "@alloy/ui/lib/utils"
 import { useForm, useStore } from "@tanstack/react-form"
-import { CircleAlertIcon, ImageIcon, Pencil, SaveIcon } from "lucide-react"
+import { CircleAlertIcon, ImageIcon, Pencil } from "lucide-react"
 import { useEffect } from "react"
 import type { ReactNode } from "react"
 
@@ -31,12 +26,15 @@ import {
   profileIdentityChanged,
   profileIdentityPatch,
 } from "@/lib/profile-identity"
-import { useActionFeedback } from "@/lib/use-action-feedback"
+import { refreshAfterWrite } from "@/lib/refresh-after-write"
 import { displayName, userAvatar, UserBanner } from "@/lib/user-display"
 
 import { MediaEditOverlay, type MediaKind } from "./profile-media-controls"
 import { ProfileTextField } from "./profile-text-field"
-import { useSettingsSaveBar } from "./settings-save-context"
+import {
+  useSettingsSaveBar,
+  useSettingsSaveState,
+} from "./settings-save-context"
 import { useProfileMedia } from "./use-profile-media"
 
 type ProfileCardProps = {
@@ -102,7 +100,6 @@ export function ProfileCard({
   banner,
 }: ProfileCardProps) {
   const media = useProfileMedia({ image, banner })
-  const identityFeedback = useActionFeedback()
   const bannerUser = {
     id: userId,
     image: media.profileImage || null,
@@ -122,7 +119,7 @@ export function ProfileCard({
 
       const { error } = await authClient.updateUser(patch)
       if (error) throw new Error(errorMessage(error, t("Couldn't save")))
-      await media.refreshProfile()
+      void refreshAfterWrite("profile", media.refreshProfile)
     },
   })
 
@@ -140,16 +137,14 @@ export function ProfileCard({
   )
   const identitySaving = useStore(form.store, (state) => state.isSubmitting)
   const identityValid = useStore(form.store, (state) => state.canSubmit)
-  const inSettingsDialog = useSettingsSaveBar({
+  useSettingsSaveBar({
     dirty: identityDirty,
     saving: identitySaving,
     valid: identityValid,
     save: () => form.handleSubmit(),
-    discard: () => {
-      identityFeedback.reset()
-      form.reset()
-    },
+    discard: () => form.reset(),
   })
+  const { saveAll } = useSettingsSaveState()
 
   // A clickable region in the live profile preview. When the element already
   // has an image, clicking opens the change/remove menu; otherwise it opens the
@@ -224,10 +219,9 @@ export function ProfileCard({
         onSubmit={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          void identityFeedback.run(
-            () => form.handleSubmit(),
-            t("Something went wrong"),
-          )
+          // Enter saves through the save bar, like its Save button, so a
+          // rejection shows there instead of failing silently.
+          void saveAll()
         }}
       >
         <Section>
@@ -350,32 +344,6 @@ export function ProfileCard({
               </form.Field>
             ))}
           </SectionContent>
-
-          {!inSettingsDialog && (
-            <SectionFooter>
-              <form.Subscribe selector={(state) => state.canSubmit}>
-                {(canSubmit) => (
-                  <FeedbackButton
-                    type="submit"
-                    variant="primary"
-                    size="sm"
-                    state={identityFeedback.feedback.state}
-                    pendingLabel={t("Saving…")}
-                    successLabel={t("Saved")}
-                    errorLabel={
-                      identityFeedback.feedback.state === "error"
-                        ? identityFeedback.feedback.message
-                        : t("Try again")
-                    }
-                    disabled={!identityDirty || !canSubmit}
-                  >
-                    <SaveIcon />
-                    {t("Save")}
-                  </FeedbackButton>
-                )}
-              </form.Subscribe>
-            </SectionFooter>
-          )}
         </Section>
       </form>
     </>

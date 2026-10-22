@@ -18,9 +18,19 @@ import { NotificationSoundsSection } from "./desktop-capture-notifications"
 import { ModeSection } from "./desktop-capture-sections"
 import {
   DesktopRecordingNotice,
+  type RecordingErrorScope,
   useDesktopRecording,
 } from "./desktop-recording-context"
 import { DesktopStorageSettings } from "./desktop-storage-settings"
+
+// The game picker shows its own "games" failures inline.
+const CAPTURE_ERROR_SCOPES: readonly RecordingErrorScope[] = [
+  "save",
+  "folder",
+  "restart",
+  "sounds",
+  "displays",
+]
 
 function DesktopCaptureSettings() {
   const { settings, status, busy, save, restartBackend } = useDesktopRecording()
@@ -31,7 +41,7 @@ function DesktopCaptureSettings() {
 
   return (
     <>
-      <DesktopRecordingNotice />
+      <DesktopRecordingNotice scopes={CAPTURE_ERROR_SCOPES} />
       <ModeSection settings={settings} status={status} busy={busy} save={save}>
         <SettingRow
           title={t("Alloy agent")}

@@ -144,6 +144,8 @@ export const DESKTOP_MESSAGES = {
   "Couldn't load running processes.":
     "Laufende Prozesse konnten nicht geladen werden.",
   "Couldn't load servers.": "Server konnten nicht geladen werden.",
+  "Couldn't load the startup setting.":
+    "Start-Einstellung konnte nicht geladen werden.",
   "Couldn't open the desktop logs folder.":
     "Der Desktop-Protokollordner konnte nicht geöffnet werden.",
   "Couldn't open the sounds folder.":

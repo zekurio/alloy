@@ -6,15 +6,10 @@ import {
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
-import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Input } from "@alloy/ui/components/input"
-import {
-  Section,
-  SectionContent,
-  SectionFooter,
-} from "@alloy/ui/components/section"
+import { Section, SectionContent } from "@alloy/ui/components/section"
 import {
   Select,
   SelectContent,
@@ -24,7 +19,7 @@ import {
 } from "@alloy/ui/components/select"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { RefreshCwIcon, SaveIcon, TriangleAlertIcon } from "lucide-react"
+import { RefreshCwIcon, TriangleAlertIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import { TranscodingLadder } from "@/components/routes/settings/admin-transcoding-ladder"
@@ -49,6 +44,7 @@ import {
   adminTranscodingCapabilitiesQueryOptions,
 } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
+import { errorMessage } from "@/lib/error-message"
 import { useActionFeedback } from "@/lib/use-action-feedback"
 
 export function TranscodingSettingsContent({
@@ -60,7 +56,6 @@ export function TranscodingSettingsContent({
   const [form, setForm] = useState<TranscodingForm>(() => formFromConfig(saved))
   const [saving, setSaving] = useState(false)
   const [redetecting, setRedetecting] = useState(false)
-  const saveFeedback = useActionFeedback()
   const detectionFeedback = useActionFeedback()
   const queryClient = useQueryClient()
   const capabilitiesQuery = useQuery(adminTranscodingCapabilitiesQueryOptions())
@@ -115,7 +110,6 @@ export function TranscodingSettingsContent({
   }
 
   function discard() {
-    saveFeedback.reset()
     setForm(formFromConfig(saved))
   }
 
@@ -132,7 +126,7 @@ export function TranscodingSettingsContent({
     }
   }
 
-  const inSettingsDialog = useSettingsSaveBar({
+  useSettingsSaveBar({
     dirty,
     saving,
     valid: validation.valid,
@@ -148,9 +142,19 @@ export function TranscodingSettingsContent({
             id="codec"
             title={t("Codec & encoding")}
             description={
-              capabilitiesQuery.isLoading
-                ? t("Detecting encoders...")
-                : (capabilities?.version ?? t("ffmpeg not detected"))
+              capabilitiesQuery.isLoading ? (
+                t("Detecting encoders...")
+              ) : capabilitiesQuery.isError && !capabilities ? (
+                // A failed probe says nothing about ffmpeg; Re-detect retries.
+                <span role="alert" className="text-destructive">
+                  {errorMessage(
+                    capabilitiesQuery.error,
+                    t("Couldn't detect encoders"),
+                  )}
+                </span>
+              ) : (
+                (capabilities?.version ?? t("ffmpeg not detected"))
+              )
             }
             action={
               <div className="flex min-w-0 items-center gap-2">
@@ -331,46 +335,6 @@ export function TranscodingSettingsContent({
           </p>
         </SettingsSections>
       </SectionContent>
-      {!inSettingsDialog && (
-        <SectionFooter>
-          <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-            <Button
-              className="flex-1 sm:flex-initial"
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={discard}
-              disabled={saving || !dirty}
-            >
-              {t("Cancel")}
-            </Button>
-            <FeedbackButton
-              className="flex-1 sm:flex-initial"
-              type="button"
-              variant="primary"
-              size="sm"
-              state={saveFeedback.feedback.state}
-              pendingLabel={t("Saving...")}
-              successLabel={t("Saved")}
-              errorLabel={
-                saveFeedback.feedback.state === "error"
-                  ? saveFeedback.feedback.message
-                  : t("Try again")
-              }
-              onClick={() =>
-                void saveFeedback.run(
-                  save,
-                  t("Couldn't save transcoding settings"),
-                )
-              }
-              disabled={saving || !dirty || !validation.valid}
-            >
-              <SaveIcon />
-              {t("Save")}
-            </FeedbackButton>
-          </div>
-        </SectionFooter>
-      )}
     </Section>
   )
 }

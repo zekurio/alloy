@@ -51,6 +51,18 @@ export function firstTierError(row: RowErrors): string | undefined {
   return row.height ?? row.maxFps ?? row.maxrateKbps ?? row.codec
 }
 
+let addedTierCount = 0
+
+/**
+ * Row key for a tier added in the editor. Saved tiers are keyed by position
+ * (see formFromConfig), so a counter is enough to keep these unique and works
+ * on non-secure origins, where crypto.randomUUID is unavailable.
+ */
+export function newTierId(): string {
+  addedTierCount += 1
+  return `added-${addedTierCount}`
+}
+
 export function formFromConfig(
   transcoding: TranscodingConfig,
 ): TranscodingForm {
@@ -60,8 +72,10 @@ export function formFromConfig(
     vaapiDevice: transcoding.vaapiDevice,
     quality: transcoding.quality,
     audioBitrateKbps: transcoding.audioBitrateKbps,
-    tiers: transcoding.tiers.map((tier) => ({
-      id: crypto.randomUUID(),
+    // Position keys stay stable across saves, so rows don't remount every
+    // time the server hands back the config.
+    tiers: transcoding.tiers.map((tier, index) => ({
+      id: `saved-${index}`,
       height: tier.height,
       maxFps: tier.maxFps,
       maxrateKbps: tier.maxrateKbps,

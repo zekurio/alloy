@@ -38,11 +38,15 @@ function useSecurityData(config: PublicAuthConfig, enabled: boolean) {
       (config.passkeyEnabled && passkeysQuery.isPending),
     error: accountsQuery.error
       ? errorMessage(accountsQuery.error, t("Couldn't load accounts"))
-      : passkeysQuery.error
+      : config.passkeyEnabled && passkeysQuery.error
         ? errorMessage(passkeysQuery.error, t("Couldn't load passkeys"))
         : null,
     retry: async () => {
-      await Promise.all([accountsQuery.refetch(), passkeysQuery.refetch()])
+      // refetch() ignores `enabled`, so skip passkeys when they are off.
+      await Promise.all([
+        accountsQuery.refetch(),
+        config.passkeyEnabled ? passkeysQuery.refetch() : null,
+      ])
     },
     refreshAccounts: async () => {
       await accountsQuery.refetch()
@@ -63,16 +67,7 @@ export function SecuritySettings() {
 
   if (!security.accounts) {
     return (
-      <Callout tone="destructive">
-        <CircleAlertIcon />
-        <div className="flex flex-1 items-center justify-between gap-3">
-          <span>{security.error}</span>
-          <Button variant="outline" size="sm" onClick={security.retry}>
-            <RefreshCcwIcon />
-            {t("Try again")}
-          </Button>
-        </div>
-      </Callout>
+      <SecurityLoadError message={security.error} onRetry={security.retry} />
     )
   }
 
@@ -84,11 +79,9 @@ export function SecuritySettings() {
 
   return (
     <>
+      {/* A failed passkey load hides the card, so offer the retry here. */}
       {security.error ? (
-        <Callout tone="destructive">
-          <CircleAlertIcon />
-          <span>{security.error}</span>
-        </Callout>
+        <SecurityLoadError message={security.error} onRetry={security.retry} />
       ) : null}
       {showLinkedAccounts && (
         <LinkedAccountsCard
@@ -107,6 +100,27 @@ export function SecuritySettings() {
         />
       )}
     </>
+  )
+}
+
+function SecurityLoadError({
+  message,
+  onRetry,
+}: {
+  message: string | null
+  onRetry: () => Promise<void>
+}) {
+  return (
+    <Callout tone="destructive">
+      <CircleAlertIcon />
+      <div className="flex flex-1 items-center justify-between gap-3">
+        <span>{message}</span>
+        <Button variant="outline" size="sm" onClick={() => void onRetry()}>
+          <RefreshCcwIcon />
+          {t("Try again")}
+        </Button>
+      </div>
+    </Callout>
   )
 }
 

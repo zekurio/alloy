@@ -27,6 +27,7 @@ import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import {
   effectiveOgTierIndex,
   firstTierError,
+  newTierId,
   nextTierHeight,
   parseNumberInput,
   suggestMaxrateKbps,
@@ -72,7 +73,7 @@ export function TranscodingLadder({
       if (current.tiers.length >= 6) return current
       const height = nextTierHeight(current.tiers)
       const tier: LadderTier = {
-        id: crypto.randomUUID(),
+        id: newTierId(),
         height,
         maxFps: 60,
         maxrateKbps: suggestMaxrateKbps(height),

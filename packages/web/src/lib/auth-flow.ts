@@ -27,18 +27,40 @@ export async function completeAuthSessionFlow({
   await navigate?.()
 }
 
-export async function completeSignOutFlow({
-  invalidateRouter,
-  navigate,
-}: {
+interface CompleteSignOutFlowOptions {
   invalidateRouter: () => Promise<void>
   navigate?: () => Promise<void> | void
-}): Promise<void> {
-  const { error } = await authClient.signOut()
-  if (error) throw error
+}
+
+async function leaveSignedInState({
+  invalidateRouter,
+  navigate,
+}: CompleteSignOutFlowOptions): Promise<void> {
   resetClientState()
   await invalidateRouter()
   await navigate?.()
+}
+
+export async function completeSignOutFlow(
+  options: CompleteSignOutFlowOptions,
+): Promise<void> {
+  const { error } = await authClient.signOut()
+  if (error) throw error
+  await leaveSignedInState(options)
+}
+
+/**
+ * Signs out and clears client state after the account itself was disabled or
+ * deleted. That change already succeeded and the server may have ended the
+ * session with it, so a failed sign-out is logged rather than reported.
+ */
+export async function completeAccountExitFlow(
+  options: CompleteSignOutFlowOptions,
+): Promise<void> {
+  const { error } = await authClient.signOut()
+  if (error)
+    clientLogger.warn("[auth] Sign-out after account exit failed.", error)
+  await leaveSignedInState(options)
 }
 
 export function reportAuthFlowFailure(
