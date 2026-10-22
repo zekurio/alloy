@@ -104,7 +104,11 @@ export function runProcess(opts: RunProcessOptions): Promise<void> {
   ) => new ProcessError(message, kind, exitCode, opts.failureDetail?.() ?? "")
 
   return new Promise<void>((resolve, reject) => {
-    child.once("error", (err) => {
+    // `error` also fires when kill() fails; only a missing pid means the
+    // process never started. Otherwise keep waiting for `close`, and keep
+    // listening so a second failed kill() isn't an unhandled error event.
+    child.on("error", (err) => {
+      if (child.pid !== undefined) return
       reject(
         fail(
           `Failed to start ${opts.name} (${opts.command}): ${err.message}`,
