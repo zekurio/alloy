@@ -160,7 +160,7 @@ export async function browseGameArtwork(
   steamgriddbId: number,
   role: GameAssetRole,
 ): Promise<SteamGridDBAsset[]> {
-  const assets = await listGameAssets(steamgriddbId, role)
+  const assets = await listGameAssets(steamgriddbId, role, { fresh: true })
   return assets.slice(0, GAME_ARTWORK_MAX)
 }
 

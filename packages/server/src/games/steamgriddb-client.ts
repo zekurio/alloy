@@ -37,6 +37,10 @@ const MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 // per unmatched name, so the whole process shares one small window.
 const MAX_CONCURRENT_REQUESTS = 4
 const MAX_QUEUED_REQUESTS = 256
+// The request deadline starts only once a slot is free, so the wait for one
+// is bounded too: a caller at the back of a full queue gives up instead of
+// holding its HTTP request (and any in-flight entry) open for minutes.
+const QUEUE_WAIT_TIMEOUT_MS = 20_000
 
 // Successful answers, including "nothing found", are reused for a while so a
 // name that never matches or an id that does not exist costs one round-trip
@@ -118,8 +122,16 @@ class EndpointCache<Value> {
     private readonly maxEntries: number,
   ) {}
 
-  async load(key: string, fetchValue: () => Promise<Value>): Promise<Value> {
-    const entry = this.entries.get(key)
+  /**
+   * The cached value while it is fresh, else a fetched one. `fresh` skips the
+   * cached value but still joins a load in flight and stores the result.
+   */
+  async load(
+    key: string,
+    fetchValue: () => Promise<Value>,
+    { fresh = false }: { fresh?: boolean } = {},
+  ): Promise<Value> {
+    const entry = fresh ? undefined : this.entries.get(key)
     if (entry) {
       if (entry.expiresAt > Date.now()) {
         // Touch LRU order: delete + re-insert puts it at the tail.
@@ -172,13 +184,29 @@ const assetCache = new EndpointCache<SteamGridDBAsset[]>(
 let activeRequests = 0
 const waitingRequests: Array<() => void> = []
 
+function waitForRequestSlot(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const grant = () => {
+      clearTimeout(timer)
+      resolve()
+    }
+    // A waiter that times out leaves the queue, so no slot is handed to it.
+    const timer = setTimeout(() => {
+      const index = waitingRequests.indexOf(grant)
+      if (index !== -1) waitingRequests.splice(index, 1)
+      reject(new SteamGridDBError("SteamGridDB request queue timed out", null))
+    }, QUEUE_WAIT_TIMEOUT_MS)
+    waitingRequests.push(grant)
+  })
+}
+
 async function withRequestSlot<T>(run: () => Promise<T>): Promise<T> {
   if (activeRequests >= MAX_CONCURRENT_REQUESTS) {
     if (waitingRequests.length >= MAX_QUEUED_REQUESTS) {
       throw new SteamGridDBError("SteamGridDB request queue is full", null)
     }
     // A finishing request hands its slot straight to the first waiter.
-    await new Promise<void>((resolve) => waitingRequests.push(resolve))
+    await waitForRequestSlot()
   } else {
     activeRequests += 1
   }
@@ -349,12 +377,14 @@ export async function getGameById(
 /**
  * Every asset SteamGridDB lists for one artwork role, in upstream order. Lazy
  * game ingestion caches the first entry; the admin artwork picker offers the
- * whole list. NSFW and humor assets are excluded explicitly so what the picker
- * shows does not depend on upstream defaults.
+ * whole list and asks for a `fresh` one so newly uploaded art shows up at
+ * once. NSFW and humor assets are excluded explicitly so what the picker shows
+ * does not depend on upstream defaults.
  */
 export async function listGameAssets(
   steamgriddbId: number,
   role: GameAssetRole,
+  options?: { fresh?: boolean },
 ): Promise<SteamGridDBAsset[]> {
   const request = ASSET_LISTS[role]
   const url = endpointUrl(`/${request.path}/game/${steamgriddbId}`, {
@@ -362,10 +392,16 @@ export async function listGameAssets(
     nsfw: "false",
     humor: "false",
   })
-  return assetCache.load(url.toString(), async () => {
-    const data = await withRequestSlot(() => requestOnce(url, AssetListSchema))
-    return data ?? []
-  })
+  return assetCache.load(
+    url.toString(),
+    async () => {
+      const data = await withRequestSlot(() =>
+        requestOnce(url, AssetListSchema),
+      )
+      return data ?? []
+    },
+    options,
+  )
 }
 
 /**
