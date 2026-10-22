@@ -14,6 +14,7 @@ use crate::capture_library::paths::{
     capture_id, ensure_within, extension, is_image, is_media, manifest_key, now_rfc3339,
     safe_component, safe_file_stem, title_for_capture, unique_path,
 };
+use crate::capture_library::poster::{PosterFailures, discard_poster};
 use crate::capture_library::types::{
     CaptureKind, CaptureManifest, CaptureRecord, CaptureSource, CommitImport, FilesImportResult,
     GameGuess, ImportFailure, LibraryGroup, LibraryItem, LibrarySnapshot, ManifestEntry, MetaPatch,
@@ -91,6 +92,7 @@ struct LibraryInner {
     manifest_lock: Arc<Mutex<()>>,
     staged: Mutex<HashMap<String, StagedInternal>>,
     work: MediaWork,
+    poster_failures: PosterFailures,
 }
 
 #[derive(Clone, Debug)]
@@ -120,6 +122,7 @@ impl CaptureLibrary {
                 manifest_lock,
                 staged: Mutex::new(HashMap::new()),
                 work,
+                poster_failures: PosterFailures::default(),
             }),
         };
         Ok(library)
@@ -172,6 +175,10 @@ impl CaptureLibrary {
     /// Runs every ffmpeg and ffprobe process for this library.
     pub(crate) fn work(&self) -> &MediaWork {
         &self.inner.work
+    }
+
+    pub(crate) fn poster_failures(&self) -> &PosterFailures {
+        &self.inner.poster_failures
     }
 
     /// Requests cancellation of all ffmpeg and ffprobe work for this library.
@@ -446,6 +453,7 @@ impl CaptureLibrary {
                 ..existing
             };
             let id = entry.id.clone();
+            discard_poster(self, &id);
             manifest.captures.insert(key, entry);
             Ok(id)
         })
@@ -612,6 +620,7 @@ impl CaptureLibrary {
         })?;
         // The capture is gone, so its cached thumbnails and export renders
         // have nothing left to belong to.
+        self.inner.poster_failures.forget(id);
         if let Ok(folder) = self.thumbnail_path(id) {
             let _ = fs::remove_dir_all(folder);
         }
@@ -685,6 +694,9 @@ impl CaptureLibrary {
         let id = capture_id(&destination);
         let now = now_rfc3339();
         self.mutate_manifest(|manifest| {
+            // The id comes from the path, so a poster an earlier file at this
+            // path left behind does not describe this one.
+            discard_poster(self, &id);
             manifest.captures.insert(
                 manifest_key(&destination),
                 ManifestEntry {
@@ -768,6 +780,8 @@ impl CaptureLibrary {
             CaptureKind::Replay
         };
         self.mutate_manifest(|manifest| {
+            // As with imports, the id comes from the path.
+            discard_poster(self, &id);
             manifest.captures.insert(
                 manifest_key(&path),
                 ManifestEntry {

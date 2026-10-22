@@ -4,9 +4,11 @@
 //! same picture, and a video poster starts on the frame the server picks
 //! after an upload.
 
+use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::time::{Duration, SystemTime};
 
 use tokio::task::JoinHandle;
 
@@ -30,7 +32,8 @@ const UNIFORM_CHANNEL_STDEV: f64 = 1.0;
 
 /// Returns the capture's poster, creating it and recording its BlurHash in
 /// the manifest when it is missing. Concurrent calls for one capture share a
-/// single run.
+/// single run. A file whose poster failed is not tried again until it
+/// changes; until then this returns [`LibraryError::PosterFailed`].
 pub async fn ensure_poster(library: &CaptureLibrary, id: &str) -> Result<PathBuf> {
     let _slot = library.work().exclusive(format!("poster:{id}")).await;
     // Manifest reads and writes block, so they run off the async workers
@@ -40,17 +43,45 @@ pub async fn ensure_poster(library: &CaptureLibrary, id: &str) -> Result<PathBuf
         if output.is_file() && library.thumb_blur_hash(id).is_some() {
             return Ok((output, None));
         }
-        Ok((output, Some(library.media_path(id)?)))
+        let source = library.media_path(id)?;
+        let stamp = FileStamp::of(&source)?;
+        if library.poster_failures().failed(id, stamp) {
+            return Err(LibraryError::PosterFailed);
+        }
+        Ok((output, Some((source, stamp))))
     })
     .await?;
-    let Some(source) = source else {
+    let Some((source, stamp)) = source else {
         return Ok(output);
     };
-    let blur_hash = render_poster(library, &source, &output).await?;
-    off_worker(library, id, move |library, id| {
-        library.remember_poster(id, &source, &blur_hash)
-    })
-    .await?;
+    let remembered = match render_poster(library, &source, &output).await {
+        Ok(blur_hash) => {
+            off_worker(library, id, move |library, id| {
+                library.remember_poster(id, &source, &blur_hash)
+            })
+            .await
+        }
+        Err(error) => {
+            // Cancellation says nothing about the file; anything else would
+            // fail the same way on every thumbnail request.
+            if !matches!(error, LibraryError::MediaCancelled) {
+                library.poster_failures().record(id, stamp);
+            }
+            Err(error)
+        }
+    };
+    if let Err(error) = remembered {
+        // The capture was deleted while its poster rendered, and its
+        // thumbnail folder with it.
+        if matches!(error, LibraryError::CaptureNotFound) {
+            let _ = tokio::fs::remove_file(&output).await;
+        }
+        // Rendering created the folder; leave it only if it holds something.
+        if let Some(folder) = output.parent() {
+            let _ = tokio::fs::remove_dir(folder).await;
+        }
+        return Err(error);
+    }
     remove_stale_posters(&output).await;
     Ok(output)
 }
@@ -63,11 +94,37 @@ pub fn spawn_poster(library: &CaptureLibrary, id: &str) -> JoinHandle<Result<Pat
     let id = id.to_string();
     tokio::spawn(async move {
         let result = ensure_poster(&library, &id).await;
-        if let Err(error) = &result {
+        // A known failure was logged when it happened.
+        if let Err(error) = &result
+            && !matches!(error, LibraryError::PosterFailed)
+        {
             log::warn!("could not create a poster for capture {id}: {error}");
         }
         result
     })
+}
+
+/// The file the loopback server answers a thumbnail request with. A missing
+/// poster renders in its own task, so a request the WebView drops neither
+/// cancels it nor strands its temporary files. A screenshot whose poster
+/// cannot be made is its own thumbnail.
+pub(crate) async fn thumbnail_file(library: &CaptureLibrary, id: &str) -> Result<PathBuf> {
+    if let Ok(Some(poster)) =
+        off_worker(library, id, |library, id| Ok(existing_poster(library, id))).await
+    {
+        return Ok(poster);
+    }
+    let error = match spawn_poster(library, id).await {
+        Ok(Ok(poster)) => return Ok(poster),
+        Ok(Err(error)) => error,
+        Err(error) => LibraryError::Io(io::Error::other(error)),
+    };
+    let source = off_worker(library, id, |library, id| library.media_path(id)).await?;
+    if is_image(&source) {
+        Ok(source)
+    } else {
+        Err(error)
+    }
 }
 
 /// Gives a new capture's poster up to `wait`, so the library can show the
@@ -93,10 +150,62 @@ where
 }
 
 /// The poster file when it already exists. The loopback server answers from
-/// this without reading the manifest and falls back to [`ensure_poster`].
-pub fn existing_poster(library: &CaptureLibrary, id: &str) -> Option<PathBuf> {
+/// this without reading the manifest, which [`discard_poster`] makes safe,
+/// and falls back to [`ensure_poster`].
+fn existing_poster(library: &CaptureLibrary, id: &str) -> Option<PathBuf> {
     let output = library.thumbnail_path(id).ok()?.join(POSTER_FILE);
     output.is_file().then_some(output)
+}
+
+/// Drops a capture's poster and any failed attempt at one when a new file
+/// takes over its id. The manifest forgets the old BlurHash at the same
+/// time, and the loopback server must not keep serving the old picture.
+pub(crate) fn discard_poster(library: &CaptureLibrary, id: &str) {
+    library.poster_failures().forget(id);
+    if let Ok(folder) = library.thumbnail_path(id) {
+        let _ = std::fs::remove_file(folder.join(POSTER_FILE));
+    }
+}
+
+/// Captures whose poster could not be made, with the file each attempt read.
+/// A corrupt or audio-only capture fails the same way every time, so it is
+/// tried once per library and again only after its file changes.
+#[derive(Default)]
+pub(crate) struct PosterFailures(Mutex<HashMap<String, FileStamp>>);
+
+impl PosterFailures {
+    fn failed(&self, id: &str, stamp: FileStamp) -> bool {
+        self.entries().get(id) == Some(&stamp)
+    }
+
+    fn record(&self, id: &str, stamp: FileStamp) {
+        self.entries().insert(id.to_string(), stamp);
+    }
+
+    pub(crate) fn forget(&self, id: &str) {
+        self.entries().remove(id);
+    }
+
+    fn entries(&self) -> MutexGuard<'_, HashMap<String, FileStamp>> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// Tells one version of a file from the next.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct FileStamp {
+    modified: Option<SystemTime>,
+    len: u64,
+}
+
+impl FileStamp {
+    fn of(path: &Path) -> io::Result<Self> {
+        let metadata = std::fs::metadata(path)?;
+        Ok(Self {
+            modified: metadata.modified().ok(),
+            len: metadata.len(),
+        })
+    }
 }
 
 /// Writes the poster JPEG and returns its BlurHash.
@@ -122,18 +231,36 @@ async fn render_poster(library: &CaptureLibrary, source: &Path, output: &Path) -
     // it, so a concurrent request never sees a frame that gets rejected.
     let mut blank: Option<(TempFile, Vec<u8>)> = None;
     let mut chosen = None;
+    let mut failure = None;
     for at_ms in candidates {
         let temp = TempFile::beside(output);
-        let pixels = grab_frame(library, source, temp.path(), at_ms, sample).await?;
+        let pixels = match grab_frame(library, source, temp.path(), at_ms, sample).await {
+            Ok(pixels) => pixels,
+            Err(LibraryError::MediaCancelled) => return Err(LibraryError::MediaCancelled),
+            // Every later seek into a file this slow would take as long, so
+            // settle for what the earlier candidates found.
+            Err(LibraryError::MediaToolTimeout) => {
+                failure.get_or_insert(LibraryError::MediaToolTimeout);
+                break;
+            }
+            // One seek can fail where another works, e.g. past the end of a
+            // video stream that the audio outlasts.
+            Err(error) => {
+                failure.get_or_insert(error);
+                continue;
+            }
+        };
         if !is_uniform(&pixels) {
             chosen = Some((temp, pixels));
             break;
         }
         // Keep the first blank frame: a recording that is black throughout
-        // gets its opening frame as the poster rather than none.
+        // gets its earliest frame as the poster rather than none.
         blank.get_or_insert((temp, pixels));
     }
-    let (temp, pixels) = chosen.or(blank).ok_or(LibraryError::UnsupportedMedia)?;
+    let (temp, pixels) = chosen
+        .or(blank)
+        .ok_or_else(|| failure.unwrap_or(LibraryError::UnsupportedMedia))?;
     temp.persist(output).await?;
     encode_blur_hash(&pixels, sample, (width, height))
 }

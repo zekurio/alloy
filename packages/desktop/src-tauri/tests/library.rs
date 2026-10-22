@@ -1705,6 +1705,251 @@ async fn posters_carry_a_blur_hash_into_the_snapshot() {
     );
 }
 
+#[tokio::test]
+async fn screenshots_stand_in_for_posters_they_cannot_get() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    // ffmpeg cannot read either file, so neither gets a poster.
+    let broken = temp.path().join("captures/Screenshots/Desktop/broken.png");
+    fs::create_dir_all(broken.parent().unwrap()).await.unwrap();
+    let broken_bytes = b"\x89PNG\r\n\x1a\nnot really a png".to_vec();
+    fs::write(&broken, &broken_bytes).await.unwrap();
+    let broken_id = library
+        .remember_capture(&capture(broken.to_str().unwrap(), CaptureKind::Screenshot))
+        .unwrap();
+    let video = temp.path().join("captures/Clips/Test Game/clip.mp4");
+    fs::create_dir_all(video.parent().unwrap()).await.unwrap();
+    fs::write(&video, b"not a real mp4").await.unwrap();
+    let video_id = library
+        .remember_capture(&capture(video.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+    let server = CaptureHttpServer::start(library.clone()).await.unwrap();
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+
+    // The second round answers from the remembered failure.
+    for _ in 0..2 {
+        let response = client
+            .get(server.thumbnail_url(&broken_id).unwrap())
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers()["content-type"].to_str().unwrap(),
+            "image/png"
+        );
+        assert_eq!(response.bytes().await.unwrap().as_ref(), broken_bytes);
+        // A video has nothing to stand in for its poster.
+        let response = client
+            .get(server.thumbnail_url(&video_id).unwrap())
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    // Once media work is cancelled, a screenshot still has a thumbnail.
+    let shot = temp.path().join("captures/Screenshots/Desktop/shot.png");
+    write_screenshot(&shot);
+    let shot_id = library
+        .remember_capture(&capture(shot.to_str().unwrap(), CaptureKind::Screenshot))
+        .unwrap();
+    library.cancel_media();
+    let response = client
+        .get(server.thumbnail_url(&shot_id).unwrap())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.bytes().await.unwrap().as_ref(),
+        fs::read(&shot).await.unwrap()
+    );
+    server.shutdown().await;
+}
+
+#[tokio::test]
+async fn failed_posters_wait_for_their_file_to_change() {
+    use alloy_desktop::capture_library::LibraryError;
+
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let video = temp.path().join("captures/Clips/Test Game/clip.mp4");
+    fs::create_dir_all(video.parent().unwrap()).await.unwrap();
+    fs::write(&video, b"not a real mp4").await.unwrap();
+    let id = library
+        .remember_capture(&capture(video.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+
+    let error = ensure_poster(&library, &id)
+        .await
+        .expect_err("a broken file has no poster");
+    assert!(!matches!(error, LibraryError::PosterFailed));
+    // The same file is not tried again.
+    let error = ensure_poster(&library, &id)
+        .await
+        .expect_err("a broken file has no poster");
+    assert!(matches!(error, LibraryError::PosterFailed));
+
+    // A new file in its place is.
+    write_recording(&video);
+    let poster = ensure_poster(&library, &id).await.unwrap();
+    assert!(poster.is_file());
+    assert!(
+        library.snapshot().unwrap().items[0]
+            .thumb_blur_hash
+            .is_some()
+    );
+
+    // Cancelled work says nothing about the file, so it is not remembered.
+    let other = temp.path().join("captures/Clips/Test Game/other.mp4");
+    fs::write(&other, b"not a real mp4").await.unwrap();
+    let other_id = library
+        .remember_capture(&capture(other.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+    library.cancel_media();
+    for _ in 0..2 {
+        let error = ensure_poster(&library, &other_id)
+            .await
+            .expect_err("cancelled media should fail");
+        assert!(matches!(error, LibraryError::MediaCancelled));
+    }
+}
+
+#[tokio::test]
+async fn a_new_file_at_a_capture_drops_the_old_poster() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let shot = temp.path().join("captures/Screenshots/Desktop/shot.png");
+    write_screenshot(&shot);
+    let record = capture(shot.to_str().unwrap(), CaptureKind::Screenshot);
+    let id = library.remember_capture(&record).unwrap();
+    let poster = ensure_poster(&library, &id).await.unwrap();
+    assert_eq!(jpeg_size(&fs::read(&poster).await.unwrap()), (1280, 720));
+
+    // A new file lands where the capture was and is recorded again.
+    write_image(&shot, "640x360");
+    assert_eq!(library.remember_capture(&record).unwrap(), id);
+    assert!(!poster.exists());
+
+    // The loopback server serves the new file's poster, not the old one.
+    let server = CaptureHttpServer::start(library.clone()).await.unwrap();
+    let response = reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .unwrap()
+        .get(server.thumbnail_url(&id).unwrap())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(jpeg_size(&response.bytes().await.unwrap()), (640, 360));
+    server.shutdown().await;
+    assert!(
+        library.snapshot().unwrap().items[0]
+            .thumb_blur_hash
+            .is_some()
+    );
+}
+
+#[tokio::test]
+async fn posters_keep_a_blank_frame_when_later_seeks_fail() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    let video = temp.path().join("captures/Clips/Test Game/short.mp4");
+    write_short_video_with_long_audio(&video);
+    let id = library
+        .remember_capture(&capture(video.to_str().unwrap(), CaptureKind::Replay))
+        .unwrap();
+
+    // Every frame is black and the seeks past the video's end find none, so
+    // the opening frame is the poster.
+    let poster = ensure_poster(&library, &id).await.unwrap();
+    assert_eq!(jpeg_size(&fs::read(&poster).await.unwrap()), (160, 90));
+    let files = std::fs::read_dir(poster.parent().unwrap())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name())
+        .collect::<Vec<_>>();
+    assert_eq!(files, ["poster.jpg"]);
+    let hash = library.snapshot().unwrap().items[0]
+        .thumb_blur_hash
+        .clone()
+        .expect("snapshot carries the poster's BlurHash");
+    // Some ffmpeg builds convert video black to 1 rather than 0.
+    assert!(blur_hash_average(&hash).iter().all(|channel| *channel <= 2));
+}
+
+/// The average color a BlurHash stores in characters 2..6.
+fn blur_hash_average(hash: &str) -> [u8; 3] {
+    const ALPHABET: &str =
+        "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~";
+    let value = hash[2..6].chars().fold(0_u32, |value, digit| {
+        value * 83 + ALPHABET.find(digit).unwrap() as u32
+    });
+    [(value >> 16) as u8, (value >> 8) as u8, value as u8]
+}
+
+/// Writes a PNG test pattern of `size`, given as `WIDTHxHEIGHT`.
+fn write_image(path: &Path, size: &str) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let output = Command::new("ffmpeg")
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            &format!("testsrc2=s={size}"),
+            "-frames:v",
+            "1",
+            "-y",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("ffmpeg starts");
+    assert!(
+        output.status.success(),
+        "ffmpeg failed: {:?}",
+        output.stderr
+    );
+}
+
+/// Writes a recording whose black video ends after half a second while its
+/// audio runs for three, so seeking past 0.5 s finds no frame.
+fn write_short_video_with_long_audio(path: &Path) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let output = Command::new("ffmpeg")
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=160x90:r=10:d=0.5",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=3",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-y",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("ffmpeg starts");
+    assert!(
+        output.status.success(),
+        "ffmpeg failed: {:?}",
+        output.stderr
+    );
+}
+
 fn which(binary: &str) -> std::path::PathBuf {
     std::path::PathBuf::from(binary)
 }

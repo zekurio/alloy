@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use crate::capture_library::error::{LibraryError, Result};
 use crate::capture_library::paths::{content_type, is_media};
-use crate::capture_library::poster::{existing_poster, spawn_poster};
+use crate::capture_library::poster::thumbnail_file;
 use crate::capture_library::store::CaptureLibrary;
 
 const TOKEN_QUERY: &str = "token";
@@ -182,19 +182,8 @@ async fn handle_request(
                 .unwrap_or(Err(LibraryError::CaptureNotFound))
         }
         // New captures usually have their poster by the time they are
-        // announced; older ones get it on first request. The poster renders
-        // in its own task, so a request the WebView drops neither cancels it
-        // nor strands its temporary files.
-        "thumbnail" => {
-            let library = state.library.clone();
-            let lookup = id.clone();
-            match tokio::task::spawn_blocking(move || existing_poster(&library, &lookup)).await {
-                Ok(Some(path)) => Ok(path),
-                _ => spawn_poster(&state.library, &id)
-                    .await
-                    .unwrap_or(Err(LibraryError::CaptureNotFound)),
-            }
-        }
+        // announced; older ones get it on first request.
+        "thumbnail" => thumbnail_file(&state.library, &id).await,
         _ => Err(LibraryError::CaptureNotFound),
     };
     let path = match path {
