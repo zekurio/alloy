@@ -8,6 +8,20 @@ Refactor when it simplifies the requested change; preserve compatibility
 across independently released components.
 Leave unrelated working-tree changes alone.
 
+## Repository map
+
+- `packages/web`: React web app (Vite). `packages/ui`: shared components.
+- `packages/server`: Hono API server, media pipeline, storage, queues.
+- `packages/db`: Drizzle schema and migrations. `packages/api`: typed web API client.
+- `packages/contracts`: web/server contracts. `packages/desktop-contracts`:
+  native bridge contracts. `packages/primitives`: shared scalars.
+- `packages/env`: env parsing and `.env` loading. `packages/logging`: logger.
+  `packages/i18n`: English-keyed message catalogs.
+- `packages/desktop`: Tauri host (`src-tauri`), renderer, and the Rust
+  `recorder` (OBS sidecar).
+- `scripts`: release tooling. `tools/oxlint`: custom lint rules. `nix`: package
+  and NixOS module. `.github/gardener`: PR/issue upkeep bot.
+
 ## Development
 
 - Use Node 24 and `pnpm@11.24.0`, not npm, Yarn, or Bun. Prefer root scripts;
