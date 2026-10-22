@@ -8,11 +8,15 @@ and has no dependencies beyond Node 24.
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Issue opened                           | Labels kind, area and effort (`effort: XS`…`XL`); flags likely duplicates and missing repro details with a short comment.        |
 | PR opened, reopened, ready             | Posts a review with inline comments and suggestions, checked against `AGENTS.md`, `CONTRIBUTING.md` and touched package READMEs. |
+| PR opened, reopened, title edited      | Labels the release-notes category (`changelog:*`) from the conventional title. No Claude call.                                   |
 | Daily                                  | Locks closed issues and PRs with no activity for 30 days.                                                                        |
 | `/gardener review`, `/gardener triage` | Re-runs on demand. Only owners, members and collaborators can trigger it.                                                        |
 
 Reviews are always posted as `COMMENT`: the bot never approves or requests
 changes. Drafts and bot-authored PRs (Dependabot) are skipped.
+
+The changelog label follows title edits only while bots added the current
+one. Once a person picks a category, including `changelog:skip`, it stays.
 
 ## Setup
 
@@ -39,11 +43,9 @@ Without an app, comments come from `github-actions[bot]`. To post as
    `GARDENER_CLIENT_ID`, and the private key file's contents as the
    repository **secret** `GARDENER_PRIVATE_KEY`.
 
-The gardener, the changelog labeler
-([`changelog-label.yml`](../workflows/changelog-label.yml)), and releases
-([`publish.yml`](../workflows/publish.yml): the GitHub release and the
-release commit's author) pick the app up automatically once the variable is
-set.
+The gardener and releases ([`publish.yml`](../workflows/publish.yml): the
+GitHub release and the release commit's author) pick the app up automatically
+once the variable is set.
 
 The private key is available to workflows triggered by pull requests, and
 with Contents write it can mint a token that pushes to `dev`. Those workflows

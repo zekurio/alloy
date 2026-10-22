@@ -32,9 +32,10 @@ Dispatch the **publish** workflow from the Actions tab (it only runs on
 ## Changelog Policy
 
 GitHub generates release notes from merged pull requests and the categories in
-`.github/release.yml`. New pull requests receive a `changelog:*` label from
-their conventional title. Maintainers should replace the automated category
-when necessary; `changelog:skip` excludes a pull request from release notes.
+`.github/release.yml`. The gardener labels each pull request with a
+`changelog:*` category from its conventional title and relabels it when the
+title changes. Once a maintainer picks a category by hand, the gardener leaves
+it alone; `changelog:skip` excludes a pull request from release notes.
 
 If a release interval has no pull requests (for example, because it contains
 direct commits), the publish workflow instead creates the same readable,

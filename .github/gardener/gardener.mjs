@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-// alloy-gardener: issue triage, PR review, and stale-thread locking.
+// alloy-gardener: issue triage, PR review, changelog labels, and stale-thread
+// locking.
 //
 // Runs from .github/workflows/gardener.yml on the base branch checkout only.
 // It never checks out or executes pull request code: PR diffs and file
 // contents are fetched through the GitHub API and treated as untrusted text.
 //
-// Usage: node .github/gardener/gardener.mjs <triage|review|lock> [number]
+// Usage: node .github/gardener/gardener.mjs <triage|review|changelog|lock> [number]
 
 import { execFileSync } from "node:child_process"
 import { readFileSync, existsSync } from "node:fs"
@@ -80,7 +81,7 @@ const R = `/repos/${owner}/${repo}`
 
 async function ensureLabels(names) {
   for (const name of names) {
-    const spec = config.labels[name]
+    const spec = config.labels[name] ?? config.changelog.labels[name]
     if (!spec) throw new Error(`label ${name} not declared in config.mjs`)
     try {
       await gh("GET", `${R}/labels/${encodeURIComponent(name)}`)
@@ -481,6 +482,55 @@ async function review(number) {
   })
 }
 
+// -------------------------------------------------------------- Changelog ---
+
+/** Release-notes label for a conventional title: `type(scope)!: summary`. */
+function changelogLabel(title) {
+  const { types, breaking, fallback } = config.changelog
+  const match = title.match(/^(?<type>\w+)(?:\([^)]*\))?(?<breaking>!)?:/i)
+  if (match?.groups.breaking) return breaking
+  const type = match?.groups.type.toLowerCase()
+  return type && Object.hasOwn(types, type) ? types[type] : fallback
+}
+
+async function changelog(number) {
+  const issue = await gh("GET", `${R}/issues/${number}`)
+  if (!issue.pull_request)
+    return log(`#${number} is an issue; skipping changelog`)
+
+  const label = changelogLabel(issue.title)
+  const current = issue.labels
+    .map((l) => l.name)
+    .filter((n) => n.startsWith("changelog:"))
+  if (current.length === 1 && current[0] === label)
+    return log(`#${number} already has ${label}`)
+
+  // The label follows the title until a person picks one; then it sticks.
+  if (current.length) {
+    const addedBy = new Map()
+    for (const event of await ghPaginate(`${R}/issues/${number}/events`)) {
+      if (event.event === "labeled") addedBy.set(event.label.name, event.actor)
+    }
+    const manual = current.filter((n) => addedBy.get(n)?.type !== "Bot")
+    if (manual.length)
+      return log(`#${number}: keeping ${manual.join(", ")}, set by a person`)
+  }
+
+  await ensureLabels(Object.keys(config.changelog.labels))
+  await ghWrite("POST", `${R}/issues/${number}/labels`, { labels: [label] })
+  for (const name of current.filter((n) => n !== label)) {
+    try {
+      await ghWrite(
+        "DELETE",
+        `${R}/issues/${number}/labels/${encodeURIComponent(name)}`,
+      )
+    } catch (error) {
+      if (error.status !== 404) throw error
+    }
+  }
+  log(`#${number}: ${current.join(", ") || "no category"} → ${label}`)
+}
+
 // ------------------------------------------------------------------- Lock ---
 
 async function lock() {
@@ -515,12 +565,13 @@ const number = Number(arg)
 const commands = {
   triage: () => triage(number),
   review: () => review(number),
+  changelog: () => changelog(number),
   lock,
 }
 
 if (!commands[mode] || (mode !== "lock" && !Number.isInteger(number))) {
   process.stderr.write(
-    "usage: gardener.mjs <triage|review> <number> | gardener.mjs lock\n",
+    "usage: gardener.mjs <triage|review|changelog> <number> | gardener.mjs lock\n",
   )
   process.exit(2)
 }

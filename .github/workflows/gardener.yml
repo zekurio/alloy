@@ -2,6 +2,7 @@ name: gardener
 
 # Issue triage, PR review, and locking of stale resolved threads, powered by
 # the Claude API (.github/gardener). Needs the ANTHROPIC_API_KEY secret.
+# PR changelog labels come from the title alone and need no API key.
 #
 # Security: pull_request_target runs with secrets for fork PRs, so this
 # workflow only ever checks out the base branch. PR diffs and files are read
@@ -11,7 +12,7 @@ on:
   issues:
     types: [opened]
   pull_request_target:
-    types: [opened, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review, edited]
   issue_comment:
     types: [created]
   schedule:
@@ -21,10 +22,10 @@ on:
       mode:
         description: What to run
         type: choice
-        options: [triage, review, lock]
+        options: [triage, review, changelog, lock]
         required: true
       number:
-        description: Issue or PR number (triage and review)
+        description: Issue or PR number (all but lock)
         required: false
       dry_run:
         description: Log actions instead of writing to GitHub
@@ -36,19 +37,19 @@ permissions:
   issues: write
   pull-requests: write
 
-concurrency:
-  group: gardener-${{ github.event.issue.number || github.event.pull_request.number || inputs.number || github.event_name }}
-  cancel-in-progress: false
-
 jobs:
   garden:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    concurrency:
+      group: gardener-${{ github.event.issue.number || github.event.pull_request.number || inputs.number || github.event_name }}
+      cancel-in-progress: false
     if: >-
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' && github.event.issue.user.type != 'Bot') ||
       (github.event_name == 'pull_request_target' &&
+        github.event.action != 'edited' &&
         !github.event.pull_request.draft &&
         github.event.pull_request.user.type != 'Bot') ||
       (github.event_name == 'issue_comment' &&
@@ -122,3 +123,44 @@ jobs:
           MODE: ${{ steps.task.outputs.mode }}
           NUMBER: ${{ steps.task.outputs.number }}
         run: node .github/gardener/gardener.mjs "$MODE" $NUMBER
+
+  # Release-notes category from the PR title. Runs for drafts and bot PRs too,
+  # and on title edits, with its own queue so it never waits on a review.
+  changelog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: gardener-changelog-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      (github.event.action == 'opened' ||
+        github.event.action == 'reopened' ||
+        (github.event.action == 'edited' && github.event.changes.title))
+
+    steps:
+      - name: checkout base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: set up node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: mint alloy-gardener token
+        id: app
+        if: vars.GARDENER_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.GARDENER_CLIENT_ID }}
+          private-key: ${{ secrets.GARDENER_PRIVATE_KEY }}
+          permission-issues: write
+          permission-pull-requests: write
+
+      - name: label changelog category
+        env:
+          GITHUB_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: node .github/gardener/gardener.mjs changelog "$NUMBER"
