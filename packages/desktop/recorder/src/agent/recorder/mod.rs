@@ -99,6 +99,18 @@ pub(super) struct Recorder {
     last_telemetry_event_at: Option<Instant>,
     last_capture: Option<RecordingCapture>,
     last_error: Option<String>,
+    /// The last failed replay start. The tick waits it out instead of
+    /// rebuilding capture, encoders and output twice a second.
+    replay_start_failure: Option<ReplayStartFailure>,
+}
+
+struct ReplayStartFailure {
+    /// The game window or display the start was for. Another target starts
+    /// at once; `configure` clears the failure when settings change.
+    target: Option<String>,
+    error: String,
+    attempts: u32,
+    retry_at: Instant,
 }
 
 #[derive(Clone)]
@@ -141,6 +153,12 @@ const AUDIO_APPLICATION_DISCOVERY_CACHE_TTL: Duration = Duration::from_secs(10);
 /// How long to wait before retrying a failed codec capability probe; each
 /// attempt spins a full OBS instance up and back down.
 const CODEC_PROBE_RETRY_COOLDOWN: Duration = Duration::from_secs(30);
+/// Retry window for a replay start that failed for the same target, doubling
+/// up to the cap. Each attempt injects the game capture hook and builds the
+/// audio sources, encoders and output; while OBS itself fails to start, it
+/// also reloads libobs.
+const REPLAY_START_RETRY_MIN: Duration = Duration::from_secs(2);
+const REPLAY_START_RETRY_MAX: Duration = Duration::from_secs(60);
 const TELEMETRY_EVENT_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -206,6 +224,7 @@ impl Recorder {
         self.replay_scratch_folder = Some(replay_scratch_folder);
         self.obs_runtime_dir = params.obs_runtime_dir;
         self.last_error = None;
+        self.replay_start_failure = None;
 
         if active_output_should_stop {
             if let Err(error) = self.stop_all_outputs() {
@@ -946,14 +965,21 @@ impl Recorder {
             && self.replay_session.is_none()
             && self.capture_target_available(&settings)
         {
-            if let Err(error) = self.start_replay_buffer() {
-                if self.clear_closed_active_game().is_some() {
+            let target = self.replay_target(&settings);
+            if !self.replay_start_waiting(target.as_deref()) {
+                if let Err(error) = self.start_replay_buffer() {
+                    if self.clear_closed_active_game().is_some() {
+                        return;
+                    }
+                    let report = self.remember_replay_start_failure(target, &error);
+                    self.last_error = Some(error.clone());
+                    if report {
+                        let status = self.status();
+                        emit_event(RecordingEvent::Error { error, status });
+                    }
                     return;
                 }
-                self.last_error = Some(error.clone());
-                let status = self.status();
-                emit_event(RecordingEvent::Error { error, status });
-                return;
+                self.replay_start_failure = None;
             }
         }
 
@@ -1013,6 +1039,7 @@ impl Recorder {
         if settings.capture_mode == RecordingCaptureMode::Display {
             return Ok(());
         }
+        // The tick starts the next buffer, so a failing start is paced.
         if self.replay_session.is_some() {
             if reason == GameBoundaryReason::Closed {
                 self.defer_active_replay_buffer_stop();
@@ -1020,10 +1047,57 @@ impl Recorder {
                 self.stop_active_replay_buffer()?;
             }
         }
-        if settings.enabled && self.capture_target_available(settings) {
-            self.start_replay_buffer()?;
-        }
         Ok(())
+    }
+
+    fn replay_target(&self, settings: &RecordingSettings) -> Option<String> {
+        match settings.capture_mode {
+            RecordingCaptureMode::Display => self
+                .active_display
+                .as_ref()
+                .map(|display| format!("display:{}", display.id)),
+            RecordingCaptureMode::Game => self
+                .active_game
+                .as_ref()
+                .map(|game| format!("game:{}", game.window_key)),
+        }
+    }
+
+    fn replay_start_waiting(&self, target: Option<&str>) -> bool {
+        self.replay_start_failure.as_ref().is_some_and(|failure| {
+            failure.target.as_deref() == target && Instant::now() < failure.retry_at
+        })
+    }
+
+    /// Records a failed start and returns whether to report it: the first
+    /// failure for a target and any change of error are reported, repeats
+    /// only update the status message.
+    fn remember_replay_start_failure(&mut self, target: Option<String>, error: &str) -> bool {
+        let previous = self
+            .replay_start_failure
+            .take()
+            .filter(|failure| failure.target == target);
+        let report = previous
+            .as_ref()
+            .is_none_or(|failure| failure.error != error);
+        let attempts = previous
+            .as_ref()
+            .map_or(0, |failure| failure.attempts)
+            .saturating_add(1);
+        let wait = REPLAY_START_RETRY_MIN
+            .saturating_mul(1 << (attempts - 1).min(5))
+            .min(REPLAY_START_RETRY_MAX);
+        eprintln!(
+            "[{SIDE_CAR_NAME}] replay buffer start failed (attempt {attempts}); retrying in {}s: {error}",
+            wait.as_secs()
+        );
+        self.replay_start_failure = Some(ReplayStartFailure {
+            target,
+            error: error.to_string(),
+            attempts,
+            retry_at: Instant::now() + wait,
+        });
+        report
     }
 
     fn defer_active_replay_buffer_stop(&mut self) {
