@@ -31,6 +31,10 @@ export function immutableImageAssetsRoute(
     }
 
     c.header("Content-Type", resolved.contentType)
+    if (c.req.method === "HEAD") {
+      c.header("Content-Length", String(resolved.size))
+      return c.body(null)
+    }
     const buffer = await readAll(resolved.stream())
     c.header("Content-Length", String(buffer.byteLength))
 

@@ -21,6 +21,10 @@ import { searchGames } from "./steamgriddb"
 const logger = createLogger("games")
 
 const GAME_NAME_LOOKUP_MAX = 50
+// Each unmatched name can cost a search plus an ingest. Matching a few names
+// at a time keeps one library refresh from filling the shared SteamGridDB
+// queue on its own.
+const GAME_NAME_LOOKUP_CONCURRENCY = 4
 
 export async function lookupGamesByName(
   names: string[],
@@ -31,13 +35,26 @@ export async function lookupGamesByName(
 
   const indexedByName = await lookupIndexedGamesByName(queries, viewerId)
 
-  return {
-    results: await Promise.all(
-      queries.map((name) =>
-        lookupGameByName(name, indexedByName.get(exactNameKey(name)) ?? []),
-      ),
-    ),
+  const results: GameNameLookupResult[] = []
+  let next = 0
+  const worker = async () => {
+    while (next < queries.length) {
+      const index = next
+      next += 1
+      const name = queries[index]
+      results[index] = await lookupGameByName(
+        name,
+        indexedByName.get(exactNameKey(name)) ?? [],
+      )
+    }
   }
+  await Promise.all(
+    Array.from(
+      { length: Math.min(GAME_NAME_LOOKUP_CONCURRENCY, queries.length) },
+      worker,
+    ),
+  )
+  return { results }
 }
 
 async function lookupGameByName(

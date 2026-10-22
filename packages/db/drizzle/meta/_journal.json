@@ -29,6 +29,13 @@
       "when": 1792255643702,
       "tag": "0003_utc_created_at",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792675713773,
+      "tag": "0004_game_refresh_backoff",
+      "breakpoints": true
     }
   ]
 }
