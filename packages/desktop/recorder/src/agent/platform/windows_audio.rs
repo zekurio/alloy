@@ -4,8 +4,10 @@ use std::{
     mem::{size_of, zeroed},
     path::Path,
     ptr,
+    sync::{LazyLock, Mutex, PoisonError},
 };
 
+use base64::{engine::general_purpose::STANDARD, Engine};
 use windows_sys::core::{IUnknown_Vtbl, GUID, HRESULT, PWSTR};
 use windows_sys::Win32::{
     Devices::Display::{
@@ -27,7 +29,6 @@ use windows_sys::Win32::{
         },
     },
     Media::Audio::{eRender, AudioSessionStateActive, AudioSessionStateInactive},
-    Security::Cryptography::{CryptBinaryToStringW, CRYPT_STRING_BASE64, CRYPT_STRING_NOCRLF},
     Storage::FileSystem::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW},
     System::{
         Com::StructuredStorage::{CreateStreamOnHGlobal, GetHGlobalFromStream},
@@ -288,7 +289,34 @@ unsafe fn session_display_name(control: *mut c_void) -> Option<String> {
     string_from_cotaskmem_pwstr(raw)
 }
 
+/// Icon data URLs by lowercased executable path, misses included. Game
+/// detection asks for the matched game's icon on every tick, and the process
+/// and audio-application lists ask for every entry on each refresh.
+static APPLICATION_ICONS: LazyLock<Mutex<HashMap<String, Option<String>>>> =
+    LazyLock::new(Mutex::default);
+/// Short-lived processes (installers, updaters) add paths that never come
+/// back; start over rather than grow without bound.
+const APPLICATION_ICON_CACHE_LIMIT: usize = 512;
+
 pub(super) fn application_icon_data_url(path: &str) -> Option<String> {
+    let key = path.to_ascii_lowercase();
+    let mut icons = APPLICATION_ICONS
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    if let Some(icon) = icons.get(&key) {
+        return icon.clone();
+    }
+    let icon = load_application_icon_data_url(path);
+    if icons.len() >= APPLICATION_ICON_CACHE_LIMIT {
+        icons.clear();
+    }
+    icons.insert(key, icon.clone());
+    icon
+}
+
+fn load_application_icon_data_url(path: &str) -> Option<String> {
+    // SAFETY: The path is NUL-terminated and outlives the call, and the icon
+    // SHGetFileInfoW returns is destroyed after it has been encoded.
     unsafe {
         let mut info = SHFILEINFOW::default();
         let path = wide_null(path);
@@ -372,10 +400,10 @@ unsafe fn save_image_stream_to_png_data_url(
     if locked.is_null() {
         return None;
     }
-    let bytes = std::slice::from_raw_parts(locked.cast::<u8>(), size).to_vec();
+    let encoded = STANDARD.encode(std::slice::from_raw_parts(locked.cast::<u8>(), size));
     GlobalUnlock(hglobal);
 
-    base64_encode(&bytes).map(|encoded| format!("data:image/png;base64,{encoded}"))
+    Some(format!("data:image/png;base64,{encoded}"))
 }
 
 unsafe fn stream_size(stream: *mut c_void) -> Option<usize> {
@@ -385,45 +413,6 @@ unsafe fn stream_size(stream: *mut c_void) -> Option<usize> {
         return None;
     }
     usize::try_from(stat.cbSize).ok()
-}
-
-fn base64_encode(bytes: &[u8]) -> Option<String> {
-    if bytes.is_empty() {
-        return None;
-    }
-
-    unsafe {
-        let flags = CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF;
-        let mut len = 0u32;
-        if CryptBinaryToStringW(
-            bytes.as_ptr(),
-            u32::try_from(bytes.len()).ok()?,
-            flags,
-            ptr::null_mut(),
-            &mut len,
-        ) == 0
-        {
-            return None;
-        }
-
-        let mut buffer = vec![0u16; len as usize];
-        if CryptBinaryToStringW(
-            bytes.as_ptr(),
-            u32::try_from(bytes.len()).ok()?,
-            flags,
-            buffer.as_mut_ptr(),
-            &mut len,
-        ) == 0
-        {
-            return None;
-        }
-
-        let len = buffer
-            .iter()
-            .position(|ch| *ch == 0)
-            .unwrap_or(buffer.len());
-        Some(String::from_utf16_lossy(&buffer[..len]))
-    }
 }
 
 pub(super) fn process_executable(path: Option<&str>) -> Option<String> {
