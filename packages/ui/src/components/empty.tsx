@@ -1,32 +1,6 @@
 import { cn } from "@alloy/ui/lib/utils"
 import type { ComponentProps } from "react"
 
-function EmptySection({
-  as: Component = "div",
-  className,
-  slot,
-  ...props
-}: ComponentProps<"div"> & {
-  as?: "div" | "p"
-  slot: string
-}) {
-  return <Component data-slot={slot} className={cn(className)} {...props} />
-}
-
-function renderEmptySection(
-  slot: string,
-  defaultClassName: string,
-  { className, ...props }: ComponentProps<"div">,
-) {
-  return (
-    <EmptySection
-      slot={slot}
-      className={cn(defaultClassName, className)}
-      {...props}
-    />
-  )
-}
-
 function Empty({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
@@ -41,13 +15,12 @@ function Empty({ className, ...props }: ComponentProps<"div">) {
 }
 
 function EmptyHeader({ className, ...props }: ComponentProps<"div">) {
-  return renderEmptySection(
-    "empty-header",
-    "flex max-w-sm flex-col items-center gap-2",
-    {
-      className,
-      ...props,
-    },
+  return (
+    <div
+      data-slot="empty-header"
+      className={cn("flex max-w-sm flex-col items-center gap-2", className)}
+      {...props}
+    />
   )
 }
 
@@ -72,21 +45,22 @@ function EmptyMedia({
 }
 
 function EmptyTitle({ className, ...props }: ComponentProps<"div">) {
-  return renderEmptySection(
-    "empty-title",
-    "font-heading text-sm font-medium tracking-tight",
-    {
-      className,
-      ...props,
-    },
+  return (
+    <div
+      data-slot="empty-title"
+      className={cn(
+        "font-heading text-sm font-medium tracking-tight",
+        className,
+      )}
+      {...props}
+    />
   )
 }
 
 function EmptyDescription({ className, ...props }: ComponentProps<"p">) {
   return (
-    <EmptySection
-      as="p"
-      slot="empty-description"
+    <p
+      data-slot="empty-description"
       className={cn(
         "text-sm/relaxed text-foreground-muted [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
         className,
@@ -97,13 +71,15 @@ function EmptyDescription({ className, ...props }: ComponentProps<"p">) {
 }
 
 function EmptyContent({ className, ...props }: ComponentProps<"div">) {
-  return renderEmptySection(
-    "empty-content",
-    "flex w-full max-w-sm min-w-0 flex-col items-center gap-2.5 text-sm text-balance",
-    {
-      className,
-      ...props,
-    },
+  return (
+    <div
+      data-slot="empty-content"
+      className={cn(
+        "flex w-full max-w-sm min-w-0 flex-col items-center gap-2.5 text-sm text-balance",
+        className,
+      )}
+      {...props}
+    />
   )
 }
 

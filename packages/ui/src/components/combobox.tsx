@@ -27,12 +27,11 @@ function ComboboxTrigger({
   )
 }
 
-function ComboboxClear({ className, ...props }: Combobox.Clear.Props) {
+function ComboboxClear(props: Combobox.Clear.Props) {
   return (
     <Combobox.Clear
       data-slot="combobox-clear"
       render={<InputGroupButton variant="ghost" size="icon-xs" />}
-      className={cn(className)}
       {...props}
     >
       <XIcon className="pointer-events-none" />

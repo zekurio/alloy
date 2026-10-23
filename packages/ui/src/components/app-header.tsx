@@ -1,9 +1,11 @@
 import { t } from "@alloy/i18n"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
 import { Kbd } from "@alloy/ui/components/kbd"
+import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
+import { mergeRefs } from "@alloy/ui/lib/merge-refs"
 import { cn } from "@alloy/ui/lib/utils"
 import { Maximize2Icon, MinusIcon, SearchIcon, XIcon } from "lucide-react"
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
 function AppHeader({ className, ...props }: ComponentProps<"header">) {
@@ -79,167 +81,151 @@ interface AppHeaderSearchProps extends Omit<
   children?: ReactNode
 }
 
-const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
-  function AppHeaderSearch(
-    {
-      className,
-      containerClassName,
-      hint,
-      icon,
-      placeholder = t("Search clips and games..."),
-      onClear,
-      onBlur,
-      onInteractOutside,
-      clearAriaLabel = t("Clear search"),
-      onFocus,
-      value,
-      children,
-      ...props
+function AppHeaderSearch({
+  className,
+  containerClassName,
+  hint,
+  icon,
+  placeholder = t("Search clips and games..."),
+  onClear,
+  onBlur,
+  onInteractOutside,
+  clearAriaLabel = t("Clear search"),
+  onFocus,
+  value,
+  children,
+  ref,
+  ...props
+}: AppHeaderSearchProps) {
+  const resolvedHint = hint ?? <DefaultSearchHint />
+  const hasValue =
+    onClear != null &&
+    value != null &&
+    !Array.isArray(value) &&
+    String(value).length > 0
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const [expanded, setExpanded] = useState(false)
+  const setInputRef = useMemo(() => mergeRefs(inputRef, ref), [ref])
+
+  const collapse = () => {
+    setExpanded(false)
+    onInteractOutside?.()
+  }
+
+  useDocumentEvent(
+    "pointerdown",
+    (event) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (wrapperRef.current?.contains(target)) return
+
+      // Blurring the input collapses through its onBlur handler.
+      if (document.activeElement === inputRef.current) {
+        inputRef.current?.blur()
+        return
+      }
+      collapse()
     },
-    ref,
-  ) {
-    const resolvedHint = hint ?? <DefaultSearchHint />
-    const hasValue =
-      onClear != null &&
-      value != null &&
-      !Array.isArray(value) &&
-      String(value).length > 0
-    const wrapperRef = useRef<HTMLDivElement | null>(null)
-    const inputRef = useRef<HTMLInputElement | null>(null)
-    const [expanded, setExpanded] = useState(false)
+    true,
+    expanded,
+  )
 
-    const setInputRef = useCallback(
-      (node: HTMLInputElement | null) => {
-        inputRef.current = node
-        if (ref && "current" in ref) {
-          ref.current = node
-          return
-        }
-        ref?.(node)
-      },
-      [ref],
-    )
-
-    useEffect(() => {
-      const onPointerDown = (event: PointerEvent) => {
-        const target = event.target
-        if (!(target instanceof Node)) return
-        if (wrapperRef.current?.contains(target)) return
-
-        setExpanded(false)
-        onInteractOutside?.()
-        if (document.activeElement === inputRef.current) {
-          inputRef.current?.blur()
-        }
-      }
-
-      document.addEventListener("pointerdown", onPointerDown, {
-        capture: true,
-      })
-      return () => {
-        document.removeEventListener("pointerdown", onPointerDown, {
-          capture: true,
-        })
-      }
-    }, [onInteractOutside])
-
-    return (
-      <div
-        ref={wrapperRef}
-        data-slot="app-header-search"
-        data-expanded={expanded ? "true" : undefined}
-        className={cn(
-          "relative w-full min-w-0 justify-self-stretch",
-          "max-sm:data-[expanded=true]:z-30",
-          containerClassName,
-        )}
-      >
-        <div className="group/search relative flex h-11 w-full items-center md:h-8">
-          <span
-            aria-hidden
+  return (
+    <div
+      ref={wrapperRef}
+      data-slot="app-header-search"
+      data-expanded={expanded ? "true" : undefined}
+      className={cn(
+        "relative w-full min-w-0 justify-self-stretch",
+        "max-sm:data-[expanded=true]:z-30",
+        containerClassName,
+      )}
+    >
+      <div className="group/search relative flex h-11 w-full items-center md:h-8">
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute top-1/2 left-3 z-10 -translate-y-1/2 md:left-2.5",
+            // Leading icon picks up the accent colour while the input is
+            // focused — another visual cue the field is active. On mobile the
+            // input sits on a transparent surface, so lift the resting glyph a
+            // step brighter to stay legible against the dark header.
+            "text-foreground-faint max-md:text-foreground-muted [&_svg]:size-5 md:[&_svg]:size-3.5",
+            "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+            "group-focus-within/search:text-accent",
+          )}
+        >
+          {icon ?? <SearchIcon />}
+        </span>
+        <input
+          ref={setInputRef}
+          data-slot="app-header-search-input"
+          placeholder={placeholder}
+          value={value}
+          onBlur={(event) => {
+            const nextTarget = event.relatedTarget
+            if (
+              !(nextTarget instanceof Node) ||
+              !wrapperRef.current?.contains(nextTarget)
+            ) {
+              collapse()
+            }
+            onBlur?.(event)
+          }}
+          onFocus={(event) => {
+            setExpanded(true)
+            onFocus?.(event)
+          }}
+          className={cn(
+            "h-full w-full min-w-0 rounded-lg border border-border bg-transparent pr-12 pl-10 md:pr-11 md:pl-8",
+            "max-md:border-transparent",
+            "text-base text-foreground placeholder:text-foreground-faint max-md:placeholder:text-foreground-muted md:text-sm",
+            "transition-[border-color,background-color,box-shadow,border-radius] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+            "outline-none",
+            "focus:border-accent focus:bg-surface-raised",
+            "focus:shadow-[0_0_0_3px_var(--accent-soft)]",
+            className,
+          )}
+          {...props}
+        />
+        {hasValue ? (
+          <button
+            type="button"
+            aria-label={clearAriaLabel}
+            onPointerDown={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onClick={(event) => {
+              event.stopPropagation()
+              onClear()
+            }}
             className={cn(
-              "pointer-events-none absolute top-1/2 left-3 z-10 -translate-y-1/2 md:left-2.5",
-              // Leading icon picks up the accent colour while the input is
-              // focused — another visual cue the field is active. On mobile the
-              // input sits on a transparent surface, so lift the resting glyph a
-              // step brighter to stay legible against the dark header.
-              "text-foreground-faint max-md:text-foreground-muted [&_svg]:size-5 md:[&_svg]:size-3.5",
+              "absolute top-1/2 right-1.5 -translate-y-1/2",
+              "grid size-8 place-items-center rounded-sm md:size-6",
+              // Brand-blue-aware hover: soft fill from the accent family
+              // instead of the off-white the native browser X paints.
+              "text-foreground-faint",
               "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "group-focus-within/search:text-accent",
+              "hover:text-accent",
+              "focus-visible:bg-accent-soft focus-visible:text-accent",
+              "focus-visible:ring-2 focus-visible:ring-accent-border focus-visible:outline-none",
+              "[&_svg]:size-4 md:[&_svg]:size-3",
             )}
           >
-            {icon ?? <SearchIcon />}
-          </span>
-          <input
-            ref={setInputRef}
-            data-slot="app-header-search-input"
-            placeholder={placeholder}
-            value={value}
-            onBlur={(event) => {
-              const nextTarget = event.relatedTarget
-              if (
-                !(nextTarget instanceof Node) ||
-                !wrapperRef.current?.contains(nextTarget)
-              ) {
-                setExpanded(false)
-                onInteractOutside?.()
-              }
-              onBlur?.(event)
-            }}
-            onFocus={(event) => {
-              setExpanded(true)
-              onFocus?.(event)
-            }}
-            className={cn(
-              "h-full w-full min-w-0 rounded-lg border border-border bg-transparent pr-12 pl-10 md:pr-11 md:pl-8",
-              "max-md:border-transparent",
-              "text-base text-foreground placeholder:text-foreground-faint max-md:placeholder:text-foreground-muted md:text-sm",
-              "transition-[border-color,background-color,box-shadow,border-radius] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "outline-none",
-              "focus:border-accent focus:bg-surface-raised",
-              "focus:shadow-[0_0_0_3px_var(--accent-soft)]",
-              className,
-            )}
-            {...props}
-          />
-          {hasValue ? (
-            <button
-              type="button"
-              aria-label={clearAriaLabel}
-              onPointerDown={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-              }}
-              onClick={(event) => {
-                event.stopPropagation()
-                onClear()
-              }}
-              className={cn(
-                "absolute top-1/2 right-1.5 -translate-y-1/2",
-                "grid size-8 place-items-center rounded-sm md:size-6",
-                // Brand-blue-aware hover: soft fill from the accent family
-                // instead of the off-white the native browser X paints.
-                "text-foreground-faint",
-                "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                "hover:text-accent",
-                "focus-visible:bg-accent-soft focus-visible:text-accent",
-                "focus-visible:ring-2 focus-visible:ring-accent-border focus-visible:outline-none",
-                "[&_svg]:size-4 md:[&_svg]:size-3",
-              )}
-            >
-              <XIcon />
-            </button>
-          ) : resolvedHint ? (
-            <Kbd className="absolute top-1/2 right-2 hidden -translate-y-1/2 sm:inline-flex">
-              {resolvedHint}
-            </Kbd>
-          ) : null}
-        </div>
-        {children}
+            <XIcon />
+          </button>
+        ) : resolvedHint ? (
+          <Kbd className="absolute top-1/2 right-2 hidden -translate-y-1/2 sm:inline-flex">
+            {resolvedHint}
+          </Kbd>
+        ) : null}
       </div>
-    )
-  },
-)
+      {children}
+    </div>
+  )
+}
 
 function useIsMacPlatform() {
   const [isMac, setIsMac] = useState(false)

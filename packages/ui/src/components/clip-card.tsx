@@ -11,54 +11,61 @@ import type {
   MouseEvent,
   MouseEventHandler,
   ReactNode,
-  Ref,
 } from "react"
 
 import { ClipCardThumb } from "./clip-card-thumb"
 
-interface ClipCardProps extends ComponentProps<"article"> {
-  imageAspectRatio?: number
-  title: string
-  titleContent?: ReactNode
-  author: string
-  authorImage?: string | null
-  authorAvatarBg?: string
-  authorAvatarFg?: string
-  authorHref?: string | null
-  renderAuthorLink?: ClipCardLabelLinkRenderer
-  game: string
-  gameIcon?: string | null
-  gameHref?: string | null
-  renderGameLink?: ClipCardLabelLinkRenderer
-  views: string
-  viewCount?: number
-  postedAt?: string
-  metaContent?: ReactNode
-  thumbnail?: string
-  thumbnailFallback?: string
-  thumbnailBlurHash?: string | null
-  thumbnailFallbackBlurHash?: string | null
-  fallbackSeed?: string | number
-  streamUrl?: string
-  /** Window within `streamUrl` that represents the clip preview. */
-  streamRange?: { start: number; end: number }
-  /** When set, the thumbnail becomes a button that fires this handler. */
-  onThumbnailClick?: () => void
-  /** When set, the title becomes a button that fires this handler. */
-  onTitleClick?: () => void
-  /** Fires on hover/focus/press so callers can warm data before open. */
-  onThumbnailIntent?: () => void
-  /** Fires on hover/focus/press over the title so callers can warm data. */
-  onTitleIntent?: () => void
-  /** Fires when hover-preview video playback is rejected by the browser. */
-  onPreviewError?: (cause: unknown) => void
-  /** Accessible label for the thumbnail button. */
-  thumbnailLabel?: string
-  /** Accessible label for the title button. */
-  titleLabel?: string
-  thumbnailRef?: Ref<HTMLButtonElement>
-  metaVariant?: "default" | "gallery" | "compact"
-}
+/**
+ * The formatted view count and the number that picks its plural. Cards that
+ * replace the stats row with `metaContent` can leave both out.
+ */
+type ClipCardViews =
+  | { views: string; viewCount: number }
+  | { views?: undefined; viewCount?: undefined }
+
+type ClipCardProps = ComponentProps<"article"> &
+  ClipCardViews & {
+    imageAspectRatio?: number
+    title: string
+    titleContent?: ReactNode
+    /** Omit for cards without an owner, such as local library entries. */
+    author?: string
+    authorImage?: string | null
+    authorAvatarBg?: string
+    authorAvatarFg?: string
+    authorHref?: string | null
+    renderAuthorLink?: ClipCardLabelLinkRenderer
+    game: string
+    gameIcon?: string | null
+    gameHref?: string | null
+    renderGameLink?: ClipCardLabelLinkRenderer
+    postedAt?: string
+    /** Replaces the views and posted-at row. */
+    metaContent?: ReactNode
+    thumbnail?: string
+    thumbnailFallback?: string
+    thumbnailBlurHash?: string | null
+    thumbnailFallbackBlurHash?: string | null
+    fallbackSeed?: string | number
+    streamUrl?: string
+    /** Window within `streamUrl` that represents the clip preview. */
+    streamRange?: { start: number; end: number }
+    /** When set, the thumbnail becomes a button that fires this handler. */
+    onThumbnailClick?: () => void
+    /** When set, the title becomes a button that fires this handler. */
+    onTitleClick?: () => void
+    /** Fires on hover/focus/press so callers can warm data before open. */
+    onThumbnailIntent?: () => void
+    /** Fires on hover/focus/press over the title so callers can warm data. */
+    onTitleIntent?: () => void
+    /** Fires when hover-preview video playback is rejected by the browser. */
+    onPreviewError?: (cause: unknown) => void
+    /** Accessible label for the thumbnail button. */
+    thumbnailLabel?: string
+    /** Accessible label for the title button. */
+    titleLabel?: string
+    metaVariant?: "default" | "gallery" | "compact"
+  }
 
 type ClipCardLabelLinkProps = {
   href?: string
@@ -103,7 +110,6 @@ function ClipCard({
   onPreviewError,
   thumbnailLabel,
   titleLabel,
-  thumbnailRef,
   metaVariant = "default",
   ...props
 }: ClipCardProps) {
@@ -117,7 +123,7 @@ function ClipCard({
       {titleContent ?? title}
     </ClipCardTitleButton>
   )
-  const smallAuthor = (
+  const smallAuthor = author ? (
     <>
       <ClipCardAvatar
         author={author}
@@ -135,7 +141,7 @@ function ClipCard({
         renderLink={renderAuthorLink}
       />
     </>
-  )
+  ) : null
   const gameLabel = game ? (
     <GameLabel
       game={game}
@@ -147,6 +153,8 @@ function ClipCard({
   const gallery = metaVariant === "gallery"
   const compact = metaVariant === "compact"
   const showAttributionRow = Boolean(author || game)
+  const viewsLabel =
+    views === undefined ? null : `${views} ${tp(viewCount, "view", "views")}`
 
   return (
     <article
@@ -184,7 +192,6 @@ function ClipCard({
           onIntent={onThumbnailIntent}
           onPreviewError={onPreviewError}
           label={thumbnailLabel ?? title}
-          buttonRef={thumbnailRef}
         />
       </div>
       {compact ? (
@@ -193,33 +200,24 @@ function ClipCard({
             {titleButton}
           </div>
           <div className="flex min-w-0 items-center gap-1.5 text-xs leading-5">
-            {author ? (
+            {smallAuthor ? (
               <div className="flex min-w-0 items-center gap-1.5">
                 {smallAuthor}
               </div>
             ) : null}
-            {author && game ? (
-              <span
-                aria-hidden="true"
-                className="text-foreground-faint shrink-0"
-              >
-                ·
-              </span>
+            {smallAuthor && gameLabel ? (
+              <MetaSeparator className="text-foreground-faint" />
             ) : null}
             {gameLabel}
           </div>
           <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 overflow-hidden text-xs leading-4 whitespace-nowrap tabular-nums">
-            <span className="shrink-0">
-              {views} {tp(viewCountForLabel(viewCount, views), "view", "views")}
-            </span>
-            {postedAt ? (
-              <>
-                <span aria-hidden="true" className="shrink-0">
-                  ·
-                </span>
-                <span className="truncate">{postedAt}</span>
-              </>
-            ) : null}
+            {metaContent ?? (
+              <ClipCardStats
+                views={viewsLabel}
+                postedAt={postedAt}
+                postedAtClassName="truncate"
+              />
+            )}
           </div>
         </div>
       ) : gallery ? (
@@ -229,29 +227,20 @@ function ClipCard({
           </div>
           {showAttributionRow ? (
             <div className="flex min-w-0 items-center gap-2 text-xs">
-              {author ? (
+              {smallAuthor ? (
                 <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
                   {smallAuthor}
                 </span>
               ) : null}
-              {author && game ? (
-                <span aria-hidden="true" className="text-white/50">
-                  ·
-                </span>
+              {smallAuthor && gameLabel ? (
+                <MetaSeparator className="text-white/50" />
               ) : null}
               {gameLabel}
             </div>
           ) : null}
           <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs leading-4 text-white/70 [&_span]:text-inherit">
             {metaContent ?? (
-              <>
-                <span>
-                  {views}{" "}
-                  {tp(viewCountForLabel(viewCount, views), "view", "views")}
-                </span>
-                <span aria-hidden="true">·</span>
-                <span>{postedAt}</span>
-              </>
+              <ClipCardStats views={viewsLabel} postedAt={postedAt} />
             )}
           </div>
         </div>
@@ -287,11 +276,9 @@ function ClipCard({
                     href={authorHref}
                     renderLink={renderAuthorLink}
                   />
-                  {game ? (
+                  {gameLabel ? (
                     <>
-                      <span className="text-foreground-faint shrink-0">
-                        {"·"}
-                      </span>
+                      <MetaSeparator className="text-foreground-faint" />
                       {gameLabel}
                     </>
                   ) : null}
@@ -309,17 +296,12 @@ function ClipCard({
                 : "col-start-2 row-start-2 md:col-span-2 md:col-start-1 md:row-start-3",
             )}
           >
-            {metaContent ? (
-              metaContent
-            ) : (
-              <>
-                <span className="shrink-0">
-                  {views}{" "}
-                  {tp(viewCountForLabel(viewCount, views), "view", "views")}
-                </span>
-                <span className="shrink-0">{"·"}</span>
-                <span className="shrink-0">{postedAt}</span>
-              </>
+            {metaContent ?? (
+              <ClipCardStats
+                views={viewsLabel}
+                postedAt={postedAt}
+                postedAtClassName="shrink-0"
+              />
             )}
           </div>
         </div>
@@ -328,12 +310,60 @@ function ClipCard({
   )
 }
 
-function viewCountForLabel(
-  viewCount: number | undefined,
-  formattedViews: string,
-): number {
-  if (viewCount !== undefined) return viewCount
-  return formattedViews.trim() === "1" ? 1 : 0
+/** Default meta row: "12 views · 3 days ago", skipping whichever is absent. */
+function ClipCardStats({
+  views,
+  postedAt,
+  postedAtClassName,
+}: {
+  views: string | null
+  postedAt: string | undefined
+  postedAtClassName?: string
+}) {
+  return (
+    <>
+      {views ? <span className="shrink-0">{views}</span> : null}
+      {views && postedAt ? <MetaSeparator /> : null}
+      {postedAt ? <span className={postedAtClassName}>{postedAt}</span> : null}
+    </>
+  )
+}
+
+function MetaSeparator({ className }: { className?: string }) {
+  return (
+    <span aria-hidden="true" className={cn("shrink-0", className)}>
+      ·
+    </span>
+  )
+}
+
+/**
+ * Renders a label through the caller's router link, a plain anchor, or
+ * nothing when the label has no destination.
+ */
+function renderLabelLink(
+  renderLink: ClipCardLabelLinkRenderer | undefined,
+  href: string | null | undefined,
+  link: Pick<ClipCardLabelLinkProps, "className" | "children" | "ariaLabel">,
+): ReactNode {
+  if (renderLink) {
+    return renderLink({
+      ...link,
+      href: href ?? undefined,
+      onClick: stopLabelLinkPropagation,
+    })
+  }
+  if (!href) return null
+  return (
+    <a
+      href={href}
+      aria-label={link.ariaLabel}
+      onClick={stopLabelLinkPropagation}
+      className={link.className}
+    >
+      {link.children}
+    </a>
+  )
 }
 
 function AuthorLabel({
@@ -350,22 +380,11 @@ function AuthorLabel({
     href &&
       "hover:underline focus-visible:underline focus-visible:outline-none",
   )
-  if (renderLink) {
-    return renderLink({
-      href: href ?? undefined,
-      className,
-      onClick: stopLabelLinkPropagation,
-      children: author,
-    })
-  }
-  if (href) {
-    return (
-      <a href={href} onClick={stopLabelLinkPropagation} className={className}>
-        {author}
-      </a>
+  return (
+    renderLabelLink(renderLink, href, { className, children: author }) ?? (
+      <span className={className}>{author}</span>
     )
-  }
-  return <span className={className}>{author}</span>
+  )
 }
 
 function ClipCardAvatar({
@@ -404,30 +423,13 @@ function ClipCardAvatar({
     "rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
   )
 
-  if (renderLink) {
-    return renderLink({
-      href: href ?? undefined,
+  return (
+    renderLabelLink(renderLink, href, {
       className: linkClassName,
-      onClick: stopLabelLinkPropagation,
       ariaLabel: author,
       children: avatar,
-    })
-  }
-
-  if (href) {
-    return (
-      <a
-        href={href}
-        aria-label={author}
-        onClick={stopLabelLinkPropagation}
-        className={linkClassName}
-      >
-        {avatar}
-      </a>
-    )
-  }
-
-  return avatar
+    }) ?? avatar
+  )
 }
 
 function ClipCardTitleButton({
@@ -481,22 +483,11 @@ function GameLabel({
       <span className="truncate">{game}</span>
     </>
   )
-  if (renderLink) {
-    return renderLink({
-      href: href ?? undefined,
-      className,
-      onClick: stopLabelLinkPropagation,
-      children: content,
-    })
-  }
-  if (href) {
-    return (
-      <a href={href} onClick={stopLabelLinkPropagation} className={className}>
-        {content}
-      </a>
+  return (
+    renderLabelLink(renderLink, href, { className, children: content }) ?? (
+      <span className={className}>{content}</span>
     )
-  }
-  return <span className={className}>{content}</span>
+  )
 }
 
 function stopLabelLinkPropagation(event: MouseEvent<HTMLAnchorElement>) {

@@ -29,10 +29,14 @@ type DatePickerProps = Omit<
   className?: string
 }
 
+type WeekInfo = {
+  firstDay?: number
+}
+
 type LocaleWithWeekInfo = Intl.Locale & {
-  weekInfo?: {
-    firstDay?: number
-  }
+  getWeekInfo?: () => WeekInfo
+  /** Pre-standard accessor form, the only one in Chrome before 130. */
+  weekInfo?: WeekInfo
 }
 
 function padDatePart(value: number): string {
@@ -92,10 +96,10 @@ function sameDate(a: DateParts | null, b: DateParts): boolean {
 }
 
 function getFirstDayOfWeek(languageTag: string): number {
-  // SAFETY: The added weekInfo property is optional, so older Locale objects
-  // also satisfy this view.
+  // SAFETY: Both week info members are optional, so Locale objects from
+  // engines without them also satisfy this view.
   const locale = new Intl.Locale(languageTag) as LocaleWithWeekInfo
-  const firstDay = locale.weekInfo?.firstDay ?? 1
+  const firstDay = (locale.getWeekInfo?.() ?? locale.weekInfo)?.firstDay ?? 1
   return firstDay === 7 ? 0 : firstDay
 }
 
@@ -192,14 +196,9 @@ function DatePicker({
     if (nextOpen) setVisibleMonth(monthStartForValue(value))
   }
 
-  function handleSelect(parts: DateParts) {
-    onValueChange(serializeDateParts(parts))
+  function commit(nextValue: string) {
+    onValueChange(nextValue)
     setOpen(false)
-  }
-
-  function handleToday() {
-    setVisibleMonth(monthStart(today))
-    onValueChange(serializeDateParts(today))
   }
 
   return (
@@ -279,7 +278,7 @@ function DatePicker({
                 aria-current={isToday ? "date" : undefined}
                 aria-pressed={selected}
                 aria-label={formatters.fullDate.format(date)}
-                onClick={() => handleSelect(parts)}
+                onClick={() => commit(dateValue)}
                 className={cn(
                   "flex size-8 items-center justify-center rounded-md",
                   "text-sm leading-none outline-none select-none",
@@ -306,7 +305,7 @@ function DatePicker({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => onValueChange("")}
+              onClick={() => commit("")}
             >
               {t("Clear date")}
             </Button>
@@ -317,7 +316,7 @@ function DatePicker({
             type="button"
             variant="accent-outline"
             size="sm"
-            onClick={handleToday}
+            onClick={() => commit(serializeDateParts(today))}
           >
             {t("Today")}
           </Button>

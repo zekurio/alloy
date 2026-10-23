@@ -1,3 +1,4 @@
+import { formatCssColor, parseCssColor } from "@alloy/ui/lib/color"
 import {
   DEFAULT_THEME_PALETTE_ID,
   readThemePreferences,
@@ -9,6 +10,7 @@ import {
 import {
   THEME_ACCENT_STYLE_ID,
   THEME_PRESET_STYLE_ID,
+  writeThemeStyle,
 } from "@alloy/ui/lib/theme-style"
 
 import { DARK_THEME_PRESETS } from "./theme-presets-dark"
@@ -206,35 +208,24 @@ export function applyStoredThemePresets(): void {
   applyThemePalette(getStoredThemePalette())
 }
 
-function removeThemePresetStyle(): void {
-  if (!globalThis.document) return
-  document.getElementById(THEME_PRESET_STYLE_ID)?.remove()
-}
-
 function applyThemePalette(palette: ThemePalette): void {
   if (!globalThis.document) return
 
   const storedVariants = readThemePreferences().variants
   const dark = resolveThemePreset(palette, "dark", storedVariants)
   const light = resolveThemePreset(palette, "light", storedVariants)
-  const existing = document.getElementById(THEME_PRESET_STYLE_ID)
 
   // Both defaults means the bundled stylesheet already has it exactly right.
   if (
     dark.id === DEFAULT_THEME_PRESET_ID &&
     light.id === DEFAULT_THEME_PRESET_ID
   ) {
-    removeThemePresetStyle()
+    document.getElementById(THEME_PRESET_STYLE_ID)?.remove()
     return
   }
 
   const css = `:root,\n.dark {\n${themeTokenDeclarations(dark.tokens, "dark")}\n}\n\n:root.light {\n${themeTokenDeclarations(light.tokens, "light")}\n}\n`
-  const style =
-    existing instanceof HTMLStyleElement
-      ? existing
-      : document.createElement("style")
-  style.id = THEME_PRESET_STYLE_ID
-  if (style.textContent !== css) style.textContent = css
+  const style = writeThemeStyle(THEME_PRESET_STYLE_ID, css)
 
   const nextLayer = document.getElementById(THEME_ACCENT_STYLE_ID)
   if (nextLayer) {
@@ -276,23 +267,20 @@ interface AccentAlphas {
   glow: number
 }
 
-// Keep these alpha values in sync with globals.css.
-const DARK_ACCENT_ALPHAS: AccentAlphas = {
-  soft: 0.22,
-  border: 0.55,
-  glow: 0.38,
-}
-const LIGHT_ACCENT_ALPHAS: AccentAlphas = {
-  soft: 0.12,
-  border: 0.4,
-  glow: 0.28,
-}
+/**
+ * Opacity of the translucent accent tokens per appearance. Keep these in sync
+ * with globals.css.
+ */
+export const ACCENT_ALPHAS = {
+  dark: { soft: 0.22, border: 0.55, glow: 0.38 },
+  light: { soft: 0.12, border: 0.4, glow: 0.28 },
+} satisfies Record<ThemePresetMode, AccentAlphas>
 
 function themeTokenDeclarations(
   tokens: ThemePresetTokens,
   mode: ThemePresetMode,
 ): string {
-  const alphas = mode === "dark" ? DARK_ACCENT_ALPHAS : LIGHT_ACCENT_ALPHAS
+  const alphas = ACCENT_ALPHAS[mode]
   const lines = [
     ...NEUTRAL_STEPS.map(
       (step, index) => `--neutral-${step}: ${tokens.neutrals[index]};`,
@@ -329,8 +317,6 @@ function statusSoft(color: string): string {
 }
 
 function accentAlpha(hex: string, alpha: number): string {
-  const r = Number.parseInt(hex.slice(1, 3), 16)
-  const g = Number.parseInt(hex.slice(3, 5), 16)
-  const b = Number.parseInt(hex.slice(5, 7), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  const color = parseCssColor(hex)
+  return color ? formatCssColor({ ...color, a: alpha }) : hex
 }

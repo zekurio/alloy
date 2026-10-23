@@ -2,11 +2,11 @@ import { cn } from "@alloy/ui/lib/utils"
 import { Popover } from "@base-ui/react/popover"
 import type { ComponentProps } from "react"
 
-function PopoverRoot({ ...props }: Popover.Root.Props) {
+function PopoverRoot(props: Popover.Root.Props) {
   return <Popover.Root data-slot="popover" {...props} />
 }
 
-function PopoverTrigger({ ...props }: Popover.Trigger.Props) {
+function PopoverTrigger(props: Popover.Trigger.Props) {
   return <Popover.Trigger data-slot="popover-trigger" {...props} />
 }
 
