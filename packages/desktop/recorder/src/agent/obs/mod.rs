@@ -9,7 +9,7 @@ pub(in crate::agent) mod video_config;
 pub(in crate::agent) use bindings::LibObs;
 
 use std::{
-    ffi::{c_void, CStr, CString},
+    ffi::{c_void, CStr},
     ptr,
     sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
@@ -74,9 +74,8 @@ unsafe fn create_source(
     name: &str,
     settings: Option<*mut ObsData>,
 ) -> Result<*mut ObsSource, String> {
-    let id = CString::new(id).map_err(|_| "OBS source id contained a nul byte.".to_string())?;
-    let name =
-        CString::new(name).map_err(|_| "OBS source name contained a nul byte.".to_string())?;
+    let id = bindings::c_string(id, "OBS source id")?;
+    let name = bindings::c_string(name, "OBS source name")?;
     let source = (obs.obs_source_create)(
         id.as_ptr(),
         name.as_ptr(),
@@ -94,11 +93,13 @@ pub(in crate::agent) unsafe fn create_video_encoder(
     id: &str,
     settings: *mut ObsData,
 ) -> Result<*mut ObsEncoder, String> {
-    let id =
-        CString::new(id).map_err(|_| "OBS video encoder id contained a nul byte.".to_string())?;
-    let name = CString::new("alloy_video_encoder").expect("static string has no nul byte");
-    let encoder =
-        (obs.obs_video_encoder_create)(id.as_ptr(), name.as_ptr(), settings, ptr::null_mut());
+    let id = bindings::c_string(id, "OBS video encoder id")?;
+    let encoder = (obs.obs_video_encoder_create)(
+        id.as_ptr(),
+        c"alloy_video_encoder".as_ptr(),
+        settings,
+        ptr::null_mut(),
+    );
     if encoder.is_null() {
         return Err("Could not create OBS video encoder.".to_string());
     }
@@ -110,11 +111,14 @@ unsafe fn create_audio_encoder(
     id: &str,
     settings: *mut ObsData,
 ) -> Result<*mut ObsEncoder, String> {
-    let id =
-        CString::new(id).map_err(|_| "OBS audio encoder id contained a nul byte.".to_string())?;
-    let name = CString::new("alloy_audio_encoder").expect("static name has no nul byte");
-    let encoder =
-        (obs.obs_audio_encoder_create)(id.as_ptr(), name.as_ptr(), settings, 0, ptr::null_mut());
+    let id = bindings::c_string(id, "OBS audio encoder id")?;
+    let encoder = (obs.obs_audio_encoder_create)(
+        id.as_ptr(),
+        c"alloy_audio_encoder".as_ptr(),
+        settings,
+        0,
+        ptr::null_mut(),
+    );
     if encoder.is_null() {
         return Err("Could not create OBS audio encoder for mixer 0.".to_string());
     }
@@ -125,15 +129,12 @@ pub(in crate::agent) unsafe fn create_output_audio_encoder(
     obs: &LibObs,
     id: &str,
 ) -> Result<*mut ObsEncoder, String> {
-    let settings = obs.create_data();
-    let result = (|| {
-        obs.set_int(settings, "bitrate", 160)?;
+    obs.with_data(|settings| {
+        obs.set_int(settings, c"bitrate", 160);
         let encoder = create_audio_encoder(obs, id, settings)?;
         (obs.obs_encoder_set_audio)(encoder, (obs.obs_get_audio)());
         Ok(encoder)
-    })();
-    obs.release_data(settings);
-    result
+    })
 }
 
 pub(in crate::agent) unsafe fn create_output(
@@ -141,9 +142,13 @@ pub(in crate::agent) unsafe fn create_output(
     id: &str,
     settings: *mut ObsData,
 ) -> Result<*mut ObsOutput, String> {
-    let id = CString::new(id).map_err(|_| "OBS output id contained a nul byte.".to_string())?;
-    let name = CString::new("alloy_file_output").expect("static string has no nul byte");
-    let output = (obs.obs_output_create)(id.as_ptr(), name.as_ptr(), settings, ptr::null_mut());
+    let id = bindings::c_string(id, "OBS output id")?;
+    let output = (obs.obs_output_create)(
+        id.as_ptr(),
+        c"alloy_file_output".as_ptr(),
+        settings,
+        ptr::null_mut(),
+    );
     if output.is_null() {
         return Err("Could not create OBS file output.".to_string());
     }
@@ -223,26 +228,26 @@ pub(in crate::agent) unsafe fn configure_video_encoder(
     quality: &EffectiveQuality,
 ) -> Result<(), String> {
     let bitrate = target_bitrate_kbps(quality);
-    obs.set_string(data, "rate_control", "CBR")?;
+    obs.set_string(data, c"rate_control", "CBR")?;
     // Profile names are codec-specific: "high" only exists for H.264, and
     // HEVC/AV1 encoders (notably AMF) can reject it at creation time.
     let profile = match settings.codec {
         RecordingCodec::H264 => "high",
         RecordingCodec::Hevc | RecordingCodec::Av1 => "main",
     };
-    obs.set_string(data, "profile", profile)?;
+    obs.set_string(data, c"profile", profile)?;
     obs.set_string(
         data,
-        "preset",
+        c"preset",
         if settings.encoder == RecordingEncoder::Software {
             "veryfast"
         } else {
             "quality"
         },
     )?;
-    obs.set_int(data, "bitrate", i64::from(bitrate))?;
-    obs.set_int(data, "keyint_sec", 2)?;
-    obs.set_bool(data, "psycho_aq", true)?;
+    obs.set_int(data, c"bitrate", i64::from(bitrate));
+    obs.set_int(data, c"keyint_sec", 2);
+    obs.set_bool(data, c"psycho_aq", true);
     Ok(())
 }
 
@@ -307,8 +312,7 @@ unsafe fn create_video_source(
     source_kind: OutputSourceKind,
 ) -> Result<*mut ObsSource, String> {
     if source_kind == OutputSourceKind::Display {
-        let source_settings = obs.create_data();
-        let source = (|| {
+        return obs.with_data(|source_settings| {
             configure_display_capture_source(obs, source_settings, settings)?;
             create_source(
                 obs,
@@ -316,13 +320,10 @@ unsafe fn create_video_source(
                 "alloy_display_video",
                 Some(source_settings),
             )
-        })();
-        obs.release_data(source_settings);
-        return source;
+        });
     }
 
-    let source_settings = obs.create_data();
-    let source = (|| {
+    let source = obs.with_data(|source_settings| {
         configure_game_capture_source(obs, source_settings, game)?;
         GAME_CAPTURE_HOOKED.store(false, Ordering::SeqCst);
         create_source(
@@ -331,8 +332,7 @@ unsafe fn create_video_source(
             "alloy_game_video",
             Some(source_settings),
         )
-    })();
-    obs.release_data(source_settings);
+    });
     let source = source.map_err(|error| {
         format!(
             "{error} OBS game capture is unavailable; make sure the win-capture plugin is bundled."
@@ -347,8 +347,8 @@ unsafe fn connect_game_capture_signals(obs: &LibObs, source: *mut ObsSource) {
     if handler.is_null() {
         return;
     }
-    let hooked = CString::new("hooked").expect("static string has no nul byte");
-    let unhooked = CString::new("unhooked").expect("static string has no nul byte");
+    let hooked = c"hooked";
+    let unhooked = c"unhooked";
     (obs.signal_handler_connect)(
         handler,
         hooked.as_ptr(),
@@ -368,8 +368,8 @@ unsafe fn disconnect_game_capture_signals(obs: &LibObs, source: *mut ObsSource) 
     if handler.is_null() {
         return;
     }
-    let hooked = CString::new("hooked").expect("static string has no nul byte");
-    let unhooked = CString::new("unhooked").expect("static string has no nul byte");
+    let hooked = c"hooked";
+    let unhooked = c"unhooked";
     (obs.signal_handler_disconnect)(
         handler,
         hooked.as_ptr(),
@@ -462,14 +462,14 @@ pub(in crate::agent) unsafe fn game_capture_source_hooked(
         return false;
     }
 
-    let proc_name = CString::new("get_hooked").expect("static string has no nul byte");
+    let proc_name = c"get_hooked";
     let mut data = CallData::default();
     if !(obs.proc_handler_call)(handler, proc_name.as_ptr(), &mut data) {
         free_calldata(obs, &mut data);
         return false;
     }
 
-    let key = CString::new("hooked").expect("static string has no nul byte");
+    let key = c"hooked";
     let mut hooked = 0u8;
     let ok = (obs.calldata_get_data)(
         &data,
@@ -492,14 +492,14 @@ unsafe fn configure_display_capture_source(
     const OBS_DISPLAY_METHOD_WGC: i64 = 2;
 
     if !settings.selected_display_id.trim().is_empty() {
-        obs.set_string(data, "monitor_id", &settings.selected_display_id)?;
+        obs.set_string(data, c"monitor_id", &settings.selected_display_id)?;
     } else if let Some(display_id) = primary_display_id() {
-        obs.set_string(data, "monitor_id", &display_id)?;
+        obs.set_string(data, c"monitor_id", &display_id)?;
     }
-    obs.set_int(data, "method", OBS_DISPLAY_METHOD_WGC)?;
-    obs.set_bool(data, "force_sdr", false)?;
+    obs.set_int(data, c"method", OBS_DISPLAY_METHOD_WGC);
+    obs.set_bool(data, c"force_sdr", false);
 
-    obs.set_bool(data, "capture_cursor", false)?;
+    obs.set_bool(data, c"capture_cursor", false);
     Ok(())
 }
 
@@ -526,7 +526,7 @@ unsafe fn create_scaled_video_scene(
     source_kind: OutputSourceKind,
     base_dimensions: VideoDimensions,
 ) -> Result<VideoGraph, String> {
-    let name = CString::new("alloy_video_scene").expect("static string has no nul byte");
+    let name = c"alloy_video_scene";
     let scene = (obs.obs_scene_create_private)(name.as_ptr());
     if scene.is_null() {
         return Err("Could not create OBS video scene.".to_string());
@@ -590,22 +590,18 @@ pub(in crate::agent) unsafe fn create_audio_source(
     obs: &LibObs,
     config: &AudioSourceConfig,
 ) -> Result<*mut ObsSource, String> {
-    let source_settings = obs.create_data();
-    let source = (|| {
+    let source = obs.with_data(|source_settings| {
         if let Some(device_id) = config.device_id.as_deref() {
-            obs.set_string(source_settings, "device_id", device_id)?;
+            obs.set_string(source_settings, c"device_id", device_id)?;
         }
         if let Some(window) = config.window.as_deref() {
-            obs.set_string(source_settings, "window", window)?;
+            obs.set_string(source_settings, c"window", window)?;
         }
         if let Some(priority) = config.priority {
-            obs.set_int(source_settings, "priority", priority)?;
+            obs.set_int(source_settings, c"priority", priority);
         }
         create_source(obs, config.source_id, &config.name, Some(source_settings))
-    })();
-    obs.release_data(source_settings);
-
-    let source = source?;
+    })?;
     // Every selected source feeds mixer 0. Per-source volume is applied here,
     // so the recorded file contains one ready-to-play mixed track.
     (obs.obs_source_set_audio_mixers)(source, AUDIO_MIXER_ZERO);
@@ -833,12 +829,12 @@ unsafe fn configure_game_capture_source(
 ) -> Result<(), String> {
     let obs_window = game_capture_target_window(game).unwrap_or("");
     if game_capture_mode(game) == "window" {
-        obs.set_string(data, "capture_mode", "window")?;
+        obs.set_string(data, c"capture_mode", "window")?;
     } else {
-        obs.set_string(data, "capture_mode", "any_fullscreen")?;
+        obs.set_string(data, c"capture_mode", "any_fullscreen")?;
     }
-    obs.set_string(data, "window", obs_window)?;
-    obs.set_string(data, "capture_window", obs_window)?;
+    obs.set_string(data, c"window", obs_window)?;
+    obs.set_string(data, c"capture_window", obs_window)?;
     // Cap hook-side backbuffer copies to the output framerate. OBS defaults
     // this off and then copies at up to 2x the output fps on every game
     // present; on high-fps games (uncapped competitive titles) that floods
@@ -847,8 +843,8 @@ unsafe fn configure_game_capture_source(
     // (duplicated) frames in the recording while gameplay and OBS render
     // stats stay clean. We encode at a fixed fps, so copies beyond that rate
     // are pure overhead.
-    obs.set_bool(data, "limit_framerate", true)?;
-    obs.set_string(data, "rgb10a2_space", game_capture_rgb10a2_space(game))?;
+    obs.set_bool(data, c"limit_framerate", true);
+    obs.set_string(data, c"rgb10a2_space", game_capture_rgb10a2_space(game))?;
     Ok(())
 }
 

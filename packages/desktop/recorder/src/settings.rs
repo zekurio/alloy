@@ -1,8 +1,5 @@
 //! Settings helpers that do not touch the platform: audio-selection defaults,
 //! resolution against the available endpoints, and validation.
-//!
-//! The desktop host reuses these so it validates a settings payload exactly the
-//! way the agent does.
 
 use crate::protocol::SIDE_CAR_NAME;
 use crate::types::{RecordingAudioDevice, RecordingAudioDeviceKind, RecordingAudioDeviceSelection};

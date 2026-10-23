@@ -1,5 +1,5 @@
 use std::{
-    ffi::{CStr, CString},
+    ffi::CStr,
     os::raw::c_char,
     path::Path,
     ptr, thread,
@@ -98,15 +98,12 @@ impl Recorder {
                 return Err(error);
             }
         };
-        let video_settings = unsafe { obs.create_data() };
         let video_encoder = unsafe {
-            let result = (|| {
+            obs.with_data(|video_settings| {
                 configure_video_encoder(obs, video_settings, &encoder_settings, &output_quality)?;
                 create_video_encoder(obs, &video_encoder_id, video_settings)
                     .map_err(|_| unavailable_video_encoder_message(&encoder_settings))
-            })();
-            obs.release_data(video_settings);
-            result
+            })
         };
         let video_encoder = match video_encoder {
             Ok(video_encoder) => video_encoder,
@@ -143,89 +140,72 @@ impl Recorder {
             }
         };
 
-        let output_settings = unsafe { obs.create_data() };
         let ReplayBufferConfig {
             scratch_directory,
             storage,
             ..
         } = &output_config;
-        let output_id = if storage == &RecordingBufferStorage::Disk {
-            // `path` names the first segment. OBS names every later split
-            // from `directory`, `format` and `extension`, so those must point
-            // at the same scratch folder or the first split fails. Scratch
-            // segments skip the faststart remux: the host remuxes the saved
-            // clip anyway, and it would double the disk writes.
-            let path = scratch_directory
-                .join(format!("{DISK_REPLAY_PREFIX}{}.mp4", timestamp_file_slug()));
-            let result = unsafe {
-                obs.set_string(output_settings, "path", &path.to_string_lossy())?;
-                obs.set_string(
-                    output_settings,
-                    "directory",
-                    &scratch_directory.to_string_lossy(),
-                )?;
-                obs.set_string(output_settings, "format", DISK_REPLAY_SEGMENT_FORMAT)?;
-                obs.set_string(output_settings, "extension", "mp4")?;
-                obs.set_bool(output_settings, "allow_spaces", false)?;
-                obs.set_bool(output_settings, "allow_overwrite", false)?;
-                obs.set_bool(output_settings, "split_file", true)?;
-                obs.set_int(
-                    output_settings,
-                    "max_time_sec",
-                    i64::from(disk_replay_segment_seconds(settings.replay_buffer_seconds)),
-                )?;
-                obs.set_int(output_settings, "max_size_mb", 0)
-            };
-            result.map(|_| "ffmpeg_muxer")
-        } else {
-            let result = unsafe {
-                obs.set_string(
-                    output_settings,
-                    "directory",
-                    &scratch_directory.to_string_lossy(),
-                )?;
-                obs.set_string(
-                    output_settings,
-                    "format",
-                    "alloy-replay-%CCYY%MM%DD-%hh%mm%ss",
-                )?;
-                obs.set_string(output_settings, "extension", "mp4")?;
-                obs.set_string(output_settings, "muxer_settings", "movflags=+faststart")?;
-                obs.set_int(
-                    output_settings,
-                    "max_time_sec",
-                    i64::from(settings.replay_buffer_seconds),
-                )?;
-                obs.set_int(
-                    output_settings,
-                    "max_size_mb",
-                    i64::from(estimated_replay_buffer_mb(settings, &output_quality)),
-                )
-            };
-            result.map(|_| "replay_buffer")
-        };
-        let output_id = match output_id {
-            Ok(output_id) => output_id,
-            Err(error) => {
-                unsafe {
-                    obs.release_data(output_settings);
-                    release_output_graph(
-                        obs,
-                        ptr::null_mut(),
-                        video_encoder,
-                        audio_encoder,
-                        video_graph,
-                        audio_graph,
+        let output = unsafe {
+            obs.with_data(|output_settings| {
+                let output_id = if storage == &RecordingBufferStorage::Disk {
+                    // `path` names the first segment. OBS names every later
+                    // split from `directory`, `format` and `extension`, so
+                    // those must point at the same scratch folder or the first
+                    // split fails. Scratch segments skip the faststart remux:
+                    // the host remuxes the saved clip anyway, and it would
+                    // double the disk writes.
+                    let path = scratch_directory
+                        .join(format!("{DISK_REPLAY_PREFIX}{}.mp4", timestamp_file_slug()));
+                    obs.set_string(output_settings, c"path", &path.to_string_lossy())?;
+                    obs.set_string(
+                        output_settings,
+                        c"directory",
+                        &scratch_directory.to_string_lossy(),
+                    )?;
+                    obs.set_string(output_settings, c"format", DISK_REPLAY_SEGMENT_FORMAT)?;
+                    obs.set_string(output_settings, c"extension", "mp4")?;
+                    obs.set_bool(output_settings, c"allow_spaces", false);
+                    obs.set_bool(output_settings, c"allow_overwrite", false);
+                    obs.set_bool(output_settings, c"split_file", true);
+                    obs.set_int(
+                        output_settings,
+                        c"max_time_sec",
+                        i64::from(disk_replay_segment_seconds(settings.replay_buffer_seconds)),
                     );
-                }
-                return Err(error);
-            }
+                    obs.set_int(output_settings, c"max_size_mb", 0);
+                    "ffmpeg_muxer"
+                } else {
+                    obs.set_string(
+                        output_settings,
+                        c"directory",
+                        &scratch_directory.to_string_lossy(),
+                    )?;
+                    obs.set_string(
+                        output_settings,
+                        c"format",
+                        "alloy-replay-%CCYY%MM%DD-%hh%mm%ss",
+                    )?;
+                    obs.set_string(output_settings, c"extension", "mp4")?;
+                    obs.set_string(output_settings, c"muxer_settings", "movflags=+faststart")?;
+                    obs.set_int(
+                        output_settings,
+                        c"max_time_sec",
+                        i64::from(settings.replay_buffer_seconds),
+                    );
+                    obs.set_int(
+                        output_settings,
+                        c"max_size_mb",
+                        i64::from(estimated_replay_buffer_mb(settings, &output_quality)),
+                    );
+                    "replay_buffer"
+                };
+                create_output(obs, output_id, output_settings)
+            })
         };
-        let output = match unsafe { create_output(obs, output_id, output_settings) } {
+        let output = match output {
             Ok(output) => output,
             Err(error) => {
                 unsafe {
-                    obs.release_data(output_settings);
                     release_output_graph(
                         obs,
                         ptr::null_mut(),
@@ -239,7 +219,6 @@ impl Recorder {
             }
         };
         unsafe {
-            obs.release_data(output_settings);
             (obs.obs_output_set_video_encoder)(output, video_encoder);
             (obs.obs_output_set_audio_encoder)(output, audio_encoder, 0);
         }
@@ -438,7 +417,7 @@ impl Recorder {
         }
 
         let previous_replay_path = unsafe { last_replay_path(obs, handler) };
-        let save_name = CString::new("save").expect("static string has no nul byte");
+        let save_name = c"save";
         let mut save_data = CallData::default();
         let saved_after = SystemTime::now();
         if !(obs.proc_handler_call)(handler, save_name.as_ptr(), &mut save_data) {
@@ -497,7 +476,7 @@ impl Recorder {
             return Err("OBS disk replay output has no procedure handler.".to_string());
         }
 
-        let split_file = CString::new("split_file").expect("static string has no nul byte");
+        let split_file = c"split_file";
         let mut data = CallData::default();
         if !(obs.proc_handler_call)(handler, split_file.as_ptr(), &mut data) {
             free_calldata(obs, &mut data);
@@ -519,13 +498,13 @@ impl Recorder {
 
 unsafe fn last_replay_path(obs: &LibObs, handler: *mut ProcHandler) -> Option<String> {
     let mut data = CallData::default();
-    let get_last_replay = CString::new("get_last_replay").expect("static string has no nul byte");
+    let get_last_replay = c"get_last_replay";
     if !(obs.proc_handler_call)(handler, get_last_replay.as_ptr(), &mut data) {
         free_calldata(obs, &mut data);
         return None;
     }
 
-    let key = CString::new("path").expect("static string has no nul byte");
+    let key = c"path";
     let mut raw_path: *const c_char = ptr::null();
     let path =
         if (obs.calldata_get_string)(&data, key.as_ptr(), &mut raw_path) && !raw_path.is_null() {
