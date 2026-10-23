@@ -17,17 +17,18 @@ import {
   badRequest,
   deleted,
   errorResult,
+  notFound,
 } from "@alloy/server/runtime/http-response"
 import { imageBodyLimit } from "@alloy/server/uploads/image-body-limit"
 import { eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
+import { createMiddleware } from "hono/factory"
 
 import { prepareGameAsset, type PreparedGameAsset } from "./admin-game-assets"
 import {
   createCustomGame,
   deleteGame,
   removeGameAsset,
-  selectGame,
   updateGame,
   uploadGameAsset,
 } from "./admin-games-store"
@@ -83,6 +84,22 @@ const GameAssetUploadForm = t.object({
   file: t.instanceof(File, { message: "Expected an uploaded image file" }),
 })
 
+// Lets routes that process images fail before that work. The store checks
+// again under its row lock, so routes without that work can skip this.
+/** Loads the game named by the `:id` param, or 404s. */
+const loadGame = createMiddleware<{
+  Variables: { game: { id: string; steamgriddbId: number | null } }
+}>(async (c, next) => {
+  const [row] = await db
+    .select({ id: game.id, steamgriddbId: game.steamgriddb_id })
+    .from(game)
+    .where(eq(game.id, c.req.param("id") ?? ""))
+    .limit(1)
+  if (!row) return notFound(c, "Unknown game")
+  c.set("game", row)
+  await next()
+})
+
 export const adminGamesRoute = new Hono()
   .get("/games", async (c) => c.json(await listAdminGames()))
   .post(
@@ -125,14 +142,9 @@ export const adminGamesRoute = new Hono()
     "/games/:id",
     tbValidator("param", GameIdParam),
     tbValidator("json", UpdateGameBody),
+    loadGame,
     async (c) => {
-      const { id } = c.req.valid("param")
-      const body = c.req.valid("json")
-
-      const existing = await selectGame(c, id)
-      if ("response" in existing) return existing.response
-
-      const result = await updateGame(existing.row.id, body)
+      const result = await updateGame(c.var.game.id, c.req.valid("json"))
       return result.ok ? c.json(result.game) : errorResult(c, result)
     },
   )
@@ -147,18 +159,16 @@ export const adminGamesRoute = new Hono()
     "/games/:id/artwork",
     tbValidator("param", GameIdParam),
     tbValidator("query", GameArtworkQuery),
+    loadGame,
     async (c) => {
-      const { id } = c.req.valid("param")
       const { role } = c.req.valid("query")
-
-      const existing = await selectGame(c, id)
-      if ("response" in existing) return existing.response
-      if (existing.row.steamgriddbId === null) {
+      const { steamgriddbId } = c.var.game
+      if (steamgriddbId === null) {
         return badRequest(c, "This game has no SteamGridDB artwork")
       }
 
       try {
-        const assets = await browseGameArtwork(existing.row.steamgriddbId, role)
+        const assets = await browseGameArtwork(steamgriddbId, role)
         return c.json({ assets } satisfies SteamGridDBArtworkResponse)
       } catch (err) {
         return errorResult(c, steamgriddbErrorResponse(err))
@@ -170,14 +180,11 @@ export const adminGamesRoute = new Hono()
     tbValidator("param", GameAssetParam),
     imageBodyLimit("gameAssetMaxBytes"),
     tbValidator("form", GameAssetUploadForm),
+    loadGame,
     async (c) => {
-      const { id, role } = c.req.valid("param")
-      const existing = await selectGame(c, id)
-      if ("response" in existing) return existing.response
-
       const result = await uploadGameAsset(
-        existing.row.id,
-        role,
+        c.var.game.id,
+        c.req.valid("param").role,
         c.req.valid("form").file,
       )
       return result.ok ? c.json(result.game) : errorResult(c, result)
@@ -188,10 +195,7 @@ export const adminGamesRoute = new Hono()
     tbValidator("param", GameAssetParam),
     async (c) => {
       const { id, role } = c.req.valid("param")
-      const existing = await selectGame(c, id)
-      if ("response" in existing) return existing.response
-
-      const result = await removeGameAsset(existing.row.id, role)
+      const result = await removeGameAsset(id, role)
       return result.ok ? c.json(result.game) : errorResult(c, result)
     },
   )

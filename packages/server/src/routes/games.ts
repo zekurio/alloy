@@ -26,7 +26,8 @@ import {
 import { errorResult, notFound } from "@alloy/server/runtime/http-response"
 import { rateLimiter } from "@alloy/server/runtime/rate-limit"
 import { and, desc, eq, ilike, isNull, type SQL, sql } from "drizzle-orm"
-import { type Context, Hono } from "hono"
+import { Hono } from "hono"
+import { createMiddleware } from "hono/factory"
 
 import { publicClipListingConditions } from "./clips-helpers"
 import {
@@ -58,66 +59,41 @@ const gameCreateRateLimit = rateLimiter<{ Variables: { viewerId: string } }>({
   key: (c) => c.var.viewerId,
 })
 
-type ResolvedGameRef =
-  | { row: GameRow; response?: never }
-  | { row?: never; response: Response }
-
-async function resolveSteamGridDBGameRef(
-  c: Context,
-  steamgriddbId: number,
-): Promise<ResolvedGameRef> {
-  try {
-    const row = await getSteamGridDBGameRef(steamgriddbId)
-    if (!row) return { response: notFound(c, "Unknown SteamGridDB game id") }
-    return { row }
-  } catch (err) {
-    return { response: errorResult(c, steamgriddbErrorResponse(err)) }
-  }
+function parseSteamGridDBId(value: string): number | null {
+  const id = Number.parseInt(value, 10)
+  return String(id) === value && Number.isSafeInteger(id) && id > 0 ? id : null
 }
 
-// Read routes only serve games the catalogue already has. Numeric links to
-// games nobody has attached a clip to answer 404 instead of ingesting them.
-async function findSteamGridDBGameRefForRead(
-  c: Context,
-  steamgriddbId: number,
-): Promise<ResolvedGameRef> {
-  const row = await findSteamGridDBGameRef(steamgriddbId)
-  if (!row) return { response: notFound(c, "Unknown SteamGridDB game id") }
-  return { row }
-}
-
-async function resolveSteamGridDBGameRefBySlug(
-  c: Context,
-  slug: string,
-): Promise<ResolvedGameRef> {
-  try {
-    const row = await getSteamGridDBGameRefBySlug(slug)
-    if (!row) return { response: notFound(c, "Unknown SteamGridDB game slug") }
-    return { row }
-  } catch (err) {
-    return { response: errorResult(c, steamgriddbErrorResponse(err)) }
-  }
-}
-
-async function resolveSteamGridDBGameRefByParam(
-  c: Context,
-  value: string,
-): Promise<ResolvedGameRef> {
-  if (value === UNCATEGORISED_GAME_SLUG || value === UNCATEGORISED_GAME_ID) {
-    return { row: uncategorisedGameRow() }
-  }
-
-  const steamgriddbId = Number.parseInt(value, 10)
-  if (
-    String(steamgriddbId) === value &&
-    Number.isSafeInteger(steamgriddbId) &&
-    steamgriddbId > 0
-  ) {
-    return findSteamGridDBGameRefForRead(c, steamgriddbId)
-  }
-
-  return resolveSteamGridDBGameRefBySlug(c, value)
-}
+/**
+ * Loads the game named by the `:slug` param into `c.var.game`. The param is
+ * a slug, a SteamGridDB id, or the uncategorised placeholder.
+ */
+const loadGameRef = createMiddleware<{ Variables: { game: GameRow } }>(
+  async (c, next) => {
+    const value = c.req.param("slug") ?? ""
+    const steamgriddbId = parseSteamGridDBId(value)
+    if (value === UNCATEGORISED_GAME_SLUG || value === UNCATEGORISED_GAME_ID) {
+      c.set("game", uncategorisedGameRow())
+    } else if (steamgriddbId !== null) {
+      // Read routes only serve games the catalogue already has. Numeric links
+      // to games nobody has attached a clip to answer 404 instead of
+      // ingesting them.
+      const row = await findSteamGridDBGameRef(steamgriddbId)
+      if (!row) return notFound(c, "Unknown SteamGridDB game id")
+      c.set("game", row)
+    } else {
+      let row: GameRow | null
+      try {
+        row = await getSteamGridDBGameRefBySlug(value)
+      } catch (err) {
+        return errorResult(c, steamgriddbErrorResponse(err))
+      }
+      if (!row) return notFound(c, "Unknown SteamGridDB game slug")
+      c.set("game", row)
+    }
+    await next()
+  },
+)
 
 export const gamesRoute = new Hono()
   .get(
@@ -164,9 +140,14 @@ export const gamesRoute = new Hono()
     tbValidator("json", ResolveBody),
     async (c) => {
       const { steamgriddbId } = c.req.valid("json")
-      const resolved = await resolveSteamGridDBGameRef(c, steamgriddbId)
-      if (resolved.response) return resolved.response
-      return c.json(resolved.row)
+      let row: GameRow | null
+      try {
+        row = await getSteamGridDBGameRef(steamgriddbId)
+      } catch (err) {
+        return errorResult(c, steamgriddbErrorResponse(err))
+      }
+      if (!row) return notFound(c, "Unknown SteamGridDB game id")
+      return c.json(row)
     },
   )
   .post(
@@ -224,16 +205,14 @@ export const gamesRoute = new Hono()
     "/:slug",
     tbValidator("param", SlugParam),
     tbValidator("query", MediaQuery),
+    loadGameRef,
     async (c) => {
       const { media } = c.req.valid("query")
-      const { slug } = c.req.valid("param")
-      const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
-      if (resolved.response) return resolved.response
-      const gameId = resolved.row.id
+      const gameId = c.var.game.id
 
       if (gameId === UNCATEGORISED_GAME_ID) {
         return c.json({
-          ...resolved.row,
+          ...c.var.game,
           clipCount: await publicUncategorisedClipCount(media),
         })
       }
@@ -247,7 +226,7 @@ export const gamesRoute = new Hono()
         )
 
       return c.json({
-        ...resolved.row,
+        ...c.var.game,
         clipCount,
       })
     },
@@ -256,15 +235,14 @@ export const gamesRoute = new Hono()
     "/:slug/creators",
     tbValidator("param", SlugParam),
     tbValidator("query", CreatorsQuery),
+    loadGameRef,
     async (c) => {
-      const { slug } = c.req.valid("param")
       const { limit, media } = c.req.valid("query")
-      const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
-      if (resolved.response) return resolved.response
+      const gameId = c.var.game.id
       const gameCondition: SQL =
-        resolved.row.id === UNCATEGORISED_GAME_ID
+        gameId === UNCATEGORISED_GAME_ID
           ? isNull(clip.game_id)
-          : eq(clip.game_id, resolved.row.id)
+          : eq(clip.game_id, gameId)
 
       const creators = await db
         .select({

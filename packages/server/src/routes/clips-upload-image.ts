@@ -24,10 +24,7 @@ import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { IdParam } from "./clips-helpers"
-import {
-  selectClipForMutation,
-  updatedClipResponse,
-} from "./clips-upload-access"
+import { loadMutableClip, updatedClipResponse } from "./clips-upload-access"
 import { tbValidator } from "./validation"
 
 const ImageEditForm = t.object({
@@ -41,17 +38,12 @@ export const clipsUploadImageRoutes = new Hono().post(
   imageBodyLimit("screenshotMaxBytes"),
   tbValidator("param", IdParam),
   tbValidator("form", ImageEditForm),
+  loadMutableClip({ statuses: ["ready"] }),
   async (c) => {
     const limits = configStore.get("uploadLimits")
     const { id } = c.req.valid("param")
     const { file, sourceVersion } = c.req.valid("form")
-    const access = await selectClipForMutation(c, {
-      id,
-      viewerId: c.var.viewerId,
-      statuses: ["ready"],
-    })
-    if ("response" in access) return access.response
-    const row = access.row
+    const row = c.var.clip
     if (row.media_kind !== "image" || !row.source_key)
       return badRequest(c, "This operation requires a screenshot")
     if (

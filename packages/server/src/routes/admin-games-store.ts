@@ -15,7 +15,6 @@ import {
   gameSelection,
   serialiseGameRow,
 } from "@alloy/server/games/ref"
-import { notFound } from "@alloy/server/runtime/http-response"
 import { prewriteAssetDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import {
   cancelStorageDeletion,
@@ -26,7 +25,6 @@ import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker
 import { assetStorage, versionedAssetKey } from "@alloy/server/storage/index"
 import { withStorageObjectWriteActivity } from "@alloy/server/storage/write-activity"
 import { eq, getTableColumns, sql } from "drizzle-orm"
-import type { Context } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 
 import {
@@ -48,21 +46,6 @@ const GAME_ASSET_INPUT_COLUMN = {
   logo: "logoUrl",
   icon: "iconUrl",
 } as const
-
-export async function selectGame(
-  c: Context,
-  gameId: string,
-): Promise<
-  { row: { id: string; steamgriddbId: number | null } } | { response: Response }
-> {
-  const [row] = await db
-    .select({ id: game.id, steamgriddbId: game.steamgriddb_id })
-    .from(game)
-    .where(eq(game.id, gameId))
-    .limit(1)
-  if (!row) return { response: notFound(c, "Unknown game") }
-  return { row }
-}
 
 type AdminGameFailure = {
   ok: false

@@ -44,10 +44,7 @@ import { and, eq, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { IdParam, PosterBody, TrimBody } from "./clips-helpers"
-import {
-  selectClipForMutation,
-  updatedClipResponse,
-} from "./clips-upload-access"
+import { loadMutableClip, updatedClipResponse } from "./clips-upload-access"
 import { tbValidator } from "./validation"
 
 // Owner/admin re-encode is non-destructive but enqueues real transcode work,
@@ -103,19 +100,11 @@ export const clipsUploadMediaRoutes = new Hono()
     posterRateLimit,
     tbValidator("param", IdParam),
     tbValidator("json", PosterBody),
+    loadMutableClip({ allowAdmin: true, statuses: ["ready"] }),
     async (c) => {
-      const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
       const body = c.req.valid("json")
-
-      const access = await selectClipForMutation(c, {
-        id,
-        viewerId,
-        statuses: ["ready"],
-        allowAdmin: true,
-      })
-      if ("response" in access) return access.response
-      const row = access.row
+      const row = c.var.clip
 
       if (row.media_kind === "image")
         return badRequest(c, "This operation requires a video")
@@ -249,18 +238,11 @@ export const clipsUploadMediaRoutes = new Hono()
     requireSession,
     tbValidator("param", IdParam),
     tbValidator("json", TrimBody),
+    loadMutableClip({ statuses: ["ready"] }),
     async (c) => {
-      const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
       const body = c.req.valid("json")
-
-      const access = await selectClipForMutation(c, {
-        id,
-        viewerId,
-        statuses: ["ready"],
-      })
-      if ("response" in access) return access.response
-      const row = access.row
+      const row = c.var.clip
 
       if (row.media_kind === "image")
         return badRequest(c, "This operation requires a video")
@@ -384,18 +366,10 @@ export const clipsUploadMediaRoutes = new Hono()
     requireSession,
     reEncodeRateLimit,
     tbValidator("param", IdParam),
+    loadMutableClip({ allowAdmin: true, statuses: ["ready", "failed"] }),
     async (c) => {
-      const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
-
-      const access = await selectClipForMutation(c, {
-        id,
-        viewerId,
-        statuses: ["ready", "failed"],
-        allowAdmin: true,
-      })
-      if ("response" in access) return access.response
-      const row = access.row
+      const row = c.var.clip
 
       if (row.status === "failed") {
         // Failed clips are not claimable, so flip it back to processing in the
