@@ -34,7 +34,7 @@ dependencies = [
 
 [[package]]
 name = "alloy-agent"
-version = "0.0.18"
+version = "0.0.19"
 dependencies = [
  "base64 0.23.1",
  "chrono",
@@ -48,7 +48,7 @@ dependencies = [
 
 [[package]]
 name = "alloy-desktop"
-version = "0.0.18"
+version = "0.0.19"
 dependencies = [
  "alloy-agent",
  "axum",
