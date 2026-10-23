@@ -17,6 +17,10 @@ module. The development shell lives separately in `devenv.nix`.
   storage, credentials, and systemd hardening.
 - `module-security-test.nix` checks production-mode and HTTPS enforcement,
   including environment overrides.
+- `dev-dotenv.sh` and `dev-postgres.sh` back the devenv shell hook. The first
+  creates `.env` with generated local secrets. The second runs the repo-local
+  Postgres; `devenv.nix` exposes it as `alloy-postgres start|stop` and
+  `alloy-postgres-stop`.
 
 The top-level `pnpmConfigHook` uses the pnpm executable in `nativeBuildInputs`.
 `fetchPnpmDeps` receives that same pinned package explicitly. Neither should
