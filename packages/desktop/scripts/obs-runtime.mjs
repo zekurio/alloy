@@ -25,23 +25,19 @@ const obsHelperExecutables = [
   "obs-qsv-test.exe",
 ]
 
+/** Creates a bundled resource folder with a placeholder file, so the Tauri
+ * bundler finds it even when nothing is staged there. */
+export function ensureResourceDir(directory) {
+  mkdirSync(directory, { recursive: true })
+  writeFileSync(join(directory, ".gitkeep"), "")
+}
+
 export function stageObsRuntime(runtimeRoot) {
-  mkdirSync(obsResourcesDir, { recursive: true })
-
-  if (!runtimeRoot) {
-    writeFileSync(join(obsResourcesDir, ".gitkeep"), "")
-    return
+  if (runtimeRoot && resolve(runtimeRoot) !== resolve(obsResourcesDir)) {
+    rmSync(obsResourcesDir, { recursive: true, force: true })
+    cpSync(runtimeRoot, obsResourcesDir, { recursive: true, dereference: true })
   }
-
-  if (resolve(runtimeRoot) === resolve(obsResourcesDir)) {
-    writeFileSync(join(obsResourcesDir, ".gitkeep"), "")
-    return
-  }
-
-  rmSync(obsResourcesDir, { recursive: true, force: true })
-  mkdirSync(obsResourcesDir, { recursive: true })
-  cpSync(runtimeRoot, obsResourcesDir, { recursive: true, dereference: true })
-  writeFileSync(join(obsResourcesDir, ".gitkeep"), "")
+  ensureResourceDir(obsResourcesDir)
 }
 
 export function stageObsHelpers() {

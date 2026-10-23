@@ -1,6 +1,4 @@
 import { spawnSync } from "node:child_process"
-import { createHash } from "node:crypto"
-import { createReadStream, createWriteStream } from "node:fs"
 import {
   cp,
   mkdir,
@@ -11,9 +9,9 @@ import {
   writeFile,
 } from "node:fs/promises"
 import { join, resolve } from "node:path"
-import { Readable } from "node:stream"
-import { pipeline } from "node:stream/promises"
 import { fileURLToPath } from "node:url"
+
+import { download, expandArchive, fileSha256 } from "./archive.mjs"
 
 const packageDir = fileURLToPath(new URL("..", import.meta.url))
 const resourcesDir = join(packageDir, "resources", "ffmpeg")
@@ -56,41 +54,20 @@ const archive = join(cacheDir, archiveName)
 const unpacked = join(cacheDir, "unpacked")
 await mkdir(cacheDir, { recursive: true })
 
-if (!(await validArchive(archive))) {
-  const response = await fetch(
+if ((await fileSha256(archive)) !== checksum) {
+  await download(
     `https://www.gyan.dev/ffmpeg/builds/packages/${archiveName}`,
+    archive,
     { signal: AbortSignal.timeout(300_000) },
   )
-  if (!response.ok || !response.body) {
-    throw new Error(`FFmpeg download failed: HTTP ${response.status}.`)
-  }
-  await pipeline(Readable.fromWeb(response.body), createWriteStream(archive))
-  if (!(await validArchive(archive))) {
+  if ((await fileSha256(archive)) !== checksum) {
     await rm(archive, { force: true })
     throw new Error("FFmpeg archive checksum does not match.")
   }
 }
 
 await rm(unpacked, { recursive: true, force: true })
-const extract = spawnSync(
-  "powershell.exe",
-  [
-    "-NoProfile",
-    "-NonInteractive",
-    "-Command",
-    "$ErrorActionPreference = 'Stop'; Expand-Archive -LiteralPath $env:ALLOY_FFMPEG_ARCHIVE -DestinationPath $env:ALLOY_FFMPEG_DESTINATION",
-  ],
-  {
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      ALLOY_FFMPEG_ARCHIVE: archive,
-      ALLOY_FFMPEG_DESTINATION: unpacked,
-    },
-  },
-)
-if (extract.error) throw extract.error
-if (extract.status !== 0) throw new Error("Could not extract FFmpeg.")
+expandArchive(archive, unpacked)
 const roots = await readdir(unpacked)
 if (roots.length !== 1) throw new Error("Unexpected FFmpeg archive layout.")
 const source = join(unpacked, roots[0])
@@ -108,14 +85,3 @@ for (const name of await readdir(source)) {
 }
 await writeFile(marker, checksum)
 console.log(`Staged FFmpeg ${version}.`)
-
-async function validArchive(path) {
-  const hash = createHash("sha256")
-  try {
-    for await (const chunk of createReadStream(path)) hash.update(chunk)
-    return hash.digest("hex") === checksum
-  } catch (cause) {
-    if (cause.code === "ENOENT") return false
-    throw cause
-  }
-}

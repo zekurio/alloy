@@ -225,16 +225,18 @@ jobs:
           # build is what keeps desktop CI from recompiling from scratch.
           shared-key: tauri-desktop
 
+      # The staging scripts pin OBS and FFmpeg and decide what lands in the
+      # runtime folder, so their hash keys the cache.
       - name: cache native runtimes
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             packages/desktop/resources/obs-runtime
             packages/desktop/.cache/ffmpeg
-          key: windows-native-obs-32.1.2-ffmpeg-8.1.2-v2
+          key: windows-native-${{ hashFiles('packages/desktop/scripts/*.mjs') }}
 
       - name: stage obs runtime
-        run: corepack pnpm --filter @alloy/desktop obs:install --version 32.1.2
+        run: corepack pnpm --filter @alloy/desktop obs:install
 
       - name: build desktop installer and update signature
         env:
