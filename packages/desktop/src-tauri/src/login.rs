@@ -3,6 +3,7 @@ use std::time::Duration;
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -10,6 +11,7 @@ use tokio::{
 };
 use url::Url;
 
+use crate::logging::logged;
 use crate::server::{Server, read_body};
 
 const MAX_TOKEN_BODY: usize = 64 * 1024;
@@ -27,7 +29,7 @@ pub const LEGACY_REFRESH_COOKIE: &str = "alloy_refresh";
 /// webview's cookie store. This type is never serialized into a Tauri result.
 pub struct SessionToken {
     token: String,
-    cookie_expires_at: String,
+    cookie_expires_at: OffsetDateTime,
 }
 
 impl SessionToken {
@@ -37,7 +39,7 @@ impl SessionToken {
             .ok_or_else(|| "The server URL has no host.".to_string())?;
         session_cookie(
             &self.token,
-            &self.cookie_expires_at,
+            self.cookie_expires_at,
             host,
             server.scheme() == "https",
         )
@@ -96,10 +98,10 @@ impl BrowserLogin {
     pub async fn prepare(server: &Server) -> Result<Self, String> {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
-            .map_err(|_| "Could not start the login callback listener.")?;
+            .map_err(logged("Could not start the login callback listener."))?;
         let port = listener
             .local_addr()
-            .map_err(|_| "Could not read the login callback port.")?
+            .map_err(logged("Could not read the login callback port."))?
             .port();
         let state = random_secret();
         let verifier = random_secret();
@@ -107,7 +109,7 @@ impl BrowserLogin {
         let mut authorize_url = server
             .origin
             .join("/api/auth/desktop/authorize")
-            .map_err(|_| "Invalid server URL.")?;
+            .map_err(logged("Invalid server URL."))?;
         authorize_url
             .query_pairs_mut()
             .append_pair("redirect_uri", &format!("http://127.0.0.1:{port}/callback"))
@@ -131,17 +133,18 @@ impl BrowserLogin {
     }
 
     async fn receive_and_exchange(&self, server: &Server) -> Result<SessionToken, String> {
+        // A real callback names this listener in its Host header.
+        let host = self
+            .listener
+            .local_addr()
+            .map_err(logged("Could not read the callback address."))?
+            .to_string();
         loop {
             let (stream, _) = self
                 .listener
                 .accept()
                 .await
-                .map_err(|_| "Could not receive the login callback.")?;
-            let host = self
-                .listener
-                .local_addr()
-                .map_err(|_| "Could not read the callback address.")?
-                .to_string();
+                .map_err(logged("Could not receive the login callback."))?;
             let callback = timeout(
                 Duration::from_secs(2),
                 read_callback(stream, &host, &self.state),
@@ -164,16 +167,21 @@ impl BrowserLogin {
                 server
                     .origin
                     .join("/api/auth/desktop/token")
-                    .map_err(|_| "Invalid token URL.")?,
+                    .map_err(logged("Invalid token URL."))?,
             )
             .json(&body)
             .send()
             .await
-            .map_err(|_| "Could not exchange the login code.")?;
+            .map_err(logged("Could not exchange the login code."))?;
         if !response.status().is_success() {
+            log::warn!(
+                "The token exchange answered with HTTP {}.",
+                response.status().as_u16()
+            );
             return Err("The server rejected the login code.".into());
         }
         let body = read_body(response, MAX_TOKEN_BODY).await?;
+        // The parse error is not logged: it can quote the token.
         let response: TokenResponse = serde_json::from_slice(&body)
             .map_err(|_| "The server returned invalid login credentials.")?;
         SessionToken::try_from(response)
@@ -199,10 +207,9 @@ impl TryFrom<TokenResponse> for SessionToken {
             return Err("Update the Alloy server to sign in with this version of Alloy.".into());
         };
         validate_token(&token)?;
-        validate_expiry(&cookie_expires_at)?;
         Ok(Self {
             token,
-            cookie_expires_at,
+            cookie_expires_at: parse_expiry(&cookie_expires_at)?,
         })
     }
 }
@@ -219,14 +226,13 @@ fn validate_token(token: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_expiry(expires: &str) -> Result<(), String> {
-    let expires =
-        time::OffsetDateTime::parse(expires, &time::format_description::well_known::Rfc3339)
-            .map_err(|_| "The server returned an invalid session expiry.")?;
-    if expires <= time::OffsetDateTime::now_utc() {
+fn parse_expiry(expires: &str) -> Result<OffsetDateTime, String> {
+    let expires = OffsetDateTime::parse(expires, &Rfc3339)
+        .map_err(|_| "The server returned an invalid session expiry.")?;
+    if expires <= OffsetDateTime::now_utc() {
         return Err("The login session has expired. Connect again.".into());
     }
-    Ok(())
+    Ok(expires)
 }
 
 /// Builds the `Set-Cookie` header the host injects into the server webview so
@@ -244,12 +250,17 @@ fn validate_expiry(expires: &str) -> Result<(), String> {
 /// (`replace_injected_cookie` in `main.rs`). The host is written without a
 /// leading dot: adding one would force a domain cookie even where Chromium
 /// stores ours host-only (`localhost`, bare IPs, non-public-suffix TLDs).
-fn session_cookie(token: &str, expires: &str, host: &str, secure: bool) -> Result<String, String> {
-    validate_token(token)?;
-    let expires =
-        time::OffsetDateTime::parse(expires, &time::format_description::well_known::Rfc3339)
-            .map_err(|_| "The server returned an invalid session expiry.")?;
-    let seconds = (expires - time::OffsetDateTime::now_utc()).whole_seconds();
+///
+/// `token` passed `validate_token` when the token response was parsed, so it
+/// cannot carry cookie attributes of its own.
+fn session_cookie(
+    token: &str,
+    expires: OffsetDateTime,
+    host: &str,
+    secure: bool,
+) -> Result<String, String> {
+    // The sign-in can finish a while before the window gets its cookie.
+    let seconds = (expires - OffsetDateTime::now_utc()).whole_seconds();
     if seconds <= 0 {
         return Err("The login session has expired. Connect again.".into());
     }
@@ -293,7 +304,7 @@ async fn read_callback(
     }
     let request = String::from_utf8(bytes).map_err(|_| "Invalid login callback encoding.")?;
     let code = callback_code(&request, host, state);
-    let strings = callback_strings(callback_locale(&request));
+    let strings = callback_strings(callback_locale(&request).as_deref().unwrap_or(""));
     let (status, body) = if code.is_some() {
         (
             "200 OK",
@@ -356,21 +367,17 @@ fn callback_strings(locale: &str) -> &'static CallbackStrings {
     }
 }
 
-/// Raw `locale` hint from the loopback callback target, if any. Only the
-/// language table consumes it, so no validation happens here.
-fn callback_locale(request: &str) -> &str {
-    let target = request.split_whitespace().nth(1).unwrap_or("");
-    let query = match target.split_once('?') {
-        Some((_, query)) => query,
-        None => return "",
-    };
-    for pair in query.split('&') {
-        match pair.split_once('=') {
-            Some(("locale", value)) if !value.is_empty() => return value,
-            _ => {}
-        }
-    }
-    ""
+/// The `locale` hint from the loopback callback target, if any. It is read
+/// even from a callback `callback_code` rejects, so the failure page is
+/// translated too. Only the language table consumes it, so no validation
+/// happens here.
+fn callback_locale(request: &str) -> Option<String> {
+    let target = request.split_whitespace().nth(1)?;
+    let (_, query) = target.split_once('?')?;
+    // The parser behind `Url::query_pairs`, which `callback_code` uses.
+    url::form_urlencoded::parse(query.as_bytes())
+        .find(|(key, value)| key == "locale" && !value.is_empty())
+        .map(|(_, value)| value.into_owned())
 }
 
 /// A self-contained page in the desktop theme. The browser tab has no access
