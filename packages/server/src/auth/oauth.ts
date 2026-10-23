@@ -17,6 +17,7 @@ import { insertAuthChallengeAndWake } from "./challenge-expiry"
 import { clearOAuthStateCookie, readOAuthStateCookie } from "./cookies"
 import { linkAccountToUser, resolveSignInUser } from "./oauth-accounts"
 import {
+  browserNonceMatches,
   consumeOAuthChallenge,
   OAUTH_PURPOSE,
   OAUTH_STATE_TTL_MS,
@@ -137,7 +138,7 @@ export async function finishOAuthCallback(
     if (payload.providerId !== provider.providerId) {
       throw new Error("OAuth provider changed during sign-in.")
     }
-    if (browserNonce !== payload.browserNonce) {
+    if (!browserNonceMatches(browserNonce, payload.browserNonce)) {
       throw new Error("OAuth sign-in did not start in this browser.")
     }
 

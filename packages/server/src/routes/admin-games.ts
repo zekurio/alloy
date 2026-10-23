@@ -36,7 +36,13 @@ import { requiredTrimmedString, tbValidator } from "./validation"
 
 export { gameAssetsRoute } from "./admin-game-assets"
 
-const NullableUrl = t.url().max(2048).nullable().optional()
+// The blurhash step reads any other scheme as a local file path.
+const NullableUrl = t
+  .url()
+  .max(2048)
+  .refine((value) => /^https?:\/\//i.test(value), "must be an http(s) URL")
+  .nullable()
+  .optional()
 const NullableReleaseDate = t.iso
   .datetime({ offset: true })
   .nullable()

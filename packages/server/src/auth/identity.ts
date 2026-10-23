@@ -207,12 +207,8 @@ export async function createRegistrationUserInTransaction(
 
   if (input.setupFirstAdmin) {
     await lockAdminAccessInvariant(tx)
-    if (
-      await hasAdminSignInMethodWith(tx, {
-        passkeyEnabled: configStore.get("passkeyEnabled"),
-        oauthProviders: configStore.get("oauthProviders"),
-      })
-    ) {
+    // Same config as setupRequired(), so the setup page and this check agree.
+    if (await hasAdminSignInMethodWith(tx, currentUsableSignInConfig())) {
       throw new Error("Initial setup is already complete.")
     }
     // Setup creates a fresh admin because no verified attribute remains to claim.

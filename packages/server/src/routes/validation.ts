@@ -66,7 +66,7 @@ export function requiredTrimmedString(max?: number) {
 
 export function optionalNullableTrimmedString(max?: number) {
   const schema = t.string().trim()
-  return (max === undefined ? schema : schema.max(max)).optional().nullable()
+  return (max === undefined ? schema : schema.max(max)).nullable().optional()
 }
 
 export function optionalBlankToNullTrimmedString(max: number) {
@@ -85,8 +85,8 @@ export function optionalNullableBlankToNullTrimmedString(max: number) {
     .string()
     .trim()
     .max(max)
-    .optional()
     .nullable()
+    .optional()
     .transform((value) =>
       value === undefined
         ? undefined
