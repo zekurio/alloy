@@ -2,6 +2,9 @@ import type { TranslationCatalog } from "../catalog"
 
 export const ERRORS_MESSAGES = {
   "API server unavailable": "Der Server ist derzeit nicht erreichbar",
+  "Account not found.": "Konto nicht gefunden.",
+  "Account state changed during sign-in. Try again.":
+    "Der Kontostatus hat sich während der Anmeldung geändert. Versuche es erneut.",
   "Copy error": "Fehler kopieren",
   "Could not allocate a unique username":
     "Ein eindeutiger Nutzername konnte nicht vergeben werden",

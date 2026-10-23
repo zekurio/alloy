@@ -67,7 +67,6 @@ export const COMMON_MESSAGES = {
   "Search results": "Suchergebnisse",
   "Sending...": "Wird gesendet...",
   "Sharing…": "Wird geteilt…",
-  Show: "Anzeigen",
   "Skip to content": "Zum Inhalt springen",
   "Start typing to search": "Tippe los, um zu suchen",
   "Starting...": "Wird gestartet...",
