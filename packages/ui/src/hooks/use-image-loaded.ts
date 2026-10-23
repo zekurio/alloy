@@ -7,7 +7,18 @@ type ImageLoadState = {
   status: ImageLoadStatus
 }
 
+const MAX_LOADED_SRCS = 256
+
+/** Least recently loaded first, so the oldest entry is evicted. */
 const loadedImageSrcs = new Set<string>()
+
+function rememberLoaded(src: string): void {
+  loadedImageSrcs.delete(src)
+  loadedImageSrcs.add(src)
+  if (loadedImageSrcs.size <= MAX_LOADED_SRCS) return
+  const oldest = loadedImageSrcs.values().next().value
+  if (oldest !== undefined) loadedImageSrcs.delete(oldest)
+}
 
 function statusForSrc(src: string | null | undefined): ImageLoadStatus {
   if (!src) return "idle"
@@ -40,7 +51,7 @@ export function useImageLoaded(src: string | null | undefined) {
       }
 
       if (nextStatus === "loaded") {
-        loadedImageSrcs.add(src)
+        rememberLoaded(src)
       }
 
       const resolvedStatus =
@@ -59,7 +70,7 @@ export function useImageLoaded(src: string | null | undefined) {
   const ref = useCallback(
     (img: HTMLImageElement | null) => {
       if (!src || !img || !img.complete || img.naturalWidth <= 0) return
-      loadedImageSrcs.add(src)
+      rememberLoaded(src)
       setState((current) =>
         current.src === src && current.status === "loaded"
           ? current

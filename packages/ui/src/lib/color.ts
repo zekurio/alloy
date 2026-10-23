@@ -114,9 +114,9 @@ export function formatCssColor({ r, g, b, a }: Rgba): string {
       .join("")
     return `#${hex}`
   }
-  // Authors write rgba() for translucent tokens (--accent-soft, --accent-glow),
-  // so round-tripping one keeps the diff to the value that actually changed.
-  return `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${Number(a.toFixed(3))})`
+  // Translucent theme tokens (--accent-soft, --accent-glow) are written as
+  // rgba(), matching how globals.css declares them.
+  return `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${Number(a.toFixed(4))})`
 }
 
 export function rgbaToHsva({ r, g, b, a }: Rgba): Hsva {

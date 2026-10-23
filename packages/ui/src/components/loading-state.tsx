@@ -16,9 +16,10 @@ export function LoadingState({
   className?: string
   spinnerClassName?: string
 }) {
+  // Spinner carries the status role and "Loading" label; a second status
+  // region around it would nest live regions.
   return (
     <div
-      role="status"
       className={cn(
         "flex items-center justify-center",
         variant === "panel" ? "text-foreground-muted h-32" : "py-12",

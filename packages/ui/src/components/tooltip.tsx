@@ -7,11 +7,11 @@ function TooltipProvider({ delay = 0, ...props }: Tooltip.Provider.Props) {
   )
 }
 
-function TooltipRoot({ ...props }: Tooltip.Root.Props) {
+function TooltipRoot(props: Tooltip.Root.Props) {
   return <Tooltip.Root data-slot="tooltip" {...props} />
 }
 
-function TooltipTrigger({ ...props }: Tooltip.Trigger.Props) {
+function TooltipTrigger(props: Tooltip.Trigger.Props) {
   return <Tooltip.Trigger data-slot="tooltip-trigger" {...props} />
 }
 

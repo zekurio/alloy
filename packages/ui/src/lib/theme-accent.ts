@@ -1,5 +1,6 @@
 import { formatCssColor, parseCssColor, type Rgba } from "@alloy/ui/lib/color"
 import {
+  ACCENT_ALPHAS,
   getStoredThemePreset,
   type ThemePresetMode,
 } from "@alloy/ui/lib/theme-presets"
@@ -7,7 +8,10 @@ import {
   readThemePreferences,
   writeThemePreferences,
 } from "@alloy/ui/lib/theme-storage"
-import { THEME_ACCENT_STYLE_ID } from "@alloy/ui/lib/theme-style"
+import {
+  THEME_ACCENT_STYLE_ID,
+  writeThemeStyle,
+} from "@alloy/ui/lib/theme-style"
 
 export { normalizeThemeAccent as themeAccentToHex } from "@alloy/ui/lib/theme-storage"
 
@@ -35,7 +39,6 @@ export function applyStoredThemeAccents(): void {
 function applyThemeAccents(state: ThemeAccentState): void {
   if (!globalThis.document) return
 
-  const existing = document.getElementById(THEME_ACCENT_STYLE_ID)
   const sections = (["dark", "light"] as const).flatMap((mode) => {
     const accent = state.accents[mode]
     if (!accent) return []
@@ -48,18 +51,14 @@ function applyThemeAccents(state: ThemeAccentState): void {
   })
 
   if (sections.length === 0) {
-    existing?.remove()
+    document.getElementById(THEME_ACCENT_STYLE_ID)?.remove()
     return
   }
 
-  const css = `${sections.join("\n\n")}\n`
-  const style =
-    existing instanceof HTMLStyleElement
-      ? existing
-      : document.createElement("style")
-  style.id = THEME_ACCENT_STYLE_ID
-  if (style.textContent !== css) style.textContent = css
-  document.head.append(style)
+  // Appended last so the accent overrides the preset palette.
+  document.head.append(
+    writeThemeStyle(THEME_ACCENT_STYLE_ID, `${sections.join("\n\n")}\n`),
+  )
 }
 
 function accentTokenDeclarations(
@@ -71,13 +70,14 @@ function accentTokenDeclarations(
     backgroundValue,
     mode === "dark" ? "#1c1c1c" : "#fcfcfc",
   )
+  const alphas = accentAlphasFor(background)
   const accent = createAccentColors(value, background)
-  const dark = relativeLuminance(background) < 0.179
-  const alpha = (opacity: number) => colorAlpha(accent.base, opacity)
+  const alpha = (opacity: number) =>
+    formatCssColor({ ...accent.base, a: opacity })
   const softAlpha = contrastSafeTintAlpha(
     accent.base,
     background,
-    dark ? 0.22 : 0.12,
+    alphas.soft,
     4.55,
   )
   const lines = [
@@ -88,8 +88,8 @@ function accentTokenDeclarations(
     `--accent-active: ${colorHex(accent.active)};`,
     `--accent-foreground: ${colorHex(accent.foreground)};`,
     `--accent-soft: ${alpha(softAlpha)};`,
-    `--accent-border: ${alpha(dark ? 0.55 : 0.4)};`,
-    `--accent-glow: ${alpha(dark ? 0.38 : 0.28)};`,
+    `--accent-border: ${alpha(alphas.border)};`,
+    `--accent-glow: ${alpha(alphas.glow)};`,
     `--accent-dim: ${colorHex(mixColor(accent.base, background, 0.58))};`,
   ]
   return lines.map((line) => `  ${line}`).join("\n")
@@ -97,8 +97,13 @@ function accentTokenDeclarations(
 
 function createAccentColors(value: string, background: Rgba) {
   const color = requireColor(value, "#d0c4eb")
-  const dark = relativeLuminance(background) < 0.179
-  const base = ensureTintedContrast(color, background, dark ? 0.22 : 0.12, 4.5)
+  const dark = isDark(background)
+  const base = ensureTintedContrast(
+    color,
+    background,
+    accentAlphasFor(background).soft,
+    4.5,
+  )
   const foreground = readableForeground(base)
   return {
     base,
@@ -116,16 +121,21 @@ function createAccentColors(value: string, background: Rgba) {
   }
 }
 
+function isDark(background: Rgba): boolean {
+  return relativeLuminance(background) < 0.179
+}
+
+/** Picks the tint alphas by how the background reads, not its nominal mode. */
+function accentAlphasFor(background: Rgba) {
+  return ACCENT_ALPHAS[isDark(background) ? "dark" : "light"]
+}
+
 function requireColor(value: string, fallback: string): Rgba {
   return parseCssColor(value) ?? parseCssColor(fallback) ?? BLACK
 }
 
 function colorHex(color: Rgba): string {
   return formatCssColor({ ...color, a: 1 })
-}
-
-function colorAlpha(color: Rgba, alpha: number): string {
-  return `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, ${Number(alpha.toFixed(4))})`
 }
 
 function readableForeground(background: Rgba): Rgba {
@@ -241,11 +251,13 @@ function contrastRatio(first: Rgba, second: Rgba): number {
   return (lighter + 0.05) / (darker + 0.05)
 }
 
+/** sRGB byte to linear light. */
+function linearize(channel: number): number {
+  const value = channel / 255
+  return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+}
+
 function relativeLuminance(color: Rgba): number {
-  const linearize = (channel: number) => {
-    const value = channel / 255
-    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
-  }
   return (
     0.2126 * linearize(color.r) +
     0.7152 * linearize(color.g) +
@@ -271,13 +283,9 @@ interface Oklab {
 }
 
 function rgbToOklab(color: Rgba): Oklab {
-  const linear = (channel: number) => {
-    const value = channel / 255
-    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
-  }
-  const red = linear(color.r)
-  const green = linear(color.g)
-  const blue = linear(color.b)
+  const red = linearize(color.r)
+  const green = linearize(color.g)
+  const blue = linearize(color.b)
   const l = Math.cbrt(
     0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue,
   )

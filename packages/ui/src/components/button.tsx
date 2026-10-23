@@ -1,8 +1,9 @@
 import { buttonVariants } from "@alloy/ui/lib/button-variants"
+import { mergeRefs } from "@alloy/ui/lib/merge-refs"
 import { cn } from "@alloy/ui/lib/utils"
 import { Button } from "@base-ui/react/button"
 import type { VariantProps } from "class-variance-authority"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { RefObject } from "react"
 
 type FormValidityControl = Element & {
@@ -53,11 +54,18 @@ function useSubmitButtonValidity(
     const update = () => {
       setFormInvalid(hasInvalidFormControl(form))
     }
+    // `reset` fires before the controls are restored, so re-read validity in
+    // a later task, once the reset has finished.
+    let resetTimer: number | undefined
+    const updateAfterReset = () => {
+      window.clearTimeout(resetTimer)
+      resetTimer = window.setTimeout(update)
+    }
 
     update()
     form.addEventListener("input", update)
     form.addEventListener("change", update)
-    form.addEventListener("reset", update)
+    form.addEventListener("reset", updateAfterReset)
     form.addEventListener("invalid", update, true)
 
     const observer = new MutationObserver(update)
@@ -81,8 +89,9 @@ function useSubmitButtonValidity(
     return () => {
       form.removeEventListener("input", update)
       form.removeEventListener("change", update)
-      form.removeEventListener("reset", update)
+      form.removeEventListener("reset", updateAfterReset)
       form.removeEventListener("invalid", update, true)
+      window.clearTimeout(resetTimer)
       observer.disconnect()
     }
   }, [buttonRef, enabled])
@@ -100,17 +109,7 @@ function ButtonRoot({
   ...props
 }: Button.Props & VariantProps<typeof buttonVariants>) {
   const buttonRef = useRef<HTMLButtonElement | null>(null)
-  const setRef = useCallback(
-    (node: HTMLButtonElement | null) => {
-      buttonRef.current = node
-      if (ref && "current" in ref) {
-        ref.current = node
-        return
-      }
-      ref?.(node)
-    },
-    [ref],
-  )
+  const setRef = useMemo(() => mergeRefs(buttonRef, ref), [ref])
   const disableWhenFormInvalid = type === "submit"
   const formInvalid = useSubmitButtonValidity(buttonRef, disableWhenFormInvalid)
 

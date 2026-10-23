@@ -1,9 +1,7 @@
 import { cn } from "@alloy/ui/lib/utils"
 import type { ComponentProps } from "react"
 
-/**
- * Alloy Kbd — monospaced key cap. Matches `.kbd` in components.css.
- */
+/** Monospaced key cap for keyboard shortcut hints. */
 function Kbd({ className, ...props }: ComponentProps<"kbd">) {
   return (
     <kbd

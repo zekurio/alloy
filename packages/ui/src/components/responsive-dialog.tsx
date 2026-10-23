@@ -23,7 +23,7 @@ import {
 } from "@alloy/ui/components/drawer"
 import { useIsMobile } from "@alloy/ui/hooks/use-mobile"
 import { cn } from "@alloy/ui/lib/utils"
-import { cloneElement, createContext, isValidElement, useContext } from "react"
+import { createContext, useContext } from "react"
 import type { CSSProperties, ComponentProps, ReactNode } from "react"
 
 const ResponsiveDialogContext = createContext(false)
@@ -202,83 +202,18 @@ function ResponsiveDialogDescription({
   )
 }
 
-type ResponsiveDialogTriggerProps = Omit<
-  ComponentProps<typeof DialogTrigger>,
-  "handle"
-> & {
-  asChild?: boolean
-}
-
-function renderDrawerChild(
-  render: ComponentProps<typeof DialogTrigger>["render"],
-  children: ReactNode,
+function ResponsiveDialogTrigger(
+  props: Omit<ComponentProps<typeof DialogTrigger>, "handle">,
 ) {
-  if (isValidElement<{ children?: ReactNode }>(render)) {
-    if (render.props.children !== undefined || children === undefined) {
-      return render
-    }
-    return cloneElement(render, undefined, children)
-  }
-  return children
-}
-
-function ResponsiveDialogTrigger({
-  render,
-  children,
-  ...props
-}: ResponsiveDialogTriggerProps) {
   const isMobile = useIsResponsiveMobile()
-
-  if (isMobile) {
-    const child = renderDrawerChild(render, children)
-    if (child) {
-      return (
-        <DrawerTrigger asChild {...props}>
-          {child}
-        </DrawerTrigger>
-      )
-    }
-    return <DrawerTrigger {...props} />
-  }
-
-  return (
-    <DialogTrigger render={render} {...props}>
-      {children}
-    </DialogTrigger>
-  )
+  return isMobile ? <DrawerTrigger {...props} /> : <DialogTrigger {...props} />
 }
 
-type ResponsiveDialogCloseProps = Omit<
-  ComponentProps<typeof DialogClose>,
-  "handle"
-> & {
-  asChild?: boolean
-}
-
-function ResponsiveDialogClose({
-  render,
-  children,
-  ...props
-}: ResponsiveDialogCloseProps) {
+function ResponsiveDialogClose(
+  props: Omit<ComponentProps<typeof DialogClose>, "handle">,
+) {
   const isMobile = useIsResponsiveMobile()
-
-  if (isMobile) {
-    const child = renderDrawerChild(render, children)
-    if (child) {
-      return (
-        <DrawerClose asChild {...props}>
-          {child}
-        </DrawerClose>
-      )
-    }
-    return <DrawerClose {...props} />
-  }
-
-  return (
-    <DialogClose render={render} {...props}>
-      {children}
-    </DialogClose>
-  )
+  return isMobile ? <DrawerClose {...props} /> : <DialogClose {...props} />
 }
 
 export {

@@ -1,16 +1,15 @@
 "use client"
 
-import { MODAL_OVERLAY_FORCE_RENDER } from "@alloy/ui/lib/modal-overlay"
+import {
+  MODAL_FOOTER_BUTTON_CLASS_NAME,
+  MODAL_OVERLAY_FORCE_RENDER,
+} from "@alloy/ui/lib/modal"
 import { cn } from "@alloy/ui/lib/utils"
 import { Drawer } from "@base-ui/react/drawer"
 import { createContext, isValidElement, useContext } from "react"
 import type { ComponentProps } from "react"
 
 type DrawerSide = "top" | "right" | "bottom" | "left"
-type DrawerSlotProps = ComponentProps<"div"> & {
-  slot: string
-  baseClassName: string
-}
 
 function swipeDirectionForSide(side: DrawerSide) {
   switch (side) {
@@ -58,7 +57,7 @@ function DrawerTrigger({
   )
 }
 
-function DrawerPortal({ ...props }: Drawer.Portal.Props) {
+function DrawerPortal(props: Drawer.Portal.Props) {
   return <Drawer.Portal data-slot="drawer-portal" {...props} />
 }
 
@@ -78,23 +77,14 @@ function DrawerClose({
   )
 }
 
-function DrawerSlot({
-  slot,
-  baseClassName,
-  className,
-  ...props
-}: DrawerSlotProps) {
-  return (
-    <div data-slot={slot} className={cn(baseClassName, className)} {...props} />
-  )
-}
-
 function DrawerHandle({ className, ...props }: ComponentProps<"div">) {
   return (
-    <DrawerSlot
-      slot="drawer-handle"
-      baseClassName="mx-auto mt-2 mb-1 h-1 w-10 shrink-0 rounded-full bg-white/20"
-      className={className}
+    <div
+      data-slot="drawer-handle"
+      className={cn(
+        "mx-auto mt-2 mb-1 h-1 w-10 shrink-0 rounded-full bg-white/20",
+        className,
+      )}
       {...props}
     />
   )
@@ -159,10 +149,13 @@ function DrawerContent({
 
 function DrawerFooter({ className, ...props }: ComponentProps<"div">) {
   return (
-    <DrawerSlot
-      slot="drawer-footer"
-      baseClassName="mt-auto flex flex-col gap-2 p-4 [&_[data-slot=button][data-variant=outline]]:!border-transparent [&_[data-slot=button][data-variant=outline]]:!bg-transparent [&_[data-slot=button][data-variant=outline]]:!text-foreground-muted [&_[data-slot=button][data-variant=outline]]:hover:!bg-surface-raised [&_[data-slot=button][data-variant=outline]]:hover:!text-foreground [&_[data-slot=button][data-variant=secondary]]:!border-transparent [&_[data-slot=button][data-variant=secondary]]:!bg-transparent [&_[data-slot=button][data-variant=secondary]]:!text-foreground-muted [&_[data-slot=button][data-variant=secondary]]:hover:!bg-surface-raised [&_[data-slot=button][data-variant=secondary]]:hover:!text-foreground"
-      className={className}
+    <div
+      data-slot="drawer-footer"
+      className={cn(
+        "mt-auto flex flex-col gap-2 p-4",
+        MODAL_FOOTER_BUTTON_CLASS_NAME,
+        className,
+      )}
       {...props}
     />
   )

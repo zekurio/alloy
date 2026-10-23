@@ -13,7 +13,7 @@ import type { ToasterProps } from "sonner"
 
 import { cssVariables } from "../lib/css-properties"
 
-const AlloyToaster = ({ ...props }: ToasterProps) => {
+const AlloyToaster = (props: ToasterProps) => {
   return (
     <Toaster
       theme="dark"

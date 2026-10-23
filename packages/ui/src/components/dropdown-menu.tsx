@@ -2,11 +2,11 @@ import { cn } from "@alloy/ui/lib/utils"
 import { Menu } from "@base-ui/react/menu"
 import { CheckIcon } from "lucide-react"
 
-function DropdownMenu({ ...props }: Menu.Root.Props) {
+function DropdownMenu(props: Menu.Root.Props) {
   return <Menu.Root data-slot="dropdown-menu" {...props} />
 }
 
-function DropdownMenuTrigger({ ...props }: Menu.Trigger.Props) {
+function DropdownMenuTrigger(props: Menu.Trigger.Props) {
   return <Menu.Trigger data-slot="dropdown-menu-trigger" {...props} />
 }
 
@@ -126,7 +126,7 @@ function DropdownMenuCheckboxItem({
   )
 }
 
-function DropdownMenuRadioGroup({ ...props }: Menu.RadioGroup.Props) {
+function DropdownMenuRadioGroup(props: Menu.RadioGroup.Props) {
   return <Menu.RadioGroup data-slot="dropdown-menu-radio-group" {...props} />
 }
 

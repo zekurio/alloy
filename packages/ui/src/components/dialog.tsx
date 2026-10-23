@@ -1,27 +1,28 @@
 import {
-  MODAL_OVERLAY_CLASS_NAME,
+  MODAL_FOOTER_BUTTON_CLASS_NAME,
   MODAL_OVERLAY_FORCE_RENDER,
-} from "@alloy/ui/lib/modal-overlay"
+} from "@alloy/ui/lib/modal"
 import { cn } from "@alloy/ui/lib/utils"
 import { Dialog } from "@base-ui/react/dialog"
 import type { ComponentProps } from "react"
 
-function DialogRoot({ ...props }: Dialog.Root.Props) {
+function DialogRoot(props: Dialog.Root.Props) {
   return <Dialog.Root data-slot="dialog" {...props} />
 }
 
-function DialogTrigger({ ...props }: Dialog.Trigger.Props) {
+function DialogTrigger(props: Dialog.Trigger.Props) {
   return <Dialog.Trigger data-slot="dialog-trigger" {...props} />
 }
 
-function DialogPortal({ ...props }: Dialog.Portal.Props) {
+function DialogPortal(props: Dialog.Portal.Props) {
   return <Dialog.Portal data-slot="dialog-portal" {...props} />
 }
 
-function DialogClose({ ...props }: Dialog.Close.Props) {
+function DialogClose(props: Dialog.Close.Props) {
   return <Dialog.Close data-slot="dialog-close" {...props} />
 }
 
+/** Also used by AlertDialog, whose Backdrop part is Base UI's Dialog.Backdrop. */
 function DialogOverlay({
   className,
   forceRender = MODAL_OVERLAY_FORCE_RENDER,
@@ -32,7 +33,7 @@ function DialogOverlay({
       data-slot="dialog-overlay"
       forceRender={forceRender}
       className={cn(
-        MODAL_OVERLAY_CLASS_NAME,
+        "fixed inset-0 isolate z-50 bg-black/60",
         "duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className,
       )}
@@ -94,41 +95,43 @@ function DialogViewportContent({
   )
 }
 
-function renderDialogSection(
-  slot: string,
-  defaultClassName: string,
-  { className, ...props }: ComponentProps<"div">,
-) {
+function DialogHeader({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
-      data-slot={slot}
-      className={cn(defaultClassName, className)}
+      data-slot="dialog-header"
+      className={cn(
+        "flex flex-col gap-1.5 px-6 pt-5 group-data-[variant=secondary]/dialog-content:px-5 group-data-[variant=secondary]/dialog-content:pt-4 sm:group-data-[variant=secondary]/dialog-content:px-6",
+        className,
+      )}
       {...props}
     />
   )
 }
 
-function DialogHeader({ className, ...props }: ComponentProps<"div">) {
-  return renderDialogSection(
-    "dialog-header",
-    "flex flex-col gap-1.5 px-6 pt-5 group-data-[variant=secondary]/dialog-content:px-5 group-data-[variant=secondary]/dialog-content:pt-4 sm:group-data-[variant=secondary]/dialog-content:px-6",
-    { className, ...props },
-  )
-}
-
 function DialogBody({ className, ...props }: ComponentProps<"div">) {
-  return renderDialogSection(
-    "dialog-body",
-    "px-6 py-4 group-data-[variant=secondary]/dialog-content:px-5 sm:group-data-[variant=secondary]/dialog-content:px-6",
-    { className, ...props },
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn(
+        "px-6 py-4 group-data-[variant=secondary]/dialog-content:px-5 sm:group-data-[variant=secondary]/dialog-content:px-6",
+        className,
+      )}
+      {...props}
+    />
   )
 }
 
 function DialogFooter({ className, ...props }: ComponentProps<"div">) {
-  return renderDialogSection(
-    "dialog-footer",
-    "flex items-center justify-end gap-2 px-6 pb-5 group-data-[variant=secondary]/dialog-content:px-5 group-data-[variant=secondary]/dialog-content:pb-4 sm:group-data-[variant=secondary]/dialog-content:px-6 [&_[data-slot=button][data-variant=outline]]:!border-transparent [&_[data-slot=button][data-variant=outline]]:!bg-transparent [&_[data-slot=button][data-variant=outline]]:!text-foreground-muted [&_[data-slot=button][data-variant=outline]]:hover:!bg-surface-raised [&_[data-slot=button][data-variant=outline]]:hover:!text-foreground [&_[data-slot=button][data-variant=secondary]]:!border-transparent [&_[data-slot=button][data-variant=secondary]]:!bg-transparent [&_[data-slot=button][data-variant=secondary]]:!text-foreground-muted [&_[data-slot=button][data-variant=secondary]]:hover:!bg-surface-raised [&_[data-slot=button][data-variant=secondary]]:hover:!text-foreground",
-    { className, ...props },
+  return (
+    <div
+      data-slot="dialog-footer"
+      className={cn(
+        "flex items-center justify-end gap-2 px-6 pb-5 group-data-[variant=secondary]/dialog-content:px-5 group-data-[variant=secondary]/dialog-content:pb-4 sm:group-data-[variant=secondary]/dialog-content:px-6",
+        MODAL_FOOTER_BUTTON_CLASS_NAME,
+        className,
+      )}
+      {...props}
+    />
   )
 }
 
@@ -167,6 +170,7 @@ export {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogOverlay,
   DialogTitle,
   DialogTrigger,
   DialogViewportContent,

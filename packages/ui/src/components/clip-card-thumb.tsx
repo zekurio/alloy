@@ -1,4 +1,5 @@
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
+import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import {
   CLIP_MEDIA_CLASS,
   CLIP_MEDIA_ROUNDED_CLASS,
@@ -6,7 +7,7 @@ import {
 } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { PointerEvent, Ref } from "react"
+import type { PointerEvent } from "react"
 
 const HOVER_PREVIEW_DELAY_MS = 250
 
@@ -25,7 +26,6 @@ interface ClipCardThumbProps {
   onIntent?: () => void
   onPreviewError?: (cause: unknown) => void
   label?: string
-  buttonRef?: Ref<HTMLButtonElement>
 }
 
 export function ClipCardThumb({
@@ -42,7 +42,6 @@ export function ClipCardThumb({
   onIntent,
   onPreviewError,
   label,
-  buttonRef,
 }: ClipCardThumbProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const timerRef = useRef<number | null>(null)
@@ -51,11 +50,9 @@ export function ClipCardThumb({
   const preloadedThumbnailRef = useRef<string | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [previewMounted, setPreviewMounted] = useState(false)
-  const [loadedThumbnail, setLoadedThumbnail] = useState<string | null>(null)
-  const [failedThumbnail, setFailedThumbnail] = useState<string | null>(null)
-  const [failedFallbackThumbnail, setFailedFallbackThumbnail] = useState<
-    string | null
-  >(null)
+  const [failedThumbnails, setFailedThumbnails] = useState<readonly string[]>(
+    [],
+  )
   const [pointerActivated, setPointerActivated] = useState(false)
 
   useEffect(() => {
@@ -68,25 +65,12 @@ export function ClipCardThumb({
 
   const canPreview = Boolean(streamUrl)
 
-  const activeThumbnail =
-    thumbnail && failedThumbnail !== thumbnail
-      ? thumbnail
-      : thumbnailFallback && failedFallbackThumbnail !== thumbnailFallback
-        ? thumbnailFallback
-        : undefined
+  const activeThumbnail = [thumbnail, thumbnailFallback].find(
+    (src) => src && !failedThumbnails.includes(src),
+  )
   const activeBlurHash = thumbnailBlurHash ?? thumbnailFallbackBlurHash
-  const thumbnailLoaded = Boolean(
-    activeThumbnail && loadedThumbnail === activeThumbnail,
-  )
-
-  const setImageRef = useCallback(
-    (image: HTMLImageElement | null) => {
-      if (!image || !activeThumbnail) return
-      if (!image.complete || image.naturalWidth <= 0) return
-      setLoadedThumbnail(activeThumbnail)
-    },
-    [activeThumbnail],
-  )
+  const image = useImageLoaded(activeThumbnail)
+  const thumbnailLoaded = image.loaded
 
   const preloadThumbnail = () => {
     if (!activeThumbnail) return
@@ -243,7 +227,7 @@ export function ClipCardThumb({
 
       {activeThumbnail ? (
         <img
-          ref={setImageRef}
+          ref={image.ref}
           src={activeThumbnail}
           alt={title}
           className={cn(
@@ -256,14 +240,10 @@ export function ClipCardThumb({
           )}
           loading="lazy"
           decoding="async"
-          onLoad={() => setLoadedThumbnail(activeThumbnail)}
+          onLoad={image.markLoaded}
           onError={() => {
-            setLoadedThumbnail(null)
-            if (activeThumbnail === thumbnail) {
-              setFailedThumbnail(activeThumbnail)
-              return
-            }
-            setFailedFallbackThumbnail(activeThumbnail)
+            // Moves on to the fallback still, or to the placeholder alone.
+            setFailedThumbnails((failed) => [...failed, activeThumbnail])
           }}
         />
       ) : null}
@@ -296,7 +276,6 @@ export function ClipCardThumb({
     return (
       <button
         type="button"
-        ref={buttonRef}
         onClick={onClick}
         aria-label={label}
         data-pointer-activated={pointerActivated ? "true" : undefined}
