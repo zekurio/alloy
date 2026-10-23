@@ -4,20 +4,18 @@ import {
   validateBatchProgress,
   validateIsoDateString,
   validateNonNegativeInteger,
-  validateNullableDateString,
   validateNullableString,
   validateRequiredString,
 } from "@alloy/api/runtime-validation"
 import {
+  type ContractJsonInput,
   type GameCreatorsResponse,
   type UserListRow,
   type UserSummary,
 } from "@alloy/contracts"
 
-import type { ApiJsonInput } from "../json-value"
-
 export function validateUserSummary(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   label = "user",
 ): UserSummary {
   const row = objectRecord(value, label)
@@ -37,13 +35,13 @@ export function validateUserSummary(
   return value as UserSummary
 }
 
-export function validateUserSummaries(value: ApiJsonInput): UserSummary[] {
+export function validateUserSummaries(value: ContractJsonInput): UserSummary[] {
   return validateArray(value, "Invalid users response").map((item) =>
     validateUserSummary(item),
   )
 }
 
-export function validateUserListRow(value: ApiJsonInput): UserListRow {
+export function validateUserListRow(value: ContractJsonInput): UserListRow {
   const row = objectRecord(value, "user list")
   validateUserSummary(row, "user list")
   validateIsoDateString(
@@ -59,7 +57,7 @@ export function validateUserListRow(value: ApiJsonInput): UserListRow {
 }
 
 export function validateGameCreatorsResponse(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): GameCreatorsResponse {
   const response = objectRecord(value, "game creators")
   validateArray(
@@ -81,15 +79,7 @@ export function validateGameCreatorsResponse(
   return value as GameCreatorsResponse
 }
 
-export function validateAccountStateResponse(value: ApiJsonInput): {
-  disabledAt: string | null
-} {
-  validateAccountDisabledAt(value, "account state", "nullable")
-  // SAFETY: The checks above validate every field in the asserted response contract.
-  return value as { disabledAt: string | null }
-}
-
-export function validateDisableAccountResponse(value: ApiJsonInput): {
+export function validateDisableAccountResponse(value: ContractJsonInput): {
   disabledAt: string
 } {
   validateAccountDisabledAt(value, "disable account", "date")
@@ -97,7 +87,7 @@ export function validateDisableAccountResponse(value: ApiJsonInput): {
   return value as { disabledAt: string }
 }
 
-export function validateReactivateAccountResponse(value: ApiJsonInput): {
+export function validateReactivateAccountResponse(value: ContractJsonInput): {
   disabledAt: null
 } {
   validateAccountDisabledAt(value, "reactivate account", "null")
@@ -106,18 +96,11 @@ export function validateReactivateAccountResponse(value: ApiJsonInput): {
 }
 
 function validateAccountDisabledAt(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   label: string,
-  mode: "nullable" | "date" | "null",
+  mode: "date" | "null",
 ): void {
   const response = objectRecord(value, label)
-  if (mode === "nullable") {
-    validateNullableDateString(
-      response.disabledAt,
-      `Invalid ${label} response: disabledAt must be a date string or null`,
-    )
-    return
-  }
   if (mode === "date") {
     validateIsoDateString(
       response.disabledAt,
@@ -130,7 +113,7 @@ function validateAccountDisabledAt(
   }
 }
 
-export function validateDeleteClipsResponse(value: ApiJsonInput): {
+export function validateDeleteClipsResponse(value: ContractJsonInput): {
   deleted: number
   hasMore: boolean
 } {

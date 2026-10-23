@@ -121,143 +121,51 @@ export function clipDownloadUrl(clipId: string, origin?: string): string {
   return versionedClipAssetUrl(clipId, "/download", origin)
 }
 
-async function fetchClipById(
-  context: ApiContext,
-  clipId: string,
-  init?: RequestInit,
-): Promise<ClipRow> {
-  const res = await context.rpc.api.clips[":id"].$get(
-    { param: { id: clipId } },
-    { init },
-  )
-  return readJsonOrThrow(res, validateClipRow)
-}
-
-async function initiateClip(
-  context: ApiContext,
-  input: InitiateClipInput,
-): Promise<InitiateClipResponse> {
-  const res = await context.rpc.api.clips.initiate.$post({ json: input })
-  return readJsonOrThrow(res, validateInitiateClipResponse)
-}
-
-async function finalizeClip(
-  context: ApiContext,
-  clipId: string,
-): Promise<ClipRow> {
-  const res = await context.rpc.api.clips[":id"].finalize.$post({
-    param: { id: clipId },
-  })
-  return readJsonOrThrow(res, validateClipRow)
-}
-
-async function markUploadFailed(
-  context: ApiContext,
-  clipId: string,
-): Promise<void> {
-  const res = await context.rpc.api.clips[":id"].fail.$post({
-    param: { id: clipId },
-  })
-  await readSuccessJson(res)
-}
-
-async function deleteClip(context: ApiContext, clipId: string): Promise<void> {
-  const res = await context.rpc.api.clips[":id"].$delete({
-    param: { id: clipId },
-  })
-  await readDeletedJson(res)
-}
-
-async function dismissQueueClip(
-  context: ApiContext,
-  clipId: string,
-): Promise<void> {
-  const res = await context.rpc.api.clips[":id"]["queue-dismissal"].$post({
-    param: { id: clipId },
-  })
-  await readSuccessJson(res)
-}
-
-async function updateClip(
-  context: ApiContext,
-  clipId: string,
-  input: UpdateClipInput,
-): Promise<ClipRow> {
-  const res = await context.rpc.api.clips[":id"].$patch({
-    param: { id: clipId },
-    json: input,
-  })
-  return readJsonOrThrow(res, validateClipRow)
-}
-
-async function trimClip(
-  context: ApiContext,
-  clipId: string,
-  input: TrimClipInput,
-): Promise<ClipRow> {
-  const res = await context.rpc.api.clips[":id"].trim.$post({
-    param: { id: clipId },
-    json: input,
-  })
-  return readJsonOrThrow(res, validateClipRow)
-}
-
-async function reEncodeClip(
-  context: ApiContext,
-  clipId: string,
-): Promise<ClipRow> {
-  const res = await context.rpc.api.clips[":id"]["re-encode"].$post({
-    param: { id: clipId },
-  })
-  return readJsonOrThrow(res, validateClipRow)
-}
-
-async function setClipPoster(
-  context: ApiContext,
-  clipId: string,
-  input: SetClipPosterInput,
-): Promise<ClipRow> {
-  const res = await context.rpc.api.clips[":id"].poster.$post({
-    param: { id: clipId },
-    json: input,
-  })
-  return readJsonOrThrow(res, validateClipRow)
-}
-
-async function reannounceClip(
-  context: ApiContext,
-  clipId: string,
-): Promise<void> {
-  const res = await context.rpc.api.clips[":id"].reannounce.$post({
-    param: { id: clipId },
-  })
-  await readNoContentOrThrow(res)
-}
-
-async function recordClipView(
-  context: ApiContext,
-  clipId: string,
-): Promise<void> {
-  const res = await context.rpc.api.clips[":id"].view.$post({
-    param: { id: clipId },
-  })
-  await readNoContentOrThrow(res)
-}
-
 export function createClipsApi(context: ApiContext) {
+  const clips = context.rpc.api.clips
+
   return {
-    fetchById: (clipId: string, init?: RequestInit) =>
-      fetchClipById(context, clipId, init),
-    initiate: (input: InitiateClipInput) => initiateClip(context, input),
-    finalize: (clipId: string) => finalizeClip(context, clipId),
-    markUploadFailed: (clipId: string) => markUploadFailed(context, clipId),
-    delete: (clipId: string) => deleteClip(context, clipId),
-    dismissQueue: (clipId: string) => dismissQueueClip(context, clipId),
-    update: (clipId: string, input: UpdateClipInput) =>
-      updateClip(context, clipId, input),
-    trim: (clipId: string, input: TrimClipInput) =>
-      trimClip(context, clipId, input),
-    updateImage: async (clipId: string, file: File, sourceVersion: string) => {
+    async fetchById(clipId: string): Promise<ClipRow> {
+      const res = await clips[":id"].$get({ param: { id: clipId } })
+      return readJsonOrThrow(res, validateClipRow)
+    },
+    async initiate(input: InitiateClipInput): Promise<InitiateClipResponse> {
+      const res = await clips.initiate.$post({ json: input })
+      return readJsonOrThrow(res, validateInitiateClipResponse)
+    },
+    async finalize(clipId: string): Promise<ClipRow> {
+      const res = await clips[":id"].finalize.$post({ param: { id: clipId } })
+      return readJsonOrThrow(res, validateClipRow)
+    },
+    async markUploadFailed(clipId: string): Promise<void> {
+      const res = await clips[":id"].fail.$post({ param: { id: clipId } })
+      await readSuccessJson(res)
+    },
+    async delete(clipId: string): Promise<void> {
+      const res = await clips[":id"].$delete({ param: { id: clipId } })
+      await readDeletedJson(res)
+    },
+    async dismissQueue(clipId: string): Promise<void> {
+      const res = await clips[":id"]["queue-dismissal"].$post({
+        param: { id: clipId },
+      })
+      await readSuccessJson(res)
+    },
+    async update(clipId: string, input: UpdateClipInput): Promise<ClipRow> {
+      const res = await clips[":id"].$patch({
+        param: { id: clipId },
+        json: input,
+      })
+      return readJsonOrThrow(res, validateClipRow)
+    },
+    async trim(clipId: string, input: TrimClipInput): Promise<ClipRow> {
+      const res = await clips[":id"].trim.$post({
+        param: { id: clipId },
+        json: input,
+      })
+      return readJsonOrThrow(res, validateClipRow)
+    },
+    async updateImage(clipId: string, file: File, sourceVersion: string) {
       const body = new FormData()
       body.set("file", file)
       body.set("sourceVersion", sourceVersion)
@@ -267,10 +175,31 @@ export function createClipsApi(context: ApiContext) {
       )
       return readJsonOrThrow(response, validateClipRow)
     },
-    reEncode: (clipId: string) => reEncodeClip(context, clipId),
-    reannounce: (clipId: string) => reannounceClip(context, clipId),
-    setPoster: (clipId: string, input: SetClipPosterInput) =>
-      setClipPoster(context, clipId, input),
-    recordView: (clipId: string) => recordClipView(context, clipId),
+    async reEncode(clipId: string): Promise<ClipRow> {
+      const res = await clips[":id"]["re-encode"].$post({
+        param: { id: clipId },
+      })
+      return readJsonOrThrow(res, validateClipRow)
+    },
+    async reannounce(clipId: string): Promise<void> {
+      const res = await clips[":id"].reannounce.$post({
+        param: { id: clipId },
+      })
+      await readNoContentOrThrow(res)
+    },
+    async setPoster(
+      clipId: string,
+      input: SetClipPosterInput,
+    ): Promise<ClipRow> {
+      const res = await clips[":id"].poster.$post({
+        param: { id: clipId },
+        json: input,
+      })
+      return readJsonOrThrow(res, validateClipRow)
+    },
+    async recordView(clipId: string): Promise<void> {
+      const res = await clips[":id"].view.$post({ param: { id: clipId } })
+      await readNoContentOrThrow(res)
+    },
   }
 }

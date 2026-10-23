@@ -2,13 +2,14 @@ import {
   ACCEPTED_MEDIA_CONTENT_TYPES,
   type MediaFilter,
   CLIP_DESCRIPTION_MAX_LENGTH,
+  CLIP_PRIVACY,
   CLIP_TAG_MAX_LENGTH,
   CLIP_TAGS_MAX,
   CLIP_TITLE_MAX_LENGTH,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
-import { clip, CLIP_PRIVACY } from "@alloy/db/schema"
+import { clip } from "@alloy/db/schema"
 import { toPublicClipRow } from "@alloy/server/clips/select"
 import {
   resolveTrimRange,

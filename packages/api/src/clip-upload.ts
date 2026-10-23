@@ -1,9 +1,8 @@
-import type { UploadTicket } from "@alloy/contracts"
+import type { ContractJsonInput, UploadTicket } from "@alloy/contracts"
 
 import { abortError, isAbortError, throwIfAborted } from "./abort"
 import { toError } from "./error"
 import { HttpError, parseErrorMessagePayload } from "./http"
-import type { ApiJsonInput } from "./json-value"
 const UPLOAD_TIMEOUT_GRACE_MS = 30_000
 const MIN_UPLOAD_TIMEOUT_MS = 30_000
 // Each chunk and the completion request get this many tries on one ticket
@@ -242,7 +241,7 @@ function ticketTimeoutMs(ticket: UploadTicket): number {
 async function postTicketControl(
   uploadUrl: string,
   suffix: string,
-  json: ApiJsonInput,
+  json: ContractJsonInput,
   signal?: AbortSignal,
 ): Promise<void> {
   let res: Response

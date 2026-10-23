@@ -9,6 +9,8 @@ import {
 } from "@alloy/api/runtime-validation"
 import {
   CLIP_STATUS,
+  type ContractJsonInput,
+  type ContractJsonValue,
   ENCODE_STAGE,
   LOGIN_SPLASH_MAX_BLUR_PX,
   LOGIN_SPLASH_MAX_DARKEN_OPACITY,
@@ -17,15 +19,13 @@ import {
 } from "@alloy/contracts"
 import { isBlurHash } from "@alloy/contracts/blurhash"
 
-import type { ApiJsonInput, ApiJsonValue } from "../json-value"
-
 export const USER_ROLE_SET: ReadonlySet<string> = new Set(USER_ROLES)
 export const USER_STATUS_SET: ReadonlySet<string> = new Set(USER_STATUSES)
 export const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
 const ENCODE_STAGE_SET: ReadonlySet<string> = new Set(ENCODE_STAGE)
 
 export function validateAuthProviderColors(
-  provider: Record<string, ApiJsonValue>,
+  provider: Record<string, ContractJsonValue>,
   label: string,
 ) {
   for (const key of ["buttonColor", "buttonTextColor"] as const) {
@@ -38,7 +38,7 @@ export function validateAuthProviderColors(
 
 /** Encode progress fields shared by clip rows and upload queue rows. */
 export function validateEncodeFields(
-  row: Record<string, ApiJsonValue>,
+  row: Record<string, ContractJsonValue>,
   label: string,
 ) {
   validateBoolean(
@@ -69,7 +69,7 @@ export function validateEncodeFields(
 }
 
 export function validateNullableBlurHash(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   label: string,
 ): void {
   validateNullableString(value, `${label} must be string or null`)
@@ -79,7 +79,7 @@ export function validateNullableBlurHash(
 }
 
 export function validateBackdropTreatment(
-  splash: Record<string, ApiJsonValue>,
+  splash: Record<string, ContractJsonValue>,
   label: string,
 ) {
   validateNonNegativeNumber(

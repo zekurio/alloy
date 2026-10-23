@@ -7,21 +7,6 @@ export function gameAssetImagePath(key: string, updatedAt: Date): string {
   return `${GAME_ASSET_PATH_PREFIX}${key}?v=${version}`
 }
 
-export interface ClipGameRef {
-  id: string
-  steamgriddbId: number | null
-  source: GameSource
-  slug: string
-  name: string
-  releaseDate: IsoDateString | null
-  heroUrl: string | null
-  heroBlurHash: string | null
-  gridUrl: string | null
-  gridBlurHash: string | null
-  logoUrl: string | null
-  iconUrl: string | null
-}
-
 export interface FeedChipGame {
   id: string
   steamgriddbId: number | null
@@ -97,9 +82,15 @@ export interface GameRow {
   iconUrl: string | null
 }
 
+export type ClipGameRef = GameRow
+
 export interface GameListRow extends GameRow {
   clipCount: number
 }
+
+/** `clipCount` counts ready, public posts (clips + screenshots) by enabled users. */
+export type GameDetail = GameListRow
+export type AdminGameRow = GameListRow
 
 /** Synthetic game collection containing public clips without a game id. */
 export const UNCATEGORISED_GAME_ID = "00000000-0000-4000-8000-000000000000"
@@ -110,17 +101,8 @@ export interface ProfileGameRow extends GameListRow {
   lastClippedAt: IsoDateString
 }
 
-export interface GameDetail extends GameRow {
-  /** Ready, public posts (clips + screenshots) attributed to this game by enabled users. */
-  clipCount: number
-}
-
 export const GAME_ASSET_ROLES = ["hero", "grid", "logo", "icon"] as const
 export type GameAssetRole = (typeof GAME_ASSET_ROLES)[number]
-
-export interface AdminGameRow extends GameRow {
-  clipCount: number
-}
 
 export interface AdminCreateGameInput {
   name: string

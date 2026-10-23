@@ -1,12 +1,13 @@
 import {
   AUTH_ERROR_CODES,
   type AuthErrorCode,
+  type ContractJsonInput,
+  type ContractJsonValue,
   isObjectRecord,
   isStringValue,
 } from "@alloy/contracts"
 
 import type { JsonValidator } from "./auth-validators"
-import type { ApiJsonInput, ApiJsonValue } from "./json-value"
 export class HttpError extends Error {
   readonly status: number
   readonly code: AuthErrorCode | null
@@ -24,8 +25,8 @@ export class HttpError extends Error {
 }
 
 type ErrorBody = {
-  error?: ApiJsonValue
-  message?: ApiJsonValue
+  error?: ContractJsonValue
+  message?: ContractJsonValue
 } | null
 
 function isJsonResponse(res: Response): boolean {
@@ -45,12 +46,12 @@ async function readErrorBody(res: Response): Promise<ErrorBody> {
     .catch(() => null)
 }
 
-function asErrorBody(value: ApiJsonInput): ErrorBody {
+function asErrorBody(value: ContractJsonInput): ErrorBody {
   if (!isObjectRecord(value)) return null
   return { error: value.error, message: value.message }
 }
 
-function errorText(value: ApiJsonInput): string | null {
+function errorText(value: ContractJsonInput): string | null {
   if (isStringValue(value)) {
     const trimmed = value.trim()
     return trimmed || null
@@ -95,7 +96,7 @@ function responseAuthErrorCode(body: ErrorBody): AuthErrorCode | null {
 
 export function parseJsonPayload<T>(
   data: string,
-  validate: (value: ApiJsonInput) => T,
+  validate: (value: ContractJsonInput) => T,
 ): T | null {
   try {
     return validate(JSON.parse(data))
@@ -123,18 +124,21 @@ async function readUnexpectedBodyType(res: Response): Promise<string> {
 
 export type { JsonValidator } from "./auth-validators"
 
+async function throwIfNotOk(res: Response): Promise<void> {
+  if (res.ok) return
+  const body = await readErrorBody(res)
+  throw new HttpError(
+    res.status,
+    responseErrorMessage(res, body),
+    responseAuthErrorCode(body),
+  )
+}
+
 export async function readJsonOrThrow<T>(
   res: Response,
   validate: JsonValidator<T>,
 ): Promise<T> {
-  if (!res.ok) {
-    const body = await readErrorBody(res)
-    throw new HttpError(
-      res.status,
-      responseErrorMessage(res, body),
-      responseAuthErrorCode(body),
-    )
-  }
+  await throwIfNotOk(res)
 
   if (!isJsonResponse(res)) {
     throw new HttpError(res.status, await readUnexpectedBodyType(res))
@@ -144,14 +148,7 @@ export async function readJsonOrThrow<T>(
 }
 
 export async function readNoContentOrThrow(res: Response): Promise<void> {
-  if (!res.ok) {
-    const body = await readErrorBody(res)
-    throw new HttpError(
-      res.status,
-      responseErrorMessage(res, body),
-      responseAuthErrorCode(body),
-    )
-  }
+  await throwIfNotOk(res)
 
   if (res.status !== 204) {
     throw new HttpError(
@@ -159,8 +156,4 @@ export async function readNoContentOrThrow(res: Response): Promise<void> {
       `Expected empty response but received ${res.status} ${res.statusText}`,
     )
   }
-}
-
-export function isServerHttpError(cause: unknown): cause is HttpError {
-  return cause instanceof HttpError && cause.status >= 500
 }

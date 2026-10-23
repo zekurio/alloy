@@ -38,14 +38,7 @@ export function createFeedApi(context: ApiContext) {
           cursor: params.cursor,
         }),
       })
-      const page = await readJsonOrThrow(res, validateFeedPage)
-      // Older servers ignore the additive media filter and return video rows.
-      if (
-        params.filter.media === "image" &&
-        page.items.some((row) => row.mediaKind !== "image")
-      )
-        return { items: [], nextCursor: null }
-      return page
+      return readJsonOrThrow(res, validateFeedPage)
     },
 
     async fetchChips(media: MediaFilter = "video"): Promise<FeedChipsResponse> {

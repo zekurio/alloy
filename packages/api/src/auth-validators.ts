@@ -4,6 +4,7 @@ import {
   AUTH_SESSION_OPERATING_SYSTEMS,
   type AuthSessionSummary,
   type AuthUser,
+  type ContractJsonInput,
   type LinkedAccount,
   type Passkey,
   type SessionData,
@@ -15,7 +16,6 @@ import type {
 
 import { booleanFlagResponseValidator } from "./contract-validators"
 import { USER_ROLE_SET, USER_STATUS_SET } from "./contract-validators/shared"
-import type { ApiJsonInput } from "./json-value"
 import {
   objectRecord,
   validateArray,
@@ -32,7 +32,7 @@ import {
   validateUrlString,
 } from "./runtime-validation"
 
-export type JsonValidator<T> = (value: ApiJsonInput) => T
+export type JsonValidator<T> = (value: ContractJsonInput) => T
 
 const AUTH_SESSION_CLIENT_KIND_SET: ReadonlySet<string> = new Set(
   AUTH_SESSION_CLIENT_KINDS,
@@ -44,7 +44,7 @@ const AUTH_SESSION_OPERATING_SYSTEM_SET: ReadonlySet<string> = new Set(
   AUTH_SESSION_OPERATING_SYSTEMS,
 )
 
-export function validateAuthUser(value: ApiJsonInput): AuthUser {
+export function validateAuthUser(value: ContractJsonInput): AuthUser {
   const user = objectRecord(value, "auth user")
   for (const key of ["id", "username"] as const) {
     validateRequiredString(
@@ -98,7 +98,7 @@ export function validateAuthUser(value: ApiJsonInput): AuthUser {
   return value as AuthUser
 }
 
-function validateSessionRow(value: ApiJsonInput): SessionData["session"] {
+function validateSessionRow(value: ContractJsonInput): SessionData["session"] {
   const session = objectRecord(value, "auth session")
   for (const key of ["id", "userId"] as const) {
     validateRequiredString(
@@ -126,7 +126,7 @@ function validateSessionRow(value: ApiJsonInput): SessionData["session"] {
   return value as SessionData["session"]
 }
 
-export function validateSessionData(value: ApiJsonInput): SessionData {
+export function validateSessionData(value: ContractJsonInput): SessionData {
   const sessionData = objectRecord(value, "auth session")
   validateSessionRow(sessionData.session)
   validateAuthUser(sessionData.user)
@@ -135,13 +135,13 @@ export function validateSessionData(value: ApiJsonInput): SessionData {
 }
 
 export function validateSessionDataOrNull(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): SessionData | null {
   if (value === null) return null
   return validateSessionData(value)
 }
 
-function validatePasskeyChallenge(value: ApiJsonInput) {
+function validatePasskeyChallenge(value: ContractJsonInput) {
   const response = objectRecord(value, "passkey challenge")
   validateRequiredString(
     response.challengeId,
@@ -152,7 +152,7 @@ function validatePasskeyChallenge(value: ApiJsonInput) {
 }
 
 export function validatePasskeyAuthenticationOptionsResponse(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): {
   challengeId: string
   options: PublicKeyCredentialRequestOptionsJSON
@@ -166,7 +166,7 @@ export function validatePasskeyAuthenticationOptionsResponse(
 }
 
 export function validatePasskeyRegistrationOptionsResponse(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): {
   challengeId: string
   options: PublicKeyCredentialCreationOptionsJSON
@@ -179,7 +179,7 @@ export function validatePasskeyRegistrationOptionsResponse(
   }
 }
 
-export function validatePasskey(value: ApiJsonInput): Passkey {
+export function validatePasskey(value: ContractJsonInput): Passkey {
   const passkey = objectRecord(value, "passkey")
   validateRequiredString(passkey.id, "Invalid passkey response: id is required")
   validateNullableString(
@@ -198,11 +198,13 @@ export function validatePasskey(value: ApiJsonInput): Passkey {
   return value as Passkey
 }
 
-export function validatePasskeys(value: ApiJsonInput): Passkey[] {
+export function validatePasskeys(value: ContractJsonInput): Passkey[] {
   return validateArray(value, "Invalid passkeys response").map(validatePasskey)
 }
 
-function validateAuthSessionSummary(value: ApiJsonInput): AuthSessionSummary {
+function validateAuthSessionSummary(
+  value: ContractJsonInput,
+): AuthSessionSummary {
   const session = objectRecord(value, "session")
   validateRequiredString(session.id, "Invalid session response: id is required")
   validateBoolean(
@@ -243,14 +245,14 @@ function validateAuthSessionSummary(value: ApiJsonInput): AuthSessionSummary {
 }
 
 export function validateAuthSessionSummaries(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): AuthSessionSummary[] {
   return validateArray(value, "Invalid sessions response").map(
     validateAuthSessionSummary,
   )
 }
 
-export function validateRevokeOtherSessionsResponse(value: ApiJsonInput): {
+export function validateRevokeOtherSessionsResponse(value: ContractJsonInput): {
   revoked: number
 } {
   const response = objectRecord(value, "revoke other sessions")
@@ -262,7 +264,7 @@ export function validateRevokeOtherSessionsResponse(value: ApiJsonInput): {
   return value as { revoked: number }
 }
 
-export function validateLinkedAccount(value: ApiJsonInput): LinkedAccount {
+export function validateLinkedAccount(value: ContractJsonInput): LinkedAccount {
   const account = objectRecord(value, "linked account")
   for (const key of ["id", "providerId", "accountId"] as const) {
     validateRequiredString(
@@ -282,13 +284,15 @@ export function validateLinkedAccount(value: ApiJsonInput): LinkedAccount {
   return value as LinkedAccount
 }
 
-export function validateLinkedAccounts(value: ApiJsonInput): LinkedAccount[] {
+export function validateLinkedAccounts(
+  value: ContractJsonInput,
+): LinkedAccount[] {
   return validateArray(value, "Invalid linked accounts response").map(
     validateLinkedAccount,
   )
 }
 
-export function validateOAuthStartResponse(value: ApiJsonInput): {
+export function validateOAuthStartResponse(value: ContractJsonInput): {
   url: string
 } {
   const response = objectRecord(value, "OAuth start")
@@ -300,7 +304,7 @@ export function validateOAuthStartResponse(value: ApiJsonInput): {
   return value as { url: string }
 }
 
-export function validateUserUpdateResponse(value: ApiJsonInput): {
+export function validateUserUpdateResponse(value: ContractJsonInput): {
   user: AuthUser
 } {
   const response = objectRecord(value, "update user")
@@ -309,7 +313,7 @@ export function validateUserUpdateResponse(value: ApiJsonInput): {
   return value as { user: AuthUser }
 }
 
-export function validateSuccessResponse(value: ApiJsonInput): {
+export function validateSuccessResponse(value: ContractJsonInput): {
   success: true
 } {
   return booleanFlagResponseValidator("success", true)(value)

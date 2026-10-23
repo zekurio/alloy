@@ -1,8 +1,10 @@
-import { ServerInfoSchema, type ServerInfo } from "@alloy/contracts"
-
-import type { ApiJsonInput } from "../json-value"
+import {
+  type ContractJsonInput,
+  type ServerInfo,
+  ServerInfoSchema,
+} from "@alloy/contracts"
 
 /** Validate the public `/api/server-info` response at runtime. */
-export function validateServerInfo(value: ApiJsonInput): ServerInfo {
+export function validateServerInfo(value: ContractJsonInput): ServerInfo {
   return ServerInfoSchema.parse(value)
 }

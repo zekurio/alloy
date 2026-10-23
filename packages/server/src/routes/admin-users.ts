@@ -1,6 +1,6 @@
-import { USER_STATUSES } from "@alloy/contracts"
+import { USER_ROLES, USER_STATUSES } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
-import { user, USER_ROLES } from "@alloy/db/auth-schema"
+import { user } from "@alloy/db/auth-schema"
 import {
   activeAccountState,
   disabledAccountState,

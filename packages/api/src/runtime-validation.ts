@@ -1,4 +1,6 @@
 import {
+  type ContractJsonInput,
+  type ContractJsonValue,
   GAME_ASSET_PATH_PREFIX,
   isBooleanValue,
   isFiniteNumberValue,
@@ -7,12 +9,10 @@ import {
   managedOAuthProviderIconKey,
 } from "@alloy/contracts"
 
-import type { ApiJsonInput, ApiJsonValue } from "./json-value"
-
 export function objectRecord(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   label: string,
-): Record<string, ApiJsonValue> {
+): Record<string, ContractJsonValue> {
   if (!isObjectRecord(value)) {
     throw new Error(`Invalid ${label} response`)
   }
@@ -20,15 +20,15 @@ export function objectRecord(
 }
 
 export function validateArray(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
-): ApiJsonValue[] {
+): ContractJsonValue[] {
   if (!Array.isArray(value)) throw new Error(message)
   return value
 }
 
 export function validateStringArray(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ): string[] {
   const items = validateArray(value, message)
@@ -38,7 +38,7 @@ export function validateStringArray(
 }
 
 export function validateStringRecord(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   label: string,
   message: string,
 ): Record<string, string> {
@@ -51,7 +51,7 @@ export function validateStringRecord(
 }
 
 export function validateBatchProgress<T extends string>(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   label: string,
   countKey: T,
 ): Record<T, number> & { hasMore: boolean } {
@@ -68,19 +68,19 @@ export function validateBatchProgress<T extends string>(
   return value as Record<T, number> & { hasMore: boolean }
 }
 
-export function validateBoolean(value: ApiJsonInput, message: string) {
+export function validateBoolean(value: ContractJsonInput, message: string) {
   if (!isBooleanValue(value)) throw new Error(message)
 }
 
 export function validateString(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ): asserts value is string {
   if (!isStringValue(value)) throw new Error(message)
 }
 
 export function validateEnumString(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   allowedValues: ReadonlySet<string>,
   message: string,
 ): asserts value is string {
@@ -90,7 +90,7 @@ export function validateEnumString(
 }
 
 export function validateNullableEnumString(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   allowedValues: ReadonlySet<string>,
   message: string,
 ): asserts value is string | null {
@@ -98,18 +98,21 @@ export function validateNullableEnumString(
 }
 
 export function validateRequiredString(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ): asserts value is string {
   if (!isStringValue(value) || !value.trim()) throw new Error(message)
 }
 
-export function validateOptionalString(value: ApiJsonInput, message: string) {
+export function validateOptionalString(
+  value: ContractJsonInput,
+  message: string,
+) {
   if (value !== undefined) validateString(value, message)
 }
 
 export function validateUrlString(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ): asserts value is string {
   if (!isStringValue(value)) throw new Error(message)
@@ -121,7 +124,7 @@ export function validateUrlString(
 }
 
 export function validateOptionalUrlString(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ) {
   if (value !== undefined) validateUrlString(value, message)
@@ -166,7 +169,7 @@ function isPublicAssetPath(
 }
 
 export function validatePublicImageSrcString(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ): asserts value is string {
   validateString(value, message)
@@ -178,7 +181,7 @@ export function validatePublicImageSrcString(
  * Public auth provider icons must be Alloy-managed same-origin assets.
  */
 export function validateOptionalAuthProviderIconString(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ) {
   if (value === undefined) return
@@ -188,35 +191,28 @@ export function validateOptionalAuthProviderIconString(
 }
 
 export function validateNullablePublicImageSrcString(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ): asserts value is string | null {
   if (value !== null) validatePublicImageSrcString(value, message)
 }
 
-export function validateNullableUrlString(
-  value: ApiJsonInput,
-  message: string,
-): asserts value is string | null {
-  if (value !== null) validateUrlString(value, message)
-}
-
 export function validateNullableString(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ): asserts value is string | null {
   if (value !== null) validateString(value, message)
 }
 
 export function validateNullableRequiredString(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ): asserts value is string | null {
   if (value !== null) validateRequiredString(value, message)
 }
 
 export function validateNumber(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ): asserts value is number {
   if (!isFiniteNumberValue(value)) {
@@ -224,7 +220,10 @@ export function validateNumber(
   }
 }
 
-export function validatePositiveInteger(value: ApiJsonInput, message: string) {
+export function validatePositiveInteger(
+  value: ContractJsonInput,
+  message: string,
+) {
   validateNumber(value, message)
   if (!Number.isInteger(value) || value <= 0) {
     throw new Error(message)
@@ -232,7 +231,7 @@ export function validatePositiveInteger(value: ApiJsonInput, message: string) {
 }
 
 export function validateNonNegativeInteger(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ): asserts value is number {
   validateNumber(value, message)
@@ -242,21 +241,21 @@ export function validateNonNegativeInteger(
 }
 
 export function validateNullableNonNegativeInteger(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ) {
   if (value !== null) validateNonNegativeInteger(value, message)
 }
 
 export function validateNullablePositiveInteger(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ) {
   if (value !== null) validatePositiveInteger(value, message)
 }
 
 export function validateIntegerInRange(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   min: number,
   max: number,
   message: string,
@@ -268,7 +267,7 @@ export function validateIntegerInRange(
 }
 
 export function validateNonNegativeNumber(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ): number {
   validateNumber(value, message)
@@ -284,7 +283,7 @@ function isCanonicalIsoDateString(value: string): boolean {
 }
 
 export function validateIsoDateString(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ): asserts value is string {
   if (
@@ -297,7 +296,7 @@ export function validateIsoDateString(
 }
 
 export function validateNullableDateString(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   message: string,
 ) {
   if (value !== null) validateIsoDateString(value, message)

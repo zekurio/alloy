@@ -2,11 +2,12 @@ import type {
   AdminAuthConfigPatch,
   AdminOAuthProviderInput,
   AdminRuntimeConfig,
+  ContractJsonInput,
   HardwareAcceleration,
   RenditionTierConfig,
   TranscodingCapabilities,
-  VideoCodec,
   UploadLimits,
+  VideoCodec,
 } from "@alloy/contracts"
 import {
   AdminRuntimeConfigSchema,
@@ -14,8 +15,8 @@ import {
 } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
+import { blobAsFile } from "./form-file"
 import { readJsonOrThrow } from "./http"
-import type { ApiJsonInput } from "./json-value"
 export type RuntimeConfigPatch = {
   setupComplete?: boolean
 }
@@ -37,95 +38,79 @@ export type TranscodingConfigPatch = {
   tiers?: RenditionTierConfig[]
 }
 
-function validateAdminRuntimeConfig(value: ApiJsonInput): AdminRuntimeConfig {
+function validateAdminRuntimeConfig(
+  value: ContractJsonInput,
+): AdminRuntimeConfig {
   return AdminRuntimeConfigSchema.parse(value)
 }
 
-export async function fetchRuntimeConfig(
-  context: ApiContext,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin["runtime-config"].$get()
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
+function validateTranscodingCapabilities(
+  value: ContractJsonInput,
+): TranscodingCapabilities {
+  return TranscodingCapabilitiesSchema.parse(value)
 }
 
-export async function updateRuntimeConfig(
-  context: ApiContext,
-  input: RuntimeConfigPatch,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin["runtime-config"].$patch({
-    json: input,
-  })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
+export function createAdminConfigApi(context: ApiContext) {
+  const admin = context.rpc.api.admin
 
-export async function updateAppearanceConfig(
-  context: ApiContext,
-  patch: AppearanceConfigPatch,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin.appearance.$patch({ json: patch })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-export async function updateTranscodingConfig(
-  context: ApiContext,
-  patch: TranscodingConfigPatch,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin.transcoding.$patch({ json: patch })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-export async function updateAuthConfig(
-  context: ApiContext,
-  patch: AdminAuthConfigPatch,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin["auth-config"].$patch({ json: patch })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-export async function updateOAuthProviders(
-  context: ApiContext,
-  providers: AdminOAuthProviderInput[],
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin["oauth-providers"].$put({
-    json: { providers },
-  })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-export async function uploadOAuthProviderIcon(
-  context: ApiContext,
-  providerId: string,
-  blob: Blob,
-): Promise<AdminRuntimeConfig> {
-  const file =
-    blob instanceof File ? blob : new File([blob], "icon", { type: blob.type })
-  const res = await context.rpc.api.admin["oauth-providers"][
-    ":providerId"
-  ].icon.$post({
-    param: { providerId },
-    form: { file },
-  })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-export async function fetchTranscodingCapabilities(
-  context: ApiContext,
-  options?: { refresh?: boolean },
-): Promise<TranscodingCapabilities> {
-  const res = await context.rpc.api.admin.transcoding.capabilities.$get({
-    query: options?.refresh ? { refresh: "true" } : {},
-  })
-  return readJsonOrThrow(res, (value) =>
-    TranscodingCapabilitiesSchema.parse(value),
-  )
-}
-
-export async function updateUploadLimits(
-  context: ApiContext,
-  limits: UploadLimits,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin["upload-limits"].$put({
-    json: limits,
-  })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
+  return {
+    async updateUploadLimits(
+      limits: UploadLimits,
+    ): Promise<AdminRuntimeConfig> {
+      const res = await admin["upload-limits"].$put({ json: limits })
+      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+    },
+    async fetchRuntimeConfig(): Promise<AdminRuntimeConfig> {
+      const res = await admin["runtime-config"].$get()
+      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+    },
+    async updateRuntimeConfig(
+      input: RuntimeConfigPatch,
+    ): Promise<AdminRuntimeConfig> {
+      const res = await admin["runtime-config"].$patch({ json: input })
+      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+    },
+    async updateAppearanceConfig(
+      patch: AppearanceConfigPatch,
+    ): Promise<AdminRuntimeConfig> {
+      const res = await admin.appearance.$patch({ json: patch })
+      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+    },
+    async updateTranscodingConfig(
+      patch: TranscodingConfigPatch,
+    ): Promise<AdminRuntimeConfig> {
+      const res = await admin.transcoding.$patch({ json: patch })
+      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+    },
+    async updateAuthConfig(
+      patch: AdminAuthConfigPatch,
+    ): Promise<AdminRuntimeConfig> {
+      const res = await admin["auth-config"].$patch({ json: patch })
+      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+    },
+    async updateOAuthProviders(
+      providers: AdminOAuthProviderInput[],
+    ): Promise<AdminRuntimeConfig> {
+      const res = await admin["oauth-providers"].$put({ json: { providers } })
+      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+    },
+    async uploadOAuthProviderIcon(
+      providerId: string,
+      blob: Blob,
+    ): Promise<AdminRuntimeConfig> {
+      const res = await admin["oauth-providers"][":providerId"].icon.$post({
+        param: { providerId },
+        form: { file: blobAsFile(blob, "icon") },
+      })
+      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+    },
+    async fetchTranscodingCapabilities(options?: {
+      refresh?: boolean
+    }): Promise<TranscodingCapabilities> {
+      const res = await admin.transcoding.capabilities.$get({
+        query: options?.refresh ? { refresh: "true" } : {},
+      })
+      return readJsonOrThrow(res, validateTranscodingCapabilities)
+    },
+  }
 }
