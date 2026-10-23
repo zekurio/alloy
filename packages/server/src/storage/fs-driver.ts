@@ -10,15 +10,8 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises"
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path"
 import { pipeline } from "node:stream/promises"
-
-import {
-  dirname,
-  isAbsolute,
-  normalize,
-  relative,
-  resolve,
-} from "@alloy/server/runtime/path"
 
 import type {
   AbortUploadInput,
@@ -52,6 +45,12 @@ export {
 
 const FS_UPLOAD_CHUNK_SIZE_BYTES = 32 * 1024 * 1024
 
+// Storage paths use "/" on every platform: keys are "/"-separated, and the
+// driver and its helpers build paths by joining strings with "/".
+function slashPath(path: string): string {
+  return sep === "/" ? path : path.replaceAll(sep, "/")
+}
+
 interface FsDriverOptions {
   root: string
   publicBaseUrl: string
@@ -63,18 +62,16 @@ export class FsStorageDriver implements StorageDriver {
 
   /** Resolve a storageKey against the configured root. */
   fullPath(key: string): string {
-    const normalizedKey = normalize(key)
+    // A backslash separates and a drive prefix makes a key absolute on every
+    // platform, so one key never names different files on different hosts.
+    const slashKey = key.replaceAll("\\", "/")
+    const root = this.rootPath()
+    const resolved = slashPath(resolve(root, slashKey))
     if (
-      isAbsolute(key) ||
-      normalizedKey === ".." ||
-      normalizedKey.startsWith("../")
+      isAbsolute(slashKey) ||
+      /^[A-Za-z]:\//.test(slashKey) ||
+      (resolved !== root && !resolved.startsWith(`${root}/`))
     ) {
-      throw new Error("Storage key escapes storage root")
-    }
-
-    const root = normalize(resolve(this.opts.root))
-    const resolved = normalize(`${root}/${normalizedKey}`)
-    if (resolved !== root && !resolved.startsWith(`${root}/`)) {
       throw new Error("Storage key escapes storage root")
     }
     return resolved
@@ -321,7 +318,7 @@ export class FsStorageDriver implements StorageDriver {
   async *list(
     prefix: string,
   ): AsyncIterable<{ key: string; lastModified: Date | null }> {
-    const root = normalize(resolve(this.opts.root))
+    const root = this.rootPath()
     const start = this.fullPath(prefix)
     let stats: Awaited<ReturnType<typeof stat>>
     try {
@@ -334,7 +331,7 @@ export class FsStorageDriver implements StorageDriver {
 
     for await (const entry of walkFsFiles(start)) {
       yield {
-        key: relative(root, entry.path),
+        key: slashPath(relative(root, entry.path)),
         lastModified: entry.lastModified,
       }
     }
@@ -376,9 +373,13 @@ export class FsStorageDriver implements StorageDriver {
     return `${this.partDir(key)}/${partNumber}.part`
   }
 
+  private rootPath(): string {
+    return slashPath(resolve(this.opts.root))
+  }
+
   private async pruneEmptyAncestors(startDir: string): Promise<void> {
-    const root = normalize(resolve(this.opts.root))
-    let current = normalize(startDir)
+    const root = this.rootPath()
+    let current = startDir
     while (true) {
       if (current === root || !current.startsWith(`${root}/`)) return
       try {
@@ -393,7 +394,7 @@ export class FsStorageDriver implements StorageDriver {
         }
         throw err
       }
-      current = dirname(current)
+      current = slashPath(dirname(current))
     }
   }
 }

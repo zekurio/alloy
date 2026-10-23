@@ -1,7 +1,8 @@
+import { resolve } from "node:path"
+
 import { secretStore } from "@alloy/server/config/secret-store"
 import { env } from "@alloy/server/env"
 import { lazy } from "@alloy/server/runtime/lazy"
-import { resolve } from "@alloy/server/runtime/path"
 
 import { clipKeyDeletionNamespace } from "./clip-key"
 import type { StorageDriver } from "./driver"

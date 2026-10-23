@@ -1,4 +1,5 @@
 import { mkdir, stat } from "node:fs/promises"
+import { join } from "node:path"
 
 import {
   deriveRenditionNames,
@@ -7,7 +8,6 @@ import {
   type VideoCodec,
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
-import { join } from "@alloy/server/runtime/path"
 
 import {
   buildEncoderGlobalArgs,

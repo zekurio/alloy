@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
+import { resolve } from "node:path"
 
 import { env } from "@alloy/server/env"
-import { resolve } from "@alloy/server/runtime/path"
 import { clipStorage } from "@alloy/server/storage/index"
 import { configuredFilesystemStoragePath } from "@alloy/server/storage/paths"
 

@@ -1,5 +1,6 @@
+import { join } from "node:path"
+
 import { runFfmpeg, transcodeTimeoutMs } from "@alloy/server/media/ffmpeg"
-import { join } from "@alloy/server/runtime/path"
 import { clipStorage } from "@alloy/server/storage/index"
 
 import { abortMediaProcessing } from "./media-abort"

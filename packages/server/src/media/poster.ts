@@ -1,4 +1,5 @@
 import { readFile, rm } from "node:fs/promises"
+import { join } from "node:path"
 
 import {
   UNIFORM_IMAGE_CHANNEL_RANGE_THRESHOLD,
@@ -7,7 +8,6 @@ import {
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { errorMessage } from "@alloy/server/runtime/error-message"
-import { join } from "@alloy/server/runtime/path"
 import sharp, { type Sharp } from "sharp"
 
 import { imageBlurHashFromBytes } from "./blurhash"

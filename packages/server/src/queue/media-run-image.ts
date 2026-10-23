@@ -1,8 +1,8 @@
 import { readFile, stat } from "node:fs/promises"
+import { join } from "node:path"
 
 import { configStore } from "@alloy/server/config/store"
 import { prepareScreenshot } from "@alloy/server/media/screenshot"
-import { join } from "@alloy/server/runtime/path"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 import { downloadStagedUploadToFile } from "@alloy/server/uploads/staged"
 import { selectVideoTicketKey } from "@alloy/server/uploads/tickets"
