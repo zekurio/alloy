@@ -22,6 +22,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { RefreshCwIcon, TriangleAlertIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
+import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
 import { TranscodingLadder } from "@/components/routes/settings/admin-transcoding-ladder"
 import {
   ffmpegBadgeLabel,
@@ -54,8 +55,10 @@ export function TranscodingSettingsContent({
 }) {
   const saved = config.transcoding
   const [form, setForm] = useState<TranscodingForm>(() => formFromConfig(saved))
-  const [saving, setSaving] = useState(false)
-  const [redetecting, setRedetecting] = useState(false)
+  const saveTranscoding = useAdminConfigMutation(
+    api.admin.updateTranscodingConfig,
+  )
+  const saving = saveTranscoding.isPending
   const detectionFeedback = useActionFeedback()
   const queryClient = useQueryClient()
   const capabilitiesQuery = useQuery(adminTranscodingCapabilitiesQueryOptions())
@@ -84,29 +87,23 @@ export function TranscodingSettingsContent({
         validation.message ?? t("Fix the invalid settings before saving."),
       )
     }
-    setSaving(true)
-    try {
-      const updated = await api.admin.updateTranscodingConfig({
-        videoCodec: form.videoCodec,
-        hardwareAcceleration: form.hardwareAcceleration,
-        vaapiDevice: form.vaapiDevice.trim(),
-        quality: form.quality,
-        audioBitrateKbps: form.audioBitrateKbps,
-        tiers: form.tiers.map((tier) => {
-          const config: RenditionTierConfig = {
-            height: tier.height,
-            maxFps: tier.maxFps,
-            maxrateKbps: tier.maxrateKbps,
-          }
-          if (tier.codec) config.codec = tier.codec
-          if (tier.og) config.og = true
-          return config
-        }),
-      })
-      queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
-    } finally {
-      setSaving(false)
-    }
+    await saveTranscoding.mutateAsync({
+      videoCodec: form.videoCodec,
+      hardwareAcceleration: form.hardwareAcceleration,
+      vaapiDevice: form.vaapiDevice.trim(),
+      quality: form.quality,
+      audioBitrateKbps: form.audioBitrateKbps,
+      tiers: form.tiers.map((tier) => {
+        const config: RenditionTierConfig = {
+          height: tier.height,
+          maxFps: tier.maxFps,
+          maxrateKbps: tier.maxrateKbps,
+        }
+        if (tier.codec) config.codec = tier.codec
+        if (tier.og) config.og = true
+        return config
+      }),
+    })
   }
 
   function discard() {
@@ -114,16 +111,10 @@ export function TranscodingSettingsContent({
   }
 
   async function reDetect() {
-    if (redetecting) return
-    setRedetecting(true)
-    try {
-      const next = await api.admin.fetchTranscodingCapabilities({
-        refresh: true,
-      })
-      queryClient.setQueryData(adminKeys.transcodingCapabilities(), next)
-    } finally {
-      setRedetecting(false)
-    }
+    const next = await api.admin.fetchTranscodingCapabilities({
+      refresh: true,
+    })
+    queryClient.setQueryData(adminKeys.transcodingCapabilities(), next)
   }
 
   useSettingsSaveBar({
@@ -184,7 +175,7 @@ export function TranscodingSettingsContent({
                       t("Couldn't detect encoders"),
                     )
                   }
-                  disabled={redetecting || capabilitiesQuery.isLoading}
+                  disabled={capabilitiesQuery.isLoading}
                   className="shrink-0"
                 >
                   <RefreshCwIcon />
