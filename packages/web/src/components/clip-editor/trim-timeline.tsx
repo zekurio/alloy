@@ -1,4 +1,3 @@
-import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import {
   useCallback,
@@ -9,6 +8,7 @@ import {
 } from "react"
 import type { KeyboardEvent, PointerEvent } from "react"
 
+import { useElementSize } from "@/components/media/use-element-size"
 import {
   WaveformCanvas,
   WaveformStatus,
@@ -16,13 +16,7 @@ import {
 import { formatMediaDurationMs, formatTrimMs } from "@/lib/media-time"
 import type { MediaWaveformState } from "@/lib/media-waveform"
 
-/**
- * Touch trimmer built like a mobile editor timeline: the playhead is pinned
- * to the centre and the media travels under it. Dragging the strip scrubs,
- * pinching zooms the time scale, and the kept range's handles resize the cut
- * — zoom is what buys frame-level precision, so no numeric nudge controls are
- * needed beside it.
- */
+import { TrimHandle, trimNudgeMs } from "./trim-handle"
 
 /** Rendered strip width, in viewport widths, so panning is a GPU transform. */
 const CONTENT_SPAN = 2
@@ -48,6 +42,13 @@ type Gesture =
     }
   | { kind: "pinch"; startDistance: number; startZoom: number }
 
+/**
+ * Touch trimmer built like a mobile editor timeline: the playhead is pinned
+ * to the centre and the media travels under it. Dragging the strip scrubs,
+ * pinching zooms the time scale, and the kept range's handles resize the cut
+ * — zoom is what buys frame-level precision, so no numeric nudge controls are
+ * needed beside it.
+ */
 export function TrimTimeline({
   waveform,
   durationMs,
@@ -81,23 +82,13 @@ export function TrimTimeline({
   const contentRef = useRef<HTMLDivElement | null>(null)
   const gestureRef = useRef<Gesture | null>(null)
   const pointersRef = useRef(new Map<number, { x: number; y: number }>())
-  const [width, setWidth] = useState(0)
+  const { width } = useElementSize(viewportRef)
   const [zoom, setZoom] = useState(0)
   // Left edge of the rendered strip, in source time. The strip covers more
   // than the viewport so ordinary playback only shifts a transform; it is
   // re-anchored (and repainted) once the playhead nears its edge.
   const [anchorMs, setAnchorMs] = useState(0)
   const [gesturing, setGesturing] = useState(false)
-
-  useLayoutEffect(() => {
-    const viewport = viewportRef.current
-    if (!viewport) return
-    const read = () => setWidth(viewport.getBoundingClientRect().width)
-    read()
-    const observer = new ResizeObserver(read)
-    observer.observe(viewport)
-    return () => observer.disconnect()
-  }, [])
 
   const fitZoom = width > 0 && durationMs > 0 ? width / durationMs : 0
   const ready = fitZoom > 0 && zoom > 0
@@ -270,21 +261,15 @@ export function TrimTimeline({
   const handleKeyDown =
     (edge: "start" | "end") => (e: KeyboardEvent<HTMLDivElement>) => {
       if (!ready || !canTrim) return
-      const stepMs = e.shiftKey ? 1000 : 100
-      const apply = (deltaMs: number) => {
-        e.preventDefault()
-        e.stopPropagation()
-        if (edge === "start") {
-          onStartChange(startMs + deltaMs)
-          return
-        }
-        onEndChange(endMs + deltaMs)
-      }
-      if (e.key === "ArrowLeft") {
-        apply(-stepMs)
+      const deltaMs = trimNudgeMs(e)
+      if (deltaMs === null) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (edge === "start") {
+        onStartChange(startMs + deltaMs)
         return
       }
-      if (e.key === "ArrowRight") apply(stepMs)
+      onEndChange(endMs + deltaMs)
     }
 
   // Only the part of the strip that has media is painted; the rest of the
@@ -373,18 +358,18 @@ export function TrimTimeline({
               >
                 <TrimHandle
                   edge="start"
-                  startMs={startMs}
-                  endMs={endMs}
+                  valueMs={startMs}
                   durationMs={durationMs}
-                  canTrim={canTrim}
+                  variant="timeline"
+                  disabled={!canTrim}
                   onKeyDown={handleKeyDown("start")}
                 />
                 <TrimHandle
                   edge="end"
-                  startMs={startMs}
-                  endMs={endMs}
+                  valueMs={endMs}
                   durationMs={durationMs}
-                  canTrim={canTrim}
+                  variant="timeline"
+                  disabled={!canTrim}
                   onKeyDown={handleKeyDown("end")}
                 />
               </div>
@@ -449,46 +434,4 @@ function RulerTicks({
     )
   }
   return <div className="absolute inset-x-0 top-0">{ticks}</div>
-}
-
-/** Grab bar at one end of the kept range; wide enough for a fingertip. */
-function TrimHandle({
-  edge,
-  startMs,
-  endMs,
-  durationMs,
-  canTrim,
-  onKeyDown,
-}: {
-  edge: "start" | "end"
-  startMs: number
-  endMs: number
-  durationMs: number
-  canTrim: boolean
-  onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => void
-}) {
-  const valueMs = edge === "start" ? startMs : endMs
-  return (
-    <div
-      data-trim-handle={edge}
-      role="slider"
-      aria-label={edge === "start" ? t("Trim start") : t("Trim end")}
-      aria-valuemin={0}
-      aria-valuemax={Math.round(durationMs / 1000)}
-      aria-valuenow={Math.round(valueMs / 1000)}
-      aria-valuetext={formatTrimMs(valueMs)}
-      aria-disabled={!canTrim}
-      tabIndex={canTrim ? 0 : -1}
-      onKeyDown={onKeyDown}
-      className={cn(
-        "bg-accent absolute inset-y-0 z-10 flex w-6 cursor-ew-resize items-center justify-center",
-        edge === "start" ? "left-0 rounded-l-sm" : "right-0 rounded-r-sm",
-        // Widen the hit area beyond the visible grip for touch.
-        "after:absolute after:inset-y-0 after:-inset-x-2",
-        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
-      )}
-    >
-      <span className="bg-accent-foreground/80 h-8 w-1 rounded-full" />
-    </div>
-  )
 }

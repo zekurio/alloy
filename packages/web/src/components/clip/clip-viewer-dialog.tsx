@@ -15,6 +15,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 
+import { mediaAspectRatio } from "@/components/clip-editor/media-stage"
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
 import { ownsKeyboardInput } from "@/components/video/video-keyboard"
 import {
@@ -180,15 +181,7 @@ function ClipViewerDialogBody({
   const retry = useClipRetry(row)
 
   const aspectRatio =
-    row.mediaKind === "image" && row.width && row.height
-      ? row.width / row.height
-      : 16 / 9
-
-  const canNavigate = Boolean(onNavigate)
-  const showPrev = canNavigate
-  const showNext = canNavigate
-  const prevDisabled = !prev
-  const nextDisabled = !next
+    row.mediaKind === "image" ? mediaAspectRatio(row.width, row.height) : 16 / 9
 
   return (
     <DialogViewportContent
@@ -215,14 +208,16 @@ function ClipViewerDialogBody({
           "lg:min-w-[min(840px,calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2))]",
       )}
     >
-      {showPrev ? (
+      {onNavigate ? (
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          onClick={() => (prev && onNavigate ? onNavigate(prev) : undefined)}
+          onClick={() => {
+            if (prev) onNavigate(prev)
+          }}
           aria-label={t("Previous clip")}
-          disabled={prevDisabled}
+          disabled={!prev}
           className={cn(
             // h/w carry the lg: prefix so they beat the icon-size default
             // (sm:size-8) in the cascade; the buttons only render at lg+.
@@ -234,14 +229,16 @@ function ClipViewerDialogBody({
           <ChevronLeftIcon />
         </Button>
       ) : null}
-      {showNext ? (
+      {onNavigate ? (
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          onClick={() => (next && onNavigate ? onNavigate(next) : undefined)}
+          onClick={() => {
+            if (next) onNavigate(next)
+          }}
           aria-label={t("Next clip")}
-          disabled={nextDisabled}
+          disabled={!next}
           className={cn(
             "absolute top-1/2 right-[calc(50%-50dvw+24px)] z-40 lg:size-12 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
             "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",

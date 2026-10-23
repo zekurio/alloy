@@ -1,13 +1,11 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
-import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { cn } from "@alloy/ui/lib/utils"
 import { MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
-import { memo, useCallback, useEffect, useState } from "react"
+import { memo, useEffect, useState } from "react"
 import type { RefObject } from "react"
 
-import { isFullscreenElement, isFullscreenSupported } from "@/lib/fullscreen"
+import { isFullscreenSupported } from "@/lib/fullscreen"
 
 import type { QualityOption } from "./video-player-types"
 import { VideoScrubber } from "./video-scrubber"
@@ -27,6 +25,8 @@ type ChromeBarSize = "default" | "compact"
 export function ChromeBar({
   size = "default",
   containerRef,
+  fullscreenContainer,
+  isCoarsePointer,
   visible = true,
   playing,
   duration,
@@ -48,6 +48,9 @@ export function ChromeBar({
 }: {
   size?: ChromeBarSize
   containerRef: RefObject<HTMLDivElement | null>
+  /** The player container while it is the fullscreen element, else null. */
+  fullscreenContainer: HTMLDivElement | null
+  isCoarsePointer: boolean
   visible?: boolean
   playing: boolean
   duration: number
@@ -68,26 +71,11 @@ export function ChromeBar({
   onPlaybackRateChange: (rate: number) => void
 }) {
   const [fullscreenSupported, setFullscreenSupported] = useState(false)
-  // The player container while it is the fullscreen element, else null.
-  const [fullscreenContainer, setFullscreenContainer] =
-    useState<HTMLDivElement | null>(null)
   const isFullscreen = fullscreenContainer !== null
-  const isCoarsePointer = useMediaQuery("(pointer: coarse)")
 
   useEffect(() => {
-    if (!globalThis.document) return
     setFullscreenSupported(isFullscreenSupported())
   }, [])
-
-  const onFullscreenChange = useCallback(() => {
-    const container = containerRef.current
-    setFullscreenContainer(isFullscreenElement(container) ? container : null)
-  }, [containerRef])
-
-  useEffect(() => {
-    onFullscreenChange()
-  }, [onFullscreenChange])
-  useDocumentEvent("fullscreenchange", onFullscreenChange)
 
   return (
     <>
@@ -104,14 +92,11 @@ export function ChromeBar({
       ) : null}
 
       <div
-        aria-hidden={false}
-        data-pinned={undefined}
         className={cn(
           "pointer-events-none absolute inset-x-0 bottom-0 isolate z-20 flex items-center gap-1 px-1 pt-2 pb-[env(safe-area-inset-bottom)] transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
           "bg-gradient-to-t from-black/85 via-black/25 to-transparent pt-7",
           visible ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0",
           visible && "pointer-events-auto",
-          "data-[pinned=true]:translate-y-0 data-[pinned=true]:opacity-100",
           isFullscreen &&
             "pr-[max(2px,calc(env(safe-area-inset-right)+2px))] pl-[max(2px,calc(env(safe-area-inset-left)+2px))]",
         )}

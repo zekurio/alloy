@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 
+import { useFrameLoop } from "@/components/video/video-player-hooks"
 import type { VideoPlayerHandle } from "@/components/video/video-player-types"
 
 export const MIN_TRIM_MS = 1000
@@ -82,8 +83,9 @@ export function useTrimPlayback({
   }, [])
   const getCurrentMs = useCallback(() => currentMsRef.current, [])
 
-  // Reads the latest committed trim without restarting the frame loop.
-  const followPlayer = useEffectEvent(() => {
+  // While playing, follow the player every animation frame and loop playback
+  // back to the trim start when it runs past the trim end.
+  useFrameLoop(playing, () => {
     const player = playerRef.current
     if (!player) return
     const sourceMs = player.getCurrentTime() * 1000
@@ -95,19 +97,6 @@ export function useTrimPlayback({
       setCurrentMs(sourceMs)
     }
   })
-
-  // While playing, an animation-frame loop follows the player and loops
-  // playback back to the trim start when it runs past the trim end.
-  useEffect(() => {
-    if (!playing) return
-    let raf = 0
-    const tick = () => {
-      followPlayer()
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [playing])
 
   const handleTimeUpdate = () => {
     // The player reports the real duration once metadata lands; adopt it and

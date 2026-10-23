@@ -43,7 +43,7 @@ interface ClipMentionsRowProps {
   mentions: ClipMentionRef[]
 }
 
-/** Mobile/full-bleed variant: avatar group + summary text on its own row. */
+/** Avatar group + summary text on its own row; opens the full list in a dialog. */
 function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
   const [open, setOpen] = useState(false)
   if (mentions.length === 0) return null

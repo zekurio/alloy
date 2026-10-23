@@ -8,10 +8,9 @@ export const filterLabelClass =
   "inline-flex h-7 items-center pr-0.5 text-2xs leading-3 font-semibold tracking-wide text-foreground-faint uppercase"
 
 /**
- * Compact chip trigger showing the active option's icon + label and a trailing
- * chevron. Shared by the sort and filter dropdowns' `chip` variant. On mobile
- * the label is visually hidden (kept for a11y) so crowded toolbars render the
- * trigger icon-only.
+ * Compact chip trigger for the sort dropdown, showing the active option's icon
+ * + label and a trailing chevron. On mobile the label is visually hidden (kept
+ * for a11y) so crowded toolbars render the trigger icon-only.
  */
 export function ToolbarChipTrigger({
   icon,

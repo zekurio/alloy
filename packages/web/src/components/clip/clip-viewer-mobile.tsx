@@ -1,5 +1,4 @@
 import { type ClipRow, clipSourceFileUrl, clipThumbnailUrl } from "@alloy/api"
-import { clipShareUrl } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { DialogClose, DialogViewportContent } from "@alloy/ui/components/dialog"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
@@ -12,17 +11,14 @@ import type { TouchEvent } from "react"
 import { mobileOverlayCloseButtonClassName } from "@/components/app/mobile-close-button"
 import { GameIcon } from "@/components/game/game-icon"
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
-import { useSession } from "@/lib/auth-client"
-import { shareUrlWithFallback } from "@/lib/browser-share"
 import {
   readSessionStorageItem,
   writeSessionStorageItem,
 } from "@/lib/browser-storage"
 import { clipGameLabel } from "@/lib/clip-format"
 import { recordClipViewBestEffort } from "@/lib/clip-view-tracking"
-import { apiOrigin, publicOrigin } from "@/lib/env"
+import { apiOrigin } from "@/lib/env"
 import { exitFullscreenBestEffort } from "@/lib/fullscreen"
-import { useActionFeedback } from "@/lib/use-action-feedback"
 import { userAvatar } from "@/lib/user-display"
 
 import {
@@ -37,14 +33,12 @@ import { ClipReannounceMenuItem } from "./clip-reannounce-menu-item"
 import { ClipTagsRow } from "./clip-tags-row"
 import { ClipAuthorLink, MobileActionsRail } from "./clip-viewer-mobile-actions"
 import { renderHashtagTokens } from "./description-tokens"
+import { useClipAccess } from "./use-clip-access"
 import { useClipRetry } from "./use-clip-retry"
+import { useClipShare } from "./use-clip-share"
 import { useClipViewerDelete } from "./use-clip-viewer-delete"
 
 const MOBILE_SWIPE_HINT_SEEN_KEY = "alloy.mobileClipSwipeHintSeen"
-
-/* ------------------------------------------------------------------ */
-/*  Props                                                              */
-/* ------------------------------------------------------------------ */
 
 interface MobileClipViewerBodyProps {
   row: ClipRow
@@ -54,10 +48,6 @@ interface MobileClipViewerBodyProps {
   onNavigate?: ((entry: ClipListEntry) => void) | null
 }
 
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
-
 function MobileClipViewerBody({
   row,
   onDeleted,
@@ -65,14 +55,7 @@ function MobileClipViewerBody({
   next,
   onNavigate,
 }: MobileClipViewerBodyProps) {
-  const { data: session } = useSession()
-  const viewerId = session?.user?.id ?? null
-  // SAFETY: The auth API includes the optional role field on session users.
-  const viewerRole =
-    (session?.user as { role?: string | null } | undefined)?.role ?? null
-  const isOwner = viewerId !== null && viewerId === row.authorId
-  const isAdmin = viewerRole === "admin"
-  const canManage = isOwner || isAdmin
+  const { isAdmin, canManage } = useClipAccess(row.authorId)
   const canNav = Boolean(onNavigate)
 
   /* ---- derived ---- */
@@ -90,7 +73,11 @@ function MobileClipViewerBody({
   const gameRef = row.gameRef
   const gameIcon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null
 
-  const shareFeedback = useActionFeedback()
+  const share = useClipShare({
+    clipId: row.id,
+    title: row.title,
+    privacy: row.privacy,
+  })
 
   /* ---- edit / delete ---- */
   const navigate = useNavigate()
@@ -143,19 +130,6 @@ function MobileClipViewerBody({
     [next, prev, onNavigate],
   )
 
-  /* ---- handlers ---- */
-  const handleShare = useCallback(async () => {
-    await shareFeedback.run(async () => {
-      const url = clipShareUrl(row.id, publicOrigin())
-      const result = await shareUrlWithFallback(url, {
-        title: row.title,
-        action: "share clip link",
-      })
-      if (result === "failed") throw new Error(t("Couldn't share clip"))
-      return result !== "cancelled"
-    }, t("Couldn't share clip"))
-  }, [row.id, row.title, shareFeedback])
-
   const avatarStyle = { background: avatar.bg, color: avatar.fg } as const
   const initialFocusRef = useRef<HTMLDivElement>(null)
 
@@ -181,13 +155,11 @@ function MobileClipViewerBody({
     downloadAction: clipBrowserDownloadActionSupported(row) ? (
       <ClipBrowserDownloadMenuItem row={row} />
     ) : undefined,
-    shareState: shareFeedback.feedback.state,
+    shareState: share.feedback.state,
     shareError:
-      shareFeedback.feedback.state === "error"
-        ? shareFeedback.feedback.message
-        : null,
+      share.feedback.state === "error" ? share.feedback.message : null,
     shareDisabled: row.privacy === "private",
-    onShare: handleShare,
+    onShare: share.share,
     onEdit: () => {
       // The edit view lives at its own route; navigating there drops the
       // `clip` search param and closes this viewer.
@@ -436,9 +408,7 @@ function MobileClipViewerBody({
               {/* Description */}
               {row.description ? (
                 <p className="line-clamp-3 text-sm leading-relaxed whitespace-pre-wrap text-white/65">
-                  {renderHashtagTokens(row.description, {
-                    linkHashtags: true,
-                  })}
+                  {renderHashtagTokens(row.description)}
                 </p>
               ) : null}
 

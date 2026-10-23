@@ -45,3 +45,29 @@ export function toMediaTime(
   )
   return range ? Math.max(0, range.start) + clamped : clamped
 }
+
+/**
+ * The element's position and length in playback time, with converters that
+ * share its media duration. Read it fresh: the values go stale as soon as the
+ * element advances or loads new metadata.
+ */
+export function readPlaybackClock(
+  video: HTMLVideoElement,
+  range: MediaPlaybackRange | undefined,
+  durationHint: number | undefined,
+) {
+  const mediaDuration = finiteMediaDuration(video.duration)
+  return {
+    duration: playbackDuration(mediaDuration, range, durationHint),
+    currentTime: toPlaybackTime(
+      video.currentTime || 0,
+      mediaDuration,
+      range,
+      durationHint,
+    ),
+    toPlaybackTime: (mediaTime: number) =>
+      toPlaybackTime(mediaTime, mediaDuration, range, durationHint),
+    toMediaTime: (playbackTime: number) =>
+      toMediaTime(playbackTime, mediaDuration, range, durationHint),
+  }
+}

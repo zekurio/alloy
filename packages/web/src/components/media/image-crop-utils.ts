@@ -78,6 +78,8 @@ export const DEFAULT_PREVIEW_ZOOM = 1
 export const MAX_PREVIEW_ZOOM = 4
 
 export type LoadedImage = {
+  /** The decoded source, drawn again when the crop is applied. */
+  element: HTMLImageElement
   height: number
   src: string
   width: number
@@ -158,16 +160,20 @@ export function getMinimumZoom(
 }
 
 export function getLiveCropGeometry(
-  image: LoadedImage | null,
+  image: LoadedImage,
   stage: { height: number; width: number },
   config: CropConfig,
   mode: CropMode,
   zoom: number,
 ) {
-  const containedImageBox = image ? getImageBox(image, stage, 1) : null
   return {
-    cropFrame: getCropFrame(stage, config.aspect, mode, containedImageBox),
-    imageBox: image ? getImageBox(image, stage, zoom) : null,
+    cropFrame: getCropFrame(
+      stage,
+      config.aspect,
+      mode,
+      getImageBox(image, stage, 1),
+    ),
+    imageBox: getImageBox(image, stage, zoom),
   }
 }
 
@@ -267,38 +273,6 @@ export function readElementSize(node: HTMLElement | null) {
 
 export function preferredOutputType(type: string) {
   return type === "image/png" || type === "image/webp" ? type : "image/jpeg"
-}
-
-export async function readFileAsDataUrl(file: File): Promise<string> {
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result
-      if (result !== null && !(result instanceof ArrayBuffer)) {
-        resolve(result)
-      } else {
-        reject(new Error("Couldn't read image"))
-      }
-    }
-    reader.onerror = () => reject(new Error("Couldn't read image"))
-    reader.readAsDataURL(file)
-  })
-}
-
-export async function readImageDimensions(file: File) {
-  if ("createImageBitmap" in window) {
-    try {
-      const bitmap = await createImageBitmap(file)
-      const dimensions = { height: bitmap.height, width: bitmap.width }
-      bitmap.close()
-      return dimensions
-    } catch {
-      // Fall through to the regular image decoder.
-    }
-  }
-
-  const image = await loadImage(await readFileAsDataUrl(file))
-  return { height: image.naturalHeight, width: image.naturalWidth }
 }
 
 export async function loadImage(src: string): Promise<HTMLImageElement> {

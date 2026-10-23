@@ -83,6 +83,76 @@ function useInlinePicker() {
   }
 }
 
+/**
+ * Highlighted option for a picker's suggestion list. The highlight returns to
+ * the top whenever the options change; `navigated` records whether the user
+ * has moved it with the arrow keys since then.
+ */
+function useActiveOption(options: readonly unknown[]) {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [navigated, setNavigated] = useState(false)
+
+  useEffect(() => {
+    setActiveIndex(0)
+    setNavigated(false)
+  }, [options])
+
+  const move = (step: 1 | -1) => {
+    setNavigated(true)
+    setActiveIndex((index) => (index + step + options.length) % options.length)
+  }
+
+  return { activeIndex, navigated, move }
+}
+
+function pickerOptionId(listboxId: string, index: number): string {
+  return `${listboxId}-option-${index}`
+}
+
+function PickerListbox<Option>({
+  id,
+  options,
+  activeIndex,
+  optionKey,
+  onPick,
+  renderOption,
+}: {
+  id: string
+  options: readonly Option[]
+  activeIndex: number
+  optionKey: (option: Option) => string
+  onPick: (option: Option) => void
+  renderOption: (option: Option) => ReactNode
+}) {
+  return (
+    <div
+      id={id}
+      role="listbox"
+      className="border-border bg-popover absolute top-full left-0 z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border p-1 shadow-md"
+    >
+      {options.map((option, index) => (
+        <button
+          id={pickerOptionId(id, index)}
+          key={optionKey(option)}
+          type="button"
+          role="option"
+          aria-selected={index === activeIndex}
+          className={cn(
+            "hover:bg-surface-raised flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
+            index === activeIndex && "bg-surface-raised",
+          )}
+          onMouseDown={(event) => {
+            event.preventDefault()
+            onPick(option)
+          }}
+        >
+          {renderOption(option)}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function PickerChipTrigger({
   icon,
   label,
@@ -284,19 +354,14 @@ function PeopleSearchPopover({
     useInlinePicker()
   const searchQuery = useUserSearchQuery(debouncedDraft)
   const listboxId = useId()
-  const [activeIndex, setActiveIndex] = useState(0)
 
   const candidates = useMemo(() => {
     const rows = searchQuery.data ?? []
     return rows.filter((row) => !selectedIds.has(row.id) && row.id !== viewerId)
   }, [searchQuery.data, selectedIds, viewerId])
-
-  useEffect(() => {
-    setActiveIndex(0)
-  }, [candidates])
+  const { activeIndex, move } = useActiveOption(candidates)
 
   const trimmed = debouncedDraft.trim()
-  const isSearching = searchQuery.isFetching && trimmed.length > 0
   const listOpen =
     open &&
     debouncedDraft === draft &&
@@ -322,15 +387,12 @@ function PeopleSearchPopover({
             onKeyDown={(event) => {
               if (listOpen && event.key === "ArrowDown") {
                 event.preventDefault()
-                setActiveIndex((index) => (index + 1) % candidates.length)
+                move(1)
                 return
               }
               if (listOpen && event.key === "ArrowUp") {
                 event.preventDefault()
-                setActiveIndex(
-                  (index) =>
-                    (index - 1 + candidates.length) % candidates.length,
-                )
+                move(-1)
                 return
               }
               if (
@@ -358,41 +420,28 @@ function PeopleSearchPopover({
             listboxId={listboxId}
             listExpanded={listOpen}
             activeOptionId={
-              listOpen ? `${listboxId}-option-${activeIndex}` : undefined
+              listOpen ? pickerOptionId(listboxId, activeIndex) : undefined
             }
             title={
               suggestionLabel
                 ? t("Press Enter to add {name}", { name: suggestionLabel })
-                : isSearching || trimmed.length > 0
+                : trimmed.length > 0
                   ? t("No inline match")
                   : undefined
             }
           />
           {listOpen ? (
-            <div
+            <PickerListbox
               id={listboxId}
-              role="listbox"
-              className="border-border bg-popover absolute top-full left-0 z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border p-1 shadow-md"
-            >
-              {candidates.map((user, index) => {
+              options={candidates}
+              activeIndex={activeIndex}
+              optionKey={(user) => user.id}
+              onPick={pick}
+              renderOption={(user) => {
                 const chip = userChipData(user)
                 const label = user.username
                 return (
-                  <button
-                    id={`${listboxId}-option-${index}`}
-                    key={user.id}
-                    type="button"
-                    role="option"
-                    aria-selected={index === activeIndex}
-                    className={cn(
-                      "hover:bg-surface-raised flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
-                      index === activeIndex && "bg-surface-raised",
-                    )}
-                    onMouseDown={(event) => {
-                      event.preventDefault()
-                      pick(user)
-                    }}
-                  >
+                  <>
                     <Avatar size="sm" className="shrink-0">
                       {chip.avatar.src ? (
                         <AvatarImage src={chip.avatar.src} alt={label} />
@@ -405,10 +454,10 @@ function PeopleSearchPopover({
                       />
                     </Avatar>
                     <span className="min-w-0 flex-1 truncate">{label}</span>
-                  </button>
+                  </>
                 )
-              })}
-            </div>
+              }}
+            />
           ) : null}
         </>
       ) : (
@@ -447,7 +496,7 @@ export function HashtagPicker({
           <button
             type="button"
             aria-label={t("Remove #{tag}", { tag })}
-            onClick={() => onChange(value.filter((t) => t !== tag))}
+            onClick={() => onChange(value.filter((other) => other !== tag))}
             disabled={disabled}
             className="text-foreground-faint hover:text-foreground transition-colors"
           >
@@ -477,8 +526,6 @@ function HashtagInputPopover({
     useInlinePicker()
   const searchQuery = useTagSearchQuery(debouncedDraft)
   const listboxId = useId()
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [suggestionFocused, setSuggestionFocused] = useState(false)
 
   const commit = (raw: string) => {
     const tag = sanitizeTag(raw)
@@ -495,10 +542,11 @@ function HashtagInputPopover({
     [searchQuery.data, selected],
   )
 
-  useEffect(() => {
-    setActiveIndex(0)
-    setSuggestionFocused(false)
-  }, [suggestions])
+  const {
+    activeIndex,
+    navigated: suggestionFocused,
+    move,
+  } = useActiveOption(suggestions)
 
   const listOpen =
     open &&
@@ -518,17 +566,12 @@ function HashtagInputPopover({
             onKeyDown={(e) => {
               if (listOpen && e.key === "ArrowDown") {
                 e.preventDefault()
-                setSuggestionFocused(true)
-                setActiveIndex((index) => (index + 1) % suggestions.length)
+                move(1)
                 return
               }
               if (listOpen && e.key === "ArrowUp") {
                 e.preventDefault()
-                setSuggestionFocused(true)
-                setActiveIndex(
-                  (index) =>
-                    (index - 1 + suggestions.length) % suggestions.length,
-                )
+                move(-1)
                 return
               }
               if (e.key === "Tab" || e.key === "ArrowRight") {
@@ -570,7 +613,7 @@ function HashtagInputPopover({
             listboxId={listboxId}
             listExpanded={listOpen}
             activeOptionId={
-              listOpen ? `${listboxId}-option-${activeIndex}` : undefined
+              listOpen ? pickerOptionId(listboxId, activeIndex) : undefined
             }
             title={
               suggestion
@@ -579,32 +622,19 @@ function HashtagInputPopover({
             }
           />
           {listOpen ? (
-            <div
+            <PickerListbox
               id={listboxId}
-              role="listbox"
-              className="border-border bg-popover absolute top-full left-0 z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border p-1 shadow-md"
-            >
-              {suggestions.map((tag, index) => (
-                <button
-                  id={`${listboxId}-option-${index}`}
-                  key={tag}
-                  type="button"
-                  role="option"
-                  aria-selected={index === activeIndex}
-                  className={cn(
-                    "hover:bg-surface-raised flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
-                    index === activeIndex && "bg-surface-raised",
-                  )}
-                  onMouseDown={(event) => {
-                    event.preventDefault()
-                    commit(tag)
-                  }}
-                >
+              options={suggestions}
+              activeIndex={activeIndex}
+              optionKey={(tag) => tag}
+              onPick={commit}
+              renderOption={(tag) => (
+                <>
                   <HashIcon className="text-foreground-faint size-3.5 shrink-0" />
                   <span className="min-w-0 flex-1 truncate">{tag}</span>
-                </button>
-              ))}
-            </div>
+                </>
+              )}
+            />
           ) : null}
         </>
       ) : (

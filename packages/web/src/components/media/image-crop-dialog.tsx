@@ -25,6 +25,7 @@ import {
 import type { PointerEvent } from "react"
 
 import { errorMessage } from "@/lib/error-message"
+import { requireObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
 import {
   canvasToBlob,
@@ -48,8 +49,6 @@ import {
   pointsEqual,
   preferredOutputType,
   readElementSize,
-  readFileAsDataUrl,
-  readImageDimensions,
 } from "./image-crop-utils"
 
 export interface ImageCropResult {
@@ -122,6 +121,7 @@ export function ImageCropDialog({
     }
 
     let active = true
+    let src: string | null = null
     setLoadedImage(null)
     setStageSize({ height: 0, width: 0 })
     setCropPending(false)
@@ -129,17 +129,16 @@ export function ImageCropDialog({
     zoomInitializedRef.current = false
 
     const load = async () => {
-      const [src, dimensions] = await Promise.all([
-        readFileAsDataUrl(file),
-        readImageDimensions(file),
-      ])
+      src = requireObjectUrl(file, "crop source")
+      const element = await loadImage(src)
 
       if (!active) return
 
       setLoadedImage({
-        height: dimensions.height,
+        element,
+        height: element.naturalHeight,
         src,
-        width: dimensions.width,
+        width: element.naturalWidth,
       })
       setOffset({ x: 0, y: 0 })
       setZoom(DEFAULT_PREVIEW_ZOOM)
@@ -154,6 +153,7 @@ export function ImageCropDialog({
 
     return () => {
       active = false
+      revokeObjectUrl(src, "crop source")
     }
   }, [file, open])
 
@@ -169,33 +169,28 @@ export function ImageCropDialog({
     setZoom((current) => clamp(current, minimumZoom, MAX_PREVIEW_ZOOM))
   }, [minimumZoom])
 
-  useLayoutEffect(() => {
-    if (!open) return
-
-    const node = stageNode
-    if (!node) return
-
-    const update = () => {
-      const nextSize = readElementSize(node)
-      if (!nextSize) return
-
-      setStageSize((current) => {
-        if (
-          current.height === nextSize.height &&
-          current.width === nextSize.width
-        ) {
-          return current
-        }
-
-        return nextSize
-      })
+  // Stores the stage's layout size when it changed. clientWidth ignores the
+  // dialog's open transform, which would skew a bounding-rect measure.
+  const measureStage = useCallback(() => {
+    const nextSize = readElementSize(stageRef.current)
+    if (nextSize) {
+      setStageSize((current) =>
+        current.height === nextSize.height && current.width === nextSize.width
+          ? current
+          : nextSize,
+      )
     }
+    return nextSize
+  }, [])
 
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(node)
+  useLayoutEffect(() => {
+    if (!open || !stageNode) return
+
+    measureStage()
+    const observer = new ResizeObserver(() => measureStage())
+    observer.observe(stageNode)
     return () => observer.disconnect()
-  }, [open, mode, stageNode])
+  }, [open, measureStage, mode, stageNode])
 
   const imageBox = useMemo(() => {
     if (!loadedImage) {
@@ -224,7 +219,7 @@ export function ImageCropDialog({
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     if (!cropReady || applying) return
 
-    updateStageSizeFromDom()
+    measureStage()
     event.currentTarget.setPointerCapture(event.pointerId)
     dragRef.current = {
       origin: { x: event.clientX, y: event.clientY },
@@ -235,9 +230,9 @@ export function ImageCropDialog({
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current
-    if (!drag || drag.pointerId !== event.pointerId) return
+    if (!drag || drag.pointerId !== event.pointerId || !loadedImage) return
 
-    const liveStageSize = updateStageSizeFromDom() ?? effectiveStageSize
+    const liveStageSize = measureStage() ?? effectiveStageSize
     const { cropFrame: liveCropFrame, imageBox: liveImageBox } =
       getLiveCropGeometry(loadedImage, liveStageSize, config, mode, zoom)
     setOffset(
@@ -267,30 +262,18 @@ export function ImageCropDialog({
 
     setCropPending(true)
     try {
-      const image = await loadImage(loadedImage.src)
       const renderedStageSize = readElementSize(stageRef.current) ?? stageSize
-      if (renderedStageSize.width <= 0 || renderedStageSize.height <= 0) return
-
-      const renderedContainedImageBox = getImageBox(
-        loadedImage,
+      const { cropFrame: renderedCropFrame, imageBox: renderedImageBox } =
+        getLiveCropGeometry(loadedImage, renderedStageSize, config, mode, zoom)
+      const placement = getImagePlacement(
         renderedStageSize,
-        1,
+        renderedImageBox,
+        offset,
       )
-      const renderedCropFrame = getCropFrame(
-        renderedStageSize,
-        config.aspect,
-        mode,
-        renderedContainedImageBox,
-      )
-      const renderedImageBox = getImageBox(loadedImage, renderedStageSize, zoom)
-      const imageLeft =
-        (renderedStageSize.width - renderedImageBox.width) / 2 + offset.x
-      const imageTop =
-        (renderedStageSize.height - renderedImageBox.height) / 2 + offset.y
-      const cropLeft = renderedCropFrame.x - imageLeft
-      const cropTop = renderedCropFrame.y - imageTop
-      const scaleX = image.naturalWidth / renderedImageBox.width
-      const scaleY = image.naturalHeight / renderedImageBox.height
+      const cropLeft = renderedCropFrame.x - placement.left
+      const cropTop = renderedCropFrame.y - placement.top
+      const scaleX = loadedImage.width / renderedImageBox.width
+      const scaleY = loadedImage.height / renderedImageBox.height
       const canvas = document.createElement("canvas")
       canvas.width = config.outputWidth
       canvas.height = config.outputHeight
@@ -301,7 +284,7 @@ export function ImageCropDialog({
       context.imageSmoothingEnabled = true
       context.imageSmoothingQuality = "high"
       context.drawImage(
-        image,
+        loadedImage.element,
         cropLeft * scaleX,
         cropTop * scaleY,
         renderedCropFrame.width * scaleX,
@@ -329,25 +312,13 @@ export function ImageCropDialog({
     }
   }
 
-  function updateStageSizeFromDom() {
-    const nextStageSize = readElementSize(stageRef.current)
-    if (nextStageSize) {
-      setStageSize((current) =>
-        current.height === nextStageSize.height &&
-        current.width === nextStageSize.width
-          ? current
-          : nextStageSize,
-      )
-    }
-    return nextStageSize
-  }
-
   const setStageElement = useCallback((node: HTMLDivElement | null) => {
     stageRef.current = node
     setStageNode(node)
   }, [])
 
   function handleZoomChange(value: number | readonly number[]) {
+    if (!loadedImage) return
     const rawZoom = Array.isArray(value) ? (value[0] ?? 1) : value
     const nextZoom = clamp(rawZoom, minimumZoom, MAX_PREVIEW_ZOOM)
     const liveStageSize =

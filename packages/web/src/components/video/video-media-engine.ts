@@ -207,7 +207,6 @@ export function useMediaEngine(
       mediaKey: objectUrl
         ? `file:${objectUrl}:${playbackRangeKey(playbackRange)}`
         : "file",
-      activePlaybackRange: playbackRange,
       onMediaError,
       switchingRendition: false,
     }
@@ -217,7 +216,6 @@ export function useMediaEngine(
     return {
       src: activeUrl,
       mediaKey: `url:${activeUrl}:${playbackRangeKey(playbackRange)}`,
-      activePlaybackRange: playbackRange,
       onMediaError,
       switchingRendition,
     }
@@ -226,7 +224,6 @@ export function useMediaEngine(
   return {
     src: spec.url,
     mediaKey: `url:${spec.url}:${playbackRangeKey(playbackRange)}`,
-    activePlaybackRange: playbackRange,
     onMediaError,
     switchingRendition: false,
   }

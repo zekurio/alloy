@@ -1,4 +1,5 @@
 import type { ClipRow } from "@alloy/api"
+import { UNCATEGORISED_GAME_SLUG } from "@alloy/contracts"
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react"
 import type { ReactNode } from "react"
 
@@ -6,6 +7,14 @@ export interface ClipListEntry {
   id: string
   gameId: string | null
   row?: ClipRow
+}
+
+export function clipListEntry(row: ClipRow): ClipListEntry & { row: ClipRow } {
+  return {
+    id: row.id,
+    gameId: row.gameRef?.slug ?? UNCATEGORISED_GAME_SLUG,
+    row,
+  }
 }
 
 interface ClipListContextValue {

@@ -100,16 +100,19 @@ export function resizeScreenshotCrop(
   }
 }
 
+/** Whether the crop still covers the whole image. */
+export function isFullScreenshotCrop(crop: ScreenshotEdit["crop"]): boolean {
+  return crop.x === 0 && crop.y === 0 && crop.width === 1 && crop.height === 1
+}
+
 /** Return whether a pointer can move an existing crop at this position. */
 export function canMoveScreenshotCropAt(
   crop: ScreenshotEdit["crop"],
   x: number,
   y: number,
 ): boolean {
-  const isFullImage =
-    crop.x === 0 && crop.y === 0 && crop.width === 1 && crop.height === 1
   return (
-    !isFullImage &&
+    !isFullScreenshotCrop(crop) &&
     x >= crop.x &&
     x <= crop.x + crop.width &&
     y >= crop.y &&

@@ -1,14 +1,6 @@
 import { cn } from "@alloy/ui/lib/utils"
 import type { ComponentProps } from "react"
 
-function GridFrame({
-  className,
-  baseClassName,
-  ...props
-}: ComponentProps<"div"> & { baseClassName: string }) {
-  return <div className={cn(baseClassName, className)} {...props} />
-}
-
 export function ClipGrid({
   className,
   masonry,
@@ -29,9 +21,9 @@ export function ClipGrid({
       />
     )
   return (
-    <GridFrame
+    <div
       data-slot="clip-grid"
-      baseClassName={cn(
+      className={cn(
         // Columns floor at 380px (the `TopClipsRow` deck slide width) and
         // stretch with `1fr` to fill the row, so there's no dead right gutter.
         "grid grid-cols-1 gap-x-4 gap-y-6 md:[grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr))]",
@@ -39,8 +31,8 @@ export function ClipGrid({
         // scroll-geometry bugs (wrong scrollHeight, unscrollable regions), so
         // the render-skipping optimization is desktop-only.
         "md:[&>*]:[contain-intrinsic-size:260px] md:[&>*]:[content-visibility:auto]",
+        className,
       )}
-      className={className}
       {...props}
     />
   )

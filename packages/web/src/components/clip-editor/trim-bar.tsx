@@ -9,14 +9,8 @@ import {
 } from "@/components/media/waveform-canvas"
 import { formatTrimMs } from "@/lib/media-time"
 import type { MediaWaveformState } from "@/lib/media-waveform"
-/**
- * Simple single-range trimmer for the publish screen: an audio waveform for
- * the whole capture with one kept range styled like a selected clip block.
- * Dragging the block slides the trim window; dragging either edge resizes it.
- * Material outside the range stays visible but dimmed. Clicking or dragging
- * the strip scrubs the playhead.
- */
 
+import { TrimHandle, trimNudgeMs } from "./trim-handle"
 import type { TrimPlayback } from "./use-trim-playback"
 
 const TRIM_DRAG_THRESHOLD_PX = 4
@@ -65,6 +59,13 @@ function movedPastTrimThreshold(
   )
 }
 
+/**
+ * Simple single-range trimmer for the publish screen: an audio waveform for
+ * the whole capture with one kept range styled like a selected clip block.
+ * Dragging the block slides the trim window; dragging either edge resizes it.
+ * Material outside the range stays visible but dimmed. Clicking or dragging
+ * the strip scrubs the playhead.
+ */
 export function TrimBar({
   waveform,
   playback,
@@ -177,16 +178,13 @@ export function TrimBar({
   const handleKeyDown =
     (edge: "start" | "end" | "move") => (e: KeyboardEvent<HTMLDivElement>) => {
       if (!ready) return
-      const stepMs = e.shiftKey ? 1000 : 100
-      const apply = (deltaMs: number) => {
-        e.preventDefault()
-        e.stopPropagation()
-        if (edge === "start") onStartChange(startMs + deltaMs)
-        else if (edge === "end") onEndChange(endMs + deltaMs)
-        else onMove(startMs + deltaMs)
-      }
-      if (e.key === "ArrowLeft") apply(-stepMs)
-      else if (e.key === "ArrowRight") apply(stepMs)
+      const deltaMs = trimNudgeMs(e)
+      if (deltaMs === null) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (edge === "start") onStartChange(startMs + deltaMs)
+      else if (edge === "end") onEndChange(endMs + deltaMs)
+      else onMove(startMs + deltaMs)
     }
 
   const startPct = ready ? (startMs / durationMs) * 100 : 0
@@ -256,34 +254,20 @@ export function TrimBar({
             {formatTrimMs(endMs - startMs)}
           </span>
         </div>
-        <div
-          data-trim-handle="start"
-          role="slider"
-          aria-label={t("Trim start")}
-          aria-valuemin={0}
-          aria-valuemax={Math.round(durationMs / 1000)}
-          aria-valuenow={Math.round(startMs / 1000)}
-          aria-valuetext={formatTrimMs(startMs)}
-          tabIndex={0}
+        <TrimHandle
+          edge="start"
+          valueMs={startMs}
+          durationMs={durationMs}
+          variant="bar"
           onKeyDown={handleKeyDown("start")}
-          className={trimHandleClass("left")}
-        >
-          <span className="bg-accent-foreground/80 h-5 w-0.5 rounded-full" />
-        </div>
-        <div
-          data-trim-handle="end"
-          role="slider"
-          aria-label={t("Trim end")}
-          aria-valuemin={0}
-          aria-valuemax={Math.round(durationMs / 1000)}
-          aria-valuenow={Math.round(endMs / 1000)}
-          aria-valuetext={formatTrimMs(endMs)}
-          tabIndex={0}
+        />
+        <TrimHandle
+          edge="end"
+          valueMs={endMs}
+          durationMs={durationMs}
+          variant="bar"
           onKeyDown={handleKeyDown("end")}
-          className={trimHandleClass("right")}
-        >
-          <span className="bg-accent-foreground/80 h-5 w-0.5 rounded-full" />
-        </div>
+        />
       </div>
 
       {ready ? (
@@ -319,15 +303,5 @@ function TrimPlayhead({
       <div className="bg-foreground absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full shadow-[0_0_4px_rgba(0,0,0,0.6)]" />
       <div className="bg-foreground absolute -top-1 size-2.5 -translate-x-1/2 rounded-full shadow-[0_0_4px_rgba(0,0,0,0.6)]" />
     </div>
-  )
-}
-
-function trimHandleClass(side: "left" | "right"): string {
-  return cn(
-    "bg-accent absolute inset-y-0 z-20 flex w-2.5 cursor-ew-resize items-center justify-center",
-    side === "left" ? "left-0 rounded-l-md" : "right-0 rounded-r-md",
-    // Widen the hit area beyond the visible grip for touch/precision.
-    "after:absolute after:-inset-x-1.5 after:inset-y-0",
-    "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
   )
 }

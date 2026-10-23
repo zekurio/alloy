@@ -1,8 +1,10 @@
 import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
-import { useLayoutEffect, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import type { MediaWaveformStatus } from "@/lib/media-waveform"
+
+import { useElementSize } from "./use-element-size"
 
 /** Peaks carry the strip; the centre line only suggests the zero crossing. */
 const PEAK_ALPHA = 0.78
@@ -27,28 +29,8 @@ export function WaveformCanvas({
   className,
 }: WaveformCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const [size, setSize] = useState({ width: 0, height: 0 })
+  const size = useElementSize(canvasRef)
   const themeRevision = useThemeRevision()
-
-  useLayoutEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const readSize = () => {
-      const rect = canvas.getBoundingClientRect()
-      setSize((current) => {
-        if (current.width === rect.width && current.height === rect.height) {
-          return current
-        }
-        return { width: rect.width, height: rect.height }
-      })
-    }
-
-    readSize()
-    const observer = new ResizeObserver(readSize)
-    observer.observe(canvas)
-    return () => observer.disconnect()
-  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
