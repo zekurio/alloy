@@ -34,13 +34,9 @@ function connectionError(cause: unknown): string {
 }
 
 function ConnectScreen() {
-  const attempt = useRef(0)
   const [url, setUrl] = useState("")
-  const [state, setState] = useState<ConnectionState>("idle")
   const [servers, setServers] = useState<DesktopSavedServer[]>([])
   const [forgetting, setForgetting] = useState(false)
-
-  const pending = state !== "idle" || forgetting
 
   // Toasts replace themselves by id so repeated failures never stack.
   const showError = useCallback(
@@ -48,6 +44,8 @@ function ConnectScreen() {
       toast.error(connectionError(cause), { id: "desktop-connect-error" }),
     [],
   )
+  const connection = useConnectAttempt(showError)
+  const pending = connection.state !== "idle" || forgetting
 
   useEffect(() => {
     let disposed = false
@@ -103,42 +101,10 @@ function ConnectScreen() {
     const serverUrl = url.trim()
     if (!serverUrl) return
 
-    setState("connecting")
-    const currentAttempt = ++attempt.current
-
-    try {
-      const result = DesktopTauriConnectResultSchema.safeParse(
-        await invoke<unknown>("connect_server", { url: serverUrl }),
-      )
-      if (currentAttempt !== attempt.current) return
-      if (!result.success) {
-        throw new Error(t("The server returned an invalid Alloy response."))
-      }
-      // The native host has opened the server window. Leave this screen ready
-      // for the next server switch when the host shows it again.
-      setState("idle")
-      setUrl(result.data.serverUrl)
-    } catch (cause) {
-      if (currentAttempt !== attempt.current) return
-      setState("idle")
-      showError(cause)
-    }
-  }
-
-  async function cancel() {
-    if (state !== "connecting") return
-    ++attempt.current
-    setState("cancelling")
-    try {
-      await invoke("cancel_connect")
-      setState("idle")
-      toast.info(t("Server switch cancelled."), {
-        id: "desktop-connect-notice",
-      })
-    } catch (cause) {
-      setState("idle")
-      showError(cause)
-    }
+    // The native host has opened the server window. Leave this screen ready
+    // for the next server switch when the host shows it again.
+    const connected = await connection.connect(serverUrl)
+    if (connected !== null) setUrl(connected)
   }
 
   return (
@@ -173,7 +139,7 @@ function ConnectScreen() {
             aria-label={t("Server URL")}
           />
 
-          {state === "connecting" ? (
+          {connection.state === "connecting" ? (
             <p className="text-foreground-muted text-sm">
               {t(
                 "A browser window may open to sign in. Return here once you're done.",
@@ -187,65 +153,132 @@ function ConnectScreen() {
             disabled={pending || !url.trim()}
           >
             {pending ? <Spinner /> : null}
-            {state === "connecting"
+            {connection.state === "connecting"
               ? t("Connecting...")
-              : state === "cancelling"
+              : connection.state === "cancelling"
                 ? t("Cancelling...")
                 : t("Connect")}
           </Button>
 
-          {state === "connecting" ? (
+          {connection.state === "connecting" ? (
             <Button
               type="button"
               variant="ghost"
               size="sm"
               className="mx-auto"
-              onClick={() => void cancel()}
+              onClick={() => void connection.cancel()}
             >
               {t("Cancel")}
             </Button>
           ) : null}
 
-          {servers.length > 0 ? (
-            <div className="mt-4 space-y-1">
-              <p className="text-foreground-muted text-xs font-medium">
-                {t("Saved servers")}
-              </p>
-              {servers.map((server) => (
-                <div
-                  key={server.serverUrl}
-                  className="flex min-w-0 items-center gap-2"
-                >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={pending}
-                    onClick={() => setUrl(server.serverUrl)}
-                    className="min-w-0 flex-1 justify-start"
-                  >
-                    <span className="truncate">{server.serverUrl}</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={pending}
-                    aria-label={t("Forget {serverUrl}", {
-                      serverUrl: server.serverUrl,
-                    })}
-                    onClick={() => void forgetServer(server.serverUrl)}
-                  >
-                    {t("Forget")}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : null}
+          <SavedServerList
+            servers={servers}
+            disabled={pending}
+            onSelect={setUrl}
+            onForget={(serverUrl) => void forgetServer(serverUrl)}
+          />
         </form>
       </div>
       <Toaster />
     </main>
+  )
+}
+
+/**
+ * One server switch at a time. Cancelling, or starting a newer attempt, makes
+ * an older attempt's result fall on the floor instead of flipping the screen.
+ */
+function useConnectAttempt(showError: (cause: unknown) => void) {
+  const attempt = useRef(0)
+  const [state, setState] = useState<ConnectionState>("idle")
+
+  /** Resolves with the connected server URL, or null when nothing changed. */
+  async function connect(serverUrl: string): Promise<string | null> {
+    setState("connecting")
+    const currentAttempt = ++attempt.current
+
+    try {
+      const result = DesktopTauriConnectResultSchema.safeParse(
+        await invoke<unknown>("connect_server", { url: serverUrl }),
+      )
+      if (currentAttempt !== attempt.current) return null
+      if (!result.success) {
+        throw new Error(t("The server returned an invalid Alloy response."))
+      }
+      setState("idle")
+      return result.data.serverUrl
+    } catch (cause) {
+      if (currentAttempt !== attempt.current) return null
+      setState("idle")
+      showError(cause)
+      return null
+    }
+  }
+
+  async function cancel() {
+    if (state !== "connecting") return
+    ++attempt.current
+    setState("cancelling")
+    try {
+      await invoke("cancel_connect")
+      setState("idle")
+      toast.info(t("Server switch cancelled."), {
+        id: "desktop-connect-notice",
+      })
+    } catch (cause) {
+      setState("idle")
+      showError(cause)
+    }
+  }
+
+  return { state, connect, cancel }
+}
+
+function SavedServerList({
+  servers,
+  disabled,
+  onSelect,
+  onForget,
+}: {
+  servers: DesktopSavedServer[]
+  disabled: boolean
+  onSelect: (serverUrl: string) => void
+  onForget: (serverUrl: string) => void
+}) {
+  if (servers.length === 0) return null
+  return (
+    <div className="mt-4 space-y-1">
+      <p className="text-foreground-muted text-xs font-medium">
+        {t("Saved servers")}
+      </p>
+      {servers.map((server) => (
+        <div key={server.serverUrl} className="flex min-w-0 items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={disabled}
+            onClick={() => onSelect(server.serverUrl)}
+            className="min-w-0 flex-1 justify-start"
+          >
+            <span className="truncate">{server.serverUrl}</span>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={disabled}
+            aria-label={t("Forget {serverUrl}", {
+              serverUrl: server.serverUrl,
+            })}
+            onClick={() => onForget(server.serverUrl)}
+          >
+            {t("Forget")}
+          </Button>
+        </div>
+      ))}
+    </div>
   )
 }
 

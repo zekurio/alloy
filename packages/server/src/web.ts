@@ -60,6 +60,18 @@ function contentType(path: string): string {
 // no-cache.
 const WEB_ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable"
 
+// Static files outside /assets/ have no content hash, so they get a day.
+const STATIC_CACHE_CONTROL = "public, max-age=86400"
+const STATIC_FILES: ReadonlyArray<[route: string, file: string]> = [
+  ["/logo.png", "/logo.png"],
+  ["/logo.svg", "/logo.svg"],
+  // Square on purpose: iOS rounds touch icons itself and fills transparent
+  // corners with black.
+  ["/apple-touch-icon.png", "/apple-touch-icon.png"],
+  ["/favicon.ico", "/logo.png"],
+  ["/robots.txt", "/robots.txt"],
+]
+
 function safeJoin(root: string, requestPath: string): string | null {
   let decoded: string
   try {
@@ -115,6 +127,59 @@ function withInjectedNonce(indexHtml: string, nonce: string): string {
   return indexHtml.replaceAll(CSP_NONCE_MARKER, htmlEscape(nonce))
 }
 
+async function serveFile(
+  c: Context,
+  distDir: string,
+  requestPath: string,
+  cacheControl: string,
+) {
+  const path = safeJoin(distDir, requestPath)
+  if (!path) return c.notFound()
+
+  const s = await stat(path).catch(() => null)
+  if (!s?.isFile()) return c.notFound()
+
+  c.header("Content-Type", contentType(path))
+  c.header("Content-Length", String(s.size))
+  c.header("Cache-Control", cacheControl)
+  if (c.req.method === "HEAD") return c.body(null)
+
+  const stream = Readable.toWeb(createReadStream(path))
+  // SAFETY: Readable.toWeb preserves the byte chunks from this fs stream.
+  return c.body(stream as ReadableStream<Uint8Array>)
+}
+
+async function serveAppShell(c: Context, mount: WebMount) {
+  const pathname = new URL(c.req.url).pathname
+  if (pathname === "/health" || pathname.startsWith("/api/")) {
+    return c.notFound()
+  }
+  const head = await clipHead(pathname)
+  if (
+    configStore.get("requireAuthToBrowse") &&
+    !PUBLIC_WEB_PATHS.has(pathname) &&
+    !head
+  ) {
+    const session = await getSession(c)
+    if (!session || session.user.status !== "active") {
+      return c.redirect("/login", 302)
+    }
+  }
+
+  c.header("Content-Type", "text/html; charset=utf-8")
+  c.header("Cache-Control", "no-cache")
+  if (c.req.method === "HEAD") return c.body(null)
+  const nonce = c.get("secureHeadersNonce")
+  if (!nonce) {
+    throw new Error("secure headers nonce missing for app shell")
+  }
+  const html = withInjectedBootstrap(
+    withInjectedHead(withInjectedNonce(mount.indexHtml, nonce), head),
+    bootstrapScript(await buildPublicAuthConfig(), nonce),
+  )
+  return c.html(html)
+}
+
 export async function mountWeb(app: Hono): Promise<Hono> {
   const mount = await resolveWebMount()
   if (!mount) {
@@ -127,85 +192,16 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     }
     return app
   }
-  const webMount = mount
-
-  async function serveFile(
-    c: Context,
-    requestPath: string,
-    cacheControl: string,
-  ) {
-    const path = safeJoin(webMount.distDir, requestPath)
-    if (!path) return c.notFound()
-
-    const s = await stat(path).catch(() => null)
-    if (!s?.isFile()) return c.notFound()
-
-    c.header("Content-Type", contentType(path))
-    c.header("Content-Length", String(s.size))
-    c.header("Cache-Control", cacheControl)
-    if (c.req.method === "HEAD") return c.body(null)
-
-    const stream = Readable.toWeb(createReadStream(path))
-    // SAFETY: Readable.toWeb preserves the byte chunks from this fs stream.
-    return c.body(stream as ReadableStream<Uint8Array>)
-  }
 
   app.on(["GET", "HEAD"], "/assets/*", (c) =>
-    serveFile(c, c.req.path, WEB_ASSET_CACHE_CONTROL),
+    serveFile(c, mount.distDir, c.req.path, WEB_ASSET_CACHE_CONTROL),
   )
-
-  app.on(["GET", "HEAD"], "/logo.png", (c) =>
-    serveFile(c, "/logo.png", "public, max-age=86400"),
-  )
-
-  app.on(["GET", "HEAD"], "/logo.svg", (c) =>
-    serveFile(c, "/logo.svg", "public, max-age=86400"),
-  )
-
-  // Square on purpose: iOS rounds touch icons itself and fills transparent
-  // corners with black.
-  app.on(["GET", "HEAD"], "/apple-touch-icon.png", (c) =>
-    serveFile(c, "/apple-touch-icon.png", "public, max-age=86400"),
-  )
-
-  app.on(["GET", "HEAD"], "/favicon.ico", (c) =>
-    serveFile(c, "/logo.png", "public, max-age=86400"),
-  )
-
-  app.on(["GET", "HEAD"], "/robots.txt", (c) =>
-    serveFile(c, "/robots.txt", "public, max-age=86400"),
-  )
-
-  app.on(["GET", "HEAD"], "*", async (c) => {
-    const pathname = new URL(c.req.url).pathname
-    if (pathname === "/health" || pathname.startsWith("/api/")) {
-      return c.notFound()
-    }
-    const head = await clipHead(pathname)
-    if (
-      configStore.get("requireAuthToBrowse") &&
-      !PUBLIC_WEB_PATHS.has(pathname) &&
-      !head
-    ) {
-      const session = await getSession(c)
-      if (!session || session.user.status !== "active") {
-        return c.redirect("/login", 302)
-      }
-    }
-
-    c.header("Content-Type", "text/html; charset=utf-8")
-    c.header("Cache-Control", "no-cache")
-    if (c.req.method === "HEAD") return c.body(null)
-    const nonce = c.get("secureHeadersNonce")
-    if (!nonce) {
-      throw new Error("secure headers nonce missing for app shell")
-    }
-    const html = withInjectedBootstrap(
-      withInjectedHead(withInjectedNonce(webMount.indexHtml, nonce), head),
-      bootstrapScript(await buildPublicAuthConfig(), nonce),
+  for (const [route, file] of STATIC_FILES) {
+    app.on(["GET", "HEAD"], route, (c) =>
+      serveFile(c, mount.distDir, file, STATIC_CACHE_CONTROL),
     )
-    return c.html(html)
-  })
+  }
+  app.on(["GET", "HEAD"], "*", (c) => serveAppShell(c, mount))
 
   return app
 }
