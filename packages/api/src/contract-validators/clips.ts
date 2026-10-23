@@ -1,13 +1,10 @@
 import {
   objectRecord,
   validateArray,
-  validateBoolean,
   validateEnumString,
-  validateIntegerInRange,
   validateIsoDateString,
   validateNonNegativeInteger,
   validateNullableDateString,
-  validateNullableEnumString,
   validateNullableNonNegativeInteger,
   validateNullablePositiveInteger,
   validateNullableRequiredString,
@@ -17,22 +14,21 @@ import {
 } from "@alloy/api/runtime-validation"
 import {
   CLIP_PRIVACY,
-  CLIP_STATUS,
-  ENCODE_STAGE,
   type ClipPage,
   type ClipRow,
+  MEDIA_KINDS,
 } from "@alloy/contracts"
 
 import type { ApiJsonInput, ApiJsonValue } from "../json-value"
+import { validateGameRow } from "./games-media"
 import { validateUserSummary } from "./people"
 import {
-  validateGameRowFields,
-  validateGameSource,
+  CLIP_STATUS_SET,
+  validateEncodeFields,
   validateNullableBlurHash,
 } from "./shared"
 const CLIP_PRIVACY_SET: ReadonlySet<string> = new Set(CLIP_PRIVACY)
-const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
-const ENCODE_STAGE_SET: ReadonlySet<string> = new Set(ENCODE_STAGE)
+const MEDIA_KIND_SET: ReadonlySet<string> = new Set(MEDIA_KINDS)
 function assertNoStorageKey(
   value: Record<string, ApiJsonValue>,
   label: string,
@@ -42,24 +38,18 @@ function assertNoStorageKey(
   }
 }
 
-function validateClipGameRef(value: ApiJsonInput) {
-  const row = objectRecord(value, "clip game")
-  validateGameRowFields(row, "clip game")
-  validateGameSource(row, "clip game")
-}
-
 export function validateClipRow(value: ApiJsonInput): ClipRow {
   const row = objectRecord(value, "clip")
   validateEnumString(
     row.mediaKind,
-    new Set(["image", "video"]),
-    "Invalid media kind",
+    MEDIA_KIND_SET,
+    "Invalid clip response: mediaKind is invalid",
   )
   assertNoStorageKey(row, "clip")
   validateClipIdentityFields(row)
   validateClipMetadataFields(row)
   validateClipCounters(row)
-  validateClipStageFields(row)
+  validateEncodeFields(row, "clip")
   validateClipTimestamps(row)
   validateClipRelationships(row)
   // SAFETY: The checks above validate every field in the asserted response contract.
@@ -89,6 +79,7 @@ function validateClipMetadataFields(row: Record<string, ApiJsonValue>) {
     "sourceAudioCodec",
     "sourceCodecs",
     "failureReason",
+    "authorDisplayName",
     "authorImage",
   ] as const) {
     validateNullableString(
@@ -131,36 +122,6 @@ function validateClipCounters(row: Record<string, ApiJsonValue>) {
     row.viewCount,
     "Invalid clip response: viewCount must be a non-negative integer",
   )
-  validateIntegerInRange(
-    row.encodeProgress,
-    0,
-    100,
-    "Invalid clip response: encodeProgress must be an integer between 0 and 100",
-  )
-}
-
-function validateClipStageFields(row: Record<string, ApiJsonValue>) {
-  validateBoolean(
-    row.encodeActive,
-    "Invalid clip response: encodeActive must be boolean",
-  )
-  validateNullableEnumString(
-    row.encodeStage,
-    ENCODE_STAGE_SET,
-    "Invalid clip response: encodeStage is invalid",
-  )
-  validateNullableString(
-    row.encodeTier,
-    "Invalid clip response: encodeTier must be string or null",
-  )
-  validateNullablePositiveInteger(
-    row.encodeTierIndex,
-    "Invalid clip response: encodeTierIndex must be a positive integer or null",
-  )
-  validateNullablePositiveInteger(
-    row.encodeTierCount,
-    "Invalid clip response: encodeTierCount must be a positive integer or null",
-  )
 }
 
 function validateClipTimestamps(row: Record<string, ApiJsonValue>) {
@@ -200,7 +161,7 @@ function validateClipTimestamps(row: Record<string, ApiJsonValue>) {
 
 function validateClipRelationships(row: Record<string, ApiJsonValue>) {
   if (row.gameRef !== null) {
-    validateClipGameRef(row.gameRef)
+    validateGameRow(row.gameRef, "clip game")
   }
   validateArray(
     row.renditions,

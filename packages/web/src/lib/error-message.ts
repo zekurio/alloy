@@ -1,5 +1,5 @@
+import { messageFromUnknown } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { messageFromUnknown } from "@alloy/ui/lib/error-message"
 
 export function errorMessage(cause: unknown, fallback: string): string {
   const message = messageFromUnknown(cause)

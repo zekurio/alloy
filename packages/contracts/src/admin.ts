@@ -75,10 +75,13 @@ export type StorageConfig = t.infer<typeof StorageConfigSchema>
 
 export type AdminStorageConfig = StorageConfig
 
+export const LOGIN_SPLASH_MAX_BLUR_PX = 48
+export const LOGIN_SPLASH_MAX_DARKEN_OPACITY = 1
+
 export const LoginSplashConfigSchema = t.looseObject({
   enabled: t.boolean(),
-  blurPx: t.number().nonnegative().max(48),
-  darkenOpacity: t.number().nonnegative().max(1),
+  blurPx: t.number().nonnegative().max(LOGIN_SPLASH_MAX_BLUR_PX),
+  darkenOpacity: t.number().nonnegative().max(LOGIN_SPLASH_MAX_DARKEN_OPACITY),
 })
 
 export type LoginSplashConfig = t.infer<typeof LoginSplashConfigSchema>

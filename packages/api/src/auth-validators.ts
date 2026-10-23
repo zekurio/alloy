@@ -2,22 +2,19 @@ import {
   AUTH_SESSION_BROWSERS,
   AUTH_SESSION_CLIENT_KINDS,
   AUTH_SESSION_OPERATING_SYSTEMS,
-  USER_ROLES,
-  USER_STATUSES,
+  type AuthSessionSummary,
+  type AuthUser,
+  type LinkedAccount,
+  type Passkey,
+  type SessionData,
 } from "@alloy/contracts"
 import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser"
 
-import type {
-  AuthSessionSummary,
-  AuthUser,
-  LinkedAccount,
-  Passkey,
-  SessionData,
-} from "./auth"
 import { booleanFlagResponseValidator } from "./contract-validators"
+import { USER_ROLE_SET, USER_STATUS_SET } from "./contract-validators/shared"
 import type { ApiJsonInput } from "./json-value"
 import {
   objectRecord,
@@ -37,8 +34,6 @@ import {
 
 export type JsonValidator<T> = (value: ApiJsonInput) => T
 
-const USER_ROLE_SET: ReadonlySet<string> = new Set(USER_ROLES)
-const USER_STATUS_SET: ReadonlySet<string> = new Set(USER_STATUSES)
 const AUTH_SESSION_CLIENT_KIND_SET: ReadonlySet<string> = new Set(
   AUTH_SESSION_CLIENT_KINDS,
 )
@@ -51,7 +46,7 @@ const AUTH_SESSION_OPERATING_SYSTEM_SET: ReadonlySet<string> = new Set(
 
 export function validateAuthUser(value: ApiJsonInput): AuthUser {
   const user = objectRecord(value, "auth user")
-  for (const key of ["id", "username", "createdAt", "updatedAt"] as const) {
+  for (const key of ["id", "username"] as const) {
     validateRequiredString(
       user[key],
       `Invalid auth user response: ${key} is required`,
@@ -105,7 +100,7 @@ export function validateAuthUser(value: ApiJsonInput): AuthUser {
 
 function validateSessionRow(value: ApiJsonInput): SessionData["session"] {
   const session = objectRecord(value, "auth session")
-  for (const key of ["id", "userId", "createdAt", "updatedAt"] as const) {
+  for (const key of ["id", "userId"] as const) {
     validateRequiredString(
       session[key],
       `Invalid auth session response: ${key} is required`,

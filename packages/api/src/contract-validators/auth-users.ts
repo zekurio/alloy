@@ -24,26 +24,24 @@ import {
   type PublicAuthProvider,
   type PublicLoginSplashConfig,
   type PublicUser,
-  USER_ROLES,
-  USER_STATUSES,
   type UserProfile,
   type UserProfileViewer,
   type UserStorageUsage,
 } from "@alloy/contracts"
 
 import type { ApiJsonInput } from "../json-value"
+import { validateGameListRow } from "./games-media"
 import {
+  USER_ROLE_SET,
+  USER_STATUS_SET,
   validateAuthProviderColors,
   validateBackdropTreatment,
-  validateGameRowFields,
 } from "./shared"
 const PUBLIC_AUTH_BOOLEAN_FIELDS = [
   "openRegistrations",
   "passkeyEnabled",
   "requireAuthToBrowse",
 ] as const
-const USER_ROLE_SET: ReadonlySet<string> = new Set(USER_ROLES)
-const USER_STATUS_SET: ReadonlySet<string> = new Set(USER_STATUSES)
 function validatePublicAuthProvider(value: ApiJsonInput): PublicAuthProvider {
   const provider = objectRecord(value, "auth provider")
   for (const key of ["providerId", "displayName"] as const) {
@@ -138,7 +136,7 @@ export function validateAdminUserStorageRow(
   value: ApiJsonInput,
 ): AdminUserStorageRow {
   const row = objectRecord(value, "admin user")
-  for (const key of ["id", "username", "createdAt"] as const) {
+  for (const key of ["id", "username"] as const) {
     validateRequiredString(
       row[key],
       `Invalid admin user response: ${key} is required`,
@@ -210,20 +208,18 @@ export function validateAdminUsersResponse(
 
 export function validatePublicUser(value: ApiJsonInput): PublicUser {
   const row = objectRecord(value, "user")
-  for (const key of ["id", "username", "createdAt", "updatedAt"] as const) {
+  for (const key of ["id", "username"] as const) {
     validateRequiredString(
       row[key],
       `Invalid user response: ${key} is required`,
     )
   }
-  validateNullableString(
-    row.image,
-    "Invalid user response: image must be string or null",
-  )
-  validateNullableString(
-    row.banner,
-    "Invalid user response: banner must be string or null",
-  )
+  for (const key of ["displayName", "image", "banner"] as const) {
+    validateNullableString(
+      row[key],
+      `Invalid user response: ${key} must be string or null`,
+    )
+  }
   validateIsoDateString(
     row.createdAt,
     "Invalid user response: createdAt must be a date string",
@@ -286,11 +282,7 @@ export function validateUserProfileViewer(
 
 function validateProfileGameRow(value: ApiJsonInput): ProfileGameRow {
   const row = objectRecord(value, "profile game")
-  validateGameRowFields(row, "profile game")
-  validateNonNegativeInteger(
-    row.clipCount,
-    "Invalid profile game response: clipCount must be a non-negative integer",
-  )
+  validateGameListRow(row, "profile game")
   validateIsoDateString(
     row.lastClippedAt,
     "Invalid profile game response: lastClippedAt must be a date string",

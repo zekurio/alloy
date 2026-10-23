@@ -1,6 +1,6 @@
 import { isAbortError } from "@alloy/api"
+import { messageFromUnknown } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { messageFromUnknown } from "@alloy/ui/lib/error-message"
 import { toast } from "@alloy/ui/lib/toast"
 
 import { authClient } from "./auth-client"

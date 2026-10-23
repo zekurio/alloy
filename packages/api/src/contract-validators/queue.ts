@@ -6,8 +6,6 @@ import {
   validateIntegerInRange,
   validateIsoDateString,
   validateNonNegativeInteger,
-  validateNullableEnumString,
-  validateNullablePositiveInteger,
   validateNullableRequiredString,
   validateNullableString,
   validatePositiveInteger,
@@ -15,19 +13,19 @@ import {
   validateStringRecord,
   validateUrlString,
 } from "@alloy/api/runtime-validation"
-import {
-  CLIP_STATUS,
-  ENCODE_STAGE,
-  type InitiateClipResponse,
-  type QueueClip,
-  type QueueEvent,
-  type UploadTicket,
+import type {
+  InitiateClipResponse,
+  QueueClip,
+  QueueEvent,
+  UploadTicket,
 } from "@alloy/contracts"
 
-import type { ApiJsonInput, ApiJsonValue } from "../json-value"
-import { validateNullableBlurHash } from "./shared"
-const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
-const ENCODE_STAGE_SET: ReadonlySet<string> = new Set(ENCODE_STAGE)
+import type { ApiJsonInput } from "../json-value"
+import {
+  CLIP_STATUS_SET,
+  validateEncodeFields,
+  validateNullableBlurHash,
+} from "./shared"
 function validateQueueClip(value: ApiJsonInput): QueueClip {
   const row = objectRecord(value, "queue clip")
   validateRequiredString(row.id, "Invalid queue response: id is required")
@@ -45,17 +43,7 @@ function validateQueueClip(value: ApiJsonInput): QueueClip {
     CLIP_STATUS_SET,
     "Invalid queue response: status is invalid",
   )
-  validateIntegerInRange(
-    row.encodeProgress,
-    0,
-    100,
-    "Invalid queue response: encodeProgress must be an integer between 0 and 100",
-  )
-  validateBoolean(
-    row.encodeActive,
-    "Invalid queue response: encodeActive must be boolean",
-  )
-  validateQueueStageFields(row)
+  validateEncodeFields(row, "queue")
   validateNullableString(
     row.failureReason,
     "Invalid queue response: failureReason must be string or null",
@@ -82,26 +70,6 @@ function validateQueueClip(value: ApiJsonInput): QueueClip {
   )
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as QueueClip
-}
-
-function validateQueueStageFields(row: Record<string, ApiJsonValue>) {
-  validateNullableEnumString(
-    row.encodeStage,
-    ENCODE_STAGE_SET,
-    "Invalid queue response: encodeStage is invalid",
-  )
-  validateNullableString(
-    row.encodeTier,
-    "Invalid queue response: encodeTier must be string or null",
-  )
-  validateNullablePositiveInteger(
-    row.encodeTierIndex,
-    "Invalid queue response: encodeTierIndex must be a positive integer or null",
-  )
-  validateNullablePositiveInteger(
-    row.encodeTierCount,
-    "Invalid queue response: encodeTierCount must be a positive integer or null",
-  )
 }
 
 export function validateQueueClips(value: ApiJsonInput): QueueClip[] {

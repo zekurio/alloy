@@ -27,10 +27,12 @@ export function validateUserSummary(
       `Invalid ${label} response: ${key} is required`,
     )
   }
-  validateNullableString(
-    row.image,
-    `Invalid ${label} response: image must be string or null`,
-  )
+  for (const key of ["displayName", "image"] as const) {
+    validateNullableString(
+      row[key],
+      `Invalid ${label} response: ${key} must be string or null`,
+    )
+  }
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as UserSummary
 }
@@ -65,6 +67,9 @@ export function validateGameCreatorsResponse(
     "Invalid game creators response: creators must be an array",
   ).map((item) => {
     const row = objectRecord(item, "game creator")
+    // The creators query does not select display_name yet. Read a missing
+    // value as "not set" until it does.
+    row.displayName ??= null
     validateUserSummary(row, "game creator")
     validateNonNegativeInteger(
       row.clipCount,

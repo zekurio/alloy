@@ -85,7 +85,7 @@ export function validateSearchResults(value: ApiJsonInput): SearchResults {
   validateArray(
     results.games,
     "Invalid search response: games must be an array",
-  ).map(validateGameListRow)
+  ).map((item) => validateGameListRow(item))
   validateArray(
     results.users,
     "Invalid search response: users must be an array",

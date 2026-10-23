@@ -80,3 +80,33 @@ export interface AuthUser {
   createdAt: IsoDateString
   updatedAt: IsoDateString
 }
+
+/** The current session and its user, as returned by session reads and sign-in. */
+export interface SessionData {
+  session: {
+    id: string
+    userId: string
+    expiresAt: IsoDateString | null
+    createdAt: IsoDateString
+    updatedAt: IsoDateString
+    lastSeenAt: IsoDateString | null
+  }
+  user: AuthUser
+}
+
+/** A passkey registered to the signed-in user. */
+export interface Passkey {
+  id: string
+  name: string | null
+  createdAt: IsoDateString
+  deviceType: string
+}
+
+/** An OAuth account linked to the signed-in user. */
+export interface LinkedAccount {
+  id: string
+  providerId: string
+  accountId: string
+  accountLabel: string | null
+  createdAt: IsoDateString
+}

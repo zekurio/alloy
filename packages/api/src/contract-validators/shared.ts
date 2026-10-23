@@ -1,19 +1,28 @@
 import {
-  validateEnumString,
+  validateBoolean,
+  validateIntegerInRange,
   validateNonNegativeNumber,
-  validateNullableDateString,
-  validateNullablePublicImageSrcString,
+  validateNullableEnumString,
   validateNullablePositiveInteger,
   validateNullableString,
   validateOptionalString,
-  validateRequiredString,
 } from "@alloy/api/runtime-validation"
-import { GAME_SOURCE } from "@alloy/contracts"
+import {
+  CLIP_STATUS,
+  ENCODE_STAGE,
+  LOGIN_SPLASH_MAX_BLUR_PX,
+  LOGIN_SPLASH_MAX_DARKEN_OPACITY,
+  USER_ROLES,
+  USER_STATUSES,
+} from "@alloy/contracts"
 import { isBlurHash } from "@alloy/contracts/blurhash"
 
 import type { ApiJsonInput, ApiJsonValue } from "../json-value"
 
-const GAME_SOURCE_SET: ReadonlySet<string> = new Set(GAME_SOURCE)
+export const USER_ROLE_SET: ReadonlySet<string> = new Set(USER_ROLES)
+export const USER_STATUS_SET: ReadonlySet<string> = new Set(USER_STATUSES)
+export const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
+const ENCODE_STAGE_SET: ReadonlySet<string> = new Set(ENCODE_STAGE)
 
 export function validateAuthProviderColors(
   provider: Record<string, ApiJsonValue>,
@@ -27,45 +36,36 @@ export function validateAuthProviderColors(
   }
 }
 
-export function validateGameRowFields(
+/** Encode progress fields shared by clip rows and upload queue rows. */
+export function validateEncodeFields(
   row: Record<string, ApiJsonValue>,
   label: string,
 ) {
-  validateRequiredString(row.id, `Invalid ${label} response: id is required`)
-  for (const key of ["name", "slug"] as const) {
-    validateRequiredString(
+  validateBoolean(
+    row.encodeActive,
+    `Invalid ${label} response: encodeActive must be boolean`,
+  )
+  validateIntegerInRange(
+    row.encodeProgress,
+    0,
+    100,
+    `Invalid ${label} response: encodeProgress must be an integer between 0 and 100`,
+  )
+  validateNullableEnumString(
+    row.encodeStage,
+    ENCODE_STAGE_SET,
+    `Invalid ${label} response: encodeStage is invalid`,
+  )
+  validateNullableString(
+    row.encodeTier,
+    `Invalid ${label} response: encodeTier must be string or null`,
+  )
+  for (const key of ["encodeTierIndex", "encodeTierCount"] as const) {
+    validateNullablePositiveInteger(
       row[key],
-      `Invalid ${label} response: ${key} is required`,
+      `Invalid ${label} response: ${key} must be a positive integer or null`,
     )
   }
-  validateNullablePositiveInteger(
-    row.steamgriddbId,
-    `Invalid ${label} response: steamgriddbId must be a positive integer or null`,
-  )
-  validateNullableDateString(
-    row.releaseDate,
-    `Invalid ${label} response: releaseDate must be a date string or null`,
-  )
-  for (const key of ["heroUrl", "gridUrl", "logoUrl", "iconUrl"] as const) {
-    validateNullablePublicImageSrcString(
-      row[key],
-      `Invalid ${label} response: ${key} must be an image URL or public asset path`,
-    )
-  }
-  for (const key of ["heroBlurHash", "gridBlurHash"] as const) {
-    validateNullableBlurHash(row[key], `Invalid ${label} response: ${key}`)
-  }
-}
-
-export function validateGameSource(
-  row: Record<string, ApiJsonValue>,
-  label: string,
-): void {
-  validateEnumString(
-    row.source,
-    GAME_SOURCE_SET,
-    `Invalid ${label} response: source is invalid`,
-  )
 }
 
 export function validateNullableBlurHash(
@@ -86,14 +86,18 @@ export function validateBackdropTreatment(
     splash.blurPx,
     `Invalid ${label}: blurPx must be a non-negative number`,
   )
-  if (Number(splash.blurPx) > 48) {
-    throw new Error(`Invalid ${label}: blurPx must be at most 48`)
+  if (Number(splash.blurPx) > LOGIN_SPLASH_MAX_BLUR_PX) {
+    throw new Error(
+      `Invalid ${label}: blurPx must be at most ${LOGIN_SPLASH_MAX_BLUR_PX}`,
+    )
   }
   validateNonNegativeNumber(
     splash.darkenOpacity,
     `Invalid ${label}: darkenOpacity must be a non-negative number`,
   )
-  if (Number(splash.darkenOpacity) > 1) {
-    throw new Error(`Invalid ${label}: darkenOpacity must be at most 1`)
+  if (Number(splash.darkenOpacity) > LOGIN_SPLASH_MAX_DARKEN_OPACITY) {
+    throw new Error(
+      `Invalid ${label}: darkenOpacity must be at most ${LOGIN_SPLASH_MAX_DARKEN_OPACITY}`,
+    )
   }
 }

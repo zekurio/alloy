@@ -139,13 +139,15 @@ export interface AdminUpdateGameInput {
   iconUrl?: string | null
 }
 
-export type GameNameLookupReason =
-  | "indexed-exact-name"
-  | "indexed-normalized-name"
-  | "steamgriddb-exact-name"
-  | "steamgriddb-normalized-name"
-  | "no-match"
-  | "ambiguous"
+export const GAME_NAME_LOOKUP_REASONS = [
+  "indexed-exact-name",
+  "indexed-normalized-name",
+  "steamgriddb-exact-name",
+  "steamgriddb-normalized-name",
+  "no-match",
+  "ambiguous",
+] as const
+export type GameNameLookupReason = (typeof GAME_NAME_LOOKUP_REASONS)[number]
 
 export interface GameNameLookupResult {
   name: string
