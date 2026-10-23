@@ -15,6 +15,7 @@ import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { cn } from "@alloy/ui/lib/utils"
 import { ImageIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import type { ComponentProps } from "react"
 
 import {
   MediaStage,
@@ -221,8 +222,10 @@ export type ClipEditorPlaybackState = ReturnType<typeof useTrimPlayback>
 /** The trim editor's volume control, bound to the preview player's volume. */
 export function EditorVolumeControl({
   playerVolume,
+  iconClassName = "size-8 rounded-md",
 }: {
   playerVolume: ReturnType<typeof useExternalVideoVolume>
+  iconClassName?: string
 }) {
   return (
     <VolumeControl
@@ -231,8 +234,55 @@ export function EditorVolumeControl({
       onToggleMute={playerVolume.toggleMute}
       onVolumeChange={playerVolume.setVolume}
       onVolumeChangeEnd={playerVolume.finishVolumeChange}
-      iconClassName="size-8 rounded-md"
+      iconClassName={iconClassName}
       iconGlyphClassName="size-4"
+    />
+  )
+}
+
+/**
+ * The preview player on the editor stage. The desktop and touch layouts share
+ * its source and playback wiring and differ only in chrome, click handling
+ * and time updates.
+ */
+export function ClipEditorVideo({
+  row,
+  media,
+  playback,
+  onFrameReady,
+  ...chrome
+}: {
+  row: ClipRow
+  media: ClipEditorMediaState
+  playback: ClipEditorPlaybackState
+  /** Runs after the stage has marked the cloud frame ready. */
+  onFrameReady?: () => void
+} & Pick<
+  ComponentProps<typeof VideoPlayer>,
+  "controls" | "chromeSize" | "onVideoClick" | "onTimeUpdate"
+>) {
+  if (!media.playbackSrc) return null
+  return (
+    <VideoPlayer
+      src={media.playbackSrc}
+      playbackRange={media.playbackRange}
+      durationHint={media.durationHint}
+      sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
+      poster={media.poster}
+      posterBlurHash={media.posterBlurHash}
+      fallbackSeed={media.fallbackSeed}
+      aspectRatio={media.aspectRatio}
+      maxDisplayHeight="100%"
+      initialTime={playback.getCurrentMs() / 1000}
+      playerRef={playback.playerRef}
+      onPlayingChange={playback.setPlaying}
+      onFrameReady={() => {
+        media.setCloudFrameReady(true)
+        onFrameReady?.()
+      }}
+      onEnded={playback.handleEnded}
+      onPlaybackError={media.onPlaybackError}
+      {...chrome}
     />
   )
 }
@@ -259,25 +309,13 @@ export function ClipEditorStage({
     <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
       <MediaStage aspectRatio={media.aspectRatio}>
         {media.playbackSrc ? (
-          <VideoPlayer
-            src={media.playbackSrc}
-            playbackRange={media.playbackRange}
-            durationHint={media.durationHint}
-            sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
-            poster={media.poster}
-            posterBlurHash={media.posterBlurHash}
-            fallbackSeed={media.fallbackSeed}
-            aspectRatio={media.aspectRatio}
-            maxDisplayHeight="100%"
+          <ClipEditorVideo
+            row={row}
+            media={media}
+            playback={playback}
             controls={false}
-            initialTime={playback.getCurrentMs() / 1000}
             onVideoClick={() => playback.togglePlayback()}
-            playerRef={playback.playerRef}
             onTimeUpdate={playback.handleTimeUpdate}
-            onPlayingChange={playback.setPlaying}
-            onFrameReady={() => media.setCloudFrameReady(true)}
-            onEnded={playback.handleEnded}
-            onPlaybackError={media.onPlaybackError}
           />
         ) : (
           <ClipEditorPreviewPlaceholder media={media} />
