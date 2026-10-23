@@ -36,7 +36,6 @@
     ".devenv/**",
     ".direnv/**",
     ".git/**",
-    "tools/oxlint/anti-slop/**",
     "packages/web/src/routeTree.gen.ts",
     "build/**",
     "data/**",
@@ -167,6 +166,16 @@
       "files": ["**/*.config.ts"],
       "rules": {
         "no-console": "off"
+      }
+    },
+    {
+      "files": ["tools/oxlint/**"],
+      "rules": {
+        "import/extensions": [
+          "error",
+          "ignorePackages",
+          { "checkTypeImports": true }
+        ]
       }
     },
     {

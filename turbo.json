@@ -22,6 +22,10 @@
       "dependsOn": ["transit"],
       "outputs": []
     },
+    "//#typecheck:oxlint": {
+      "inputs": ["tools/oxlint/**"],
+      "outputs": []
+    },
     "dev": {
       "cache": false,
       "persistent": true
