@@ -16,6 +16,7 @@ import {
 } from "./encoders"
 import { runFfmpeg, transcodeTimeoutMs } from "./ffmpeg"
 import { probeMedia } from "./probe"
+import { processFailureKind } from "./run-process"
 import { transcodeSettings } from "./transcode-settings"
 
 const logger = createLogger("media")
@@ -233,7 +234,7 @@ async function encodeRendition(
 
 /**
  * {@link encodeRendition} with a one-shot software fallback: when the
- * configured hardware encoder fails, the step is retried with
+ * configured hardware encoder exits with an error, the step is retried with
  * `hardwareAcceleration: "none"` and `onHardwareFailed` is invoked so the
  * caller can skip hardware for subsequent steps.
  */
@@ -263,9 +264,11 @@ export async function encodeRenditionWithFallback(options: {
       opts,
     )
   } catch (err) {
-    // A cancelled run rejects with AbortError — not an encoder failure, so it
-    // must not trigger the software fallback.
-    if (options.signal?.aborted) throw err
+    // Only a process that ran and exited with an error can blame the encoder.
+    // Cancellation, a timeout, a missing binary, or a filesystem error says
+    // nothing about the hardware, so it propagates instead of starting a
+    // second encode and disabling hardware for the rest of the run.
+    if (processFailureKind(err) !== "exit") throw err
     if (options.config.hardwareAcceleration === "none") throw err
     logger.warn(
       `hardware ${options.config.hardwareAcceleration} encode failed for ${options.step.height}p; falling back to software:`,
