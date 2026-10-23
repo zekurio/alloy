@@ -143,37 +143,53 @@ pub fn is_detected_game_alive(game: &DetectedGame) -> bool {
 }
 
 pub fn primary_display_id() -> Option<String> {
+    // SAFETY: MonitorFromPoint has no preconditions, and the helpers below
+    // only read the monitor handle it returns.
     unsafe {
         let monitor = MonitorFromPoint(POINT { x: 0, y: 0 }, MONITOR_DEFAULTTOPRIMARY);
         if monitor.is_null() {
             return None;
         }
-
-        let mut monitor_info: MONITORINFOEXW = zeroed();
-        monitor_info.monitorInfo.cbSize = size_of::<MONITORINFOEXW>() as u32;
-        if GetMonitorInfoW(monitor, &mut monitor_info as *mut MONITORINFOEXW as *mut _) == 0 {
-            return None;
-        }
-
-        let device_name = wide_array_to_string(&monitor_info.szDevice);
-        let mut device: DISPLAY_DEVICEW = zeroed();
-        device.cb = size_of::<DISPLAY_DEVICEW>() as u32;
-        if EnumDisplayDevicesW(
-            monitor_info.szDevice.as_ptr(),
-            0,
-            &mut device,
-            EDD_GET_DEVICE_INTERFACE_NAME,
-        ) == 0
-        {
-            return (!device_name.is_empty()).then_some(device_name);
-        }
-
-        let device_id = wide_array_to_string(&device.DeviceID);
-        if device_id.is_empty() {
-            return (!device_name.is_empty()).then_some(device_name);
-        }
-        Some(device_id)
+        let (id, _) = monitor_id_and_name(&monitor_info_ex(monitor)?);
+        (!id.is_empty()).then_some(id)
     }
+}
+
+/// Monitor bounds plus the GDI device name (`\\.\DISPLAY1`).
+pub(super) unsafe fn monitor_info_ex(monitor: HMONITOR) -> Option<MONITORINFOEXW> {
+    let mut monitor_info: MONITORINFOEXW = zeroed();
+    monitor_info.monitorInfo.cbSize = size_of::<MONITORINFOEXW>() as u32;
+    (GetMonitorInfoW(monitor, &mut monitor_info as *mut MONITORINFOEXW as *mut _) != 0)
+        .then_some(monitor_info)
+}
+
+/// The monitor's device interface path and adapter name. Each falls back to
+/// the GDI device name when Windows has no value for it.
+unsafe fn monitor_id_and_name(monitor_info: &MONITORINFOEXW) -> (String, String) {
+    let device_name = wide_array_to_string(&monitor_info.szDevice);
+    let mut device: DISPLAY_DEVICEW = zeroed();
+    device.cb = size_of::<DISPLAY_DEVICEW>() as u32;
+    if EnumDisplayDevicesW(
+        monitor_info.szDevice.as_ptr(),
+        0,
+        &mut device,
+        EDD_GET_DEVICE_INTERFACE_NAME,
+    ) == 0
+    {
+        return (device_name.clone(), device_name);
+    }
+
+    let or_device_name = |value: String| {
+        if value.is_empty() {
+            device_name.clone()
+        } else {
+            value
+        }
+    };
+    (
+        or_device_name(wide_array_to_string(&device.DeviceID)),
+        or_device_name(wide_array_to_string(&device.DeviceString)),
+    )
 }
 
 pub fn list_displays() -> Vec<RecordingDisplay> {
@@ -204,41 +220,10 @@ unsafe extern "system" fn collect_display_monitor(
     lparam: LPARAM,
 ) -> BOOL {
     let context = &mut *(lparam as *mut DisplayEnumerationContext);
-    let mut monitor_info: MONITORINFOEXW = zeroed();
-    monitor_info.monitorInfo.cbSize = size_of::<MONITORINFOEXW>() as u32;
-    if GetMonitorInfoW(monitor, &mut monitor_info as *mut MONITORINFOEXW as *mut _) == 0 {
+    let Some(monitor_info) = monitor_info_ex(monitor) else {
         return 1;
-    }
-
-    let device_name = wide_array_to_string(&monitor_info.szDevice);
-    let mut device: DISPLAY_DEVICEW = zeroed();
-    device.cb = size_of::<DISPLAY_DEVICEW>() as u32;
-    let (id, name) = if EnumDisplayDevicesW(
-        monitor_info.szDevice.as_ptr(),
-        0,
-        &mut device,
-        EDD_GET_DEVICE_INTERFACE_NAME,
-    ) != 0
-    {
-        let device_id = wide_array_to_string(&device.DeviceID);
-        (
-            if device_id.is_empty() {
-                device_name.clone()
-            } else {
-                device_id
-            },
-            {
-                let device_string = wide_array_to_string(&device.DeviceString);
-                if device_string.is_empty() {
-                    device_name.clone()
-                } else {
-                    device_string
-                }
-            },
-        )
-    } else {
-        (device_name.clone(), device_name.clone())
     };
+    let (id, name) = monitor_id_and_name(&monitor_info);
 
     if let Some(dimensions) = rect_dimensions(&monitor_info.monitorInfo.rcMonitor) {
         let index = context.displays.len() + 1;
