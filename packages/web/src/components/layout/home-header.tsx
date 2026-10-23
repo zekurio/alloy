@@ -5,7 +5,6 @@ import {
   AppHeaderActions,
   AppHeaderBrand,
   AppHeaderSearch,
-  AppHeaderWindowControls,
 } from "@alloy/ui/components/app-header"
 import {
   Tooltip,
@@ -23,6 +22,7 @@ import { useAppSearch } from "@/components/search/app-search"
 import { SearchResultsPopover } from "@/components/search/search-results-popover"
 import { alloyWindowChrome } from "@/lib/desktop"
 
+import { DesktopWindowControls } from "./desktop-window-controls"
 import { UserMenu } from "./user-menu"
 
 export function HomeHeader() {
@@ -96,18 +96,7 @@ export function HomeHeader() {
       <AppHeaderActions className="h-full gap-1.5">
         <UserMenu />
         {desktop ? (
-          <AppHeaderWindowControls
-            className="ml-1"
-            onMinimize={() => {
-              void desktop.minimizeWindow()
-            }}
-            onToggleMaximize={() => {
-              void desktop.toggleMaximizeWindow()
-            }}
-            onClose={() => {
-              void desktop.closeWindow()
-            }}
-          />
+          <DesktopWindowControls chrome={desktop} className="ml-1" />
         ) : null}
       </AppHeaderActions>
     </AppHeader>

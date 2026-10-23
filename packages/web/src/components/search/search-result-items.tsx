@@ -1,18 +1,13 @@
 import { type ClipRow, clipThumbnailUrl, type GameListRow } from "@alloy/api"
 import { t, tp } from "@alloy/i18n"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@alloy/ui/components/avatar"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { Skeleton } from "@alloy/ui/components/skeleton"
+import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import {
   CLIP_MEDIA_CLASS,
   CLIP_MEDIA_VIEWPORT_CLASS,
 } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
-import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 
 import { GameIcon } from "@/components/game/game-icon"
@@ -22,7 +17,7 @@ import { apiOrigin } from "@/lib/env"
 import { formatMediaDurationMs } from "@/lib/media-time"
 import { formatCount } from "@/lib/number-format"
 import type { UserListRow } from "@/lib/search-api"
-import { userChipData } from "@/lib/user-display"
+import { TintedAvatar, userChipData } from "@/lib/user-display"
 
 import type { LibraryItemView } from "../routes/library/library-data"
 
@@ -100,18 +95,12 @@ function SearchMediaThumb({
   viewportClassName?: string
   imageClassName?: string
 }) {
-  const [primaryFailed, setPrimaryFailed] = useState(false)
-  const [fallbackFailed, setFallbackFailed] = useState(false)
-
-  useEffect(() => {
-    setPrimaryFailed(false)
-    setFallbackFailed(false)
-  }, [src, fallbackSrc])
-
+  const primary = useImageLoaded(src)
+  const fallback = useImageLoaded(fallbackSrc)
   const activeSrc =
-    src && !primaryFailed
+    src && primary.status !== "error"
       ? src
-      : fallbackSrc && !fallbackFailed
+      : fallbackSrc && fallback.status !== "error"
         ? fallbackSrc
         : null
 
@@ -130,10 +119,7 @@ function SearchMediaThumb({
           alt=""
           loading="lazy"
           className={imageClassName}
-          onError={() => {
-            if (activeSrc === src) setPrimaryFailed(true)
-            else setFallbackFailed(true)
-          }}
+          onError={activeSrc === src ? primary.markError : fallback.markError}
         />
       ) : null}
     </div>
@@ -210,17 +196,11 @@ export function ClipRowItem({
             <span className="truncate">{label}</span>
           </span>
           <span className="flex min-w-0 items-center gap-1">
-            <Avatar size="sm" className="!size-3.5">
-              {author.avatar.src ? (
-                <AvatarImage src={author.avatar.src} alt="" />
-              ) : null}
-              <AvatarFallback
-                style={{
-                  backgroundColor: author.avatar.bg,
-                  color: author.avatar.fg,
-                }}
-              />
-            </Avatar>
+            <TintedAvatar
+              avatar={author.avatar}
+              size="sm"
+              className="!size-3.5"
+            />
             <span className="truncate">{row.authorUsername}</span>
           </span>
           <span>
@@ -322,15 +302,7 @@ export function UserRowItem({
   const handle = row.username
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
-      <Avatar size="lg" className="rounded-full">
-        {chip.avatar.src ? <AvatarImage src={chip.avatar.src} alt="" /> : null}
-        <AvatarFallback
-          style={{
-            backgroundColor: chip.avatar.bg,
-            color: chip.avatar.fg,
-          }}
-        />
-      </Avatar>
+      <TintedAvatar avatar={chip.avatar} size="lg" className="rounded-full" />
       <div className="min-w-0 flex-1">
         <div
           className={cn(

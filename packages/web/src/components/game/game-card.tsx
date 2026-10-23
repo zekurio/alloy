@@ -1,8 +1,9 @@
 import { t } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
+import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { useCallback, useState } from "react"
+import { useState } from "react"
 
 import { gameDisplayName } from "@/lib/game-display-name"
 
@@ -29,28 +30,16 @@ type GameCardProps = {
 }
 
 function GameCardBody({ game, name }: { game: GameCardData; name: string }) {
-  const [heroFailed, setHeroFailed] = useState(false)
-  const [loadedHero, setLoadedHero] = useState<string | null>(null)
+  const hero = useImageLoaded(game.heroUrl)
   const [logoFailed, setLogoFailed] = useState(false)
-  const heroSrc = game.heroUrl && !heroFailed ? game.heroUrl : null
-  const heroLoaded = Boolean(heroSrc && loadedHero === heroSrc)
+  const heroSrc = hero.status === "error" ? null : game.heroUrl
   const logoSrc = game.logoUrl && !logoFailed ? game.logoUrl : null
-
-  // Catches heroes that finished loading before React attached `onLoad`.
-  const setHeroRef = useCallback(
-    (image: HTMLImageElement | null) => {
-      if (!image || !heroSrc) return
-      if (!image.complete || image.naturalWidth <= 0) return
-      setLoadedHero(heroSrc)
-    },
-    [heroSrc],
-  )
 
   return (
     <>
       {/* Anything painted under the hero tints its antialiased corner pixels,
           so the placeholder only stays until the hero covers it. */}
-      {heroLoaded ? null : (
+      {hero.loaded ? null : (
         <MediaPlaceholder
           seed={game.slug ?? game.id}
           blurHash={game.heroBlurHash ?? game.gridBlurHash}
@@ -58,15 +47,15 @@ function GameCardBody({ game, name }: { game: GameCardData; name: string }) {
       )}
       {heroSrc ? (
         <img
-          ref={setHeroRef}
+          ref={hero.ref}
           src={heroSrc}
           alt=""
           aria-hidden
           className="absolute inset-0 size-full object-cover"
           loading="lazy"
           decoding="async"
-          onLoad={() => setLoadedHero(heroSrc)}
-          onError={() => setHeroFailed(true)}
+          onLoad={hero.markLoaded}
+          onError={hero.markError}
         />
       ) : null}
       <div

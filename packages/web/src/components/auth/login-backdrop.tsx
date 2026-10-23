@@ -1,7 +1,8 @@
 import { clipThumbnailUrl } from "@alloy/api"
+import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { cssVariables } from "@alloy/ui/lib/css-properties"
 import { useQuery } from "@tanstack/react-query"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 
 import { backdropsQueryOptions } from "@/lib/auth-query-keys"
 import { apiOrigin } from "@/lib/env"
@@ -30,19 +31,6 @@ const MIN_TILES_PER_COPY = 16
 // a fraction of its configured strength: dark copy loses contrast against image
 // detail far faster than light copy does against a dark wash.
 const LIGHT_WALL_OPACITY_RATIO = 0.35
-
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false)
-  useEffect(() => {
-    if (!globalThis.window?.matchMedia) return
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)")
-    const update = () => setReduced(query.matches)
-    update()
-    query.addEventListener("change", update)
-    return () => query.removeEventListener("change", update)
-  }, [])
-  return reduced
-}
 
 /**
  * Give every row an alternating thumbnail sequence instead of partitioning the
@@ -118,7 +106,7 @@ export function LoginBackdrop({
   blurPx,
   darkenOpacity,
 }: LoginBackdropProps) {
-  const reducedMotion = usePrefersReducedMotion()
+  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)")
   const { data, isError } = useQuery({
     ...backdropsQueryOptions(),
     enabled,

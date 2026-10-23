@@ -56,9 +56,6 @@ export function AccountMenuItems({ handle }: { handle: string | null }) {
   )
 }
 
-export function avatarTint(avatar: { bg?: string; fg?: string }) {
-  return {
-    background: avatar.bg ?? "var(--neutral-200)",
-    color: avatar.fg ?? "var(--foreground)",
-  }
+export function avatarTint(avatar: { bg: string; fg: string }) {
+  return { background: avatar.bg, color: avatar.fg }
 }
