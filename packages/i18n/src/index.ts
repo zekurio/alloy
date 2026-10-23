@@ -7,8 +7,8 @@ import {
 
 export { LOCALE_LABELS, SUPPORTED_LOCALES, type Locale } from "./locales"
 
-export const DEFAULT_LOCALE: Locale = "en"
-export const LOCALE_STORAGE_KEY = "alloy.locale"
+const DEFAULT_LOCALE: Locale = "en"
+const LOCALE_STORAGE_KEY = "alloy.locale"
 
 type TranslationValue = boolean | number | string | null | undefined
 export type TranslationValues = Record<string, TranslationValue>
@@ -43,10 +43,6 @@ export function detectLocale(
   return DEFAULT_LOCALE
 }
 
-export function setRuntimeLocale(locale: Locale): void {
-  runtimeLocale = locale
-}
-
 export function getRuntimeLocale(): Locale {
   return runtimeLocale ?? getClientLocale()
 }
@@ -72,7 +68,7 @@ export function getClientLocale(): Locale {
 }
 
 function activateLocale(locale: Locale): void {
-  setRuntimeLocale(locale)
+  runtimeLocale = locale
   if (globalThis.document) {
     document.documentElement.lang = localeToLanguageTag(locale)
   }
@@ -118,30 +114,15 @@ export function t(key: string, values?: TranslationValues): string {
   return translate(getRuntimeLocale(), key, values)
 }
 
-export function translatePlural(
-  locale: Locale,
-  count: number,
-  one: string,
-  other = `${one}s`,
-  values?: TranslationValues,
-): string {
-  const key = pluralForm(locale, count) === "one" ? one : other
-  return translate(locale, key, { count, ...values })
-}
-
 export function tp(
   count: number,
   one: string,
   other = `${one}s`,
   values?: TranslationValues,
 ): string {
-  return translatePlural(getRuntimeLocale(), count, one, other, values)
-}
-
-export function hasTranslation(locale: Locale, key: string): boolean {
-  return (
-    locale === DEFAULT_LOCALE || Object.hasOwn(LOCALES[locale].messages, key)
-  )
+  const locale = getRuntimeLocale()
+  const key = pluralForm(locale, count) === "one" ? one : other
+  return translate(locale, key, { count, ...values })
 }
 
 function pluralForm(locale: Locale, count: number): PluralForm {

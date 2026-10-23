@@ -22,7 +22,7 @@
     "db:studio": "pnpm --filter @alloy/db db:studio",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "lint": "oxlint",
+    "lint": "oxlint && pnpm --filter @alloy/i18n check:catalogs",
     "lint:github": "pnpm lint",
     "typecheck": "turbo run typecheck",
     "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck"

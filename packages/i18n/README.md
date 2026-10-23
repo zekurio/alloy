@@ -38,10 +38,15 @@ names, and other non-translated search aliases separate from marked messages.
 
 ## Validation
 
+`pnpm lint` runs `scripts/check-catalogs.ts`. It collects the literal keys
+passed to `t()`, `tp()`, `translate()`, and `message()` in `packages/*/src`
+and fails if a non-English catalog lacks one. Keys built at runtime, such as
+server error messages, are invisible to it.
+
 Unit tests have been removed in preparation for E2E testing. Until E2E
 coverage is available, manually check:
 
-- Each non-English catalog translates new source keys and known runtime errors.
+- Each non-English catalog translates known runtime errors.
 - Translations preserve placeholders and boundary whitespace in sentence fragments.
 - Language selection, persistence, English fallback, interpolation, and plurals
   work in the affected UI.
@@ -64,8 +69,8 @@ terms such as `Webhooks` and product names are valid in both languages.
 3. Import the combined catalog in `src/locales.ts` and add an entry with the
    base language code, its native display label, a language tag for formatting,
    and the catalog.
-4. Run `pnpm verify` and review the catalog for missing entries. Check that
-   the language's plural rules fit the API described above.
+4. Run `pnpm verify`; the catalog check lists every missing entry. Check
+   that the language's plural rules fit the API described above.
 5. Check the app in that language, especially settings search, plural text,
    and text that can overflow controls.
 
