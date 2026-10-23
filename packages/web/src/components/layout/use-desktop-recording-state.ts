@@ -50,6 +50,12 @@ function useRecordingSnapshot(recording: AlloyDesktopRecordingApi | null) {
         if (!receivedSettingsEvent) setSettings(nextSettings)
         if (!receivedStatusEvent) setStatus(nextStatus)
       },
+      // The widget stays in its loading state until the host sends settings,
+      // so say why instead of waiting silently.
+      (cause: unknown) => {
+        if (cancelled) return
+        toast.error(errorText(cause, t("Couldn't load recording settings.")))
+      },
     )
 
     return () => {
