@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
-    ffi::{c_void, CStr},
-    mem::{size_of, zeroed},
+    ffi::c_void,
+    mem::size_of,
     path::Path,
     ptr,
     sync::{LazyLock, Mutex, PoisonError},
@@ -19,10 +19,7 @@ use windows_sys::Win32::{
     },
     Foundation::{CloseHandle, HGLOBAL, HWND, RECT},
     Graphics::{
-        Gdi::{
-            GetMonitorInfoA, GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITORINFOEXA,
-            MONITOR_DEFAULTTONEAREST,
-        },
+        Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST},
         GdiPlus::{
             GdipCreateBitmapFromHICON, GdipDisposeImage, GdipSaveImageToStream, GdiplusShutdown,
             GdiplusStartup, GdiplusStartupInput, GpBitmap, GpImage, Ok as GDIP_OK,
@@ -54,7 +51,7 @@ use super::{
     },
     game_matching::clean_user_facing_process_name,
     valid_capture_dimensions,
-    windows::wide_array_to_string,
+    windows::{monitor_info_ex, wide_array_to_string},
     DetectedGame, GameDetection,
 };
 use crate::types::{RecordingSettings, VideoDimensions};
@@ -510,7 +507,7 @@ pub(super) unsafe fn fullscreen_monitor_dimensions(hwnd: HWND) -> Option<VideoDi
 
 const ADVANCED_COLOR_ENABLED_FLAG: u32 = 0b10;
 
-pub(super) fn refresh_capture_metadata(game: &mut DetectedGame) {
+pub(in crate::agent) fn refresh_capture_metadata(game: &mut DetectedGame) {
     unsafe {
         let hwnd = game.window_handle as HWND;
         if hwnd.is_null() || IsWindow(hwnd) == 0 {
@@ -550,13 +547,7 @@ unsafe fn monitor_gdi_device_name(hwnd: HWND) -> Option<String> {
         return None;
     }
 
-    let mut monitor_info: MONITORINFOEXA = zeroed();
-    monitor_info.monitorInfo.cbSize = size_of::<MONITORINFOEXA>() as u32;
-    if GetMonitorInfoA(monitor, &mut monitor_info as *mut MONITORINFOEXA as *mut _) == 0 {
-        return None;
-    }
-
-    c_char_array_to_string(monitor_info.szDevice.as_ptr())
+    Some(wide_array_to_string(&monitor_info_ex(monitor)?.szDevice)).filter(|name| !name.is_empty())
 }
 
 unsafe fn display_path_hdr_enabled(monitor_device_name: &str) -> Option<bool> {
@@ -617,17 +608,6 @@ unsafe fn display_path_advanced_color_enabled(path: &DISPLAYCONFIG_PATH_INFO) ->
     }
 
     Some(color_info.Anonymous.value & ADVANCED_COLOR_ENABLED_FLAG != 0)
-}
-
-unsafe fn c_char_array_to_string(value: *const i8) -> Option<String> {
-    if value.is_null() {
-        return None;
-    }
-    CStr::from_ptr(value)
-        .to_str()
-        .ok()
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
 }
 
 pub(super) fn rect_dimensions(rect: &RECT) -> Option<VideoDimensions> {

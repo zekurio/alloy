@@ -84,7 +84,7 @@ impl Recorder {
             .replay_session
             .as_ref()
             .ok_or("Start capture before taking a screenshot.")?;
-        if session.paused || session.game_capture_hook_wait.is_some() {
+        if session.game_capture_hook_wait.is_some() {
             return Err("Capture source is not ready.".into());
         }
         let obs = self.obs.as_ref().ok_or("OBS is unavailable.")?;

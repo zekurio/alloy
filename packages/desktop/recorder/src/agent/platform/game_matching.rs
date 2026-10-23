@@ -9,8 +9,8 @@ use std::{
 use serde::Deserialize;
 
 use super::{
-    application_display_name, manual_allowed_game_match, manual_game_denied, path_file_name,
-    DetectedGame,
+    manual_allowed_game_match, manual_game_denied, path_file_name,
+    windows_audio::application_display_name, DetectedGame,
 };
 use crate::{
     protocol::SIDE_CAR_NAME,
@@ -159,7 +159,7 @@ pub(super) fn candidate_game_detection_match(
         .filter(|_| known_game_window_is_plausible(capture_dimensions, class_name))
 }
 
-pub(super) fn detected_game_still_allowed(
+pub(in crate::agent) fn detected_game_allowed(
     detected: &DetectedGame,
     settings: &RecordingSettings,
 ) -> bool {

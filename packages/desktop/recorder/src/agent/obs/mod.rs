@@ -34,15 +34,14 @@ use crate::{
 
 use self::{
     bindings::{
-        CallData, ObsData, ObsEncoder, ObsOutput, ObsSource, Vec2, AUDIO_MIXER_ZERO,
-        AUDIO_OUTPUT_CHANNEL_BASE, GAME_CAPTURE_SOURCE_ID, MAX_OUTPUT_CHANNELS, OBS_ALIGN_CENTER,
+        CallData, ObsData, ObsEncoder, ObsOutput, ObsSource, Vec2, APPLICATION_AUDIO_SOURCE_ID,
+        AUDIO_INPUT_SOURCE_ID, AUDIO_MIXER_ZERO, AUDIO_OUTPUT_CHANNEL_BASE, AUDIO_OUTPUT_SOURCE_ID,
+        DISPLAY_CAPTURE_SOURCE_ID, GAME_CAPTURE_SOURCE_ID, MAX_OUTPUT_CHANNELS, OBS_ALIGN_CENTER,
         OBS_BOUNDS_SCALE_INNER, OBS_SCALE_BILINEAR,
     },
     platform::{
         audio_application_from_game, available_audio_applications, free_calldata,
-        platform_application_audio_source_id, platform_audio_devices,
-        platform_audio_input_source_id, platform_audio_output_source_id,
-        platform_default_audio_device_id, platform_display_source_id,
+        platform_audio_devices, platform_default_audio_device_id,
     },
     types::{AudioGraph, AudioSource, GameCaptureHookWait, OutputSourceKind, VideoGraph},
     video_config::EffectiveQuality,
@@ -313,7 +312,7 @@ unsafe fn create_video_source(
             configure_display_capture_source(obs, source_settings, settings)?;
             create_source(
                 obs,
-                platform_display_source_id(),
+                DISPLAY_CAPTURE_SOURCE_ID,
                 "alloy_display_video",
                 Some(source_settings),
             )
@@ -681,34 +680,19 @@ pub(in crate::agent) fn audio_source_configs(
             .map(audio_device_source_config)
             .collect()),
         RecordingAudioMode::Applications => {
-            let mut configs = Vec::new();
-
-            let applications = selected_audio_applications(settings, game);
-            if !applications.is_empty() {
-                let Some(source_id) = platform_application_audio_source_id() else {
-                    return Err(
-                        "Application audio capture requires OBS process audio support.".to_string(),
-                    );
-                };
-                configs.extend(
-                    applications
-                        .into_iter()
-                        .filter(|application| !application.window.is_empty())
-                        .map(|application| AudioSourceConfig {
-                            source_id,
-                            name: audio_source_name(
-                                "application",
-                                &application.name,
-                                &application.window,
-                            ),
-                            selector: application.id,
-                            device_id: None,
-                            window: Some(application.window),
-                            priority: Some(OBS_WINDOW_PRIORITY_EXE),
-                            volume: audio_volume(application.volume),
-                        }),
-                );
-            }
+            let mut configs: Vec<_> = selected_audio_applications(settings, game)
+                .into_iter()
+                .filter(|application| !application.window.is_empty())
+                .map(|application| AudioSourceConfig {
+                    source_id: APPLICATION_AUDIO_SOURCE_ID,
+                    name: audio_source_name("application", &application.name, &application.window),
+                    selector: application.id,
+                    device_id: None,
+                    window: Some(application.window),
+                    priority: Some(OBS_WINDOW_PRIORITY_EXE),
+                    volume: audio_volume(application.volume),
+                })
+                .collect();
 
             // Microphones aren't application playback streams, so input devices
             // stay capturable in applications mode for voice-over.
@@ -786,8 +770,8 @@ fn selected_audio_applications(
 
 fn audio_device_source_config(device: RecordingAudioDeviceSelection) -> AudioSourceConfig {
     let (source_id, prefix) = match device.kind {
-        RecordingAudioDeviceKind::Output => (platform_audio_output_source_id(), "output"),
-        RecordingAudioDeviceKind::Input => (platform_audio_input_source_id(), "input"),
+        RecordingAudioDeviceKind::Output => (AUDIO_OUTPUT_SOURCE_ID, "output"),
+        RecordingAudioDeviceKind::Input => (AUDIO_INPUT_SOURCE_ID, "input"),
     };
 
     AudioSourceConfig {
@@ -892,14 +876,6 @@ pub(in crate::agent) fn source_kind(settings: &RecordingSettings) -> OutputSourc
     } else {
         OutputSourceKind::Game
     }
-}
-
-pub(in crate::agent) fn should_pause_for_focus(
-    _settings: &RecordingSettings,
-    _game: Option<&DetectedGame>,
-    _focused: bool,
-) -> bool {
-    false
 }
 
 pub(in crate::agent) fn recording_source_from_kind(
