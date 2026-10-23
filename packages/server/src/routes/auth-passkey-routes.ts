@@ -1,5 +1,4 @@
 import { t } from "@alloy/contracts/schema"
-import { userPasskey } from "@alloy/db/auth-schema"
 import { completeAuthenticatedSignIn } from "@alloy/server/auth/account-sign-in"
 import {
   clearAccountReactivationCookie,
@@ -11,15 +10,21 @@ import {
   validateUsername,
 } from "@alloy/server/auth/identity"
 import {
+  createPasskeyAccount,
+  insertUserPasskey,
+  listUserPasskeys,
+  renameUserPasskey,
+  selectUserPasskeys,
+} from "@alloy/server/auth/passkeys"
+import {
   publicPasskeyRow,
   publicSessionData,
 } from "@alloy/server/auth/security-responses"
 import { createSession, requireSession } from "@alloy/server/auth/session"
 import {
+  AUTHENTICATOR_TRANSPORTS,
   beginPasskeyAuthentication,
   beginPasskeyRegistration,
-  passkeyPublicKey,
-  serializeTransports,
   verifyPasskeyAuthentication,
   verifyPasskeyRegistration,
 } from "@alloy/server/auth/webauthn"
@@ -27,7 +32,6 @@ import { db } from "@alloy/server/db/index"
 import {
   badRequest,
   badRequestFromCause,
-  internalServerError,
   notFound,
   success,
 } from "@alloy/server/runtime/http-response"
@@ -35,16 +39,15 @@ import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server"
-import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 import type { StaticDecode } from "typebox"
 
-import { completePasskeySignUp } from "./auth-passkey-signup"
 import {
   authenticatedSignInResponse,
   canOpenPasskeyRegistration,
 } from "./auth-route-helpers"
 import {
+  IdParam,
   optionalNullableBlankToNullTrimmedString,
   requiredTrimmedString,
   tbValidator,
@@ -69,19 +72,7 @@ const PasskeyRegistrationVerifyBody = t.object({
       clientDataJSON: t.string(),
       attestationObject: t.string(),
       authenticatorData: t.string().optional(),
-      transports: t
-        .array(
-          t.enum([
-            "ble",
-            "cable",
-            "hybrid",
-            "internal",
-            "nfc",
-            "smart-card",
-            "usb",
-          ]),
-        )
-        .optional(),
+      transports: t.array(t.enum(AUTHENTICATOR_TRANSPORTS)).optional(),
       publicKeyAlgorithm: t.number().int().optional(),
       publicKey: t.string().optional(),
     }),
@@ -110,22 +101,14 @@ const PasskeyNamedRegistrationVerifyBody = PasskeyRegistrationVerifyBody.extend(
   },
 )
 
-const UuidParam = t.object({
-  id: t.string().uuid(),
-})
-
-async function verifyRegistrationBody(
+function verifyRegistrationBody(
   body: StaticDecode<typeof PasskeyRegistrationVerifyBody>,
 ) {
-  // SAFETY: The request schema validates the WebAuthn wire fields.
-  const response = body.response as RegistrationResponseJSON
-  return {
-    response,
-    ...(await verifyPasskeyRegistration({
-      challengeId: body.challengeId,
-      response,
-    })),
-  }
+  return verifyPasskeyRegistration({
+    challengeId: body.challengeId,
+    // SAFETY: The request schema validates the WebAuthn wire fields.
+    response: body.response as RegistrationResponseJSON,
+  })
 }
 
 export const authPasskeyRoutes = new Hono()
@@ -158,16 +141,15 @@ export const authPasskeyRoutes = new Hono()
     tbValidator("json", PasskeyRegistrationVerifyBody),
     async (c) => {
       try {
-        const body = c.req.valid("json")
-        const { payload, verification, response } =
-          await verifyRegistrationBody(body)
-        if (!payload.username) {
+        const registration = await verifyRegistrationBody(c.req.valid("json"))
+        const { username, setupFirstAdmin } = registration.payload
+        if (!username) {
           return badRequest(c, "Invalid registration request.")
         }
-        const userRow = await completePasskeySignUp({
-          payload,
-          registrationInfo: verification.registrationInfo,
-          response,
+        const userRow = await createPasskeyAccount({
+          username,
+          setupFirstAdmin: setupFirstAdmin === true,
+          registration,
         })
 
         const { token, data } = await createSession(c, userRow.id)
@@ -196,19 +178,10 @@ export const authPasskeyRoutes = new Hono()
         const body = c.req.valid("json")
         // SAFETY: The request schema checks the WebAuthn authentication wire
         // fields. SimpleWebAuthn validates their encoded contents.
-        const { credential, verification } = await verifyPasskeyAuthentication({
+        const credential = await verifyPasskeyAuthentication({
           challengeId: body.challengeId,
           response: body.response as AuthenticationResponseJSON,
         })
-        const now = new Date()
-        await db
-          .update(userPasskey)
-          .set({
-            counter: verification.authenticationInfo.newCounter,
-            last_used_at: now,
-            updated_at: now,
-          })
-          .where(eq(userPasskey.id, credential.id))
         return authenticatedSignInResponse(
           c,
           await completeAuthenticatedSignIn(c, credential.user_id),
@@ -219,30 +192,20 @@ export const authPasskeyRoutes = new Hono()
     },
   )
   .get("/passkeys", requireSession, async (c) => {
-    const rows = await db
-      .select({
-        id: userPasskey.id,
-        name: userPasskey.name,
-        createdAt: userPasskey.created_at,
-        deviceType: userPasskey.device_type,
-      })
-      .from(userPasskey)
-      .where(eq(userPasskey.user_id, c.var.viewerId))
-      .orderBy(userPasskey.created_at)
+    const rows = await listUserPasskeys(c.var.viewerId)
     return c.json(rows.map(publicPasskeyRow))
   })
   .post("/passkeys/options", requireSession, async (c) => {
     try {
-      const passkeys = await db
-        .select()
-        .from(userPasskey)
-        .where(eq(userPasskey.user_id, c.var.viewerId))
       return c.json(
         await beginPasskeyRegistration({
           identifier: c.var.viewerId,
           origin: c.req.header("origin"),
           payload: { userId: c.var.viewerId },
-          user: { ...c.var.session.user, passkeys },
+          user: {
+            ...c.var.session.user,
+            passkeys: await selectUserPasskeys(c.var.viewerId),
+          },
         }),
       )
     } catch (cause) {
@@ -260,26 +223,15 @@ export const authPasskeyRoutes = new Hono()
     async (c) => {
       try {
         const body = c.req.valid("json")
-        const { payload, verification } = await verifyRegistrationBody(body)
-        if (payload.userId !== c.var.viewerId) {
+        const registration = await verifyRegistrationBody(body)
+        if (registration.payload.userId !== c.var.viewerId) {
           return badRequest(c, "Invalid passkey registration request.")
         }
-        const info = verification.registrationInfo
-        const [created] = await db
-          .insert(userPasskey)
-          .values({
-            user_id: c.var.viewerId,
-            credential_id: info.credential.id,
-            public_key: passkeyPublicKey(info.credential.publicKey),
-            counter: info.credential.counter,
-            device_type: info.credentialDeviceType,
-            backed_up: info.credentialBackedUp,
-            transports: serializeTransports(body.response.response.transports),
-            aaguid: info.aaguid,
-            name: body.name ?? null,
-          })
-          .returning()
-        if (!created) return internalServerError(c, "Passkey insert failed")
+        const created = await insertUserPasskey(db, {
+          userId: c.var.viewerId,
+          registration,
+          name: body.name ?? null,
+        })
         return c.json(publicPasskeyRow(created))
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not add passkey.")
@@ -289,18 +241,14 @@ export const authPasskeyRoutes = new Hono()
   .patch(
     "/passkeys/:id",
     requireSession,
-    tbValidator("param", UuidParam),
+    tbValidator("param", IdParam),
     tbValidator("json", PasskeyNameBody),
     async (c) => {
-      const { id } = c.req.valid("param")
-      const { name } = c.req.valid("json")
-      const [updated] = await db
-        .update(userPasskey)
-        .set({ name: name ?? null, updated_at: new Date() })
-        .where(
-          and(eq(userPasskey.id, id), eq(userPasskey.user_id, c.var.viewerId)),
-        )
-        .returning()
+      const updated = await renameUserPasskey({
+        userId: c.var.viewerId,
+        passkeyId: c.req.valid("param").id,
+        name: c.req.valid("json").name ?? null,
+      })
       if (!updated) return notFound(c, "Passkey not found.")
       return c.json(publicPasskeyRow(updated))
     },
@@ -308,7 +256,7 @@ export const authPasskeyRoutes = new Hono()
   .delete(
     "/passkeys/:id",
     requireSession,
-    tbValidator("param", UuidParam),
+    tbValidator("param", IdParam),
     async (c) => {
       const { id } = c.req.valid("param")
       const result = await deleteUserPasskeyPreservingSignIn({

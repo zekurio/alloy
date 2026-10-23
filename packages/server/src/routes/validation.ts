@@ -51,6 +51,9 @@ export function tbValidator<
   }) as MiddlewareHandler<AppEnv, Path, Value>
 }
 
+// Route params named `id` are uuids everywhere.
+export const IdParam = t.object({ id: t.uuid() })
+
 export function limitQueryParam(max: number, defaultValue: number) {
   return t.coerce.number().int().min(1).max(max).$default(defaultValue)
 }
