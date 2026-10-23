@@ -4,13 +4,6 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@alloy/ui/components/avatar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@alloy/ui/components/dropdown-menu"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import {
@@ -18,13 +11,13 @@ import {
   CircleAlertIcon,
   LoaderCircleIcon,
   MoreHorizontalIcon,
-  PencilIcon,
   Share2Icon,
-  Trash2Icon,
 } from "lucide-react"
 import type { CSSProperties, ReactNode } from "react"
 
 import { userAvatar } from "@/lib/user-display"
+
+import { ClipActionsMenu } from "./clip-actions-menu"
 
 type ClipAuthorLinkProps = {
   handle: string
@@ -87,65 +80,6 @@ function MobileActionButton({
   )
 }
 
-type ClipActionsMenuProps = {
-  announcementAction?: ReactNode
-  canManage: boolean
-  deleting: boolean
-  downloadAction?: ReactNode
-  iconClassName: string
-  onEdit: () => void
-  onDelete: () => void
-}
-
-function ClipActionsMenu({
-  announcementAction,
-  canManage,
-  deleting,
-  downloadAction,
-  iconClassName,
-  onEdit,
-  onDelete,
-}: ClipActionsMenuProps) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <button
-            type="button"
-            className="flex flex-col items-center"
-            aria-label={t("Clip actions")}
-          >
-            <MoreHorizontalIcon className={iconClassName} />
-          </button>
-        }
-      />
-      <DropdownMenuContent
-        align="end"
-        className="alloy-blur w-max max-w-[calc(100dvw-2rem)] min-w-56"
-      >
-        {downloadAction}
-        {canManage && downloadAction ? <DropdownMenuSeparator /> : null}
-        {canManage ? (
-          <>
-            <DropdownMenuItem onClick={onEdit}>
-              <PencilIcon /> {t("Edit")}
-            </DropdownMenuItem>
-            {announcementAction}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              disabled={deleting}
-              onClick={onDelete}
-            >
-              <Trash2Icon /> {t("Delete")}
-            </DropdownMenuItem>
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 type MobileActionsRailProps = {
   announcementAction?: ReactNode
   canManage: boolean
@@ -199,19 +133,27 @@ export function MobileActionsRail({
           )
         }
       />
-      {canManage || downloadAction ? (
-        <ClipActionsMenu
-          announcementAction={announcementAction}
-          canManage={canManage}
-          deleting={deleting}
-          downloadAction={downloadAction}
-          // Same white as the rail's other glyphs; the rotation makes the
-          // horizontal dots read as the usual vertical overflow menu.
-          iconClassName={cn(iconSizeClassName, "rotate-90 text-white")}
-          onEdit={onEdit}
-          onDelete={onDelete}
-        />
-      ) : null}
+      <ClipActionsMenu
+        trigger={
+          <button
+            type="button"
+            className="flex flex-col items-center"
+            aria-label={t("Clip actions")}
+          >
+            {/* Same white as the rail's other glyphs; the rotation makes the
+                horizontal dots read as the usual vertical overflow menu. */}
+            <MoreHorizontalIcon
+              className={cn(iconSizeClassName, "rotate-90 text-white")}
+            />
+          </button>
+        }
+        canManage={canManage}
+        deleting={deleting}
+        downloadAction={downloadAction}
+        adminActions={announcementAction}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
     </>
   )
 }

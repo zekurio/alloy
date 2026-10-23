@@ -4,7 +4,6 @@ import type {
   ClipPrivacy,
   ClipStatus,
 } from "@alloy/api"
-import { clipShareUrl } from "@alloy/contracts"
 import { t, tp } from "@alloy/i18n"
 import {
   Avatar,
@@ -12,38 +11,24 @@ import {
   AvatarImage,
 } from "@alloy/ui/components/avatar"
 import { Button } from "@alloy/ui/components/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@alloy/ui/components/dropdown-menu"
+import { DropdownMenuItem } from "@alloy/ui/components/dropdown-menu"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import {
-  MoreVerticalIcon,
-  PencilIcon,
-  RefreshCwIcon,
-  Share2Icon,
-  Trash2Icon,
-} from "lucide-react"
-import { useCallback } from "react"
+import { MoreVerticalIcon, RefreshCwIcon, Share2Icon } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { GameIcon } from "@/components/game/game-icon"
-import { useSession } from "@/lib/auth-client"
-import { shareUrlWithFallback } from "@/lib/browser-share"
 import { PRIVACY_BY_VALUE } from "@/lib/clip-fields"
 import { useReEncodeClipMutation } from "@/lib/clip-queries"
-import { publicOrigin } from "@/lib/env"
-import { useActionFeedback } from "@/lib/use-action-feedback"
 
+import { ClipActionsMenu } from "./clip-actions-menu"
 import { ClipMentionsRow } from "./clip-mentions-row"
 import { ClipReannounceMenuItem } from "./clip-reannounce-menu-item"
 import { ClipTagsRow } from "./clip-tags-row"
 import { renderHashtagTokens } from "./description-tokens"
+import { useClipAccess } from "./use-clip-access"
+import { useClipShare } from "./use-clip-share"
 
 interface ClipMetaProps {
   /** Clip id — powers each field's PATCH and the delete action. */
@@ -77,7 +62,7 @@ interface ClipMetaProps {
   tags: string[]
   onRequestDelete: () => void
   deletePending: boolean
-  onEdit?: () => void
+  onEdit: () => void
   /** Download action for any viewer who can access the clip. */
   downloadAction?: ReactNode
   /** Viewer dialog close button, rendered as the trailing header action. */
@@ -106,32 +91,11 @@ function ClipMeta({
   downloadAction,
   closeAction,
 }: ClipMetaProps) {
-  const { data: session } = useSession()
-  const viewerId = session?.user?.id ?? null
-  // SAFETY: The auth API includes the optional role field on session users.
-  const viewerRole =
-    (session?.user as { role?: string | null } | undefined)?.role ?? null
-  const isOwner = viewerId !== null && viewerId === authorId
-  const isAdmin = viewerRole === "admin"
-  const canManage = isOwner || isAdmin
+  const { isAdmin, canManage } = useClipAccess(authorId)
   const hasDescription = Boolean(description && description.trim().length > 0)
 
-  const deleting = deletePending
   const reEncodeMutation = useReEncodeClipMutation()
-  const shareFeedback = useActionFeedback()
-
-  const handleShare = useCallback(async () => {
-    await shareFeedback.run(async () => {
-      if (privacy === "private") throw new Error(t("Clip link is disabled"))
-      const url = clipShareUrl(clipId, publicOrigin())
-      const result = await shareUrlWithFallback(url, {
-        title,
-        action: "share clip link",
-      })
-      if (result === "failed") throw new Error(t("Couldn't share clip"))
-      return result !== "cancelled"
-    }, t("Couldn't share clip"))
-  }, [clipId, privacy, shareFeedback, title])
+  const share = useClipShare({ clipId, title, privacy })
 
   const avatarStyle = {
     background: uploader.avatar.bg ?? "var(--neutral-200)",
@@ -159,8 +123,8 @@ function ClipMeta({
           <FeedbackButton
             variant="ghost"
             size="icon"
-            onClick={handleShare}
-            state={shareFeedback.feedback.state}
+            onClick={share.share}
+            state={share.feedback.state}
             pendingLabel={<span className="sr-only">{t("Sharing…")}</span>}
             successLabel={<span className="sr-only">{t("Link copied")}</span>}
             errorLabel={<span className="sr-only">{t("Try again")}</span>}
@@ -176,60 +140,45 @@ function ClipMeta({
           >
             <Share2Icon className="size-4" />
           </FeedbackButton>
-          {canManage || !!downloadAction ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t("Clip actions")}
-                  >
-                    <MoreVerticalIcon className="size-4" />
-                  </Button>
-                }
-              />
-              <DropdownMenuContent
-                align="end"
-                className="alloy-blur w-max max-w-[calc(100dvw-2rem)] min-w-56"
+          <ClipActionsMenu
+            trigger={
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={t("Clip actions")}
               >
-                {downloadAction}
-                {canManage && downloadAction ? <DropdownMenuSeparator /> : null}
-                {canManage ? (
-                  <>
-                    <DropdownMenuItem onClick={onEdit}>
-                      <PencilIcon /> {t("Edit")}
-                    </DropdownMenuItem>
-                    {isAdmin && (status === "failed" || status === "ready") ? (
-                      <DropdownMenuItem
-                        onClick={() => reEncodeMutation.mutate({ clipId })}
-                        disabled={encodeActive || reEncodeMutation.isPending}
-                      >
-                        <RefreshCwIcon
-                          className={cn(encodeActive && "animate-spin")}
-                        />
-                        {encodeActive ? t("Re-encoding") : t("Re-encode")}
-                      </DropdownMenuItem>
-                    ) : null}
-                    {isAdmin && status === "ready" && privacy === "public" ? (
-                      <ClipReannounceMenuItem
-                        clipId={clipId}
-                        disabled={encodeActive}
-                      />
-                    ) : null}
-                    <DropdownMenuSeparator />
+                <MoreVerticalIcon className="size-4" />
+              </Button>
+            }
+            canManage={canManage}
+            deleting={deletePending}
+            downloadAction={downloadAction}
+            adminActions={
+              isAdmin ? (
+                <>
+                  {status === "failed" || status === "ready" ? (
                     <DropdownMenuItem
-                      variant="destructive"
-                      disabled={deleting}
-                      onClick={onRequestDelete}
+                      onClick={() => reEncodeMutation.mutate({ clipId })}
+                      disabled={encodeActive || reEncodeMutation.isPending}
                     >
-                      <Trash2Icon /> {t("Delete")}
+                      <RefreshCwIcon
+                        className={cn(encodeActive && "animate-spin")}
+                      />
+                      {encodeActive ? t("Re-encoding") : t("Re-encode")}
                     </DropdownMenuItem>
-                  </>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
+                  ) : null}
+                  {status === "ready" && privacy === "public" ? (
+                    <ClipReannounceMenuItem
+                      clipId={clipId}
+                      disabled={encodeActive}
+                    />
+                  ) : null}
+                </>
+              ) : null
+            }
+            onEdit={onEdit}
+            onDelete={onRequestDelete}
+          />
           {closeAction}
         </div>
       </div>
@@ -259,7 +208,7 @@ function ClipMeta({
 
       {hasDescription ? (
         <p className="text-foreground-muted max-w-3xl text-sm leading-relaxed whitespace-pre-wrap">
-          {renderHashtagTokens(description ?? "", { linkHashtags: true })}
+          {renderHashtagTokens(description ?? "")}
         </p>
       ) : null}
 
@@ -332,7 +281,7 @@ function ClipVisibilityBadge({
 function ClipTitleWithVisibility({
   title,
   privacy,
-  heading = "h2",
+  heading: Heading = "h2",
   className,
   titleClassName,
   badgeClassName,
@@ -344,8 +293,6 @@ function ClipTitleWithVisibility({
   titleClassName: string
   badgeClassName?: string
 }) {
-  const HeadingTag = heading === "h1" ? "h1" : "h2"
-
   return (
     <div
       className={cn(
@@ -353,7 +300,7 @@ function ClipTitleWithVisibility({
         className,
       )}
     >
-      <HeadingTag className={titleClassName}>{title}</HeadingTag>
+      <Heading className={titleClassName}>{title}</Heading>
       {privacy !== "public" ? (
         <ClipVisibilityBadge privacy={privacy} className={badgeClassName} />
       ) : null}

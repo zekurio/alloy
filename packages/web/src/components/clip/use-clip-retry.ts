@@ -1,7 +1,8 @@
 import type { ClipRow } from "@alloy/api"
 
-import { useSession } from "@/lib/auth-client"
 import { useReEncodeClipMutation } from "@/lib/clip-queries"
+
+import { useClipAccess } from "./use-clip-access"
 
 /**
  * Owner/admin retry affordance for a failed clip, rendered by the player's
@@ -9,16 +10,10 @@ import { useReEncodeClipMutation } from "@/lib/clip-queries"
  * Re-encoding a *ready* clip is a separate admin-only action (see ClipMeta).
  */
 export function useClipRetry(row: ClipRow) {
-  const { data: session } = useSession()
-  const viewerId = session?.user?.id ?? null
-  // SAFETY: The auth API includes the optional role field on session users.
-  const role =
-    (session?.user as { role?: string | null } | undefined)?.role ?? null
-  const canRetry =
-    (viewerId !== null && viewerId === row.authorId) || role === "admin"
+  const { canManage } = useClipAccess(row.authorId)
   const mutation = useReEncodeClipMutation()
   return {
-    canRetry,
+    canRetry: canManage,
     retryPending: mutation.isPending && mutation.variables?.clipId === row.id,
     onRetry: () => mutation.mutate({ clipId: row.id }),
   }

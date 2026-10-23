@@ -1,10 +1,9 @@
 import type { ClipRow } from "@alloy/api"
-import { UNCATEGORISED_GAME_SLUG } from "@alloy/contracts"
 import { useMemo } from "react"
 
 import { ClipCardTrigger } from "./clip-card-trigger"
 import { ClipGrid } from "./clip-grid"
-import { type ClipListEntry, ClipListProvider } from "./clip-list-context"
+import { clipListEntry, ClipListProvider } from "./clip-list-context"
 
 type ClipCardListProps = {
   rows: readonly ClipRow[]
@@ -17,15 +16,7 @@ export function ClipCardList({
   isOwnedByViewer,
   listKey,
 }: ClipCardListProps) {
-  const entries = useMemo<ClipListEntry[]>(
-    () =>
-      rows.map((row) => ({
-        id: row.id,
-        gameId: row.gameRef?.slug ?? UNCATEGORISED_GAME_SLUG,
-        row,
-      })),
-    [rows],
-  )
+  const entries = useMemo(() => rows.map(clipListEntry), [rows])
   const masonry = rows.some((row) => row.mediaKind === "image")
   const grid = (
     <ClipGrid masonry={masonry}>

@@ -17,17 +17,8 @@ import {
   useClipDownload,
 } from "@/lib/clip-downloads"
 import { apiOrigin } from "@/lib/env"
+import { errorMessage } from "@/lib/error-message"
 
-/**
- * Shared "save this uploaded clip to the local library" affordance. Renders
- * nothing outside the desktop app (or for clips without downloadable media);
- * while a download runs, every instance reflects the same progress from the
- * shared store, and the sync tracker carries the detailed status.
- */
-/**
- * Non-hook variant of the support check, for call sites that decide whether
- * to render a download action at all (e.g. menu gating).
- */
 function clipDownloadActionSupported(row: ClipRow): boolean {
   return (
     clipDownloadsSupported() &&
@@ -57,10 +48,7 @@ function useClipDownloadAction(row: ClipRow) {
     (onError?: (message: string) => void) => {
       setError(null)
       void startClipDownload(row).catch((cause) => {
-        const message =
-          cause instanceof Error
-            ? cause.message
-            : t("Couldn't start the download")
+        const message = errorMessage(cause, t("Couldn't start the download"))
         setError(message)
         onError?.(message)
       })
@@ -70,7 +58,12 @@ function useClipDownloadAction(row: ClipRow) {
   return { supported, downloading, saved, progress, error, start }
 }
 
-/** Dropdown menu item variant for clip action menus. */
+/**
+ * "Save this uploaded clip to the local library" menu item. Renders nothing
+ * outside the desktop app (or for clips without downloadable media); while a
+ * download runs, every instance reflects the same progress from the shared
+ * store, and the sync tracker carries the detailed status.
+ */
 export function ClipDownloadMenuItem({ row }: { row: ClipRow }) {
   const action = useClipDownloadAction(row)
   if (!action.supported) return null

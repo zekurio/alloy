@@ -1,5 +1,4 @@
 import { type ClipRow, HttpError } from "@alloy/api"
-import { UNCATEGORISED_GAME_SLUG } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Spinner } from "@alloy/ui/components/spinner"
@@ -21,7 +20,11 @@ import {
   clipBrowserDownloadActionSupported,
   ClipBrowserDownloadMenuItem,
 } from "./clip-download-button"
-import { type ClipListEntry, ClipListProvider } from "./clip-list-context"
+import {
+  clipListEntry,
+  type ClipListEntry,
+  ClipListProvider,
+} from "./clip-list-context"
 import { ClipMeta } from "./clip-meta"
 
 export function ClipDetailsPanel({
@@ -44,21 +47,12 @@ export function ClipDetailsPanel({
     recommendedClipsQueryOptions(row.id, session?.user.id ?? null),
   )
   const entries = useMemo(
-    () =>
-      (recommendations.data?.items ?? []).map((recommended) => ({
-        id: recommended.id,
-        gameId: recommended.gameRef?.slug ?? UNCATEGORISED_GAME_SLUG,
-        row: recommended,
-      })),
+    () => (recommendations.data?.items ?? []).map(clipListEntry),
     [recommendations.data],
   )
 
   function openClip(recommended: ClipRow) {
-    const entry = {
-      id: recommended.id,
-      gameId: recommended.gameRef?.slug ?? UNCATEGORISED_GAME_SLUG,
-      row: recommended,
-    }
+    const entry = clipListEntry(recommended)
     if (onNavigate) onNavigate(entry)
     else void navigate({ to: "/clips/$clipId", params: { clipId: entry.id } })
   }

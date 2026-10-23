@@ -83,7 +83,7 @@ interface ClipPlayerProps {
 }
 
 const DEFAULT_ASPECT_RATIO = 16 / 9
-function ClipPlayer({ ...props }: ClipPlayerProps) {
+function ClipPlayer(props: ClipPlayerProps) {
   if (
     props.playbackContentType?.startsWith("image/") &&
     props.status === "ready"
