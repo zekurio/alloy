@@ -30,9 +30,12 @@ function useAdminUsersQuery(search: string) {
       ? usersQuery.data.pages.flatMap((page) => page.users)
       : null,
     total: usersQuery.data?.pages[0]?.total ?? 0,
-    loadError: usersQuery.error
-      ? errorMessage(usersQuery.error, t("Failed to load users"))
-      : null,
+    // Loaded rows win over an error, so a failed refetch or "Load more" keeps
+    // the list on screen.
+    loadError:
+      usersQuery.error && !usersQuery.data
+        ? errorMessage(usersQuery.error, t("Failed to load users"))
+        : null,
     hasNextPage: usersQuery.hasNextPage,
     isFetchingNextPage: usersQuery.isFetchingNextPage,
     fetchNextPage: usersQuery.fetchNextPage,

@@ -47,7 +47,7 @@ export function SteamGridDBArtworkGrid({
 
   if (artworkQuery.isPending) return <ArtworkSkeletonGrid role={role} />
 
-  if (artworkQuery.isError) {
+  if (!artworkQuery.data) {
     return (
       <Callout tone="destructive">
         <CircleAlertIcon aria-hidden />
