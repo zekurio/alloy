@@ -97,26 +97,28 @@ export function isBuiltIn(name: string, environment: TypeEnvironment): boolean {
   return BUILT_INS.has(name) && !environment.shadowedBuiltIns.has(name)
 }
 
+/** Name of a plain reference such as `Foo`; qualified and generic references have none. */
+export function referencedAliasName(type: ESTree.TSType): string | null {
+  if (type.type !== "TSTypeReference") return null
+  const name = typeReferenceName(type)
+  return name !== null &&
+    (type.typeArguments === null ||
+      type.typeArguments === undefined ||
+      type.typeArguments.params.length === 0)
+    ? name
+    : null
+}
+
 export function isUnappliedReferenceTo(
   type: ESTree.TSType,
   name: string,
 ): boolean {
-  const unwrapped = unwrapTransparentType(type)
-  return (
-    unwrapped.type === "TSTypeReference" &&
-    typeReferenceName(unwrapped) === name &&
-    (unwrapped.typeArguments === null ||
-      unwrapped.typeArguments === undefined ||
-      unwrapped.typeArguments.params.length === 0)
-  )
+  return referencedAliasName(unwrapTransparentType(type)) === name
 }
 
 export function unwrapTransparentType(type: ESTree.TSType): ESTree.TSType {
   let current = type
-  while (
-    current.type === "TSParenthesizedType" ||
-    (current.type === "TSTypeOperator" && current.operator === "readonly")
-  ) {
+  while (current.type === "TSTypeOperator" && current.operator === "readonly") {
     current = current.typeAnnotation
   }
   return current

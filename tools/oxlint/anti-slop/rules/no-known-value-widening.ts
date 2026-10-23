@@ -1,55 +1,27 @@
 import { defineRule } from "@oxlint/plugins"
-import type { ESTree, Scope, SourceCode, Variable } from "@oxlint/plugins"
+import type { ESTree, SourceCode, Variable } from "@oxlint/plugins"
 
-import { isKnownEvidenceExpression } from "../shared/dictionary-types.ts"
+import {
+  isEmptyObjectExpression,
+  isKnownValueSyntax,
+  isTypeAssertion,
+  unwrapTypeOnlyWrappers,
+} from "../shared/expressions.ts"
 import {
   createTypeEnvironment,
   type TypeEnvironment,
 } from "../shared/type-environment.ts"
+import {
+  createVariableResolver,
+  variableDeclarator,
+  type VariableResolver,
+} from "../shared/variables.ts"
 import {
   classifyWideningTarget,
   type WideningTarget,
 } from "../shared/widening-targets.ts"
 
 type FunctionExpression = ESTree.ArrowFunctionExpression | ESTree.Function
-
-function unwrapExpression(expression: ESTree.Expression): ESTree.Expression {
-  let current = expression
-  while (
-    current.type === "ParenthesizedExpression" ||
-    current.type === "TSAsExpression" ||
-    current.type === "TSSatisfiesExpression" ||
-    current.type === "TSTypeAssertion" ||
-    current.type === "TSNonNullExpression"
-  ) {
-    current = current.expression
-  }
-  return current
-}
-
-function resolveVariable(
-  sourceCode: SourceCode,
-  identifier: ESTree.IdentifierReference,
-): Variable | null {
-  let scope: Scope | null = sourceCode.getScope(identifier)
-  while (scope !== null) {
-    const variable = scope.set.get(identifier.name)
-    if (variable !== undefined) return variable
-    scope = scope.upper
-  }
-  return null
-}
-
-function variableDeclarator(
-  variable: Variable,
-): ESTree.VariableDeclarator | null {
-  if (variable.defs.length !== 1) return null
-  const [definition] = variable.defs
-  return definition?.type === "Variable" &&
-    definition.node.type === "VariableDeclarator"
-    ? definition.node
-    : null
-}
 
 function isStableConstVariable(
   variable: Variable,
@@ -65,14 +37,14 @@ function isStableConstVariable(
 }
 
 function hasKnownEvidence(
-  sourceCode: SourceCode,
+  resolveVariable: VariableResolver,
   expression: ESTree.Expression,
   visitedVariables = new Set<Variable>(),
 ): boolean {
-  if (isKnownEvidenceExpression(expression)) return true
-  const unwrapped = unwrapExpression(expression)
+  const unwrapped = unwrapTypeOnlyWrappers(expression)
+  if (isKnownValueSyntax(unwrapped)) return true
   if (unwrapped.type !== "Identifier") return false
-  const variable = resolveVariable(sourceCode, unwrapped)
+  const variable = resolveVariable(unwrapped)
   if (variable === null || visitedVariables.has(variable)) return false
   const declarator = variableDeclarator(variable)
   if (
@@ -83,7 +55,7 @@ function hasKnownEvidence(
     return false
   }
   visitedVariables.add(variable)
-  return hasKnownEvidence(sourceCode, declarator.init, visitedVariables)
+  return hasKnownEvidence(resolveVariable, declarator.init, visitedVariables)
 }
 
 function annotationTarget(
@@ -134,24 +106,10 @@ function functionName(
   return "anonymous function"
 }
 
-function isEmptyObjectExpression(expression: ESTree.Expression): boolean {
-  const unwrapped = unwrapExpression(expression)
-  return (
-    unwrapped.type === "ObjectExpression" && unwrapped.properties.length === 0
-  )
-}
-
 function isDictionaryAccumulatorTarget(destination: WideningTarget): boolean {
   return (
     destination.kind === "open dictionary" ||
     destination.kind === "generic container"
-  )
-}
-
-function hasParentAssertion(node: ESTree.Node): boolean {
-  return (
-    node.parent?.type === "TSAsExpression" ||
-    node.parent?.type === "TSTypeAssertion"
   )
 }
 
@@ -170,6 +128,7 @@ export const noKnownValueWideningRule = defineRule({
   },
   createOnce(context) {
     let environment: TypeEnvironment | null = null
+    let resolveVariable: VariableResolver = () => null
 
     const reportFlow = (
       expression: ESTree.Expression,
@@ -179,11 +138,11 @@ export const noKnownValueWideningRule = defineRule({
       if (destination === null) return
       if (
         isDictionaryAccumulatorTarget(destination) &&
-        isEmptyObjectExpression(expression)
+        isEmptyObjectExpression(unwrapTypeOnlyWrappers(expression))
       ) {
         return
       }
-      if (!hasKnownEvidence(context.sourceCode, expression)) return
+      if (!hasKnownEvidence(resolveVariable, expression)) return
       context.report({
         node: expression,
         messageId: "widening",
@@ -199,6 +158,7 @@ export const noKnownValueWideningRule = defineRule({
     return {
       Program(node) {
         environment = createTypeEnvironment(node)
+        resolveVariable = createVariableResolver(context.sourceCode)
       },
       VariableDeclarator(node) {
         if (node.init === null || node.id.type !== "Identifier") return
@@ -226,7 +186,7 @@ export const noKnownValueWideningRule = defineRule({
       },
       AssignmentExpression(node) {
         if (node.operator !== "=" || node.left.type !== "Identifier") return
-        const variable = resolveVariable(context.sourceCode, node.left)
+        const variable = resolveVariable(node.left)
         if (variable === null) return
         const declarator = variableDeclarator(variable)
         if (declarator === null || declarator.id.type !== "Identifier") return
@@ -254,7 +214,7 @@ export const noKnownValueWideningRule = defineRule({
         )
       },
       TSAsExpression(node) {
-        if (environment === null || hasParentAssertion(node)) return
+        if (environment === null || isTypeAssertion(node.parent)) return
         reportFlow(
           node.expression,
           classifyWideningTarget(node.typeAnnotation, environment),
@@ -262,7 +222,7 @@ export const noKnownValueWideningRule = defineRule({
         )
       },
       TSTypeAssertion(node) {
-        if (environment === null || hasParentAssertion(node)) return
+        if (environment === null || isTypeAssertion(node.parent)) return
         reportFlow(
           node.expression,
           classifyWideningTarget(node.typeAnnotation, environment),

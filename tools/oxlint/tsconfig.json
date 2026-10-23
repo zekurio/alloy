@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": ["anti-slop/**/*.ts"],
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "allowImportingTsExtensions": true
+  }
+}

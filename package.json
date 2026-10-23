@@ -24,7 +24,8 @@
     "fmt:check": "oxfmt --check",
     "lint": "oxlint && pnpm --filter @alloy/i18n check:catalogs",
     "lint:github": "pnpm lint",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "turbo run typecheck typecheck:oxlint",
+    "typecheck:oxlint": "tsc -p tools/oxlint",
     "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck"
   },
   "devDependencies": {
