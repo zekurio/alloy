@@ -271,11 +271,7 @@ function SettingsOverview({
   categories: SettingsCategory[]
   onOpenSection: (section: string) => void
 }) {
-  const [query, setQuery] = useState("")
-  const matches = useMemo(
-    () => searchSettingsCategories(categories, query),
-    [categories, query],
-  )
+  const search = useSettingsSearch(categories)
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -298,26 +294,14 @@ function SettingsOverview({
           !native && "pb-[max(1.25rem,env(safe-area-inset-bottom))]",
         )}
       >
-        <InputGroup>
-          <InputGroupAddon>
-            <SearchIcon />
-          </InputGroupAddon>
-          <InputGroupInput
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.currentTarget.value)}
-            placeholder={t("Search settings")}
-            aria-label={t("Search settings")}
-            className="[&::-webkit-search-cancel-button]:appearance-none"
-          />
-        </InputGroup>
-        {SETTINGS_GROUPS.map((group) => {
-          const items = matches.filter(
-            (match) => match.category.group === group.id,
+        <SettingsSearchField value={search.query} onChange={search.setQuery} />
+        {search.groups.map((group) => {
+          const profile = group.items.find(
+            (item) => item.category.id === "profile",
           )
-          if (items.length === 0) return null
-          const profile = items.find((item) => item.category.id === "profile")
-          const rest = items.filter((item) => item.category.id !== "profile")
+          const rest = group.items.filter(
+            (item) => item.category.id !== "profile",
+          )
           return (
             <section key={group.id} className="flex flex-col gap-4">
               {group.id !== "account" ? (
@@ -362,7 +346,7 @@ function SettingsOverview({
             </section>
           )
         })}
-        {matches.length === 0 ? (
+        {search.groups.length === 0 ? (
           <p className="text-foreground-faint px-1 text-sm">
             {t("No settings found.")}
           </p>
@@ -435,11 +419,7 @@ function SettingsSectionView({
     if (sectionId === active.id) return
     guarded(() => onNavigate(sectionId))
   }
-  const [query, setQuery] = useState("")
-  const matches = useMemo(
-    () => searchSettingsCategories(categories, query),
-    [categories, query],
-  )
+  const search = useSettingsSearch(categories)
   const title = active.title ?? active.label
 
   return (
@@ -448,68 +428,55 @@ function SettingsSectionView({
         <div className="text-foreground px-2.5 pb-3 text-lg font-semibold tracking-[var(--tracking-tight)]">
           {t("Settings")}
         </div>
-        <InputGroup className="mb-1">
-          <InputGroupAddon>
-            <SearchIcon className="size-3.5" />
-          </InputGroupAddon>
-          <InputGroupInput
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.currentTarget.value)}
-            placeholder={t("Search settings")}
-            aria-label={t("Search settings")}
-            className="[&::-webkit-search-cancel-button]:appearance-none"
-          />
-        </InputGroup>
-        {SETTINGS_GROUPS.map((group) => {
-          const items = matches.filter(
-            (match) => match.category.group === group.id,
-          )
-          if (items.length === 0) return null
-          return (
-            <div key={group.id} className="flex flex-col gap-0.5">
-              {group.id !== "account" ? (
-                <div className="text-foreground-faint px-2.5 pt-5 pb-1.5 text-xs font-medium">
-                  {group.label}
-                </div>
-              ) : null}
-              {items.map(({ category, hint }) => {
-                const Icon = category.icon
-                const isActive = category.id === active.id
-                return (
-                  <div key={category.id} className="flex flex-col">
-                    <button
-                      type="button"
-                      onClick={() => navigateTo(category.id)}
-                      className={cn(
-                        "flex items-center gap-2.5 rounded-md px-2.5 py-2.5 text-left text-sm transition-colors",
-                        isActive
-                          ? "bg-surface-raised text-foreground font-medium"
-                          : "text-foreground-dim hover:text-foreground hover:bg-white/[0.03]",
-                      )}
-                    >
-                      <Icon className="size-4 shrink-0" />
-                      <span className="flex min-w-0 flex-col">
-                        <span className="truncate">{category.label}</span>
-                        {hint ? (
-                          <span className="text-foreground-faint truncate text-xs font-normal">
-                            {hint}
-                          </span>
-                        ) : null}
-                      </span>
-                    </button>
-                    {/* Searching filters the list down to what matched; the
+        <SettingsSearchField
+          value={search.query}
+          onChange={search.setQuery}
+          className="mb-1"
+          iconClassName="size-3.5"
+        />
+        {search.groups.map((group) => (
+          <div key={group.id} className="flex flex-col gap-0.5">
+            {group.id !== "account" ? (
+              <div className="text-foreground-faint px-2.5 pt-5 pb-1.5 text-xs font-medium">
+                {group.label}
+              </div>
+            ) : null}
+            {group.items.map(({ category, hint }) => {
+              const Icon = category.icon
+              const isActive = category.id === active.id
+              return (
+                <div key={category.id} className="flex flex-col">
+                  <button
+                    type="button"
+                    onClick={() => navigateTo(category.id)}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-md px-2.5 py-2.5 text-left text-sm transition-colors",
+                      isActive
+                        ? "bg-surface-raised text-foreground font-medium"
+                        : "text-foreground-dim hover:text-foreground hover:bg-white/[0.03]",
+                    )}
+                  >
+                    <Icon className="size-4 shrink-0" />
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate">{category.label}</span>
+                      {hint ? (
+                        <span className="text-foreground-faint truncate text-xs font-normal">
+                          {hint}
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                  {/* Searching filters the list down to what matched; the
                         subsections of one tab would only bury that. */}
-                    {isActive && !query.trim() ? (
-                      <SettingsSectionNav scrollRef={scrollRef} />
-                    ) : null}
-                  </div>
-                )
-              })}
-            </div>
-          )
-        })}
-        {matches.length === 0 ? (
+                  {isActive && !search.query.trim() ? (
+                    <SettingsSectionNav scrollRef={scrollRef} />
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        ))}
+        {search.groups.length === 0 ? (
           <p className="text-foreground-faint px-2.5 pt-3 text-sm">
             {t("No settings found.")}
           </p>
@@ -570,5 +537,46 @@ function SettingsSectionView({
         <SettingsSaveBar />
       </div>
     </SettingsSectionsProvider>
+  )
+}
+
+/** The settings search query and what it matches, grouped as the nav groups. */
+function useSettingsSearch(categories: SettingsCategory[]) {
+  const [query, setQuery] = useState("")
+  const groups = useMemo(() => {
+    const matches = searchSettingsCategories(categories, query)
+    return SETTINGS_GROUPS.map((group) => ({
+      ...group,
+      items: matches.filter((match) => match.category.group === group.id),
+    })).filter((group) => group.items.length > 0)
+  }, [categories, query])
+  return { query, setQuery, groups }
+}
+
+function SettingsSearchField({
+  value,
+  onChange,
+  className,
+  iconClassName,
+}: {
+  value: string
+  onChange: (value: string) => void
+  className?: string
+  iconClassName?: string
+}) {
+  return (
+    <InputGroup className={className}>
+      <InputGroupAddon>
+        <SearchIcon className={iconClassName} />
+      </InputGroupAddon>
+      <InputGroupInput
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        placeholder={t("Search settings")}
+        aria-label={t("Search settings")}
+        className="[&::-webkit-search-cancel-button]:appearance-none"
+      />
+    </InputGroup>
   )
 }

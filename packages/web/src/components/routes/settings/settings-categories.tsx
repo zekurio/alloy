@@ -19,10 +19,8 @@ import {
   getStoredTheme,
   setStoredTheme,
   THEMES,
-  THEME_STORAGE_KEY,
   type Theme,
 } from "@alloy/ui/lib/theme"
-import { refreshThemePreferences } from "@alloy/ui/lib/theme-storage"
 import {
   DatabaseIcon,
   FilmIcon,
@@ -40,7 +38,7 @@ import {
   Volume2Icon,
   WebhookIcon,
 } from "lucide-react"
-import { lazy, useEffect, useMemo, useState } from "react"
+import { lazy, useMemo, useState } from "react"
 import type { ComponentType, LazyExoticComponent } from "react"
 
 import { ClipAnnouncementRow } from "@/components/routes/settings/clip-announcement-settings"
@@ -62,7 +60,10 @@ import {
   type SettingsGroup,
   type SettingsSearchCategory,
 } from "@/components/routes/settings/settings-search"
-import { ThemeSettings } from "@/components/routes/settings/theme-settings"
+import {
+  ThemeSettings,
+  useStoredThemeSync,
+} from "@/components/routes/settings/theme-settings"
 import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
 
@@ -81,78 +82,60 @@ export const SETTINGS_GROUPS: { id: SettingsGroup; label: string }[] = [
   { id: "admin", label: t("Administration") },
 ]
 
-const DesktopCapturePanel = lazy(() =>
-  import("@/components/routes/settings/desktop/desktop-capture-settings").then(
-    (module) => ({
-      default: module.DesktopCapturePanel,
-    }),
-  ),
-)
+/** Loads a panel from its own chunk the first time it opens. */
+function lazyPanel<TModule>(
+  load: () => Promise<TModule>,
+  pick: (module: TModule) => ComponentType,
+) {
+  return lazy(async () => ({ default: pick(await load()) }))
+}
 
-const DesktopQualitySettings = lazy(() =>
-  import("@/components/routes/settings/desktop/desktop-quality-settings").then(
-    (module) => ({
-      default: module.DesktopQualitySettings,
-    }),
-  ),
-)
+const loadAdminPanels = () =>
+  import("@/components/routes/settings/admin-tab-content")
 
-const DesktopAudioSettings = lazy(() =>
-  import("@/components/routes/settings/desktop/desktop-audio-settings").then(
-    (module) => ({
-      default: module.DesktopAudioSettings,
-    }),
-  ),
+const DesktopCapturePanel = lazyPanel(
+  () => import("@/components/routes/settings/desktop/desktop-capture-settings"),
+  (module) => module.DesktopCapturePanel,
 )
-
-const DesktopAppPanel = lazy(() =>
-  import("@/components/routes/settings/desktop/desktop-server-settings").then(
-    (module) => ({
-      default: module.DesktopAppPanel,
-    }),
-  ),
+const DesktopQualitySettings = lazyPanel(
+  () => import("@/components/routes/settings/desktop/desktop-quality-settings"),
+  (module) => module.DesktopQualitySettings,
 )
-
-const AdminAppearancePanel = lazy(() =>
-  import("@/components/routes/settings/admin-tab-content").then((module) => ({
-    default: module.AdminAppearancePanel,
-  })),
+const DesktopAudioSettings = lazyPanel(
+  () => import("@/components/routes/settings/desktop/desktop-audio-settings"),
+  (module) => module.DesktopAudioSettings,
 )
-
-const AdminAuthPanel = lazy(() =>
-  import("@/components/routes/settings/admin-tab-content").then((module) => ({
-    default: module.AdminAuthPanel,
-  })),
+const DesktopAppPanel = lazyPanel(
+  () => import("@/components/routes/settings/desktop/desktop-server-settings"),
+  (module) => module.DesktopAppPanel,
 )
-
-const AdminUploadLimitsPanel = lazy(() =>
-  import("@/components/routes/settings/admin-tab-content").then((module) => ({
-    default: module.AdminUploadLimitsPanel,
-  })),
+const AdminAppearancePanel = lazyPanel(
+  loadAdminPanels,
+  (module) => module.AdminAppearancePanel,
 )
-
-const AdminTranscodingPanel = lazy(() =>
-  import("@/components/routes/settings/admin-tab-content").then((module) => ({
-    default: module.AdminTranscodingPanel,
-  })),
+const AdminAuthPanel = lazyPanel(
+  loadAdminPanels,
+  (module) => module.AdminAuthPanel,
 )
-
-const AdminUsersPanel = lazy(() =>
-  import("@/components/routes/settings/admin-tab-content").then((module) => ({
-    default: module.AdminUsersPanel,
-  })),
+const AdminUploadLimitsPanel = lazyPanel(
+  loadAdminPanels,
+  (module) => module.AdminUploadLimitsPanel,
 )
-
-const AdminGamesPanel = lazy(() =>
-  import("@/components/routes/settings/admin-tab-content").then((module) => ({
-    default: module.AdminGamesPanel,
-  })),
+const AdminTranscodingPanel = lazyPanel(
+  loadAdminPanels,
+  (module) => module.AdminTranscodingPanel,
 )
-
-const AdminWebhooksPanel = lazy(() =>
-  import("@/components/routes/settings/admin-tab-content").then((module) => ({
-    default: module.AdminWebhooksPanel,
-  })),
+const AdminUsersPanel = lazyPanel(
+  loadAdminPanels,
+  (module) => module.AdminUsersPanel,
+)
+const AdminGamesPanel = lazyPanel(
+  loadAdminPanels,
+  (module) => module.AdminGamesPanel,
+)
+const AdminWebhooksPanel = lazyPanel(
+  loadAdminPanels,
+  (module) => module.AdminWebhooksPanel,
 )
 
 function ProfilePanel() {
@@ -216,16 +199,7 @@ const THEME_LABELS = {
 function AppearancePanel() {
   const [theme, setTheme] = useState<Theme>(() => getStoredTheme())
 
-  useEffect(() => {
-    const syncStoredTheme = (event: StorageEvent) => {
-      if (event.key === null || event.key === THEME_STORAGE_KEY) {
-        refreshThemePreferences()
-        setTheme(getStoredTheme())
-      }
-    }
-    window.addEventListener("storage", syncStoredTheme)
-    return () => window.removeEventListener("storage", syncStoredTheme)
-  }, [])
+  useStoredThemeSync(() => setTheme(getStoredTheme()))
 
   function changeTheme(value: string | null) {
     if (value !== "system" && value !== "light" && value !== "dark") return

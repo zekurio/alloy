@@ -1,24 +1,20 @@
 import { publicOAuthProviderIconUrl } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import { ColorPicker } from "@alloy/ui/components/color-picker"
 import { Field, FieldDescription, FieldLabel } from "@alloy/ui/components/field"
-import { Input } from "@alloy/ui/components/input"
 import { ImageUpIcon, UserKeyIcon, XIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { ChangeEvent } from "react"
 
 import { OAuthButton } from "@/components/auth/oauth-button"
+import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
 import {
   ProviderTextField,
   providerFieldId,
 } from "./admin-auth-provider-fields"
 import type { ProviderDraft } from "./admin-auth-provider-utils"
-
-// Colors the server stores are always `#rrggbb`; anything else stays text
-// mid-edit and is never previewed or submitted.
-const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i
+import { HexColorInput } from "./hex-color-input"
 
 /**
  * Everything that shapes the sign-in button users see: a live preview of the
@@ -133,9 +129,9 @@ function useProviderIconSrc(draft: ProviderDraft): string | undefined {
       setFileSrc(null)
       return
     }
-    const url = URL.createObjectURL(file)
+    const url = createObjectUrl(file, "provider icon preview")
     setFileSrc(url)
-    return () => URL.revokeObjectURL(url)
+    return () => revokeObjectUrl(url, "provider icon preview")
   }, [file])
 
   return (
@@ -162,39 +158,21 @@ function ProviderColorField({
   onChange: (value: string) => void
 }) {
   const id = providerFieldId(fieldId, editingProviderId)
-  const [draft, setDraft] = useState(value)
-
-  useEffect(() => setDraft(value), [value])
-
-  function updateDraft(next: string) {
-    setDraft(next)
-    const color = next.trim()
-    if (color === "" || HEX_COLOR_RE.test(color)) onChange(color)
-  }
 
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <div className="flex items-center gap-2">
-        <Input
-          id={id}
-          value={draft}
-          placeholder={placeholder}
-          spellCheck={false}
-          pattern="#[0-9a-fA-F]{6}"
-          className="min-w-0 flex-1 font-mono"
-          onChange={(event) => updateDraft(event.target.value)}
-          onBlur={() => setDraft(value)}
-        />
-        <ColorPicker
-          value={value || fallbackColor}
-          allowAlpha={false}
-          label={label}
-          onValueChange={(color) => {
-            setDraft(color)
-            onChange(color)
-          }}
-        />
+      {/* Stored colors are always `#rrggbb`; anything else stays text
+          mid-edit and is never previewed or submitted. */}
+      <HexColorInput
+        id={id}
+        value={value}
+        label={label}
+        swatch={value || fallbackColor}
+        placeholder={placeholder}
+        allowEmpty
+        onChange={onChange}
+      >
         {value ? (
           <Button
             type="button"
@@ -202,15 +180,12 @@ function ProviderColorField({
             size="icon"
             className="shrink-0"
             aria-label={t("Use the theme color")}
-            onClick={() => {
-              setDraft("")
-              onChange("")
-            }}
+            onClick={() => onChange("")}
           >
             <XIcon />
           </Button>
         ) : null}
-      </div>
+      </HexColorInput>
       <FieldDescription>
         {t("Leave empty to use the theme color.")}
       </FieldDescription>

@@ -1,7 +1,5 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import { ColorPicker } from "@alloy/ui/components/color-picker"
-import { Input } from "@alloy/ui/components/input"
 import {
   Select,
   SelectContent,
@@ -29,32 +27,42 @@ import {
   type ThemePresetMode,
   type ThemePresetTokens,
 } from "@alloy/ui/lib/theme-presets"
-import {
-  refreshThemePreferences,
-  type ThemeVariants,
-} from "@alloy/ui/lib/theme-storage"
+import type { ThemeVariants } from "@alloy/ui/lib/theme-storage"
 import { cn } from "@alloy/ui/lib/utils"
 import { CheckIcon, MoonIcon, RotateCcwIcon, SunIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 
+import { HexColorInput } from "@/components/routes/settings/hex-color-input"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
+
+/**
+ * Calls `sync` when another tab changes the stored theme. `initTheme` has
+ * already refreshed the stored preferences and applied them to this page by
+ * then, so `sync` only re-reads them into component state.
+ */
+export function useStoredThemeSync(sync: () => void) {
+  const onStoredThemeChange = useEffectEvent(sync)
+  useEffect(() => {
+    const listener = (event: StorageEvent) => {
+      // A null key means the whole store was cleared, preferences included.
+      if (event.key !== null && event.key !== THEME_STORAGE_KEY) return
+      onStoredThemeChange()
+    }
+    window.addEventListener("storage", listener)
+    return () => window.removeEventListener("storage", listener)
+  }, [])
+}
 
 export function ThemeSettings() {
   const [paletteId, setPaletteId] = useState(getStoredThemePaletteId)
   const [variants, setVariants] = useState(getStoredThemeVariants)
   const [accentState, setAccentState] = useState(readThemeAccents)
 
-  useEffect(() => {
-    const syncStoredTheme = (event: StorageEvent) => {
-      if (event.key !== null && event.key !== THEME_STORAGE_KEY) return
-      refreshThemePreferences()
-      setPaletteId(getStoredThemePaletteId())
-      setVariants(getStoredThemeVariants())
-      setAccentState(readThemeAccents())
-    }
-    window.addEventListener("storage", syncStoredTheme)
-    return () => window.removeEventListener("storage", syncStoredTheme)
-  }, [])
+  useStoredThemeSync(() => {
+    setPaletteId(getStoredThemePaletteId())
+    setVariants(getStoredThemeVariants())
+    setAccentState(readThemeAccents())
+  })
 
   const selectedTheme =
     THEME_PALETTES.find((palette) => palette.id === paletteId) ??
@@ -262,25 +270,7 @@ function AccentColorField({
   onChange: (value: string) => void
   onReset: () => void
 }) {
-  const [draft, setDraft] = useState(value)
   const label = mode === "light" ? t("Light") : t("Dark")
-
-  useEffect(() => setDraft(value), [value])
-
-  function updateDraft(next: string) {
-    setDraft(next)
-    if (/^#[0-9a-f]{6}$/i.test(next.trim())) onChange(next.toLowerCase())
-  }
-
-  function commitDraft() {
-    const color = themeAccentToHex(draft)
-    if (color) {
-      setDraft(color)
-      onChange(color)
-      return
-    }
-    setDraft(value)
-  }
 
   return (
     <div className="flex min-w-0 flex-col gap-1.5 text-xs font-medium">
@@ -295,23 +285,14 @@ function AccentColorField({
         )}
         {label}
       </label>
-      <div className="flex items-center gap-2">
-        <Input
-          id={`theme-accent-${mode}`}
-          value={draft}
-          spellCheck={false}
-          aria-label={label}
-          className="min-w-0 flex-1 font-mono text-xs"
-          onChange={(event) => updateDraft(event.target.value)}
-          onBlur={commitDraft}
-        />
-        <ColorPicker
-          value={value}
-          allowAlpha={false}
-          onValueChange={updateDraft}
-          label={label}
-        />
-      </div>
+      <HexColorInput
+        id={`theme-accent-${mode}`}
+        value={value}
+        label={label}
+        className="text-xs"
+        commit={themeAccentToHex}
+        onChange={(color) => onChange(color.toLowerCase())}
+      />
       <Button
         type="button"
         variant="ghost"
