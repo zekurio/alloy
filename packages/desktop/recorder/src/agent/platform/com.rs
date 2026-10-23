@@ -2,15 +2,22 @@ use std::{ffi::c_void, marker::PhantomData, ptr};
 
 use windows_sys::core::{IUnknown_Vtbl, GUID, HRESULT, PWSTR};
 use windows_sys::Win32::{
-    Media::Audio::{MMDeviceEnumerator, DEVICE_STATE_ACTIVE},
+    Media::Audio::{
+        eCapture, eCommunications, eConsole, eRender, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
+    },
     System::Com::{
         CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL,
         COINIT_APARTMENTTHREADED,
     },
 };
 
+use crate::types::RecordingAudioDeviceKind;
+
+const S_OK: HRESULT = 0;
 const RPC_E_CHANGED_MODE: HRESULT = 0x80010106u32 as HRESULT;
 const IID_IMM_DEVICE_ENUMERATOR: GUID = GUID::from_u128(0xa95664d2_9614_4f35_a746_de8db63617e6);
+const IID_IAUDIO_SESSION_MANAGER2: GUID = GUID::from_u128(0x77aa99a0_1bd6_484f_8bc7_2c654c9a9b6f);
+const IID_IAUDIO_SESSION_CONTROL2: GUID = GUID::from_u128(0xbfb7ff88_7239_4fc9_8fa2_07c950be9c6d);
 const PKEY_DEVICE_FRIENDLY_NAME: AudioPropertyKey = AudioPropertyKey {
     fmtid: GUID::from_u128(0xa45c254e_df1c_4efd_8020_67d146a850e0),
     pid: 14,
@@ -93,6 +100,47 @@ struct IPropertyStoreVtbl {
     ) -> HRESULT,
     SetValue: usize,
     Commit: usize,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+struct IAudioSessionManager2Vtbl {
+    base: IUnknown_Vtbl,
+    GetAudioSessionControl: usize,
+    GetSimpleAudioVolume: usize,
+    GetSessionEnumerator: unsafe extern "system" fn(*mut c_void, *mut *mut c_void) -> HRESULT,
+    RegisterSessionNotification: usize,
+    UnregisterSessionNotification: usize,
+    RegisterDuckNotification: usize,
+    UnregisterDuckNotification: usize,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+struct IAudioSessionEnumeratorVtbl {
+    base: IUnknown_Vtbl,
+    GetCount: unsafe extern "system" fn(*mut c_void, *mut i32) -> HRESULT,
+    GetSession: unsafe extern "system" fn(*mut c_void, i32, *mut *mut c_void) -> HRESULT,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+struct IAudioSessionControl2Vtbl {
+    base: IUnknown_Vtbl,
+    GetState: usize,
+    GetDisplayName: usize,
+    SetDisplayName: usize,
+    GetIconPath: usize,
+    SetIconPath: usize,
+    GetGroupingParam: usize,
+    SetGroupingParam: usize,
+    RegisterAudioSessionNotification: usize,
+    UnregisterAudioSessionNotification: usize,
+    GetSessionIdentifier: usize,
+    GetSessionInstanceIdentifier: usize,
+    GetProcessId: unsafe extern "system" fn(*mut c_void, *mut u32) -> HRESULT,
+    IsSystemSoundsSession: unsafe extern "system" fn(*mut c_void) -> HRESULT,
+    SetDuckingPreference: usize,
 }
 
 #[repr(C)]
@@ -208,11 +256,15 @@ pub(crate) unsafe fn active_audio_endpoint_devices(
     Some(devices)
 }
 
+/// Id of the endpoint the "default" device setting follows for `kind`.
 pub(crate) unsafe fn default_endpoint_id(
     enumerator: &ComPtr,
-    data_flow: i32,
-    role: i32,
+    kind: &RecordingAudioDeviceKind,
 ) -> Option<String> {
+    let (data_flow, role) = match kind {
+        RecordingAudioDeviceKind::Output => (eRender, eConsole),
+        RecordingAudioDeviceKind::Input => (eCapture, eCommunications),
+    };
     let enumerator_vtbl = com_vtbl::<IMMDeviceEnumeratorVtbl>(enumerator.as_ptr());
     let mut device_ptr: *mut c_void = ptr::null_mut();
     if !succeeded(((*enumerator_vtbl).GetDefaultAudioEndpoint)(
@@ -259,6 +311,83 @@ pub(crate) unsafe fn endpoint_friendly_name(device: &ComPtr) -> Option<String> {
         return None;
     }
     string_from_cotaskmem_pwstr(value.data[0] as PWSTR)
+}
+
+/// Calls `visit` with each session's `IAudioSessionControl` on a render
+/// endpoint and the id of the process that owns it. System sounds and
+/// sessions without a process are skipped.
+pub(crate) unsafe fn for_each_process_audio_session(
+    device: &ComPtr,
+    mut visit: impl FnMut(&ComPtr, u32),
+) {
+    let device_vtbl = com_vtbl::<IMMDeviceVtbl>(device.as_ptr());
+    let mut manager_ptr: *mut c_void = ptr::null_mut();
+    if !succeeded(((*device_vtbl).Activate)(
+        device.as_ptr(),
+        &IID_IAUDIO_SESSION_MANAGER2,
+        CLSCTX_ALL,
+        ptr::null(),
+        &mut manager_ptr,
+    )) {
+        return;
+    }
+    let Some(manager) = ComPtr::new(manager_ptr) else {
+        return;
+    };
+    let manager_vtbl = com_vtbl::<IAudioSessionManager2Vtbl>(manager.as_ptr());
+
+    let mut session_enum_ptr: *mut c_void = ptr::null_mut();
+    if !succeeded(((*manager_vtbl).GetSessionEnumerator)(
+        manager.as_ptr(),
+        &mut session_enum_ptr,
+    )) {
+        return;
+    }
+    let Some(session_enum) = ComPtr::new(session_enum_ptr) else {
+        return;
+    };
+    let session_enum_vtbl = com_vtbl::<IAudioSessionEnumeratorVtbl>(session_enum.as_ptr());
+
+    let mut count = 0i32;
+    if !succeeded(((*session_enum_vtbl).GetCount)(
+        session_enum.as_ptr(),
+        &mut count,
+    )) {
+        return;
+    }
+
+    for index in 0..count {
+        let mut control_ptr: *mut c_void = ptr::null_mut();
+        if !succeeded(((*session_enum_vtbl).GetSession)(
+            session_enum.as_ptr(),
+            index,
+            &mut control_ptr,
+        )) {
+            continue;
+        }
+        let Some(control) = ComPtr::new(control_ptr) else {
+            continue;
+        };
+
+        let Some(control2) = query_interface(control.as_ptr(), &IID_IAUDIO_SESSION_CONTROL2) else {
+            continue;
+        };
+        let control2_vtbl = com_vtbl::<IAudioSessionControl2Vtbl>(control2.as_ptr());
+        if ((*control2_vtbl).IsSystemSoundsSession)(control2.as_ptr()) == S_OK {
+            continue;
+        }
+
+        let mut process_id = 0u32;
+        if !succeeded(((*control2_vtbl).GetProcessId)(
+            control2.as_ptr(),
+            &mut process_id,
+        )) || process_id == 0
+        {
+            continue;
+        }
+
+        visit(&control, process_id);
+    }
 }
 
 pub(crate) unsafe fn query_interface(ptr: *mut c_void, iid: &GUID) -> Option<ComPtr> {

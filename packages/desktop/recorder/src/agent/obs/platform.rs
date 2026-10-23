@@ -6,7 +6,7 @@ use std::{
 };
 
 use serde_json::Value;
-use windows_sys::Win32::Media::Audio::{eCapture, eCommunications, eConsole, eRender};
+use windows_sys::Win32::Media::Audio::{eCapture, eRender};
 
 use crate::{
     agent::platform::{
@@ -165,15 +165,7 @@ pub(in crate::agent) fn platform_default_audio_device_id(
     // SAFETY: COM stays initialized until `_com` drops, after `enumerator`.
     unsafe {
         let enumerator = create_mm_device_enumerator()?;
-        let (data_flow, role) = default_audio_endpoint_selector(kind);
-        default_endpoint_id(&enumerator, data_flow, role)
-    }
-}
-
-fn default_audio_endpoint_selector(kind: &RecordingAudioDeviceKind) -> (i32, i32) {
-    match kind {
-        RecordingAudioDeviceKind::Output => (eRender, eConsole),
-        RecordingAudioDeviceKind::Input => (eCapture, eCommunications),
+        default_endpoint_id(&enumerator, kind)
     }
 }
 

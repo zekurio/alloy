@@ -31,7 +31,7 @@ use windows_sys::Win32::{
     Storage::FileSystem::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW},
     System::{
         Com::StructuredStorage::{CreateStreamOnHGlobal, GetHGlobalFromStream},
-        Com::{CLSCTX_ALL, STATFLAG_NONAME, STATSTG},
+        Com::{STATFLAG_NONAME, STATSTG},
         Memory::{GlobalLock, GlobalSize, GlobalUnlock},
         Threading::{OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION},
     },
@@ -47,8 +47,9 @@ use windows_sys::Win32::{
 
 use super::{
     com::{
-        active_audio_endpoint_devices, com_vtbl, create_mm_device_enumerator, query_interface,
-        release_com, string_from_cotaskmem_pwstr, succeeded, ComApartment, ComPtr, IMMDeviceVtbl,
+        active_audio_endpoint_devices, com_vtbl, create_mm_device_enumerator,
+        for_each_process_audio_session, release_com, string_from_cotaskmem_pwstr, succeeded,
+        ComApartment,
     },
     game_matching::clean_user_facing_process_name,
     valid_capture_dimensions,
@@ -57,11 +58,6 @@ use super::{
 };
 use crate::types::{RecordingSettings, VideoDimensions};
 
-pub(super) const S_OK: HRESULT = 0;
-pub(super) const IID_IAUDIO_SESSION_MANAGER2: GUID =
-    GUID::from_u128(0x77aa99a0_1bd6_484f_8bc7_2c654c9a9b6f);
-pub(super) const IID_IAUDIO_SESSION_CONTROL2: GUID =
-    GUID::from_u128(0xbfb7ff88_7239_4fc9_8fa2_07c950be9c6d);
 const PNG_ENCODER_CLSID: GUID = GUID::from_u128(0x557cf406_1a04_11d3_9a73_0000f81ef32e);
 
 #[derive(Clone)]
@@ -88,28 +84,6 @@ pub(super) struct GameWindowContext<'a> {
 
 #[repr(C)]
 #[allow(non_snake_case)]
-pub(super) struct IAudioSessionManager2Vtbl {
-    base: IUnknown_Vtbl,
-    GetAudioSessionControl: usize,
-    GetSimpleAudioVolume: usize,
-    pub(super) GetSessionEnumerator:
-        unsafe extern "system" fn(*mut c_void, *mut *mut c_void) -> HRESULT,
-    RegisterSessionNotification: usize,
-    UnregisterSessionNotification: usize,
-    RegisterDuckNotification: usize,
-    UnregisterDuckNotification: usize,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-pub(super) struct IAudioSessionEnumeratorVtbl {
-    base: IUnknown_Vtbl,
-    pub(super) GetCount: unsafe extern "system" fn(*mut c_void, *mut i32) -> HRESULT,
-    pub(super) GetSession: unsafe extern "system" fn(*mut c_void, i32, *mut *mut c_void) -> HRESULT,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
 struct IAudioSessionControlVtbl {
     base: IUnknown_Vtbl,
     GetState: unsafe extern "system" fn(*mut c_void, *mut i32) -> HRESULT,
@@ -121,26 +95,6 @@ struct IAudioSessionControlVtbl {
     SetGroupingParam: usize,
     RegisterAudioSessionNotification: usize,
     UnregisterAudioSessionNotification: usize,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-pub(super) struct IAudioSessionControl2Vtbl {
-    base: IUnknown_Vtbl,
-    GetState: usize,
-    GetDisplayName: usize,
-    SetDisplayName: usize,
-    GetIconPath: usize,
-    SetIconPath: usize,
-    GetGroupingParam: usize,
-    SetGroupingParam: usize,
-    RegisterAudioSessionNotification: usize,
-    UnregisterAudioSessionNotification: usize,
-    GetSessionIdentifier: usize,
-    GetSessionInstanceIdentifier: usize,
-    pub(super) GetProcessId: unsafe extern "system" fn(*mut c_void, *mut u32) -> HRESULT,
-    pub(super) IsSystemSoundsSession: unsafe extern "system" fn(*mut c_void) -> HRESULT,
-    SetDuckingPreference: usize,
 }
 
 #[repr(C)]
@@ -173,94 +127,23 @@ unsafe fn enumerate_active_audio_sessions() -> Option<HashMap<u32, AudioSessionP
     let enumerator = create_mm_device_enumerator()?;
     let mut sessions = HashMap::new();
     for device in active_audio_endpoint_devices(&enumerator, eRender)? {
-        let _ = collect_device_audio_sessions(device.as_ptr(), &mut sessions);
+        for_each_process_audio_session(&device, |control, process_id| {
+            if !audio_session_is_capturable(control.as_ptr()) {
+                return;
+            }
+            let display_name = session_display_name(control.as_ptr());
+            sessions
+                .entry(process_id)
+                .and_modify(|session: &mut AudioSessionProcess| {
+                    if session.display_name.is_none() {
+                        session.display_name = display_name.clone();
+                    }
+                })
+                .or_insert(AudioSessionProcess { display_name });
+        });
     }
 
     Some(sessions)
-}
-
-unsafe fn collect_device_audio_sessions(
-    device: *mut c_void,
-    sessions: &mut HashMap<u32, AudioSessionProcess>,
-) -> Option<()> {
-    let device_vtbl = com_vtbl::<IMMDeviceVtbl>(device);
-
-    let mut manager_ptr: *mut c_void = ptr::null_mut();
-    if !succeeded(((*device_vtbl).Activate)(
-        device,
-        &IID_IAUDIO_SESSION_MANAGER2,
-        CLSCTX_ALL,
-        ptr::null(),
-        &mut manager_ptr,
-    )) {
-        return None;
-    }
-    let manager = ComPtr::new(manager_ptr)?;
-    let manager_vtbl = com_vtbl::<IAudioSessionManager2Vtbl>(manager.as_ptr());
-
-    let mut session_enum_ptr: *mut c_void = ptr::null_mut();
-    if !succeeded(((*manager_vtbl).GetSessionEnumerator)(
-        manager.as_ptr(),
-        &mut session_enum_ptr,
-    )) {
-        return None;
-    }
-    let session_enum = ComPtr::new(session_enum_ptr)?;
-    let session_enum_vtbl = com_vtbl::<IAudioSessionEnumeratorVtbl>(session_enum.as_ptr());
-
-    let mut count = 0i32;
-    if !succeeded(((*session_enum_vtbl).GetCount)(
-        session_enum.as_ptr(),
-        &mut count,
-    )) {
-        return None;
-    }
-
-    for index in 0..count {
-        let mut control_ptr: *mut c_void = ptr::null_mut();
-        if !succeeded(((*session_enum_vtbl).GetSession)(
-            session_enum.as_ptr(),
-            index,
-            &mut control_ptr,
-        )) {
-            continue;
-        }
-        let Some(control) = ComPtr::new(control_ptr) else {
-            continue;
-        };
-        if !audio_session_is_capturable(control.as_ptr()) {
-            continue;
-        }
-
-        let Some(control2) = query_interface(control.as_ptr(), &IID_IAUDIO_SESSION_CONTROL2) else {
-            continue;
-        };
-        let control2_vtbl = com_vtbl::<IAudioSessionControl2Vtbl>(control2.as_ptr());
-        if ((*control2_vtbl).IsSystemSoundsSession)(control2.as_ptr()) == S_OK {
-            continue;
-        }
-
-        let mut process_id = 0u32;
-        if !succeeded(((*control2_vtbl).GetProcessId)(
-            control2.as_ptr(),
-            &mut process_id,
-        )) || process_id == 0
-        {
-            continue;
-        }
-
-        let display_name = session_display_name(control.as_ptr());
-        sessions
-            .entry(process_id)
-            .and_modify(|session: &mut AudioSessionProcess| {
-                if session.display_name.is_none() {
-                    session.display_name = display_name.clone();
-                }
-            })
-            .or_insert(AudioSessionProcess { display_name });
-    }
-
-    Some(())
 }
 
 /// Active sessions are rendering right now; inactive ones hold an open

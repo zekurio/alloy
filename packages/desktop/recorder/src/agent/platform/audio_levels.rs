@@ -1,13 +1,11 @@
 use super::{
     audio_application_id_from_parts,
     com::{
-        active_audio_endpoint_devices, com_vtbl, create_mm_device_enumerator, endpoint_id,
-        query_interface, succeeded, ComApartment, ComPtr, IMMDeviceEnumeratorVtbl, IMMDeviceVtbl,
+        active_audio_endpoint_devices, com_vtbl, create_mm_device_enumerator, default_endpoint_id,
+        endpoint_id, for_each_process_audio_session, query_interface, succeeded, ComApartment,
+        ComPtr, IMMDeviceVtbl,
     },
-    windows_audio::{
-        process_executable, process_path, IAudioSessionControl2Vtbl, IAudioSessionEnumeratorVtbl,
-        IAudioSessionManager2Vtbl, IID_IAUDIO_SESSION_CONTROL2, IID_IAUDIO_SESSION_MANAGER2, S_OK,
-    },
+    windows_audio::{process_executable, process_path},
 };
 use crate::{
     agent::events::emit_event,
@@ -25,9 +23,7 @@ use std::{
 };
 use windows_sys::core::{IUnknown_Vtbl, GUID, HRESULT};
 use windows_sys::Win32::{
-    Media::Audio::{
-        eCapture, eCommunications, eConsole, eRender, AUDCLNT_SHAREMODE_SHARED, WAVEFORMATEX,
-    },
+    Media::Audio::{eCapture, eRender, AUDCLNT_SHAREMODE_SHARED, WAVEFORMATEX},
     System::Com::{CoTaskMemFree, CLSCTX_ALL},
 };
 
@@ -240,11 +236,7 @@ unsafe fn collect_device_level_meters(
     meters: &mut AudioLevelMeters,
     previous: &mut AudioLevelMeters,
 ) {
-    let default_role = match kind {
-        RecordingAudioDeviceKind::Output => eConsole,
-        RecordingAudioDeviceKind::Input => eCommunications,
-    };
-    let default_id = default_endpoint_id(enumerator, data_flow, default_role);
+    let default_id = default_endpoint_id(enumerator, &kind);
 
     let Some(devices) = active_audio_endpoint_devices(enumerator, data_flow) else {
         return;
@@ -289,21 +281,6 @@ unsafe fn collect_device_level_meters(
     }
 }
 
-unsafe fn default_endpoint_id(enumerator: &ComPtr, data_flow: i32, role: i32) -> Option<String> {
-    let enumerator_vtbl = com_vtbl::<IMMDeviceEnumeratorVtbl>(enumerator.as_ptr());
-    let mut device_ptr: *mut c_void = ptr::null_mut();
-    if !succeeded(((*enumerator_vtbl).GetDefaultAudioEndpoint)(
-        enumerator.as_ptr(),
-        data_flow,
-        role,
-        &mut device_ptr,
-    )) {
-        return None;
-    }
-    let device = ComPtr::new(device_ptr)?;
-    endpoint_id(&device)
-}
-
 unsafe fn activate_device_meter(device: &ComPtr) -> Option<ComPtr> {
     let device_vtbl = com_vtbl::<IMMDeviceVtbl>(device.as_ptr());
     let mut meter_ptr: *mut c_void = ptr::null_mut();
@@ -320,84 +297,19 @@ unsafe fn activate_device_meter(device: &ComPtr) -> Option<ComPtr> {
 }
 
 unsafe fn collect_application_level_meters(device: &ComPtr, meters: &mut AudioLevelMeters) {
-    let device_vtbl = com_vtbl::<IMMDeviceVtbl>(device.as_ptr());
-    let mut manager_ptr: *mut c_void = ptr::null_mut();
-    if !succeeded(((*device_vtbl).Activate)(
-        device.as_ptr(),
-        &IID_IAUDIO_SESSION_MANAGER2,
-        CLSCTX_ALL,
-        ptr::null(),
-        &mut manager_ptr,
-    )) {
-        return;
-    }
-    let Some(manager) = ComPtr::new(manager_ptr) else {
-        return;
-    };
-    let manager_vtbl = com_vtbl::<IAudioSessionManager2Vtbl>(manager.as_ptr());
-
-    let mut session_enum_ptr: *mut c_void = ptr::null_mut();
-    if !succeeded(((*manager_vtbl).GetSessionEnumerator)(
-        manager.as_ptr(),
-        &mut session_enum_ptr,
-    )) {
-        return;
-    }
-    let Some(session_enum) = ComPtr::new(session_enum_ptr) else {
-        return;
-    };
-    let session_enum_vtbl = com_vtbl::<IAudioSessionEnumeratorVtbl>(session_enum.as_ptr());
-
-    let mut count = 0i32;
-    if !succeeded(((*session_enum_vtbl).GetCount)(
-        session_enum.as_ptr(),
-        &mut count,
-    )) {
-        return;
-    }
-
     let mut ids_by_process: HashMap<u32, String> = HashMap::new();
-    for index in 0..count {
-        let mut control_ptr: *mut c_void = ptr::null_mut();
-        if !succeeded(((*session_enum_vtbl).GetSession)(
-            session_enum.as_ptr(),
-            index,
-            &mut control_ptr,
-        )) {
-            continue;
-        }
-        let Some(control) = ComPtr::new(control_ptr) else {
-            continue;
-        };
-
-        let Some(control2) = query_interface(control.as_ptr(), &IID_IAUDIO_SESSION_CONTROL2) else {
-            continue;
-        };
-        let control2_vtbl = com_vtbl::<IAudioSessionControl2Vtbl>(control2.as_ptr());
-        if ((*control2_vtbl).IsSystemSoundsSession)(control2.as_ptr()) == S_OK {
-            continue;
-        }
-
-        let mut process_id = 0u32;
-        if !succeeded(((*control2_vtbl).GetProcessId)(
-            control2.as_ptr(),
-            &mut process_id,
-        )) || process_id == 0
-        {
-            continue;
-        }
-
+    for_each_process_audio_session(device, |control, process_id| {
         let id = ids_by_process
             .entry(process_id)
             .or_insert_with(|| audio_level_application_id(process_id))
             .clone();
         let Some(meter) = query_interface(control.as_ptr(), &IID_IAUDIO_METER_INFORMATION) else {
-            continue;
+            return;
         };
         meters
             .applications
             .push(ApplicationLevelMeter { id, meter });
-    }
+    });
 }
 
 fn audio_level_application_id(process_id: u32) -> String {
