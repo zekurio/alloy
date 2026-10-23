@@ -1,6 +1,5 @@
 import type { DesktopSavedServer } from "@alloy/desktop-contracts/desktop-api"
 import {
-  DesktopTauriConnectResultSchema,
   DesktopTauriErrorSchema,
   DesktopTauriSavedServersSchema,
 } from "@alloy/desktop-contracts/desktop-tauri"
@@ -37,6 +36,8 @@ function ConnectScreen() {
   const [url, setUrl] = useState("")
   const [servers, setServers] = useState<DesktopSavedServer[]>([])
   const [forgetting, setForgetting] = useState(false)
+  // Bumped when a forget lands, so a list read before it cannot replace it.
+  const serversRevision = useRef(0)
 
   // Toasts replace themselves by id so repeated failures never stack.
   const showError = useCallback(
@@ -50,11 +51,12 @@ function ConnectScreen() {
   useEffect(() => {
     let disposed = false
     async function loadServers() {
+      const revision = serversRevision.current
       try {
         const saved = DesktopTauriSavedServersSchema.parse(
           await invoke<unknown>("saved_servers"),
         )
-        if (disposed) return
+        if (disposed || revision !== serversRevision.current) return
         setServers(saved)
         setUrl((current) => current || saved[0]?.serverUrl || "")
       } catch (cause) {
@@ -82,6 +84,7 @@ function ConnectScreen() {
       const saved = DesktopTauriSavedServersSchema.parse(
         await invoke<unknown>("forget_server", { url: serverUrl }),
       )
+      serversRevision.current++
       setServers(saved)
       setUrl((current) => (current === serverUrl ? "" : current))
       toast.success(t("Saved login data removed from this device."), {
@@ -101,10 +104,8 @@ function ConnectScreen() {
     const serverUrl = url.trim()
     if (!serverUrl) return
 
-    // The native host has opened the server window. Leave this screen ready
-    // for the next server switch when the host shows it again.
-    const connected = await connection.connect(serverUrl)
-    if (connected !== null) setUrl(connected)
+    // On success the host shows the server window and destroys this one.
+    await connection.connect(serverUrl)
   }
 
   return (
@@ -193,26 +194,17 @@ function useConnectAttempt(showError: (cause: unknown) => void) {
   const attempt = useRef(0)
   const [state, setState] = useState<ConnectionState>("idle")
 
-  /** Resolves with the connected server URL, or null when nothing changed. */
-  async function connect(serverUrl: string): Promise<string | null> {
+  async function connect(serverUrl: string) {
     setState("connecting")
     const currentAttempt = ++attempt.current
 
     try {
-      const result = DesktopTauriConnectResultSchema.safeParse(
-        await invoke<unknown>("connect_server", { url: serverUrl }),
-      )
-      if (currentAttempt !== attempt.current) return null
-      if (!result.success) {
-        throw new Error(t("The server returned an invalid Alloy response."))
-      }
-      setState("idle")
-      return result.data.serverUrl
+      await invoke("connect_server", { url: serverUrl })
+      if (currentAttempt === attempt.current) setState("idle")
     } catch (cause) {
-      if (currentAttempt !== attempt.current) return null
+      if (currentAttempt !== attempt.current) return
       setState("idle")
       showError(cause)
-      return null
     }
   }
 
@@ -221,6 +213,8 @@ function useConnectAttempt(showError: (cause: unknown) => void) {
     ++attempt.current
     setState("cancelling")
     try {
+      // Resolves once the host has stopped the attempt, so the next connect
+      // does not find one still in progress.
       await invoke("cancel_connect")
       setState("idle")
       toast.info(t("Server switch cancelled."), {

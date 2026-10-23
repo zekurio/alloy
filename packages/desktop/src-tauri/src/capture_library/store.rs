@@ -17,12 +17,11 @@ use crate::capture_library::paths::{
 use crate::capture_library::poster::{PosterFailures, discard_poster};
 use crate::capture_library::types::{
     CaptureKind, CaptureManifest, CaptureRecord, CaptureSource, CommitImport, FilesImportResult,
-    GameGuess, ImportFailure, LibraryGroup, LibraryItem, LibrarySnapshot, ManifestEntry, MetaPatch,
-    StagedImport, TrimUpdate, collection_for,
+    GameGuess, ImportFailure, LibraryGroup, LibraryItem, LibrarySnapshot, MANIFEST_VERSION,
+    ManifestEntry, MetaPatch, StagedImport, TrimUpdate, collection_for,
 };
 use crate::capture_library::work::MediaWork;
 
-const MANIFEST_VERSION: u8 = 2;
 const MAX_MANIFEST_BYTES: usize = 64 * 1024 * 1024;
 const MAX_MANIFEST_ENTRIES: usize = 100_000;
 const MAX_TITLE_LENGTH: usize = 256;

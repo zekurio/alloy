@@ -64,6 +64,9 @@ pub struct ManifestEntry {
     pub thumb_blur_hash: Option<String>,
 }
 
+/// The manifest layout this build reads and writes.
+pub(crate) const MANIFEST_VERSION: u8 = 2;
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CaptureManifest {
@@ -75,7 +78,7 @@ pub struct CaptureManifest {
 impl Default for CaptureManifest {
     fn default() -> Self {
         Self {
-            version: 2,
+            version: MANIFEST_VERSION,
             captures: BTreeMap::new(),
         }
     }

@@ -4,8 +4,12 @@ use reqwest::{Client, redirect::Policy};
 use serde::Deserialize;
 use url::{Host, Url};
 
+use crate::logging::logged;
+
 pub const HTTP_CONTRACT_1: u64 = 1;
 pub const TAURI_BRIDGE_CONTRACT_1: u64 = 1;
+/// The largest contract ID the renderer's JSON numbers carry exactly.
+pub const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 const MAX_JSON_BODY: usize = 64 * 1024;
 
 #[derive(Clone)]
@@ -30,15 +34,15 @@ impl Server {
             .connect_timeout(Duration::from_secs(8))
             .timeout(Duration::from_secs(60))
             .build()
-            .map_err(|_| "Could not create the HTTP client.")?;
+            .map_err(logged("Could not create the HTTP client."))?;
         Ok(Self { origin, client })
     }
 
     /// Check the exact HTTP and native bridge contracts before opening a
-    /// server-hosted webview.
+    /// server-hosted webview. Returns the trimmed, non-empty server version.
     pub async fn check(&self) -> Result<String, String> {
         let info: ServerInfo = self.get_json("/api/server-info").await?;
-        let valid_ids = |ids: &[u64]| ids.iter().all(|id| *id > 0 && *id <= 9_007_199_254_740_991);
+        let valid_ids = |ids: &[u64]| ids.iter().all(|id| *id > 0 && *id <= MAX_SAFE_INTEGER);
         if info.schema != "alloy.server-info"
             || info.product != "alloy"
             || info.version.trim().is_empty()
@@ -63,32 +67,32 @@ impl Server {
         if config.desktop_auth.version != 1 {
             return Err("This server does not support desktop login.".into());
         }
-        Ok(info.version)
+        Ok(info.version.trim().to_owned())
     }
 
     async fn get_json<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T, String> {
+        let url = self
+            .origin
+            .join(path)
+            .map_err(logged("Invalid API path."))?;
         let response = self
             .client
-            .get(self.origin.join(path).map_err(|_| "Invalid API path.")?)
+            .get(url.clone())
             .timeout(Duration::from_secs(8))
             .header("accept", "application/json")
             .send()
             .await
-            .map_err(|_| "Could not reach the Alloy server.")?;
+            .map_err(logged("Could not reach the Alloy server."))?;
         if !response.status().is_success() {
-            return Err(format!(
-                "Server check failed with HTTP {}.",
-                response.status().as_u16()
-            ));
+            log::warn!("{url} answered with HTTP {}.", response.status().as_u16());
+            return Err("The Alloy server returned an error.".into());
         }
         let bytes = read_body(response, MAX_JSON_BODY).await?;
         serde_json::from_slice(&bytes)
-            .map_err(|_| "The server returned an invalid Alloy response.".into())
+            .map_err(logged("The server returned an invalid Alloy response."))
     }
 }
 
-/// Read a response without allowing an untrusted server to allocate an
-/// unbounded buffer. Login and capability probes use this helper.
 /// reqwest 0.13 builds rustls without a crypto provider; select ring once per
 /// process. A second install returns an error, which is fine to ignore.
 pub fn install_crypto_provider() {
@@ -97,6 +101,8 @@ pub fn install_crypto_provider() {
     }
 }
 
+/// Read a response without allowing an untrusted server to allocate an
+/// unbounded buffer. Login and capability probes use this helper.
 pub async fn read_body(mut response: reqwest::Response, limit: usize) -> Result<Vec<u8>, String> {
     if response
         .content_length()
@@ -108,7 +114,7 @@ pub async fn read_body(mut response: reqwest::Response, limit: usize) -> Result<
     while let Some(chunk) = response
         .chunk()
         .await
-        .map_err(|_| "Could not read the server response.")?
+        .map_err(logged("Could not read the server response."))?
     {
         if body.len().saturating_add(chunk.len()) > limit {
             return Err("The server response is too large.".into());
