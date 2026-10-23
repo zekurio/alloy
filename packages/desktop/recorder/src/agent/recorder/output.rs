@@ -262,7 +262,6 @@ impl Recorder {
             return Err(error);
         }
 
-        let can_pause = unsafe { (obs.obs_output_can_pause)(output) };
         let game_capture_hook_wait =
             (source_kind == OutputSourceKind::Game).then(|| start_game_capture_hook_wait(game));
         Ok(ActiveSession {
@@ -281,8 +280,6 @@ impl Recorder {
             target_game_key: game.map(|game| game.window_key.clone()),
             game_content_expires_at: None,
             game_capture_hook_wait,
-            can_pause,
-            paused: false,
         })
     }
 
@@ -390,9 +387,6 @@ impl Recorder {
             .obs
             .as_ref()
             .ok_or_else(|| "OBS is not initialized.".to_string())?;
-        if session.paused && session.can_pause {
-            (obs.obs_output_pause)(session.output, false);
-        }
         (obs.obs_output_stop)(session.output);
 
         let deadline = Instant::now() + Duration::from_secs(8);

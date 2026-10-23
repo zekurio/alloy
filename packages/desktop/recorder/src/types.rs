@@ -370,7 +370,6 @@ pub struct RecordingTelemetry {
 /// as a desktop capture instead of claiming a game.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
-#[allow(dead_code)]
 pub enum RecordingCaptureSource {
     Game,
     #[default]
@@ -379,7 +378,6 @@ pub enum RecordingCaptureSource {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
-#[allow(dead_code)]
 pub enum RecordingCaptureKind {
     #[default]
     Replay,
@@ -432,7 +430,6 @@ pub enum RecordingBackendState {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
-#[allow(dead_code)]
 pub enum RecordingMode {
     Idle,
     ReplayBuffer,
@@ -440,7 +437,6 @@ pub enum RecordingMode {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
-#[allow(dead_code)]
 pub enum RecordingRunState {
     Idle,
     Paused,

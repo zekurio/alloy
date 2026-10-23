@@ -25,9 +25,8 @@ use crate::agent::{
     events::emit_event,
     obs::{
         audio_source_configs, clear_audio_output_sources, create_audio_source, output_last_error,
-        recording_source_from_kind, release_audio_source, route_audio_source,
-        should_pause_for_focus, source_kind, target_bitrate_kbps, validate_audio_source_count,
-        LibObs,
+        recording_source_from_kind, release_audio_source, route_audio_source, source_kind,
+        target_bitrate_kbps, validate_audio_source_count, LibObs,
     },
     platform::{
         detect_game_activity, detected_game_allowed, hotkeys, is_detected_game_alive,
@@ -141,8 +140,6 @@ struct ActiveSession {
     target_game_key: Option<String>,
     game_content_expires_at: Option<Instant>,
     game_capture_hook_wait: Option<GameCaptureHookWait>,
-    can_pause: bool,
-    paused: bool,
 }
 
 impl Drop for Recorder {
@@ -308,14 +305,9 @@ impl Recorder {
         };
 
         let mode = self.current_mode();
-        let paused = self
-            .replay_session
-            .as_ref()
-            .is_some_and(|session| session.paused);
-        let run_state = match (&backend, &mode, paused) {
-            (RecordingBackendState::Error, _, _) => RecordingRunState::Error,
-            (_, _, true) => RecordingRunState::Paused,
-            (_, RecordingMode::ReplayBuffer, _) => RecordingRunState::ReplayBuffer,
+        let run_state = match (&backend, &mode) {
+            (RecordingBackendState::Error, _) => RecordingRunState::Error,
+            (_, RecordingMode::ReplayBuffer) => RecordingRunState::ReplayBuffer,
             _ => RecordingRunState::Idle,
         };
 
@@ -388,7 +380,7 @@ impl Recorder {
             fps: session.video_config.fps,
             bitrate_kbps: target_bitrate_kbps(&quality),
             output_active: unsafe { (obs.obs_output_active)(session.output) },
-            paused: session.paused,
+            paused: false,
             active_fps: unsafe { obs.obs_get_active_fps.map(|read| read()) },
             average_frame_time_ms: unsafe {
                 obs.obs_get_average_frame_time_ns
@@ -1259,39 +1251,9 @@ impl Recorder {
             self.stop_active_replay_buffer()?;
             return Ok(());
         }
-        self.refresh_active_pause()?;
-        self.refresh_active_source()
-    }
-
-    fn refresh_active_pause(&mut self) -> Result<(), String> {
-        let settings = self.settings.clone().unwrap_or_default();
-        let should_pause =
-            should_pause_for_focus(&settings, self.active_game.as_ref(), self.focused);
-
-        let obs = self
-            .obs
-            .as_ref()
-            .ok_or_else(|| "OBS is not initialized.".to_string())?;
-        for session in [&mut self.replay_session].into_iter().flatten() {
-            if session.paused == should_pause || !session.can_pause {
-                continue;
-            }
-            unsafe {
-                if !(obs.obs_output_pause)(session.output, should_pause) {
-                    return Err(if should_pause {
-                        "OBS output failed to pause.".to_string()
-                    } else {
-                        "OBS output failed to resume.".to_string()
-                    });
-                }
-                let paused = (obs.obs_output_paused)(session.output);
-                session.paused = paused;
-            }
-        }
-
         let status = self.status();
         emit_event(RecordingEvent::Status { status });
-        Ok(())
+        self.refresh_active_source()
     }
 
     fn refresh_active_source(&mut self) -> Result<(), String> {

@@ -894,14 +894,6 @@ pub(in crate::agent) fn source_kind(settings: &RecordingSettings) -> OutputSourc
     }
 }
 
-pub(in crate::agent) fn should_pause_for_focus(
-    _settings: &RecordingSettings,
-    _game: Option<&DetectedGame>,
-    _focused: bool,
-) -> bool {
-    false
-}
-
 pub(in crate::agent) fn recording_source_from_kind(
     source_kind: OutputSourceKind,
 ) -> RecordingCaptureSource {

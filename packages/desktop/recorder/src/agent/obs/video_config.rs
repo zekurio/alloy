@@ -119,30 +119,14 @@ fn capture_base_dimensions(
     game: Option<&DetectedGame>,
     source_kind: OutputSourceKind,
 ) -> VideoDimensions {
-    capture_base_dimensions_with_display(
-        settings,
-        game,
-        source_kind,
-        selected_display_dimensions(settings),
-    )
-}
-
-fn capture_base_dimensions_with_display(
-    settings: &RecordingSettings,
-    game: Option<&DetectedGame>,
-    source_kind: OutputSourceKind,
-    display_dimensions: Option<VideoDimensions>,
-) -> VideoDimensions {
     if source_kind == OutputSourceKind::Game {
         if let Some(dimensions) = game.and_then(|game| game.capture_dimensions) {
             return dimensions;
         }
     }
 
-    if source_kind == OutputSourceKind::Game || source_kind == OutputSourceKind::Display {
-        if let Some(dimensions) = display_dimensions {
-            return dimensions;
-        }
+    if let Some(dimensions) = selected_display_dimensions(settings) {
+        return dimensions;
     }
 
     let quality = effective_quality(settings);
