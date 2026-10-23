@@ -25,7 +25,6 @@ import {
 import { and, eq, gt } from "drizzle-orm"
 import { Hono } from "hono"
 
-import { IdParam } from "./clips-helpers"
 import {
   loadMutableClip,
   updatedClipResponse,
@@ -39,7 +38,7 @@ import {
   uploadQuotaResult,
 } from "./clips-upload-helpers"
 import { clipsUploadInitiateRoutes } from "./clips-upload-initiate"
-import { tbValidator } from "./validation"
+import { IdParam, tbValidator } from "./validation"
 
 export const clipsUploadLifecycleRoutes = new Hono()
   .route("/", clipsUploadInitiateRoutes)

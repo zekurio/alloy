@@ -13,13 +13,13 @@ import {
 import { eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
-import { IdParam, UpdateBody } from "./clips-helpers"
+import { UpdateBody } from "./clips-helpers"
 import { loadMutableClip, updatedClipResponse } from "./clips-upload-access"
 import { resolveMentionIds } from "./clips-upload-helpers"
 import { clipsUploadImageRoutes } from "./clips-upload-image"
 import { clipsUploadLifecycleRoutes } from "./clips-upload-lifecycle"
 import { clipsUploadMediaRoutes } from "./clips-upload-media"
-import { tbValidator } from "./validation"
+import { IdParam, tbValidator } from "./validation"
 
 export const clipsUploadRoutes = new Hono()
   .route("/", clipsUploadLifecycleRoutes)

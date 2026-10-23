@@ -43,9 +43,9 @@ import {
 import { and, eq, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
-import { IdParam, PosterBody, TrimBody } from "./clips-helpers"
+import { PosterBody, TrimBody } from "./clips-helpers"
 import { loadMutableClip, updatedClipResponse } from "./clips-upload-access"
-import { tbValidator } from "./validation"
+import { IdParam, tbValidator } from "./validation"
 
 // Owner/admin re-encode is non-destructive but enqueues real transcode work,
 // so it sits behind a per-IP limiter like the auth routes.

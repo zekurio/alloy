@@ -24,12 +24,10 @@ import { sendWebhook } from "@alloy/server/webhooks/send"
 import { desc, eq } from "drizzle-orm"
 import { Hono } from "hono"
 
-import { requiredTrimmedString, tbValidator } from "./validation"
+import { IdParam, requiredTrimmedString, tbValidator } from "./validation"
 
 const TEST_MESSAGE_CONTENT =
   "Alloy webhook test — published clips will be posted here as links that unfurl into a playable preview."
-
-const WebhookIdParam = t.object({ id: t.uuid() })
 
 const CreateWebhookBody = t.object({
   name: requiredTrimmedString(WEBHOOK_NAME_MAX_LENGTH),
@@ -78,7 +76,7 @@ export const adminWebhooksRoute = new Hono()
   })
   .patch(
     "/webhooks/:id",
-    tbValidator("param", WebhookIdParam),
+    tbValidator("param", IdParam),
     tbValidator("json", UpdateWebhookBody),
     async (c) => {
       const { id } = c.req.valid("param")
@@ -109,7 +107,7 @@ export const adminWebhooksRoute = new Hono()
       return c.json(toAdminWebhookRow(row))
     },
   )
-  .delete("/webhooks/:id", tbValidator("param", WebhookIdParam), async (c) => {
+  .delete("/webhooks/:id", tbValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
     const [row] = await db
       .delete(webhook)
@@ -118,38 +116,34 @@ export const adminWebhooksRoute = new Hono()
     if (!row) return notFound(c, "Webhook not found")
     return deleted(c)
   })
-  .post(
-    "/webhooks/:id/test",
-    tbValidator("param", WebhookIdParam),
-    async (c) => {
-      const { id } = c.req.valid("param")
-      const row = await selectWebhook(id)
-      if (!row) return notFound(c, "Webhook not found")
+  .post("/webhooks/:id/test", tbValidator("param", IdParam), async (c) => {
+    const { id } = c.req.valid("param")
+    const row = await selectWebhook(id)
+    if (!row) return notFound(c, "Webhook not found")
 
-      const deliveryId = randomUUID()
-      // Deliberately does not touch webhook_delivery: a test is not an
-      // announcement, and recording one would consume nothing and prove
-      // nothing about which clips have been sent.
-      const result = await sendWebhook(
-        { provider: row.provider, url: row.url, secret: row.secret },
-        {
-          deliveryId,
+    const deliveryId = randomUUID()
+    // Deliberately does not touch webhook_delivery: a test is not an
+    // announcement, and recording one would consume nothing and prove
+    // nothing about which clips have been sent.
+    const result = await sendWebhook(
+      { provider: row.provider, url: row.url, secret: row.secret },
+      {
+        deliveryId,
+        event: "test",
+        content: TEST_MESSAGE_CONTENT,
+        body: {
           event: "test",
-          content: TEST_MESSAGE_CONTENT,
-          body: {
-            event: "test",
-            deliveryId,
-            timestamp: new Date().toISOString(),
-          },
+          deliveryId,
+          timestamp: new Date().toISOString(),
         },
-      )
-      return c.json({
-        ok: result.ok,
-        status: result.status,
-        error: result.ok ? null : result.error,
-      })
-    },
-  )
+      },
+    )
+    return c.json({
+      ok: result.ok,
+      status: result.status,
+      error: result.ok ? null : result.error,
+    })
+  })
 
 function selectWebhook(id: string) {
   return db.query.webhook.findFirst({ where: eq(webhook.id, id) })

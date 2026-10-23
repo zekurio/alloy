@@ -23,9 +23,8 @@ import { imageBodyLimit } from "@alloy/server/uploads/image-body-limit"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 
-import { IdParam } from "./clips-helpers"
 import { loadMutableClip, updatedClipResponse } from "./clips-upload-access"
-import { tbValidator } from "./validation"
+import { IdParam, tbValidator } from "./validation"
 
 const ImageEditForm = t.object({
   file: t.instanceof(File),

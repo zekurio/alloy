@@ -11,8 +11,7 @@ import {
 } from "@alloy/server/webhooks/publish"
 import { Hono } from "hono"
 
-import { IdParam } from "./clips-helpers"
-import { tbValidator } from "./validation"
+import { IdParam, tbValidator } from "./validation"
 
 const reannounceRateLimit = rateLimiter({
   windowMs: 60_000,

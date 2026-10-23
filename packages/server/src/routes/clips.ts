@@ -12,11 +12,10 @@ import { and, eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { clipsAnnouncementRoutes } from "./clips-announcements"
-import { IdParam } from "./clips-helpers"
 import { clipsPlaybackRoutes } from "./clips-playback"
 import { clipsUploadRoutes } from "./clips-upload"
 import { clipsViewRoutes } from "./clips-views"
-import { tbValidator } from "./validation"
+import { IdParam, tbValidator } from "./validation"
 
 export const clips = new Hono()
   .post(

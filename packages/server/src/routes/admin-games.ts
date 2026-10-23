@@ -33,7 +33,7 @@ import {
   uploadGameAsset,
 } from "./admin-games-store"
 import { steamgriddbErrorResponse } from "./games-helpers"
-import { requiredTrimmedString, tbValidator } from "./validation"
+import { IdParam, requiredTrimmedString, tbValidator } from "./validation"
 
 export { gameAssetsRoute } from "./admin-game-assets"
 
@@ -74,7 +74,6 @@ const UpdateGameBody = t
     message: "No updates provided",
   })
 
-const GameIdParam = t.object({ id: t.uuid() })
 const GameAssetParam = t.object({
   id: t.uuid(),
   role: t.enum(GAME_ASSET_ROLES),
@@ -140,7 +139,7 @@ export const adminGamesRoute = new Hono()
   )
   .patch(
     "/games/:id",
-    tbValidator("param", GameIdParam),
+    tbValidator("param", IdParam),
     tbValidator("json", UpdateGameBody),
     loadGame,
     async (c) => {
@@ -148,7 +147,7 @@ export const adminGamesRoute = new Hono()
       return result.ok ? c.json(result.game) : errorResult(c, result)
     },
   )
-  .delete("/games/:id", tbValidator("param", GameIdParam), async (c) => {
+  .delete("/games/:id", tbValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
     const result = await deleteGame(id)
     return result.ok ? deleted(c) : errorResult(c, result)
@@ -157,7 +156,7 @@ export const adminGamesRoute = new Hono()
   // for games that still carry a SteamGridDB id.
   .get(
     "/games/:id/artwork",
-    tbValidator("param", GameIdParam),
+    tbValidator("param", IdParam),
     tbValidator("query", GameArtworkQuery),
     loadGame,
     async (c) => {

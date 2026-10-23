@@ -18,13 +18,13 @@ import { Hono } from "hono"
 import type { Context } from "hono"
 import { stream } from "hono/streaming"
 
-import { contentDisposition, downloadFilename, IdParam } from "./clips-helpers"
+import { contentDisposition, downloadFilename } from "./clips-helpers"
 import {
   mediaCacheControl,
   streamResolved,
   streamThumbnail,
 } from "./clips-playback-streams"
-import { tbValidator } from "./validation"
+import { IdParam, tbValidator } from "./validation"
 
 const logger = createLogger("clips")
 
