@@ -289,26 +289,6 @@ pub(in crate::agent) fn platform_modules() -> &'static [ObsModuleSpec] {
     ]
 }
 
-pub(in crate::agent) fn platform_graphics_module() -> &'static str {
-    "libobs-d3d11"
-}
-
-pub(in crate::agent) fn platform_display_source_id() -> &'static str {
-    "monitor_capture"
-}
-
-pub(in crate::agent) fn platform_audio_output_source_id() -> &'static str {
-    "wasapi_output_capture"
-}
-
-pub(in crate::agent) fn platform_audio_input_source_id() -> &'static str {
-    "wasapi_input_capture"
-}
-
-pub(in crate::agent) fn platform_application_audio_source_id() -> Option<&'static str> {
-    Some("wasapi_process_output_capture")
-}
-
 pub(in crate::agent) fn cstring_path(path: &Path) -> Result<CString, String> {
     CString::new(path.to_string_lossy().replace('\\', "/").into_bytes())
         .map_err(|_| format!("Path contains a nul byte: {}", path.display()))

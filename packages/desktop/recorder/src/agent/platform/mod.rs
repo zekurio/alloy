@@ -1,8 +1,7 @@
 use std::process::Command;
 
 use crate::types::{
-    RecordingAllowedGame, RecordingDisplay, RecordingGame, RecordingGameGuess,
-    RecordingGameProcess, RecordingSettings, VideoDimensions,
+    RecordingAllowedGame, RecordingDisplay, RecordingGame, RecordingSettings, VideoDimensions,
 };
 
 mod audio_levels;
@@ -12,7 +11,13 @@ pub(in crate::agent) mod hotkeys;
 mod windows;
 mod windows_audio;
 
-pub(in crate::agent) use windows::audio_applications;
+pub(in crate::agent) use audio_levels::{stop_audio_level_events, subscribe_audio_level_events};
+pub(in crate::agent) use game_matching::detected_game_allowed;
+pub(in crate::agent) use windows::{
+    audio_applications, detect_game_activity, is_detected_game_alive, list_displays,
+    list_game_processes, primary_display_id,
+};
+pub(in crate::agent) use windows_audio::refresh_capture_metadata;
 
 #[derive(Clone, Debug)]
 pub(in crate::agent) struct DetectedGame {
@@ -30,45 +35,6 @@ pub(in crate::agent) struct DetectedGame {
 pub(in crate::agent) struct GameDetection {
     pub(in crate::agent) game: DetectedGame,
     pub(in crate::agent) focused: bool,
-}
-
-pub(in crate::agent) fn detect_game_activity(
-    active_game: Option<&DetectedGame>,
-    settings: &RecordingSettings,
-) -> Option<GameDetection> {
-    windows::detect_game_activity(active_game, settings)
-}
-
-pub(in crate::agent) fn is_detected_game_alive(game: &DetectedGame) -> bool {
-    windows::detected_game_alive(game)
-}
-
-pub(in crate::agent) fn refresh_capture_metadata(game: &mut DetectedGame) {
-    windows_audio::refresh_capture_metadata(game);
-}
-
-pub(in crate::agent) fn application_icon_url(path: &str) -> Option<String> {
-    windows_audio::application_icon_data_url(path)
-}
-
-pub(in crate::agent) fn application_display_name(path: &str) -> Option<String> {
-    windows_audio::application_display_name(path)
-}
-
-pub(in crate::agent) fn subscribe_audio_level_events() {
-    audio_levels::subscribe_audio_levels();
-}
-
-pub(in crate::agent) fn stop_audio_level_events() {
-    audio_levels::stop_audio_levels();
-}
-
-pub(in crate::agent) fn list_game_processes() -> Vec<RecordingGameProcess> {
-    windows::game_processes()
-}
-
-pub(in crate::agent) fn list_displays() -> Vec<RecordingDisplay> {
-    windows::displays()
 }
 
 pub(in crate::agent) fn selected_display(settings: &RecordingSettings) -> Option<RecordingDisplay> {
@@ -96,17 +62,6 @@ pub(in crate::agent) fn selected_display_dimensions(
         width: display.width,
         height: display.height,
     })
-}
-
-pub(in crate::agent) fn primary_display_id() -> Option<String> {
-    windows::primary_display_id()
-}
-
-pub(in crate::agent) fn detected_game_allowed(
-    detected: &DetectedGame,
-    settings: &RecordingSettings,
-) -> bool {
-    game_matching::detected_game_still_allowed(detected, settings)
 }
 
 pub(in crate::agent) fn path_file_name(path: &str) -> Option<String> {
@@ -172,76 +127,6 @@ pub(in crate::agent) fn audio_application_id_from_parts(
         return format!("class:{}", class_name.to_ascii_lowercase());
     }
     format!("process:{process_id}")
-}
-
-#[allow(clippy::too_many_arguments)]
-fn detected_game_from_parts(
-    process_id: u32,
-    path: Option<String>,
-    title: Option<String>,
-    class_name: Option<String>,
-    window_key: String,
-    window_handle: isize,
-    fullscreen: bool,
-    obs_window: Option<String>,
-    capture_dimensions: Option<VideoDimensions>,
-    hdr_enabled: bool,
-    settings: &RecordingSettings,
-) -> Option<DetectedGame> {
-    let executable = path.as_deref().and_then(path_file_name);
-    let match_ = game_matching::candidate_game_detection_match(
-        path.as_deref(),
-        executable.as_deref(),
-        title.as_deref(),
-        class_name.as_deref(),
-        capture_dimensions,
-        settings,
-    )?;
-    let name = game_matching::readable_detected_game_name(
-        &match_,
-        path.as_deref(),
-        title.as_deref(),
-        executable.as_deref(),
-    );
-    let icon_url = match_
-        .icon_url
-        .clone()
-        .or_else(|| path.as_deref().and_then(application_icon_url));
-    let guess = RecordingGameGuess {
-        source: match_.source,
-        source_id: match_.source_id,
-        name: match_.name,
-        aliases: match_.aliases,
-        executable: executable.clone(),
-        path: path.clone(),
-        window_title: title.clone(),
-        window_class: class_name.clone(),
-        icon_url: icon_url.clone(),
-        confidence: match_.confidence,
-        match_kind: match_.match_kind,
-    };
-
-    Some(DetectedGame {
-        game: RecordingGame {
-            id: match_.id,
-            name,
-            process_id,
-            executable,
-            icon_url,
-            path,
-            window_title: title,
-            window_class: class_name,
-            started_at: Some(crate::agent::time::now_iso()),
-            guess: Some(guess),
-        },
-        obs_window,
-        window_key,
-        window_handle,
-        fullscreen,
-        capture_dimensions,
-        hdr_enabled,
-        detection_score: match_.detection_score,
-    })
 }
 
 fn best_allowed_game_match<'a>(

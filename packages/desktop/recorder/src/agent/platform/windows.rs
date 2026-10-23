@@ -1,5 +1,6 @@
 use super::game_matching::{
-    clean_user_facing_process_name, user_facing_process_name, ProcessDisplayName,
+    candidate_game_detection_match, clean_user_facing_process_name, readable_detected_game_name,
+    user_facing_process_name, ProcessDisplayName,
 };
 use super::windows_audio::{
     active_audio_sessions, application_icon_data_url, fullscreen_monitor_dimensions,
@@ -8,11 +9,13 @@ use super::windows_audio::{
     AudioWindowContext, GameWindowContext, WindowInfo,
 };
 use super::{
-    audio_application_id_from_parts, detected_game_from_parts, normalized_path,
-    obs_window_selector, valid_capture_dimensions, DetectedGame, GameDetection,
+    audio_application_id_from_parts, normalized_path, obs_window_selector, path_file_name,
+    valid_capture_dimensions, DetectedGame, GameDetection,
 };
+use crate::agent::time::now_iso;
 use crate::types::{
-    RecordingAudioApplicationSelection, RecordingDisplay, RecordingGameProcess, RecordingSettings,
+    RecordingAudioApplicationSelection, RecordingDisplay, RecordingGame, RecordingGameGuess,
+    RecordingGameProcess, RecordingSettings,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -127,7 +130,7 @@ pub fn process_alive(process_id: u32) -> bool {
     }
 }
 
-pub fn detected_game_alive(game: &DetectedGame) -> bool {
+pub fn is_detected_game_alive(game: &DetectedGame) -> bool {
     unsafe {
         let hwnd = game.window_handle as HWND;
         if hwnd.is_null() || IsWindow(hwnd) == 0 {
@@ -173,7 +176,7 @@ pub fn primary_display_id() -> Option<String> {
     }
 }
 
-pub fn displays() -> Vec<RecordingDisplay> {
+pub fn list_displays() -> Vec<RecordingDisplay> {
     unsafe {
         let mut context = DisplayEnumerationContext {
             primary: MonitorFromPoint(POINT { x: 0, y: 0 }, MONITOR_DEFAULTTOPRIMARY),
@@ -324,7 +327,7 @@ pub fn audio_applications() -> Vec<RecordingAudioApplicationSelection> {
     applications
 }
 
-pub fn game_processes() -> Vec<RecordingGameProcess> {
+pub fn list_game_processes() -> Vec<RecordingGameProcess> {
     unsafe {
         let processes = process_entries();
         if processes.is_empty() {
@@ -460,32 +463,72 @@ unsafe fn game_candidate_from_window(
     let title = window_text(hwnd);
     let class_name = window_class(hwnd);
     let path = process_path(process_id);
-    let executable = process_executable(path.as_deref()).unwrap_or_default();
-    let obs_window = Some(obs_window_selector(
+    let obs_window = obs_window_selector(
         title.as_deref().unwrap_or_default(),
         class_name.as_deref().unwrap_or_default(),
-        &executable,
-    ));
+        &process_executable(path.as_deref()).unwrap_or_default(),
+    );
     let fullscreen_dimensions = fullscreen_monitor_dimensions(hwnd);
     let capture_dimensions = fullscreen_dimensions
         .or_else(|| window_dimensions(hwnd))
         .filter(|dimensions| valid_capture_dimensions(*dimensions));
-    let game = detected_game_from_parts(
-        process_id,
-        path,
-        title,
-        class_name,
-        format!("pid:{process_id}"),
-        hwnd as isize,
-        fullscreen_dimensions.is_some(),
-        obs_window,
+
+    let executable = path.as_deref().and_then(path_file_name);
+    let match_ = candidate_game_detection_match(
+        path.as_deref(),
+        executable.as_deref(),
+        title.as_deref(),
+        class_name.as_deref(),
         capture_dimensions,
-        false,
         settings,
     )?;
+    let name = readable_detected_game_name(
+        &match_,
+        path.as_deref(),
+        title.as_deref(),
+        executable.as_deref(),
+    );
+    let icon_url = match_
+        .icon_url
+        .clone()
+        .or_else(|| path.as_deref().and_then(application_icon_data_url));
+    let guess = RecordingGameGuess {
+        source: match_.source,
+        source_id: match_.source_id,
+        name: match_.name,
+        aliases: match_.aliases,
+        executable: executable.clone(),
+        path: path.clone(),
+        window_title: title.clone(),
+        window_class: class_name.clone(),
+        icon_url: icon_url.clone(),
+        confidence: match_.confidence,
+        match_kind: match_.match_kind,
+    };
 
     Some(GameDetection {
-        game,
+        game: DetectedGame {
+            game: RecordingGame {
+                id: match_.id,
+                name,
+                process_id,
+                executable,
+                icon_url,
+                path,
+                window_title: title,
+                window_class: class_name,
+                started_at: Some(now_iso()),
+                guess: Some(guess),
+            },
+            obs_window: Some(obs_window),
+            window_key: format!("pid:{process_id}"),
+            window_handle: hwnd as isize,
+            fullscreen: fullscreen_dimensions.is_some(),
+            capture_dimensions,
+            // `refresh_capture_metadata` reads HDR once this is the active game.
+            hdr_enabled: false,
+            detection_score: match_.detection_score,
+        },
         focused: foreground_process_id == Some(process_id),
     })
 }

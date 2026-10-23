@@ -16,9 +16,7 @@ use crate::{
 use super::{
     load_optional_symbol, load_symbol,
     platform::{
-        cstring_path, libobs_candidates, module_bin_path, platform_audio_input_source_id,
-        platform_audio_output_source_id, platform_graphics_module, platform_modules,
-        sort_audio_devices,
+        cstring_path, libobs_candidates, module_bin_path, platform_modules, sort_audio_devices,
     },
     screenshot::ScreenshotBindings,
 };
@@ -40,6 +38,11 @@ pub(in crate::agent) const OBS_ENCODER_CAP_DEPRECATED: u32 = 1 << 0;
 pub(in crate::agent) const OBS_ENCODER_CAP_PASS_TEXTURE: u32 = 1 << 1;
 pub(in crate::agent) const OBS_ENCODER_CAP_INTERNAL: u32 = 1 << 3;
 pub(in crate::agent) const GAME_CAPTURE_SOURCE_ID: &str = "game_capture";
+pub(in crate::agent) const DISPLAY_CAPTURE_SOURCE_ID: &str = "monitor_capture";
+pub(in crate::agent) const AUDIO_OUTPUT_SOURCE_ID: &str = "wasapi_output_capture";
+pub(in crate::agent) const AUDIO_INPUT_SOURCE_ID: &str = "wasapi_input_capture";
+pub(in crate::agent) const APPLICATION_AUDIO_SOURCE_ID: &str = "wasapi_process_output_capture";
+const GRAPHICS_MODULE: &CStr = c"libobs-d3d11";
 pub(in crate::agent) const OBS_PROPERTY_LIST: i32 = 6;
 pub(in crate::agent) const OBS_COMBO_FORMAT_STRING: i32 = 3;
 
@@ -558,10 +561,8 @@ impl LibObs {
     }
 
     unsafe fn reset_video(&self, video_config: ObsVideoConfig, adapter: u32) -> Result<(), String> {
-        let graphics_module =
-            CString::new(platform_graphics_module()).expect("static string has no nul byte");
         let mut info = ObsVideoInfo {
-            graphics_module: graphics_module.as_ptr(),
+            graphics_module: GRAPHICS_MODULE.as_ptr(),
             fps_num: video_config.fps,
             fps_den: 1,
             base_width: video_config.base.width,
@@ -682,14 +683,11 @@ impl LibObs {
     pub(in crate::agent) unsafe fn audio_devices(
         &self,
     ) -> Result<Vec<RecordingAudioDevice>, String> {
-        let mut devices = self.audio_devices_for_source(
-            platform_audio_output_source_id(),
-            RecordingAudioDeviceKind::Output,
-        )?;
-        devices.extend(self.audio_devices_for_source(
-            platform_audio_input_source_id(),
-            RecordingAudioDeviceKind::Input,
-        )?);
+        let mut devices = self
+            .audio_devices_for_source(AUDIO_OUTPUT_SOURCE_ID, RecordingAudioDeviceKind::Output)?;
+        devices.extend(
+            self.audio_devices_for_source(AUDIO_INPUT_SOURCE_ID, RecordingAudioDeviceKind::Input)?,
+        );
         sort_audio_devices(&mut devices);
         Ok(devices)
     }

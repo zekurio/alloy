@@ -135,7 +135,7 @@ static AUDIO_LEVEL_MONITOR: Mutex<AudioLevelMonitor> = Mutex::new(AudioLevelMoni
 /// Keeps live `audio-levels` events flowing for the next few seconds.
 /// Callers re-send this as a heartbeat while a meter UI is visible, so a
 /// crashed window or sidecar respawn never leaves the meter thread orphaned.
-pub fn subscribe_audio_levels() {
+pub fn subscribe_audio_level_events() {
     let mut monitor = lock_audio_level_monitor();
     monitor.deadline = Some(Instant::now() + AUDIO_LEVEL_SUBSCRIPTION_TTL);
     if !monitor.running {
@@ -144,7 +144,7 @@ pub fn subscribe_audio_levels() {
     }
 }
 
-pub fn stop_audio_levels() {
+pub fn stop_audio_level_events() {
     lock_audio_level_monitor().deadline = None;
 }
 

@@ -643,7 +643,7 @@ pub(super) unsafe fn fullscreen_monitor_dimensions(hwnd: HWND) -> Option<VideoDi
 
 const ADVANCED_COLOR_ENABLED_FLAG: u32 = 0b10;
 
-pub(super) fn refresh_capture_metadata(game: &mut DetectedGame) {
+pub(in crate::agent) fn refresh_capture_metadata(game: &mut DetectedGame) {
     unsafe {
         let hwnd = game.window_handle as HWND;
         if hwnd.is_null() || IsWindow(hwnd) == 0 {
