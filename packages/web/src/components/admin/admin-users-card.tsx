@@ -8,12 +8,6 @@ import {
   InputGroupInput,
 } from "@alloy/ui/components/input-group"
 import { LoadingState } from "@alloy/ui/components/loading-state"
-import {
-  Section,
-  SectionContent,
-  SectionHeader,
-  SectionTitle,
-} from "@alloy/ui/components/section"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { SearchIcon, XIcon } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -24,16 +18,7 @@ import { CreateUserDialog } from "./admin-user-dialogs"
 import { useAdminUsers } from "./admin-user-hooks"
 import { UsersList } from "./admin-user-list"
 
-interface AdminUsersCardProps {
-  currentUserId: string
-  /** Hide the section header (useful when already wrapped in a titled collapsible). */
-  hideHeader?: boolean
-}
-
-export function AdminUsersCard({
-  currentUserId,
-  hideHeader,
-}: AdminUsersCardProps) {
+export function AdminUsersCard({ currentUserId }: { currentUserId: string }) {
   const [search, setSearch] = useState("")
   const normalizedSearch = search.trim()
   const adminUsers = useAdminUsers(currentUserId, normalizedSearch)
@@ -80,9 +65,9 @@ export function AdminUsersCard({
     </>
   )
 
-  const content = initialLoading ? (
-    <LoadingState variant="panel" />
-  ) : (
+  if (initialLoading) return <LoadingState variant="panel" />
+
+  return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-foreground-muted text-sm tabular-nums">
@@ -117,16 +102,5 @@ export function AdminUsersCard({
       </div>
       {list}
     </div>
-  )
-
-  if (hideHeader) return content
-
-  return (
-    <Section>
-      <SectionHeader>
-        <SectionTitle>{t("Users")}</SectionTitle>
-      </SectionHeader>
-      <SectionContent>{content}</SectionContent>
-    </Section>
   )
 }

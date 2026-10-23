@@ -53,13 +53,13 @@ export function AdminUsersPanel() {
   const session = useRequireAuthStrict()
   const userId = session?.user.id
   if (!userId) return null
-  return <AdminUsersCard currentUserId={userId} hideHeader />
+  return <AdminUsersCard currentUserId={userId} />
 }
 
 export function AdminGamesPanel() {
-  return <AdminGamesCard hideHeader />
+  return <AdminGamesCard />
 }
 
 export function AdminWebhooksPanel() {
-  return <AdminWebhooksCard hideHeader />
+  return <AdminWebhooksCard />
 }
