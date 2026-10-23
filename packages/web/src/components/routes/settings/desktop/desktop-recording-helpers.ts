@@ -149,24 +149,6 @@ export function applyQualitySettings(
   }
 }
 
-export function asLiteral<const T extends readonly string[]>(
-  value: string | null,
-  allowed: T,
-): T[number] | null {
-  // SAFETY: includes proves value is one of the allowed tuple elements.
-  return value !== null && allowed.includes(value) ? (value as T[number]) : null
-}
-
-export function asNumberLiteral<const T extends readonly number[]>(
-  value: string | null,
-  allowed: T,
-): T[number] | null {
-  if (value === null) return null
-  const numberValue = Number(value)
-  // SAFETY: includes proves numberValue is one of the allowed tuple elements.
-  return allowed.includes(numberValue) ? (numberValue as T[number]) : null
-}
-
 export function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`
   const minutes = Math.floor(seconds / 60)

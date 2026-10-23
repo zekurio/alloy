@@ -7,35 +7,46 @@ import type {
 import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { Dispatch, SetStateAction } from "react"
 
 import type { AlloyDesktopRecordingApi } from "@/lib/desktop"
-
-import { errorText } from "./recording-status-helpers"
+import { errorMessage } from "@/lib/error-message"
+import { useDesktopQuery } from "@/lib/use-desktop-query"
 
 /**
- * Keep recording settings/status in sync with the desktop sidecar: subscribe
- * to push events first, then backfill from a one-shot fetch for whichever of
- * the two no event has arrived for yet.
+ * Recording settings and status kept in sync with the desktop sidecar. Shared
+ * by the sidebar capture widget and the desktop settings panels.
+ *
+ * `save` applies settings optimistically, then reconciles with the sidecar's
+ * response. A sequence counter discards stale responses when saves overlap.
+ * A rejected save rolls back and rethrows, unless a newer save superseded it.
  */
-function useRecordingSnapshot(recording: AlloyDesktopRecordingApi | null) {
+export function useRecordingSync(recording: AlloyDesktopRecordingApi | null) {
   const [settings, setSettings] = useState<RecordingSettings | null>(null)
   const [status, setStatus] = useState<RecordingStatus | null>(null)
+  const [loading, setLoading] = useState(recording !== null)
+  const [loadError, setLoadError] = useState<unknown>(null)
+  const saveSequence = useRef(0)
+  // Last settings the host confirmed, for rolling back a rejected save.
+  const confirmedSettings = useRef<RecordingSettings | null>(null)
 
+  // Subscribe to push events first, then backfill from a one-shot fetch for
+  // whichever of the two no event has arrived for yet.
   useEffect(() => {
     if (!recording) {
-      setSettings(null)
-      setStatus(null)
+      setLoading(false)
       return
     }
 
     let cancelled = false
     let receivedSettingsEvent = false
     let receivedStatusEvent = false
+    setLoading(true)
+    setLoadError(null)
     const unsubscribe = recording.onEvent((event: RecordingEvent) => {
       if (cancelled) return
       if (event.type === "settings") {
         receivedSettingsEvent = true
+        confirmedSettings.current = event.settings
         setSettings(event.settings)
       }
       if ("status" in event) {
@@ -44,141 +55,147 @@ function useRecordingSnapshot(recording: AlloyDesktopRecordingApi | null) {
       }
     })
 
-    void Promise.all([recording.getSettings(), recording.getStatus()]).then(
-      ([nextSettings, nextStatus]) => {
-        if (cancelled) return
-        if (!receivedSettingsEvent) setSettings(nextSettings)
-        if (!receivedStatusEvent) setStatus(nextStatus)
-      },
-    )
+    void Promise.all([recording.getSettings(), recording.getStatus()])
+      .then(
+        ([nextSettings, nextStatus]) => {
+          if (cancelled) return
+          if (!receivedSettingsEvent) {
+            confirmedSettings.current = nextSettings
+            setSettings(nextSettings)
+          }
+          if (!receivedStatusEvent) setStatus(nextStatus)
+        },
+        (cause: unknown) => {
+          if (!cancelled) setLoadError(cause)
+        },
+      )
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
 
     return () => {
       cancelled = true
       unsubscribe()
+      confirmedSettings.current = null
       setSettings(null)
       setStatus(null)
     }
   }, [recording])
 
-  return { settings, setSettings, status }
+  /** Shows settings the host has already applied, e.g. read back after a change. */
+  const confirmSettings = useCallback((next: RecordingSettings) => {
+    confirmedSettings.current = next
+    setSettings(next)
+  }, [])
+
+  const save = useCallback(
+    async (next: RecordingSettings) => {
+      if (!recording) return
+      const sequence = ++saveSequence.current
+      setSettings(next)
+      try {
+        const saved = await recording.setSettings(next)
+        confirmedSettings.current = saved
+        if (sequence !== saveSequence.current) return
+        setSettings(saved)
+      } catch (cause) {
+        if (sequence !== saveSequence.current) return
+        // Roll back so the rejected value neither stays on screen nor gets
+        // written back by the next change, which spreads `settings`. Prefer
+        // what the host holds now; fall back to the last confirmed value.
+        let restored = confirmedSettings.current
+        try {
+          restored = await recording.getSettings()
+          confirmedSettings.current = restored
+        } catch {
+          // Keep the last confirmed settings.
+        }
+        if (sequence !== saveSequence.current) return
+        setSettings(restored)
+        throw cause
+      }
+    },
+    [recording],
+  )
+
+  return {
+    settings,
+    status,
+    setStatus,
+    loading,
+    loadError,
+    confirmSettings,
+    save,
+  }
 }
 
 /**
- * Load the display list when the picker opens, and lazily fetch thumbnails
- * when desktop capture is active but no preview has been loaded yet.
+ * Load the display list when the picker opens. Display capture also shows the
+ * selected display's thumbnail, so fetch the list once for that if the picker
+ * hasn't loaded it yet.
  */
 function useRecordingDisplays(
   recording: AlloyDesktopRecordingApi | null,
   displayPickerOpen: boolean,
   captureMode: RecordingSettings["captureMode"] | undefined,
 ) {
-  const [displays, setDisplays] = useState<RecordingDisplay[]>([])
-  const [displayLoading, setDisplayLoading] = useState(false)
-  const previewAttemptRef = useRef<{
-    attempted: boolean
-    captureMode: RecordingSettings["captureMode"] | undefined
-    recording: AlloyDesktopRecordingApi | null
-  }>({
-    attempted: false,
-    captureMode: undefined,
-    recording: null,
-  })
+  const picker = useDesktopQuery(
+    recording && displayPickerOpen
+      ? () => listDisplays(recording, t("Couldn't load displays."))
+      : null,
+    [recording, displayPickerOpen],
+  )
+  const needsPreview = captureMode === "display" && picker.data === undefined
+  const preview = useDesktopQuery(
+    recording && needsPreview
+      ? () => listDisplays(recording, t("Couldn't load display preview."))
+      : null,
+    [recording, needsPreview],
+  )
 
-  useEffect(() => {
-    if (!recording || !displayPickerOpen) return
-    let cancelled = false
-    setDisplayLoading(true)
-    void recording
-      .listDisplays()
-      .then((nextDisplays) => {
-        if (!cancelled) setDisplays(nextDisplays)
-      })
-      .catch((cause) =>
-        toast.error(errorText(cause, t("Couldn't load displays."))),
-      )
-      .finally(() => {
-        if (!cancelled) setDisplayLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [displayPickerOpen, recording])
-
-  useEffect(() => {
-    const previewAttempt = previewAttemptRef.current
-    if (
-      previewAttempt.captureMode !== captureMode ||
-      previewAttempt.recording !== recording
-    ) {
-      previewAttempt.attempted = false
-      previewAttempt.captureMode = captureMode
-      previewAttempt.recording = recording
-    }
-
-    if (!recording || captureMode !== "display") return
-    if (previewAttempt.attempted) return
-
-    previewAttempt.attempted = true
-    let cancelled = false
-    void recording
-      .listDisplays()
-      .then((nextDisplays) => {
-        if (!cancelled) setDisplays(nextDisplays)
-      })
-      .catch((cause) =>
-        toast.error(errorText(cause, t("Couldn't load display preview."))),
-      )
-    return () => {
-      cancelled = true
-    }
-  }, [captureMode, recording])
-
-  return { displays, displayLoading }
+  return {
+    displays: picker.data ?? preview.data ?? [],
+    displayLoading: picker.loading,
+  }
 }
 
-/**
- * Optimistically apply settings, then reconcile with (or roll back to) the
- * sidecar's response. A sequence counter discards stale responses when saves
- * overlap.
- */
-function useSaveRecordingSettings(
-  recording: AlloyDesktopRecordingApi | null,
-  settings: RecordingSettings | null,
-  setSettings: Dispatch<SetStateAction<RecordingSettings | null>>,
-) {
-  const saveSequence = useRef(0)
-
-  return useCallback(
-    async (next: RecordingSettings) => {
-      if (!recording) return
-      const previous = settings
-      const sequence = ++saveSequence.current
-      setSettings(next)
-      try {
-        const saved = await recording.setSettings(next)
-        if (sequence !== saveSequence.current) return
-        setSettings(saved)
-      } catch (cause) {
-        if (sequence !== saveSequence.current) return
-        setSettings(previous)
-        toast.error(errorText(cause, t("Couldn't save recording settings.")))
-      }
-    },
-    [recording, setSettings, settings],
-  )
+function listDisplays(recording: AlloyDesktopRecordingApi, failure: string) {
+  return recording.listDisplays().catch((cause: unknown) => {
+    toast.error(errorMessage(cause, failure))
+    throw cause
+  })
 }
 
 export function useDesktopRecordingState(
   recording: AlloyDesktopRecordingApi | null,
 ) {
   const [displayPickerOpen, setDisplayPickerOpen] = useState(false)
-  const { settings, setSettings, status } = useRecordingSnapshot(recording)
+  const {
+    settings,
+    status,
+    loadError,
+    save: saveSettings,
+  } = useRecordingSync(recording)
   const { displays, displayLoading } = useRecordingDisplays(
     recording,
     displayPickerOpen,
     settings?.captureMode,
   )
-  const save = useSaveRecordingSettings(recording, settings, setSettings)
+
+  // The widget stays in its loading state until the host sends settings, so
+  // say why instead of waiting silently.
+  useEffect(() => {
+    if (!loadError) return
+    toast.error(errorMessage(loadError, t("Couldn't load recording settings.")))
+  }, [loadError])
+
+  const save = useCallback(
+    (next: RecordingSettings) =>
+      saveSettings(next).catch((cause: unknown) => {
+        toast.error(errorMessage(cause, t("Couldn't save recording settings.")))
+      }),
+    [saveSettings],
+  )
 
   const selectDisplay = useCallback(
     (display: RecordingDisplay) => {

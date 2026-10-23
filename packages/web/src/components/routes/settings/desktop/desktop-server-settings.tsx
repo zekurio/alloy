@@ -28,11 +28,11 @@ import {
   SettingsSections,
   SettingsSubsection,
 } from "@/components/routes/settings/settings-panel"
+import { alloyDesktop, type DesktopSavedServer } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 
 import { DesktopAutostartSettings } from "./desktop-autostart-settings"
 import { DesktopLogSettings } from "./desktop-log-settings"
-import { alloyDesktop, type DesktopSavedServer } from "./desktop-native"
 import { DesktopUpdateSettings } from "./desktop-update-settings"
 
 type ServerApi = NonNullable<ReturnType<typeof alloyDesktop>>["servers"]

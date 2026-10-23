@@ -7,8 +7,7 @@ import { cn } from "@alloy/ui/lib/utils"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import type { RecordingAudioDeviceView } from "@/lib/audio-device-selection"
-
-import { alloyDesktop } from "./desktop-native"
+import { alloyDesktop } from "@/lib/desktop"
 
 const AUDIO_LEVEL_HEARTBEAT_MS = 4000
 

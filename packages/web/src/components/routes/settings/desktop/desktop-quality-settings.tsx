@@ -14,8 +14,7 @@ import {
 } from "./desktop-recording-context"
 
 export function DesktopQualitySettings() {
-  const { settings, status, busy, error, setSettings, save } =
-    useDesktopRecording()
+  const { settings, status, busy, error, save } = useDesktopRecording()
 
   if (!settings || !status) {
     if (error) return <DesktopRecordingNotice />
@@ -38,12 +37,7 @@ export function DesktopQualitySettings() {
         />
       </SettingsSubsection>
 
-      <ReplayBufferSection
-        settings={settings}
-        busy={busy}
-        setSettings={setSettings}
-        save={save}
-      />
+      <ReplayBufferSection settings={settings} busy={busy} save={save} />
     </SettingsSections>
   )
 }

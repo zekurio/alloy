@@ -1,6 +1,5 @@
 import type {
   RecordingNotificationSoundEvent,
-  RecordingNotificationSoundLibrary,
   RecordingNotificationSoundOption,
   RecordingNotificationSoundSettings,
   RecordingSettings,
@@ -17,14 +16,17 @@ import {
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Slider } from "@alloy/ui/components/slider"
 import { Switch } from "@alloy/ui/components/switch"
-import { cn, sliderValue } from "@alloy/ui/lib/utils"
+import { cn } from "@alloy/ui/lib/utils"
 import { FolderOpenIcon, PlayIcon } from "lucide-react"
-import { useState } from "react"
 
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { useDesktopQuery } from "@/lib/use-desktop-query"
 
-import { useDesktopRecording } from "./desktop-recording-context"
+import {
+  EMPTY_SOUND_LIBRARY,
+  useDesktopRecording,
+} from "./desktop-recording-context"
+import { useSliderDraft } from "./use-slider-draft"
 
 const SOUND_ROWS: Array<{
   id: RecordingNotificationSoundEvent
@@ -46,11 +48,6 @@ const SOUND_ROWS: Array<{
   },
 ]
 
-const EMPTY_LIBRARY: RecordingNotificationSoundLibrary = {
-  replayBufferStarted: [],
-  clipSaved: [],
-}
-
 export function NotificationSoundsSection({
   settings,
   busy,
@@ -69,7 +66,7 @@ export function NotificationSoundsSection({
     () => listNotificationSounds(),
     [listNotificationSounds],
   )
-  const library = data ?? EMPTY_LIBRARY
+  const library = data ?? EMPTY_SOUND_LIBRARY
 
   return (
     <SettingsSubsection id="sounds" title={t("Sounds")}>
@@ -77,6 +74,7 @@ export function NotificationSoundsSection({
         {SOUND_ROWS.map((row) => (
           <SoundCard
             key={row.id}
+            id={row.id}
             title={row.title}
             description={row.description}
             defaultFile={row.defaultFile}
@@ -103,6 +101,7 @@ export function NotificationSoundsSection({
 }
 
 function SoundCard({
+  id,
   title,
   description,
   defaultFile,
@@ -116,6 +115,7 @@ function SoundCard({
   onPreview,
   onRefresh,
 }: {
+  id: RecordingNotificationSoundEvent
   title: string
   description: string
   defaultFile: string
@@ -129,8 +129,7 @@ function SoundCard({
   onPreview: () => void
   onRefresh: () => void
 }) {
-  const [draftVolume, setDraftVolume] = useState<number | null>(null)
-  const displayVolume = draftVolume ?? sound.volume
+  const volumeSlider = useSliderDraft(sound.volume, onVolumeChange)
 
   // Empty path means "use the bundled default", which the shared folder is
   // seeded with — so resolve the selected value to that default file when
@@ -161,7 +160,7 @@ function SoundCard({
             )}
           >
             <label
-              htmlFor={`sound-effect-${title}`}
+              htmlFor={`sound-effect-${id}`}
               className="text-foreground-dim text-xs font-medium"
             >
               {t("Sound effect")}
@@ -178,7 +177,7 @@ function SoundCard({
                 }}
               >
                 <SelectTrigger
-                  id={`sound-effect-${title}`}
+                  id={`sound-effect-${id}`}
                   size="sm"
                   className="w-48"
                 >
@@ -232,17 +231,12 @@ function SoundCard({
                 min={0}
                 max={100}
                 step={1}
-                value={[displayVolume]}
+                {...volumeSlider.sliderProps}
                 disabled={controlsDisabled}
-                onValueChange={(value) => setDraftVolume(sliderValue(value))}
-                onValueCommitted={(value) => {
-                  setDraftVolume(null)
-                  onVolumeChange(sliderValue(value))
-                }}
                 className="min-w-0 flex-1"
               />
               <span className="text-foreground-muted w-9 shrink-0 text-right text-xs tabular-nums">
-                {displayVolume}
+                {volumeSlider.value}
                 {"%"}
               </span>
             </div>
