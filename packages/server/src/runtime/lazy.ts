@@ -6,12 +6,9 @@ const LazyMethodSchema = t.instanceof(Function)
  * Defers construction to first property access while keeping the value's
  * shape, so `import { db }` stays a no-op until something actually reads it.
  *
- * This exists because importing a module should not have side effects. Env
- * parsing, connection pools and storage roots used to be built at module load,
- * which meant importing any of the 80-odd modules that touch the database
- * opened a Postgres pool - forcing tests to dynamically import everything after
- * pointing env at a scratch database, and forcing CI to invent import-safe env
- * values for suites that never talk to a database.
+ * Importing a module must not have side effects. Building env, the Postgres
+ * pool or storage roots at module load would make every import of the many
+ * modules that touch the database open a connection.
  *
  * Startup still fails fast: `src/index.ts` reads env on its first line, so a
  * misconfigured deploy dies at boot rather than mid-request.

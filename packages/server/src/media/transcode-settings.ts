@@ -2,9 +2,9 @@ import { existsSync } from "node:fs"
 
 /**
  * Process-wide ffmpeg invocation settings. Media modules read these instead
- * of the server env so they stay importable (and testable) without full
- * server configuration; the server entrypoint applies env overrides at
- * startup before the queue runs any transcodes.
+ * of the server env so they stay importable without full server
+ * configuration; the server entrypoint applies env overrides at startup
+ * before the queue runs any transcodes.
  */
 export interface TranscodeSettings {
   /** ffmpeg binary to spawn. */

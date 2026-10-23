@@ -16,11 +16,7 @@ export interface ClipStorageDeletionSnapshot {
   }[]
 }
 
-/**
- * Classify every object whose ownership disappears with a clip row. Keeping
- * this pure makes the transaction boundary easy to test independently from
- * PostgreSQL and the physical storage driver.
- */
+/** Classify every object whose ownership disappears with a clip row. */
 export function clipStorageDeletionIntents(
   snapshot: ClipStorageDeletionSnapshot,
 ): StorageDeletionInput[] {
