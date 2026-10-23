@@ -1,6 +1,7 @@
 import { authAccount, user, userPasskey } from "@alloy/db/auth-schema"
 import { isOAuthProviderUsable } from "@alloy/server/config/secret-store"
 import { db } from "@alloy/server/db/index"
+import type { DbTransaction } from "@alloy/server/db/transaction"
 import { and, eq, inArray, ne } from "drizzle-orm"
 
 export type SignInMethodConfig = {
@@ -8,8 +9,7 @@ export type SignInMethodConfig = {
   oauthProviders: { enabled: boolean; providerId: string }[]
 }
 
-type AuthTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
-type AuthDbExecutor = typeof db | AuthTransaction
+type AuthDbExecutor = typeof db | DbTransaction
 
 export function usableSignInConfig(
   config: SignInMethodConfig,

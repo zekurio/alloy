@@ -2,12 +2,12 @@ import { authAccount, user, userPasskey } from "@alloy/db/auth-schema"
 import { isOAuthProviderUsable } from "@alloy/server/config/secret-store"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
+import type { DbTransaction } from "@alloy/server/db/transaction"
 import { and, eq, inArray, sql } from "drizzle-orm"
 
 import { withAdminAccessChange } from "./admin-access"
 
-type AuthTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
-type AuthExecutor = typeof db | AuthTransaction
+type AuthExecutor = typeof db | DbTransaction
 
 async function countEnabledOAuthAccounts(
   userId: string,
@@ -70,7 +70,7 @@ async function userHasEnabledSignInMethod(
 }
 
 async function lockUserSignInMethods(
-  tx: AuthTransaction,
+  tx: DbTransaction,
   userId: string,
 ): Promise<void> {
   await tx.execute(sql`

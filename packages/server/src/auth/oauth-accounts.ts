@@ -110,6 +110,20 @@ export async function linkAccountToUser(input: {
   await syncOAuthAvatar(input.userId, input.profile)
 }
 
+export function listLinkedAccounts(userId: string) {
+  return db
+    .select({
+      id: authAccount.id,
+      providerId: authAccount.provider_id,
+      accountId: authAccount.provider_account_id,
+      accountLabel: authAccount.account_label,
+      createdAt: authAccount.created_at,
+    })
+    .from(authAccount)
+    .where(eq(authAccount.user_id, userId))
+    .orderBy(authAccount.created_at)
+}
+
 async function findLinkedAccount(
   providerId: string,
   providerAccountId: string,

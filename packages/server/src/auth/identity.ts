@@ -1,10 +1,14 @@
+import type { UserRole, UserStatus } from "@alloy/contracts"
 import { type NewUser, type User, user } from "@alloy/db/auth-schema"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
+import type { DbTransaction } from "@alloy/server/db/transaction"
 import { and, eq, ne, sql } from "drizzle-orm"
 
 import {
   type AccountDisableSource,
+  activeAccountState,
+  type AccountStateUpdate,
   disabledAccountState,
   selfReactivatedAccountState,
 } from "./account-state"
@@ -32,10 +36,9 @@ export function validateUsername(value: string): string {
   return normalizeUsername(value)
 }
 
-export type AuthTransaction = Parameters<
-  Parameters<typeof db.transaction>[0]
->[0]
-type AuthDbExecutor = typeof db | AuthTransaction
+// users/account-deletion.ts still imports the transaction type under this name.
+export type { DbTransaction as AuthTransaction }
+type AuthDbExecutor = typeof db | DbTransaction
 
 async function assertUsernameAvailable(
   executor: AuthDbExecutor,
@@ -77,7 +80,7 @@ function currentUsableSignInConfig() {
 }
 
 export async function assertCanRemoveAdminInTransaction(
-  tx: AuthTransaction,
+  tx: DbTransaction,
   targetUserId: string,
 ): Promise<void> {
   const [row] = await tx
@@ -98,22 +101,35 @@ export async function assertCanRemoveAdminInTransaction(
   )
 }
 
+async function lockAccountState(tx: DbTransaction, userId: string) {
+  const [row] = await tx
+    .select({
+      role: user.role,
+      status: user.status,
+      disabledAt: user.disabled_at,
+      adminSuspendedAt: user.admin_suspended_at,
+    })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1)
+    .for("update")
+  return row ?? null
+}
+
+function accountStateColumns(state: AccountStateUpdate) {
+  return {
+    status: state.status,
+    disabled_at: state.disabledAt,
+    admin_suspended_at: state.adminSuspendedAt,
+  }
+}
+
 export async function disableUserIdentity(
   userId: string,
   source: AccountDisableSource,
 ): Promise<{ disabledAt: Date } | null> {
   return withAdminAccessInvariant(async (tx) => {
-    const [row] = await tx
-      .select({
-        id: user.id,
-        status: user.status,
-        disabledAt: user.disabled_at,
-        adminSuspendedAt: user.admin_suspended_at,
-      })
-      .from(user)
-      .where(eq(user.id, userId))
-      .limit(1)
-      .for("update")
+    const row = await lockAccountState(tx, userId)
     if (!row) return null
 
     if (row.status === "active") {
@@ -123,14 +139,56 @@ export async function disableUserIdentity(
     const next = disabledAccountState(row, source, now)
     await tx
       .update(user)
-      .set({
-        status: next.status,
-        disabled_at: next.disabledAt,
-        admin_suspended_at: next.adminSuspendedAt,
-        updated_at: now,
-      })
+      .set({ ...accountStateColumns(next), updated_at: now })
       .where(eq(user.id, userId))
     return { disabledAt: next.disabledAt ?? now }
+  })
+}
+
+/**
+ * Apply an administrator's role, status, and quota changes. Returns false
+ * when the account does not exist.
+ */
+export async function updateUserIdentityAsAdmin(
+  userId: string,
+  patch: {
+    role?: UserRole
+    status?: UserStatus
+    storageQuotaBytes?: number | null
+  },
+): Promise<boolean> {
+  return withAdminAccessInvariant(async (tx) => {
+    const current = await lockAccountState(tx, userId)
+    if (!current) return false
+
+    const nextRole = patch.role ?? current.role
+    const nextStatus = patch.status ?? current.status
+    const losesAdminAccess =
+      current.role === "admin" &&
+      current.status === "active" &&
+      (nextRole !== "admin" || nextStatus !== "active")
+    if (losesAdminAccess) {
+      await assertCanRemoveAdminInTransaction(tx, userId)
+    }
+
+    const now = new Date()
+    const update: Partial<NewUser> = { updated_at: now }
+    if (patch.role !== undefined) update.role = patch.role
+    if (patch.status !== undefined) {
+      Object.assign(
+        update,
+        accountStateColumns(
+          patch.status === "disabled"
+            ? disabledAccountState(current, "administrator", now)
+            : activeAccountState(),
+        ),
+      )
+    }
+    if (patch.storageQuotaBytes !== undefined) {
+      update.storage_quota_bytes = patch.storageQuotaBytes
+    }
+    await tx.update(user).set(update).where(eq(user.id, userId))
+    return true
   })
 }
 
@@ -140,16 +198,7 @@ export function reactivateSelfDisabledIdentity(
   userId: string,
 ): Promise<SelfReactivationResult> {
   return db.transaction(async (tx) => {
-    const [row] = await tx
-      .select({
-        status: user.status,
-        disabledAt: user.disabled_at,
-        adminSuspendedAt: user.admin_suspended_at,
-      })
-      .from(user)
-      .where(eq(user.id, userId))
-      .limit(1)
-      .for("update")
+    const row = await lockAccountState(tx, userId)
     if (!row) return "not-found"
 
     const next = selfReactivatedAccountState(row)
@@ -157,12 +206,7 @@ export function reactivateSelfDisabledIdentity(
 
     await tx
       .update(user)
-      .set({
-        status: next.status,
-        disabled_at: next.disabledAt,
-        admin_suspended_at: next.adminSuspendedAt,
-        updated_at: new Date(),
-      })
+      .set({ ...accountStateColumns(next), updated_at: new Date() })
       .where(eq(user.id, userId))
     return "reactivated"
   })
@@ -197,7 +241,7 @@ async function createUserIdentityWith(
 }
 
 export async function createRegistrationUserInTransaction(
-  tx: AuthTransaction,
+  tx: DbTransaction,
   input: {
     username: string
     setupFirstAdmin: boolean

@@ -7,6 +7,11 @@ import {
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { withAdminAccessChange } from "@alloy/server/auth/admin-access"
+import {
+  abandonIngestedOAuthProviderIcons,
+  ingestSubmittedOAuthProviderIcons,
+  uploadOAuthProviderIcon,
+} from "@alloy/server/auth/oauth-provider-icons"
 import { requireAdmin } from "@alloy/server/auth/session"
 import { signInConfigError } from "@alloy/server/auth/sign-in-config"
 import {
@@ -33,11 +38,6 @@ import { Hono } from "hono"
 
 import { adminGamesRoute } from "./admin-games"
 import { adminRuntimeConfigResponse } from "./admin-helpers"
-import {
-  abandonIngestedOAuthProviderIcons,
-  ingestSubmittedOAuthProviderIcons,
-  uploadOAuthProviderIcon,
-} from "./admin-oauth-provider-icons"
 import { adminUsersRoute } from "./admin-users"
 import { adminWebhooksRoute } from "./admin-webhooks"
 import { tbValidator, validationErrorBody } from "./validation"

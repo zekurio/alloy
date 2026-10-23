@@ -1,5 +1,4 @@
 import { t } from "@alloy/contracts/schema"
-import { authAccount } from "@alloy/db/auth-schema"
 import { setOAuthStateCookie } from "@alloy/server/auth/cookies"
 import { unlinkOAuthAccountPreservingSignIn } from "@alloy/server/auth/identity"
 import {
@@ -8,9 +7,9 @@ import {
   startOAuthLink,
   startOAuthSignIn,
 } from "@alloy/server/auth/oauth"
+import { listLinkedAccounts } from "@alloy/server/auth/oauth-accounts"
 import { publicLinkedAccountRow } from "@alloy/server/auth/security-responses"
 import { requireSession } from "@alloy/server/auth/session"
-import { db } from "@alloy/server/db/index"
 import {
   badRequest,
   badRequestFromCause,
@@ -18,7 +17,6 @@ import {
   success,
   urlResponse,
 } from "@alloy/server/runtime/http-response"
-import { eq } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 
 import {
@@ -55,17 +53,7 @@ async function startOAuthResponse(
 
 export const authOAuthRoute = new Hono()
   .get("/accounts", requireSession, async (c) => {
-    const rows = await db
-      .select({
-        id: authAccount.id,
-        providerId: authAccount.provider_id,
-        accountId: authAccount.provider_account_id,
-        accountLabel: authAccount.account_label,
-        createdAt: authAccount.created_at,
-      })
-      .from(authAccount)
-      .where(eq(authAccount.user_id, c.var.viewerId))
-      .orderBy(authAccount.created_at)
+    const rows = await listLinkedAccounts(c.var.viewerId)
     return c.json(rows.map(publicLinkedAccountRow))
   })
   .post("/oauth/sign-in", tbValidator("json", OAuthStartBody), async (c) => {

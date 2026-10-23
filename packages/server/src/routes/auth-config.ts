@@ -2,7 +2,7 @@ import { buildPublicAuthConfig } from "@alloy/server/auth/public-config"
 import { configStore } from "@alloy/server/config/store"
 import { Hono } from "hono"
 
-import { getLoginBackdropClips } from "./admin-appearance"
+import { getLoginBackdropClips } from "./login-backdrops"
 
 export const authConfigRoute = new Hono()
   .get("/", async (c) => {
