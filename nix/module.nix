@@ -65,6 +65,8 @@ let
     && lib.hasPrefix "https://" (lib.toLower effectivePublicServerUrl);
   publicServerUrlForService =
     if effectivePublicServerUrl == null then "" else effectivePublicServerUrl;
+  # Set at exec, after systemd applies environment and environmentFile, so
+  # neither can lower production mode or replace the asserted HTTPS origin.
   serverStart = pkgs.writeShellScript "alloy-server-start" ''
     exec ${pkgs.coreutils}/bin/env \
       NODE_ENV=production \
@@ -356,9 +358,10 @@ in
       };
 
       uploadTtlSec = lib.mkOption {
-        type = lib.types.ints.positive;
-        default = 900;
-        description = "Upload ticket lifetime in seconds.";
+        type = lib.types.nullOr lib.types.ints.positive;
+        default = null;
+        example = 3600;
+        description = "Upload ticket lifetime in seconds. Null uses the server default.";
       };
     };
 
@@ -513,13 +516,10 @@ in
 
       environment =
         {
-          NODE_ENV = "production";
           DATABASE_URL = databaseUrl;
           PORT = toString cfg.port;
-          PUBLIC_SERVER_URL = publicServerUrlForService;
           TRUSTED_ORIGINS = lib.concatStringsSep "," ([ publicServerUrlForService ] ++ cfg.trustedOrigins);
           ALLOY_TRUSTED_PROXIES = lib.concatStringsSep "," cfg.trustedProxies;
-          ALLOY_UPLOAD_TTL_SEC = toString cfg.limits.uploadTtlSec;
           ALLOY_STORAGE_FS_CLIPS_PATH = toString cfg.storage.fs.clipsPath;
           ALLOY_STORAGE_FS_THUMBNAILS_PATH = toString cfg.storage.fs.thumbnailsPath;
           ALLOY_STORAGE_FS_ASSETS_PATH = toString cfg.storage.fs.assetsPath;
@@ -538,6 +538,9 @@ in
         }
         // lib.optionalAttrs (cfg.limits.defaultStorageQuotaBytes != null) {
           ALLOY_DEFAULT_STORAGE_QUOTA_BYTES = toString cfg.limits.defaultStorageQuotaBytes;
+        }
+        // lib.optionalAttrs (cfg.limits.uploadTtlSec != null) {
+          ALLOY_UPLOAD_TTL_SEC = toString cfg.limits.uploadTtlSec;
         }
         // lib.optionalAttrs (!isDatabaseUnixSocket) {
           PGPORT = toString cfg.database.port;
