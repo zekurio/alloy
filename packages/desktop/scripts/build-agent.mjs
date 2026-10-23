@@ -1,9 +1,10 @@
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync } from "node:fs"
 import { join, resolve } from "node:path"
 
 import {
   copyFileIfChanged,
+  ensureResourceDir,
   normalizeObsRuntimeDir,
   obsResourcesDir,
   pruneObsRuntime,
@@ -19,14 +20,12 @@ const requireObsRuntime =
   process.argv.includes("--require-obs-runtime") ||
   process.env.ALLOY_REQUIRE_OBS_RUNTIME === "1"
 const release = process.argv.includes("--release")
-const targetTriple = process.env.CARGO_BUILD_TARGET ?? process.env.CARGO_TARGET
+const targetTriple = process.env.CARGO_BUILD_TARGET
 
 if (process.platform !== "win32" && !requireObsRuntime && !targetTriple) {
   console.warn("Skipping alloy-agent build: the native agent is Windows-only.")
-  mkdirSync(agentResourcesDir, { recursive: true })
-  mkdirSync(obsResourcesDir, { recursive: true })
-  writeFileSync(join(agentResourcesDir, ".gitkeep"), "")
-  writeFileSync(join(obsResourcesDir, ".gitkeep"), "")
+  ensureResourceDir(agentResourcesDir)
+  ensureResourceDir(obsResourcesDir)
   process.exit(0)
 }
 
@@ -66,9 +65,8 @@ if (!existsSync(builtBinary)) {
   process.exit(1)
 }
 
-mkdirSync(agentResourcesDir, { recursive: true })
+ensureResourceDir(agentResourcesDir)
 copyFileIfChanged(builtBinary, join(agentResourcesDir, binaryName))
-writeFileSync(join(agentResourcesDir, ".gitkeep"), "")
 
 stageObsRuntime(obsRuntimeSource)
 stageObsHelpers()

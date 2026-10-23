@@ -1,17 +1,7 @@
-import { spawnSync } from "node:child_process"
-import { createHash } from "node:crypto"
-import {
-  createWriteStream,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-} from "node:fs"
+import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs"
 import { join } from "node:path"
-import { Readable } from "node:stream"
-import { pipeline } from "node:stream/promises"
 
+import { download, expandArchive, fileSha256 } from "./archive.mjs"
 import {
   cacheDir,
   normalizeObsRuntimeDir,
@@ -21,20 +11,21 @@ import {
 } from "./obs-runtime.mjs"
 
 const obsRepoApi = "https://api.github.com/repos/obsproject/obs-studio"
+const userAgent = "alloy-agent-obs-runtime-installer"
+
+// The default OBS release, which CI and release builds stage, and the SHA-256
+// of its portable ZIP, pinned like FFmpeg in prepare-native.mjs. The workflows
+// key their runtime cache on this file's hash, so bumping the pin refreshes the
+// cache too. Other versions and "latest" must carry a digest in their release
+// metadata.
+const pinnedVersion = "32.1.2"
+const pinnedZipSha256 =
+  "8d97e4563bd8d22d03e63042aa7dccede1d555c9bd35ce8a9e5019b0d0201bf6"
+
 const version =
-  optionValue("--version") ?? process.env.ALLOY_OBS_VERSION ?? "latest"
+  optionValue("--version") ?? process.env.ALLOY_OBS_VERSION ?? pinnedVersion
 const force = process.argv.includes("--force")
 const allowUnverified = process.env.ALLOY_OBS_ALLOW_UNVERIFIED === "1"
-
-// SHA-256 of the portable ZIP per pinned OBS release, like FFmpeg in
-// prepare-native.mjs. Add an entry when CI moves to a new --version. Other
-// versions (and "latest") must carry a digest in the release metadata.
-const pinnedSha256 = {
-  "32.1.2": {
-    "OBS-Studio-32.1.2-Windows-x64.zip":
-      "8d97e4563bd8d22d03e63042aa7dccede1d555c9bd35ce8a9e5019b0d0201bf6",
-  },
-}
 
 if (process.platform !== "win32") {
   console.error("OBS runtime installation is only supported on Windows.")
@@ -59,7 +50,7 @@ if (!asset) {
   process.exit(1)
 }
 
-const pinned = pinnedSha256[release.tag_name]?.[asset.name] ?? null
+const pinned = release.tag_name === pinnedVersion ? pinnedZipSha256 : null
 const published = releaseAssetSha256(release, asset)
 if (pinned && published && pinned !== published) {
   console.error(
@@ -90,10 +81,12 @@ rmSync(workDir, { recursive: true, force: true })
 mkdirSync(extractDir, { recursive: true })
 
 writeOutput(`Downloading ${asset.name} from OBS ${release.tag_name}...`)
-await downloadAsset(asset.browser_download_url, zipPath)
+await download(asset.browser_download_url, zipPath, {
+  headers: { "User-Agent": userAgent },
+})
 
 if (sha256) {
-  const actual = fileSha256(zipPath)
+  const actual = await fileSha256(zipPath)
   if (actual !== sha256) {
     console.error(
       [
@@ -111,7 +104,7 @@ if (sha256) {
 }
 
 writeOutput("Extracting OBS portable runtime...")
-extractZip(zipPath, extractDir)
+expandArchive(zipPath, extractDir)
 
 const runtimeRoot = findObsRuntimeRoot(extractDir)
 if (!runtimeRoot) {
@@ -133,7 +126,7 @@ async function fetchRelease(requestedVersion) {
   const response = await fetch(endpoint, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "alloy-agent-obs-runtime-installer",
+      "User-Agent": userAgent,
     },
   })
 
@@ -145,51 +138,6 @@ async function fetchRelease(requestedVersion) {
   }
 
   return response.json()
-}
-
-async function downloadAsset(url, destination) {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "alloy-agent-obs-runtime-installer",
-    },
-  })
-
-  if (!response.ok || !response.body) {
-    console.error(
-      `Failed to download OBS runtime: ${response.status} ${response.statusText}`,
-    )
-    process.exit(1)
-  }
-
-  await pipeline(
-    Readable.fromWeb(response.body),
-    createWriteStream(destination),
-  )
-}
-
-function extractZip(zipFile, destination) {
-  const result = spawnSync(
-    "powershell.exe",
-    [
-      "-NoProfile",
-      "-NonInteractive",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-Command",
-      "& { param($zipFile, $destination) Expand-Archive -LiteralPath $zipFile -DestinationPath $destination -Force }",
-      zipFile,
-      destination,
-    ],
-    { stdio: "inherit" },
-  )
-
-  if (result.error) {
-    console.error(
-      `Failed to run PowerShell Expand-Archive: ${result.error.message}`,
-    )
-    process.exit(1)
-  }
-  if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
 function findObsRuntimeRoot(directory, depth = 0) {
@@ -217,12 +165,6 @@ function releaseAssetSha256(release, asset) {
     new RegExp(`${escapeRegex(asset.name)}[^a-f0-9]+([a-f0-9]{64})`, "i"),
   )
   return bodyDigest?.[1]?.toLowerCase() ?? null
-}
-
-function fileSha256(path) {
-  const hash = createHash("sha256")
-  hash.update(readFileSync(path))
-  return hash.digest("hex")
 }
 
 function optionValue(name) {
