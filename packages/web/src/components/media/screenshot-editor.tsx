@@ -19,6 +19,7 @@ import {
   Redo2Icon,
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
+import type { KeyboardEvent, PointerEvent } from "react"
 
 import { clientLogger } from "@/lib/client-log"
 
@@ -28,6 +29,7 @@ import {
   DEFAULT_SCREENSHOT_EDIT,
   drawScreenshot,
   fitScreenshotCrop,
+  isFullScreenshotCrop,
   moveScreenshotCrop,
   resizeScreenshotCrop,
   type CropHandle,
@@ -80,6 +82,26 @@ const CROP_HANDLE_NAMES: CropHandle[] = [
   "sw",
   "se",
 ]
+
+/** Pixel aspect ratio for a ratio option, or null for a free crop. */
+function aspectRatioValue(
+  option: string,
+  image: ImageBitmap | null,
+): number | null {
+  if (option === "free") return null
+  if (option === "original") return image ? image.width / image.height : null
+  const [width, height] = option.split(":")
+  return Number(width) / Number(height)
+}
+
+/** Pointer position as a fraction of the element's box, clamped to 0..1. */
+function pointerFraction(event: PointerEvent<HTMLElement>) {
+  const rect = event.currentTarget.getBoundingClientRect()
+  return {
+    x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
+    y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
+  }
+}
 
 export function ScreenshotEditor({
   file,
@@ -150,14 +172,7 @@ export function ScreenshotEditor({
   const dimensions = image
     ? screenshotDimensions(image.width, image.height, value.rotation)
     : { width: 16, height: 9 }
-  const ratio =
-    aspectRatio === "free"
-      ? null
-      : aspectRatio === "original"
-        ? image
-          ? image.width / image.height
-          : null
-        : Number(aspectRatio.split(":")[0]) / Number(aspectRatio.split(":")[1])
+  const ratio = aspectRatioValue(aspectRatio, image)
   const transform = (change: Partial<ScreenshotEdit>, preview = false) => {
     const next = { ...value, ...change }
     const size = image
@@ -172,11 +187,7 @@ export function ScreenshotEditor({
       preview,
     )
   }
-  const hasCrop =
-    value.crop.x !== 0 ||
-    value.crop.y !== 0 ||
-    value.crop.width !== 1 ||
-    value.crop.height !== 1
+  const hasCrop = !isFullScreenshotCrop(value.crop)
   const edited = value.rotation !== 0 || value.flipX || value.flipY || hasCrop
   const unavailable = disabled || !image
   const outputWidth = Math.max(
@@ -187,27 +198,134 @@ export function ScreenshotEditor({
     1,
     Math.round(dimensions.height * value.crop.height),
   )
+
+  const handleHistoryKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (unavailable || !(event.ctrlKey || event.metaKey) || event.altKey) return
+    const target = event.target
+    if (
+      target instanceof HTMLElement &&
+      target.closest(
+        "textarea, [contenteditable=true], input:not([type=range])",
+      )
+    )
+      return
+    const key = event.key.toLowerCase()
+    if (key !== "z" && key !== "y") return
+    event.preventDefault()
+    event.stopPropagation()
+    if (key === "y" || event.shiftKey) history.redo()
+    else history.undo()
+  }
+
+  // Arrow keys move the crop by 1% of the image; with Shift they resize it
+  // from the bottom-right corner, like dragging that handle.
+  const handleCropKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (
+      !cropping ||
+      unavailable ||
+      !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)
+    )
+      return
+    event.preventDefault()
+    const dx =
+      event.key === "ArrowLeft" ? -0.01 : event.key === "ArrowRight" ? 0.01 : 0
+    const dy =
+      event.key === "ArrowUp" ? -0.01 : event.key === "ArrowDown" ? 0.01 : 0
+    const crop = event.shiftKey
+      ? resizeScreenshotCrop(value.crop, "se", dx, dy, dimensions, ratio)
+      : moveScreenshotCrop(value.crop, dx, dy)
+    history.change({ ...value, crop }, aspectRatio, true)
+  }
+
+  const handleCropPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (
+      disabled ||
+      !image ||
+      !cropping ||
+      event.button !== 0 ||
+      !event.isPrimary
+    )
+      return
+    event.currentTarget.focus()
+    const { x: startX, y: startY } = pointerFraction(event)
+    const insideCrop = canMoveScreenshotCropAt(value.crop, startX, startY)
+    const target = event.target
+    const handle = CROP_HANDLE_NAMES.find(
+      (name) =>
+        target instanceof HTMLElement && target.dataset.cropHandle === name,
+    )
+    drag.current = handle
+      ? {
+          kind: "resize",
+          handle,
+          pointerId: event.pointerId,
+          startX,
+          startY,
+          startCrop: { ...value.crop },
+        }
+      : insideCrop
+        ? {
+            kind: "move",
+            pointerId: event.pointerId,
+            startX,
+            startY,
+            startCrop: { ...value.crop },
+          }
+        : { kind: "create", pointerId: event.pointerId, startX, startY }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const handleCropPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const start = drag.current
+    if (!start || start.pointerId !== event.pointerId || disabled || !cropping)
+      return
+    const { x, y } = pointerFraction(event)
+    if (start.kind === "move" || start.kind === "resize") {
+      history.change(
+        {
+          ...value,
+          crop:
+            start.kind === "resize"
+              ? resizeScreenshotCrop(
+                  start.startCrop,
+                  start.handle,
+                  x - start.startX,
+                  y - start.startY,
+                  dimensions,
+                  ratio,
+                )
+              : moveScreenshotCrop(
+                  start.startCrop,
+                  x - start.startX,
+                  y - start.startY,
+                ),
+        },
+        aspectRatio,
+        true,
+      )
+      return
+    }
+    if (Math.abs(x - start.startX) < 0.01 || Math.abs(y - start.startY) < 0.01)
+      return
+    const crop = fitScreenshotCrop(
+      {
+        x: Math.min(start.startX, x),
+        y: Math.min(start.startY, y),
+        width: Math.abs(x - start.startX),
+        height: Math.abs(y - start.startY),
+      },
+      dimensions,
+      ratio,
+    )
+    crop.x = x < start.startX ? start.startX - crop.width : start.startX
+    crop.y = y < start.startY ? start.startY - crop.height : start.startY
+    history.change({ ...value, crop }, aspectRatio, true)
+  }
+
   return (
     <div
       className="flex min-h-0 min-w-0 flex-1 flex-col gap-3"
-      onKeyDown={(event) => {
-        if (unavailable || !(event.ctrlKey || event.metaKey) || event.altKey)
-          return
-        const target = event.target
-        if (
-          target instanceof HTMLElement &&
-          target.closest(
-            "textarea, [contenteditable=true], input:not([type=range])",
-          )
-        )
-          return
-        const key = event.key.toLowerCase()
-        if (key !== "z" && key !== "y") return
-        event.preventDefault()
-        event.stopPropagation()
-        if (key === "y" || event.shiftKey) history.redo()
-        else history.undo()
-      }}
+      onKeyDown={handleHistoryKeyDown}
     >
       <div
         ref={view.viewportRef}
@@ -249,167 +367,11 @@ export function ScreenshotEditor({
               ? t("Arrow keys move the crop. Shift + arrow keys resize it.")
               : undefined
           }
-          onKeyDown={(event) => {
-            if (
-              !cropping ||
-              unavailable ||
-              !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(
-                event.key,
-              )
-            )
-              return
-            event.preventDefault()
-            const dx =
-              event.key === "ArrowLeft"
-                ? -0.01
-                : event.key === "ArrowRight"
-                  ? 0.01
-                  : 0
-            const dy =
-              event.key === "ArrowUp"
-                ? -0.01
-                : event.key === "ArrowDown"
-                  ? 0.01
-                  : 0
-            const crop = { ...value.crop }
-            if (event.shiftKey) {
-              const normalizedRatio = ratio
-                ? (ratio * dimensions.height) / dimensions.width
-                : null
-              let width = Math.max(0.01, crop.width + dx)
-              let height = Math.max(0.01, crop.height + dy)
-              if (normalizedRatio) {
-                if (dx) height = width / normalizedRatio
-                else width = height * normalizedRatio
-              }
-              const scale = Math.min(
-                1,
-                (1 - crop.x) / width,
-                (1 - crop.y) / height,
-              )
-              crop.width = width * scale
-              crop.height = height * scale
-            } else {
-              crop.x = Math.max(0, Math.min(1 - crop.width, crop.x + dx))
-              crop.y = Math.max(0, Math.min(1 - crop.height, crop.y + dy))
-            }
-            history.change({ ...value, crop }, aspectRatio, true)
-          }}
+          onKeyDown={handleCropKeyDown}
           onKeyUp={history.commit}
           onBlur={history.commit}
-          onPointerDown={(event) => {
-            if (
-              disabled ||
-              !image ||
-              !cropping ||
-              event.button !== 0 ||
-              !event.isPrimary
-            )
-              return
-            event.currentTarget.focus()
-            const rect = event.currentTarget.getBoundingClientRect()
-            const startX = Math.max(
-              0,
-              Math.min(1, (event.clientX - rect.left) / rect.width),
-            )
-            const startY = Math.max(
-              0,
-              Math.min(1, (event.clientY - rect.top) / rect.height),
-            )
-            const insideCrop = canMoveScreenshotCropAt(
-              value.crop,
-              startX,
-              startY,
-            )
-            const target = event.target
-            const handle = CROP_HANDLE_NAMES.find(
-              (name) =>
-                target instanceof HTMLElement &&
-                target.dataset.cropHandle === name,
-            )
-            drag.current = handle
-              ? {
-                  kind: "resize",
-                  handle,
-                  pointerId: event.pointerId,
-                  startX,
-                  startY,
-                  startCrop: { ...value.crop },
-                }
-              : insideCrop
-                ? {
-                    kind: "move",
-                    pointerId: event.pointerId,
-                    startX,
-                    startY,
-                    startCrop: { ...value.crop },
-                  }
-                : { kind: "create", pointerId: event.pointerId, startX, startY }
-            event.currentTarget.setPointerCapture(event.pointerId)
-          }}
-          onPointerMove={(event) => {
-            const start = drag.current
-            if (
-              !start ||
-              start.pointerId !== event.pointerId ||
-              disabled ||
-              !cropping
-            )
-              return
-            const rect = event.currentTarget.getBoundingClientRect()
-            const x = Math.max(
-              0,
-              Math.min(1, (event.clientX - rect.left) / rect.width),
-            )
-            const y = Math.max(
-              0,
-              Math.min(1, (event.clientY - rect.top) / rect.height),
-            )
-            if (start.kind === "move" || start.kind === "resize") {
-              history.change(
-                {
-                  ...value,
-                  crop:
-                    start.kind === "resize"
-                      ? resizeScreenshotCrop(
-                          start.startCrop,
-                          start.handle,
-                          x - start.startX,
-                          y - start.startY,
-                          dimensions,
-                          ratio,
-                        )
-                      : moveScreenshotCrop(
-                          start.startCrop,
-                          x - start.startX,
-                          y - start.startY,
-                        ),
-                },
-                aspectRatio,
-                true,
-              )
-              return
-            }
-            if (
-              Math.abs(x - start.startX) < 0.01 ||
-              Math.abs(y - start.startY) < 0.01
-            )
-              return
-            const crop = fitScreenshotCrop(
-              {
-                x: Math.min(start.startX, x),
-                y: Math.min(start.startY, y),
-                width: Math.abs(x - start.startX),
-                height: Math.abs(y - start.startY),
-              },
-              dimensions,
-              ratio,
-            )
-            crop.x = x < start.startX ? start.startX - crop.width : start.startX
-            crop.y =
-              y < start.startY ? start.startY - crop.height : start.startY
-            history.change({ ...value, crop }, aspectRatio, true)
-          }}
+          onPointerDown={handleCropPointerDown}
+          onPointerMove={handleCropPointerMove}
           onPointerUp={(event) => {
             if (drag.current?.pointerId !== event.pointerId) return
             drag.current = null
@@ -565,12 +527,7 @@ export function ScreenshotEditor({
             onValueChange={(selected) => {
               const next = ASPECT_RATIOS.find((option) => option === selected)
               if (!next || !image) return
-              const nextRatio =
-                next === "free"
-                  ? null
-                  : next === "original"
-                    ? image.width / image.height
-                    : Number(next.split(":")[0]) / Number(next.split(":")[1])
+              const nextRatio = aspectRatioValue(next, image)
               setCropping(true)
               history.change(
                 {
