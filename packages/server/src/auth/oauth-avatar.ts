@@ -48,6 +48,7 @@ export async function syncOAuthAvatar(
       "oauth avatar",
       undefined,
       {
+        allowPrivate,
         redirect: allowPrivate ? "follow" : "error",
         maxBytes: configStore.get("uploadLimits").avatarMaxBytes,
       },
