@@ -12,74 +12,14 @@ import {
 } from "./deadline"
 import { markUploadTicketUsedAndExtendDeadline } from "./tickets"
 
-export interface RecoverableUploadTicket {
-  id: string
-  storageKey: string
-  contentType: string
-  expectedBytes: number
-}
-
-export interface PendingUploadCleanupOperations {
-  recheck(): Promise<boolean>
-  selectUnusedTickets(): Promise<readonly RecoverableUploadTicket[]>
-  resolve(
-    ticket: RecoverableUploadTicket,
-  ): Promise<{ size: number; contentType: string } | null>
-  adopt(ticket: RecoverableUploadTicket): Promise<boolean>
-  remove(): Promise<boolean>
-}
-
-export type PendingUploadCleanupResult = "adopted" | "changed" | "deleted"
+type PendingUploadCleanupResult = "adopted" | "changed" | "deleted"
 
 /**
- * Recover a final object whose storage commit outran DB adoption. Storage IO
- * deliberately happens outside a DB transaction; both ownership gates remain
- * held, and the adoption transaction repeats the exact deadline predicate.
+ * Clean up a pending upload whose deadline passed, first recovering a final
+ * object whose storage commit outran DB adoption. Storage IO deliberately
+ * happens outside a DB transaction; both ownership gates remain held, and the
+ * adoption transaction repeats the exact deadline predicate.
  */
-export async function runPendingUploadCleanup(
-  operations: PendingUploadCleanupOperations,
-): Promise<PendingUploadCleanupResult> {
-  if (!(await operations.recheck())) return "changed"
-
-  const tickets = await operations.selectUnusedTickets()
-  for (const ticket of tickets) {
-    const object = await operations.resolve(ticket)
-    if (
-      !object ||
-      !completedUploadMatches(object, {
-        bytes: ticket.expectedBytes,
-        contentType: ticket.contentType,
-      })
-    ) {
-      continue
-    }
-
-    return (await operations.adopt(ticket)) ? "adopted" : "changed"
-  }
-
-  return (await operations.remove()) ? "deleted" : "changed"
-}
-
-interface PendingUploadCleanupGates {
-  withMediaStopped<T>(id: string, operation: () => Promise<T>): Promise<T>
-  withUploadStopped<T>(id: string, operation: () => Promise<T>): Promise<T>
-}
-
-const defaultGates: PendingUploadCleanupGates = {
-  withMediaStopped: withClipMediaStopped,
-  withUploadStopped: withUploadActivityStopped,
-}
-
-export function withPendingUploadCleanupStopped<T>(
-  clipId: string,
-  operation: () => Promise<T>,
-  gates: PendingUploadCleanupGates = defaultGates,
-): Promise<T> {
-  return gates.withMediaStopped(clipId, () =>
-    gates.withUploadStopped(clipId, operation),
-  )
-}
-
 export async function cleanupPendingUploadCandidate(
   row: typeof clip.$inferSelect,
   uploadTtlSec: number,
@@ -87,60 +27,75 @@ export async function cleanupPendingUploadCandidate(
   const deadline = row.upload_cleanup_at
   if (!deadline) return "changed"
 
-  return withPendingUploadCleanupStopped(row.id, () =>
-    runPendingUploadCleanup({
-      async recheck() {
-        const [fresh] = await db
-          .select({
-            status: clip.status,
-            deadline: clip.upload_cleanup_at,
-            due: sql<boolean | null>`${clip.upload_cleanup_at} <= now()`,
-          })
-          .from(clip)
-          .where(eq(clip.id, row.id))
-          .limit(1)
-        return (
-          fresh?.status === "pending" &&
-          pendingUploadCleanupStillDue({
-            selectedDeadline: deadline,
-            currentDeadline: fresh.deadline,
-            dueAtLock: fresh.due ?? false,
-          })
+  return withClipMediaStopped(row.id, () =>
+    withUploadActivityStopped(row.id, async () => {
+      if (!(await pendingUploadStillDue(row.id, deadline))) return "changed"
+
+      const tickets = await db
+        .select({
+          id: uploadTicket.id,
+          storageKey: uploadTicket.storage_key,
+          contentType: uploadTicket.content_type,
+          expectedBytes: uploadTicket.expected_bytes,
+        })
+        .from(uploadTicket)
+        .where(
+          and(
+            eq(uploadTicket.target_type, "clip"),
+            eq(uploadTicket.target_id, row.id),
+            eq(uploadTicket.role, "video"),
+            isNull(uploadTicket.used_at),
+          ),
         )
-      },
-      selectUnusedTickets() {
-        return db
-          .select({
-            id: uploadTicket.id,
-            storageKey: uploadTicket.storage_key,
-            contentType: uploadTicket.content_type,
-            expectedBytes: uploadTicket.expected_bytes,
+      for (const ticket of tickets) {
+        const object = await resolveStagedUpload(ticket.storageKey)
+        if (
+          !object ||
+          !completedUploadMatches(object, {
+            bytes: ticket.expectedBytes,
+            contentType: ticket.contentType,
           })
-          .from(uploadTicket)
-          .where(
-            and(
-              eq(uploadTicket.target_type, "clip"),
-              eq(uploadTicket.target_id, row.id),
-              eq(uploadTicket.role, "video"),
-              isNull(uploadTicket.used_at),
-            ),
-          )
-      },
-      resolve(ticket) {
-        return resolveStagedUpload(ticket.storageKey)
-      },
-      adopt(ticket) {
-        return markUploadTicketUsedAndExtendDeadline(ticket.id, uploadTtlSec, {
-          expectedCleanupAt: deadline,
-        })
-      },
-      remove() {
-        return deleteClipRowAndAssets(row, {
-          expectedStatus: "pending",
-          expectedUploadCleanupAt: deadline,
-          ownershipStopped: true,
-        })
-      },
+        ) {
+          continue
+        }
+
+        const adopted = await markUploadTicketUsedAndExtendDeadline(
+          ticket.id,
+          uploadTtlSec,
+          { expectedCleanupAt: deadline },
+        )
+        return adopted ? "adopted" : "changed"
+      }
+
+      const deleted = await deleteClipRowAndAssets(row, {
+        expectedStatus: "pending",
+        expectedUploadCleanupAt: deadline,
+        ownershipStopped: true,
+      })
+      return deleted ? "deleted" : "changed"
     }),
+  )
+}
+
+async function pendingUploadStillDue(
+  clipId: string,
+  selectedDeadline: Date,
+): Promise<boolean> {
+  const [fresh] = await db
+    .select({
+      status: clip.status,
+      deadline: clip.upload_cleanup_at,
+      due: sql<boolean | null>`${clip.upload_cleanup_at} <= now()`,
+    })
+    .from(clip)
+    .where(eq(clip.id, clipId))
+    .limit(1)
+  return (
+    fresh?.status === "pending" &&
+    pendingUploadCleanupStillDue({
+      selectedDeadline,
+      currentDeadline: fresh.deadline,
+      dueAtLock: fresh.due ?? false,
+    })
   )
 }

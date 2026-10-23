@@ -1,28 +1,8 @@
 import { clipShareUrl, type ClipPublishedPayload } from "@alloy/contracts"
 import { selectEmbeddableClip } from "@alloy/server/clips/access"
-import {
-  embedPosterUrl,
-  embedVideo,
-  type EmbedMediaClip,
-} from "@alloy/server/clips/embed-media"
+import { embedPosterUrl, embedVideo } from "@alloy/server/clips/embed-media"
 import { env } from "@alloy/server/env"
 import { clipGameName } from "@alloy/server/games/ref"
-
-type AnnouncementClip = Pick<
-  NonNullable<Awaited<ReturnType<typeof selectEmbeddableClip>>>,
-  | keyof EmbedMediaClip
-  | "privacy"
-  | "title"
-  | "description"
-  | "game"
-  | "gameId"
-  | "durationMs"
-  | "createdAt"
-  | "publishedAt"
-  | "authorId"
-  | "authorUsername"
-  | "authorDisplayName"
->
 
 /**
  * Build the `clip.published` envelope, or null when the clip is no longer
@@ -41,28 +21,14 @@ export async function clipPublishedPayload(
   // it also admits unlisted clips because embeds are reachable by link.
   // Announcements are not: only public clips leave the instance.
   const row = await selectEmbeddableClip(clipId)
-  return row
-    ? buildClipPublishedPayload(
-        row,
-        deliveryId,
-        env.PUBLIC_SERVER_URL,
-        announcedAt,
-      )
-    : null
-}
-
-export function buildClipPublishedPayload(
-  row: AnnouncementClip,
-  deliveryId: string,
-  origin: string,
-  announcedAt: Date,
-): ClipPublishedPayload | null {
   if (
+    !row ||
     row.privacy !== "public" ||
     !row.renditionRows.some((rendition) => rendition.og)
   )
     return null
 
+  const origin = env.PUBLIC_SERVER_URL
   return {
     event: "clip.published",
     deliveryId,
