@@ -18,32 +18,16 @@ const badgeVariants = cva(
       variant: {
         default: "border-border bg-surface-raised text-foreground-muted",
         accent: "border-accent-border bg-accent-soft text-accent",
-        success: "border-success/35 bg-success-soft text-success",
-        warning: "border-warning/35 bg-warning-soft text-warning",
         danger: "border-danger/40 bg-danger-soft text-danger",
-        live: cn(
-          "border-live/40 bg-live-soft text-live",
-          // pulsing dot — leading pseudo
-          "before:size-1.5 before:rounded-full before:bg-live before:content-['']",
-          "before:animate-pulse-dot before:shadow-[0_0_6px_var(--live)]",
-        ),
-        // shadcn aliases
-        secondary: "border-border bg-surface-raised text-foreground-muted",
-        destructive: "border-danger/40 bg-danger-soft text-danger",
-        outline: "border-border-strong bg-transparent text-foreground",
-        ghost: "border-transparent bg-transparent text-foreground-muted",
-        link: "border-transparent bg-transparent text-accent underline-offset-4 hover:underline",
       },
       size: {
-        default: "font-mono text-2xs leading-3 tracking-[0.06em] uppercase",
-        // Plain-text badge for real words ("You", "Disabled", queue names)
-        // instead of the mono/uppercase micro-tag treatment.
+        // Plain-text badge for real words ("You", "Disabled", queue names).
         text: "font-sans text-xs",
       },
     },
     defaultVariants: {
       variant: "default",
-      size: "default",
+      size: "text",
     },
   },
 )
@@ -51,7 +35,7 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant = "default",
-  size = "default",
+  size = "text",
   render,
   ...props
 }: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {

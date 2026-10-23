@@ -8,16 +8,6 @@ import type { ComponentProps } from "react"
 
 const SelectRoot = Select.Root
 
-function SelectGroup({ className, ...props }: Select.Group.Props) {
-  return (
-    <Select.Group
-      data-slot="select-group"
-      className={cn("scroll-my-1 p-1", className)}
-      {...props}
-    />
-  )
-}
-
 function SelectValue({ className, ...props }: Select.Value.Props) {
   return (
     <Select.Value
@@ -99,16 +89,6 @@ function SelectContent({
   )
 }
 
-function SelectLabel({ className, ...props }: Select.GroupLabel.Props) {
-  return (
-    <Select.GroupLabel
-      data-slot="select-label"
-      className={cn("px-1.5 py-1 text-xs text-muted-foreground", className)}
-      {...props}
-    />
-  )
-}
-
 function SelectItem({ className, children, ...props }: Select.Item.Props) {
   return (
     <Select.Item
@@ -178,9 +158,7 @@ function SelectScrollDownButton({
 export {
   SelectRoot as Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 }

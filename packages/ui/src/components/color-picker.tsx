@@ -20,17 +20,16 @@ import type { CSSProperties, PointerEvent, RefObject } from "react"
 const FALLBACK: Hsva = { h: 0, s: 0, v: 0, a: 1 }
 
 /**
- * Colour picker owned end to end: a saturation/value field, hue and alpha
- * rails, and a swatch trigger. Replaces `<input type="color">`, which can't
- * show alpha, can't represent the `oklch()`/`rgba()` values the theme tokens
- * actually use, and renders differently in every browser.
+ * Colour picker owned end to end: a saturation/value field, a hue rail, and a
+ * swatch trigger. Replaces `<input type="color">`, which can't represent the
+ * `oklch()` values the theme tokens actually use and renders differently in
+ * every browser. It always emits an opaque `#rrggbb`.
  */
 export function ColorPicker({
   value,
   onValueChange,
   label,
   disabled,
-  allowAlpha = true,
   className,
 }: {
   /** Any CSS colour. Unparseable values open the picker on black. */
@@ -38,7 +37,6 @@ export function ColorPicker({
   onValueChange: (next: string) => void
   label: string
   disabled?: boolean
-  allowAlpha?: boolean
   className?: string
 }) {
   // HSVA is component state, not derived from `value` each render: achromatic
@@ -46,7 +44,7 @@ export function ColorPicker({
   // would snap the hue rail back and make it inert until saturation is raised.
   const [hsva, setHsva] = useState<Hsva>(() => {
     const rgba = parseCssColor(value)
-    return rgba ? rgbaToHsva({ ...rgba, a: allowAlpha ? rgba.a : 1 }) : FALLBACK
+    return rgba ? rgbaToHsva({ ...rgba, a: 1 }) : FALLBACK
   })
 
   // Sync from the prop only when it changes to a colour that no longer matches
@@ -56,22 +54,18 @@ export function ColorPicker({
   if (value !== syncedValue) {
     setSyncedValue(value)
     const rgba = parseCssColor(value)
-    const normalized = rgba ? { ...rgba, a: allowAlpha ? rgba.a : 1 } : null
-    if (
-      normalized &&
-      formatCssColor(normalized) !== formatCssColor(hsvaToRgba(hsva))
-    ) {
-      setHsva(rgbaToHsva(normalized))
+    const opaque = rgba ? { ...rgba, a: 1 } : null
+    if (opaque && formatCssColor(opaque) !== formatCssColor(hsvaToRgba(hsva))) {
+      setHsva(rgbaToHsva(opaque))
     }
   }
 
   const emit = useCallback(
     (next: Hsva) => {
-      const normalized = allowAlpha ? next : { ...next, a: 1 }
-      setHsva(normalized)
-      onValueChange(formatCssColor(hsvaToRgba(normalized)))
+      setHsva(next)
+      onValueChange(formatCssColor(hsvaToRgba(next)))
     },
-    [allowAlpha, onValueChange],
+    [onValueChange],
   )
 
   return (
@@ -92,29 +86,12 @@ export function ColorPicker({
           hsva={hsva}
           onChange={(s, v) => emit({ ...hsva, s, v })}
         />
-        <Rail
+        <HueRail
           label={label}
-          kind="hue"
           position={hsva.h / 360}
-          trackStyle={{
-            background:
-              "linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)",
-          }}
           thumbColor={hueColor(hsva.h)}
           onChange={(ratio) => emit({ ...hsva, h: ratio * 360 })}
         />
-        {allowAlpha ? (
-          <Rail
-            label={label}
-            kind="alpha"
-            position={hsva.a}
-            trackStyle={{
-              background: `linear-gradient(to right, transparent, ${formatCssColor(hsvaToRgba({ ...hsva, a: 1 }))})`,
-            }}
-            thumbColor={value}
-            onChange={(ratio) => emit({ ...hsva, a: ratio })}
-          />
-        ) : null}
       </PopoverContent>
     </Popover>
   )
@@ -178,18 +155,14 @@ function SaturationField({
   )
 }
 
-function Rail({
+function HueRail({
   label,
-  kind,
   position,
-  trackStyle,
   thumbColor,
   onChange,
 }: {
   label: string
-  kind: "hue" | "alpha"
   position: number
-  trackStyle: CSSProperties
   thumbColor: string
   onChange: (ratio: number) => void
 }) {
@@ -200,24 +173,16 @@ function Rail({
     <div
       ref={ref}
       role="slider"
-      aria-label={
-        kind === "hue"
-          ? t("{label} hue", { label })
-          : t("{label} opacity", { label })
-      }
+      aria-label={t("{label} hue", { label })}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(position * 100)}
       tabIndex={0}
       className="focus-visible:ring-ring focus-visible:ring-offset-background relative h-3 w-full cursor-pointer touch-none rounded-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-      style={
-        kind === "alpha"
-          ? {
-              background:
-                "repeating-conic-gradient(oklch(0.5 0 0 / 0.35) 0% 25%, transparent 0% 50%) 50% / 8px 8px",
-            }
-          : trackStyle
-      }
+      style={{
+        background:
+          "linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)",
+      }}
       onPointerDown={track}
       onKeyDown={(event) => {
         const step = event.shiftKey ? 0.1 : 0.01
@@ -237,9 +202,6 @@ function Rail({
         onChange(next)
       }}
     >
-      {kind === "alpha" ? (
-        <div className="absolute inset-0 rounded-full" style={trackStyle} />
-      ) : null}
       <Thumb
         color={thumbColor}
         style={{ left: `${position * 100}%`, top: "50%" }}

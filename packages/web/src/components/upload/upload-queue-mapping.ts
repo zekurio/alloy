@@ -1,6 +1,6 @@
 import { clipThumbnailUrl, type QueueClip } from "@alloy/api"
+import { stableHue } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { stableHue } from "@alloy/ui/lib/stable-hash"
 
 import type { RecordingLibraryDownload } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"

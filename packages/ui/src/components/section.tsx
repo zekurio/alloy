@@ -1,26 +1,11 @@
 import { cn } from "@alloy/ui/lib/utils"
 import type { ComponentProps } from "react"
 
-function SectionDiv({
-  slot,
-  baseClassName,
-  className,
-  ...props
-}: ComponentProps<"div"> & {
-  slot: string
-  baseClassName: string
-}) {
-  return (
-    <div data-slot={slot} className={cn(baseClassName, className)} {...props} />
-  )
-}
-
 function Section({ className, ...props }: ComponentProps<"div">) {
   return (
-    <SectionDiv
-      slot="section"
-      baseClassName="flex flex-col"
-      className={className}
+    <div
+      data-slot="section"
+      className={cn("flex flex-col", className)}
       {...props}
     />
   )
@@ -28,10 +13,12 @@ function Section({ className, ...props }: ComponentProps<"div">) {
 
 function SectionHeader({ className, ...props }: ComponentProps<"div">) {
   return (
-    <SectionDiv
-      slot="section-header"
-      baseClassName="flex items-start justify-between gap-3 border-b border-border pb-4"
-      className={className}
+    <div
+      data-slot="section-header"
+      className={cn(
+        "flex items-start justify-between gap-3 border-b border-border pb-4",
+        className,
+      )}
       {...props}
     />
   )
@@ -39,10 +26,12 @@ function SectionHeader({ className, ...props }: ComponentProps<"div">) {
 
 function SectionTitle({ className, ...props }: ComponentProps<"div">) {
   return (
-    <SectionDiv
-      slot="section-title"
-      baseClassName="text-md leading-tight font-semibold tracking-[-0.005em]"
-      className={className}
+    <div
+      data-slot="section-title"
+      className={cn(
+        "text-md leading-tight font-semibold tracking-[-0.005em]",
+        className,
+      )}
       {...props}
     />
   )
@@ -50,24 +39,12 @@ function SectionTitle({ className, ...props }: ComponentProps<"div">) {
 
 function SectionContent({ className, ...props }: ComponentProps<"div">) {
   return (
-    <SectionDiv
-      slot="section-content"
-      baseClassName="py-4"
-      className={className}
+    <div
+      data-slot="section-content"
+      className={cn("py-4", className)}
       {...props}
     />
   )
 }
 
-function SectionFooter({ className, ...props }: ComponentProps<"div">) {
-  return (
-    <SectionDiv
-      slot="section-footer"
-      baseClassName="flex items-center justify-end gap-2 border-t border-border pt-4"
-      className={className}
-      {...props}
-    />
-  )
-}
-
-export { Section, SectionContent, SectionFooter, SectionHeader, SectionTitle }
+export { Section, SectionContent, SectionHeader, SectionTitle }

@@ -29,7 +29,6 @@ const buttonVariants = cva(
         // step (e.g. settings danger zone) where a solid fill would be too loud.
         danger:
           "border-[color-mix(in_oklab,var(--danger)_40%,transparent)] bg-transparent text-danger hover:bg-[color-mix(in_oklab,var(--danger)_14%,transparent)]",
-        link: "border-transparent text-accent underline-offset-4 hover:underline",
         // shadcn aliases
         default:
           "border-accent bg-accent text-accent-foreground hover:border-accent-hover hover:bg-accent-hover active:bg-accent-active",
@@ -47,7 +46,6 @@ const buttonVariants = cva(
         icon: "size-9 px-0 sm:size-8",
         "icon-xs": "size-5 px-0",
         "icon-sm": "size-6 px-0",
-        "icon-lg": "size-9 px-0",
       },
     },
     compoundVariants: [
@@ -55,7 +53,7 @@ const buttonVariants = cva(
         // Icon-only ghost controls brighten their glyph instead of drawing a
         // box around the hit target.
         variant: "ghost",
-        size: ["icon", "icon-xs", "icon-sm", "icon-lg"],
+        size: ["icon", "icon-xs", "icon-sm"],
         className: "hover:bg-transparent",
       },
     ],

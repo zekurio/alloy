@@ -1,5 +1,5 @@
 import { isAbortError } from "@alloy/api"
-import { stableHue } from "@alloy/ui/lib/stable-hash"
+import { stableHue } from "@alloy/contracts"
 import { useCallback } from "react"
 import type { MutableRefObject } from "react"
 
