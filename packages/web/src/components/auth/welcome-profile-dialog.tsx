@@ -1,9 +1,4 @@
 import { t } from "@alloy/i18n"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@alloy/ui/components/avatar"
 import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
@@ -26,7 +21,12 @@ import {
   useSuspenseAuthConfig,
   useSuspenseSession,
 } from "@/lib/session-suspense"
-import { displayName, userAvatar, userImageSrc } from "@/lib/user-display"
+import {
+  displayName,
+  TintedAvatar,
+  userAvatar,
+  userImageSrc,
+} from "@/lib/user-display"
 
 type WelcomeProfileDialogProps = {
   welcome: string | null
@@ -86,7 +86,6 @@ function WelcomeProfileDialogContent({
   if (!user) return null
 
   const avatar = userAvatar({ ...user, image: media.profileImage || null })
-  const avatarStyle = { background: avatar.bg, color: avatar.fg }
   const bannerSrc = userImageSrc(media.profileBanner)
   const previewName = displayName(user)
   const syncedAvatarShown =
@@ -151,12 +150,12 @@ function WelcomeProfileDialogContent({
                   className="ring-background relative -mt-10 inline-flex size-20 shrink-0 overflow-hidden rounded-full ring-4"
                   onClick={() => media.openFilePicker("avatar")}
                 >
-                  <Avatar size="2xl" style={avatarStyle} className="!size-full">
-                    {avatar.src ? (
-                      <AvatarImage src={avatar.src} alt={previewName} />
-                    ) : null}
-                    <AvatarFallback style={avatarStyle} />
-                  </Avatar>
+                  <TintedAvatar
+                    avatar={avatar}
+                    alt={previewName}
+                    size="2xl"
+                    className="!size-full"
+                  />
                   <MediaEditOverlay>
                     <Pencil className="size-4 text-white" />
                   </MediaEditOverlay>

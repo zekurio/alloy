@@ -1,5 +1,6 @@
 import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
+import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 import { UserXIcon } from "lucide-react"
 import { useState } from "react"
@@ -11,7 +12,7 @@ import { ProfileIdentitySkeleton } from "@/components/routes/profile/profile-ide
 import { ProfileTabsNav } from "@/components/routes/profile/profile-tabs-nav"
 import { userClipsInfiniteQueryOptions } from "@/lib/clip-queries"
 import {
-  useProfileCachePatchers,
+  setProfileViewerInCache,
   userProfileQueryOptions,
   userProfileViewerQueryOptions,
   useUserProfileQuery,
@@ -23,10 +24,11 @@ export const Route = createFileRoute("/(app)/_app/u/$username")({
     const profileOptions = userProfileQueryOptions(params.username)
     const clipsOptions = userClipsInfiniteQueryOptions(params.username)
     const viewerOptions = userProfileViewerQueryOptions(params.username)
-    const profile = await context.queryClient.ensureQueryData(profileOptions)
-    await context.queryClient.ensureQueryData(viewerOptions)
+    await Promise.all([
+      context.queryClient.ensureQueryData(profileOptions),
+      context.queryClient.ensureQueryData(viewerOptions),
+    ])
     void context.queryClient.prefetchInfiniteQuery(clipsOptions)
-    return { profile }
   },
   component: UserProfileLayout,
 })
@@ -36,7 +38,7 @@ function UserProfileLayout() {
   const navigate = useNavigate()
   const profileQuery = useUserProfileQuery(username)
   const viewerQuery = useUserProfileViewerQuery(username)
-  const { setViewer } = useProfileCachePatchers(username)
+  const queryClient = useQueryClient()
   const baseProfile = profileQuery.data ?? null
   const viewer = viewerQuery.data?.viewer
   const profile = baseProfile
@@ -73,7 +75,9 @@ function UserProfileLayout() {
           <ProfileIdentity
             profile={profile}
             viewer={viewer}
-            onViewerChange={setViewer}
+            onViewerChange={(next) =>
+              setProfileViewerInCache(queryClient, username, next)
+            }
           />
         ) : (
           <ProfileIdentitySkeleton />

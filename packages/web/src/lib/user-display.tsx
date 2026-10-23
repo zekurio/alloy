@@ -1,8 +1,14 @@
 import { resolvePublicUrl, USER_ASSET_PATH_PREFIX } from "@alloy/api"
 import { t } from "@alloy/i18n"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@alloy/ui/components/avatar"
 import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { pastelAvatarColors, pastelBannerGradient } from "@alloy/ui/lib/pastel"
 import { cn } from "@alloy/ui/lib/utils"
+import type { ComponentProps } from "react"
 
 import { apiOrigin } from "./env"
 
@@ -105,6 +111,27 @@ export function useUserChipData(
   user: DisplayUser | null | undefined,
 ): UserChipData {
   return userChipData(user)
+}
+
+/** A user avatar tinted with the user's colors behind the image and icon. */
+export function TintedAvatar({
+  avatar,
+  alt = "",
+  size,
+  className,
+}: {
+  avatar: UserAvatar
+  alt?: string
+  size?: ComponentProps<typeof Avatar>["size"]
+  className?: string
+}) {
+  const tint = { background: avatar.bg, color: avatar.fg }
+  return (
+    <Avatar size={size} className={className} style={tint}>
+      {avatar.src ? <AvatarImage src={avatar.src} alt={alt} /> : null}
+      <AvatarFallback style={tint} />
+    </Avatar>
+  )
 }
 
 export function UserBanner({

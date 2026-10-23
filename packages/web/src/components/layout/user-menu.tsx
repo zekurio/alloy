@@ -1,10 +1,5 @@
 import { t } from "@alloy/i18n"
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@alloy/ui/components/avatar"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuSeparator,
@@ -18,9 +13,9 @@ import { ChevronDownIcon, LogInIcon } from "lucide-react"
 import { Suspense } from "react"
 
 import { useSuspenseSession } from "@/lib/session-suspense"
-import { useUserChipData } from "@/lib/user-display"
+import { TintedAvatar, userChipData } from "@/lib/user-display"
 
-import { AccountMenuItems, avatarTint } from "./account-menu"
+import { AccountMenuItems } from "./account-menu"
 import { topRightAppCornerAnchor } from "./corner-anchors"
 
 /**
@@ -37,7 +32,7 @@ export function UserMenu({ className }: { className?: string }) {
 
 function UserMenuInner({ className }: { className?: string }) {
   const session = useSuspenseSession()
-  const chip = useUserChipData(session?.user)
+  const chip = userChipData(session?.user)
 
   if (!session) {
     return (
@@ -71,16 +66,11 @@ function UserMenuInner({ className }: { className?: string }) {
               className,
             )}
           >
-            <Avatar
+            <TintedAvatar
+              avatar={chip.avatar}
               size="nav"
               className="shrink-0"
-              style={avatarTint(chip.avatar)}
-            >
-              {chip.avatar.src ? (
-                <AvatarImage src={chip.avatar.src} alt="" />
-              ) : null}
-              <AvatarFallback style={avatarTint(chip.avatar)} />
-            </Avatar>
+            />
             <span className="min-w-0 truncate text-sm font-medium max-md:hidden">
               {chip.name}
             </span>

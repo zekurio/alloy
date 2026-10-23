@@ -3,12 +3,10 @@ import { clientLogger } from "./client-log"
 export function isFullscreenElement(
   target: Element | null | undefined,
 ): boolean {
-  if (!globalThis.document) return false
   return Boolean(target && document.fullscreenElement === target)
 }
 
 export function isFullscreenSupported(): boolean {
-  if (!globalThis.document) return false
   return Boolean(document.fullscreenEnabled)
 }
 
@@ -23,7 +21,6 @@ export function requestFullscreenBestEffort(
 }
 
 export function exitFullscreenBestEffort(label: string): void {
-  if (!globalThis.document) return
   if (!document.fullscreenElement) return
   if (!document.exitFullscreen) return
   void document.exitFullscreen().catch((cause) => {

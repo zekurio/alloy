@@ -1,4 +1,4 @@
-import { t } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import { NumberBadge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
 import {
@@ -99,10 +99,7 @@ export function UploadCenter() {
           <div className="text-foreground-muted text-xs font-semibold tabular-nums">
             {itemCount === 0
               ? t("empty")
-              : t("{count} {label}", {
-                  count: itemCount,
-                  label: itemCount === 1 ? t("item") : t("items"),
-                })}
+              : tp(itemCount, "{count} item", "{count} items")}
           </div>
         </PopoverHeader>
         <div className="max-h-[28rem] min-h-0 flex-1 overflow-y-auto px-2 py-2">

@@ -1,6 +1,10 @@
 import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 
+import {
+  readSessionStorageItem,
+  writeSessionStorageItem,
+} from "./browser-storage"
 import { clientLogger } from "./client-log"
 import { alloyDesktop } from "./desktop"
 
@@ -8,12 +12,12 @@ const RELOADED_ASSET_SIGNATURE_KEY = "alloy.deployment-recovery-target"
 const WEB_BUILD_TOAST_ID = "alloy-web-build-update"
 
 /** How often a visible tab re-reads the app shell to spot a server redeploy. */
-export const WEB_BUILD_CHECK_INTERVAL_MS = 15 * 60_000
+const WEB_BUILD_CHECK_INTERVAL_MS = 15 * 60_000
 /**
  * Minimum gap between checks triggered by the tab regaining focus or
  * visibility, so alt-tabbing does not hammer the server.
  */
-export const WEB_BUILD_FOCUS_CHECK_MIN_GAP_MS = 5 * 60_000
+const WEB_BUILD_FOCUS_CHECK_MIN_GAP_MS = 5 * 60_000
 
 /**
  * The web app is served by whichever Alloy server this tab is connected to,
@@ -71,19 +75,12 @@ function installWebBuildWatcher(check: () => void): void {
   window.addEventListener("focus", () => scheduler.resume())
 }
 
-/**
- * Decides which wake-ups actually run a check. Exposed for tests; the
- * browser wiring above only forwards events.
- */
-export function createWebBuildCheckScheduler(
-  check: () => void,
-  now: () => number = Date.now,
-  isOnline: () => boolean = () => navigator.onLine !== false,
-) {
-  let lastCheckedAt = now()
+/** Decides which wake-ups actually run a check. */
+function createWebBuildCheckScheduler(check: () => void) {
+  let lastCheckedAt = Date.now()
   const run = () => {
-    if (!isOnline()) return
-    lastCheckedAt = now()
+    if (navigator.onLine === false) return
+    lastCheckedAt = Date.now()
     check()
   }
   return {
@@ -91,7 +88,7 @@ export function createWebBuildCheckScheduler(
     tick: run,
     /** Focus or visibility: checks only after enough time went by. */
     resume() {
-      if (now() - lastCheckedAt < WEB_BUILD_FOCUS_CHECK_MIN_GAP_MS) return
+      if (Date.now() - lastCheckedAt < WEB_BUILD_FOCUS_CHECK_MIN_GAP_MS) return
       run()
     },
   }
@@ -202,7 +199,7 @@ function appShellAssetSignature(
   return assets.length > 0 ? JSON.stringify(assets.toSorted()) : null
 }
 
-export function shouldReloadForDeployment(
+function shouldReloadForDeployment(
   loadedAssetSignature: string | null,
   latestAssetSignature: string | null,
   reloadedAssetSignature: string | null,
@@ -219,7 +216,7 @@ export function shouldReloadForDeployment(
  * A notice is shown once per new build. If the server rolls back to the build
  * this tab already runs, nothing is shown.
  */
-export function shouldNotifyForDeployment(
+function shouldNotifyForDeployment(
   loadedAssetSignature: string | null,
   latestAssetSignature: string | null,
   notifiedAssetSignature: string | null,
@@ -233,19 +230,11 @@ export function shouldNotifyForDeployment(
 }
 
 function readReloadedAssetSignature(): string | null {
-  try {
-    return sessionStorage.getItem(RELOADED_ASSET_SIGNATURE_KEY)
-  } catch {
-    return null
-  }
+  return readSessionStorageItem(RELOADED_ASSET_SIGNATURE_KEY)
 }
 
+// Without durable per-tab state, reloading could loop on a broken deploy, so
+// callers skip the reload when this returns false.
 function rememberReloadedAssetSignature(signature: string): boolean {
-  try {
-    sessionStorage.setItem(RELOADED_ASSET_SIGNATURE_KEY, signature)
-    return true
-  } catch {
-    // Without durable per-tab state, reloading could loop on a broken deploy.
-    return false
-  }
+  return writeSessionStorageItem(RELOADED_ASSET_SIGNATURE_KEY, signature)
 }

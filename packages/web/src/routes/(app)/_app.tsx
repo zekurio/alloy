@@ -25,6 +25,7 @@ import { UploadFlow } from "@/components/upload/upload-flow"
 import { useWebUploadActionContext } from "@/components/upload/upload-flow-context"
 import { UploadFlowProvider } from "@/components/upload/upload-flow-controls"
 import { type AppSearch, parseAppSearch } from "@/lib/app-search"
+import { useOpenClipDialog } from "@/lib/clip-navigation"
 import { alloyDesktop } from "@/lib/desktop"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { useOpenSettings } from "@/lib/use-open-settings"
@@ -47,6 +48,7 @@ function AppLayout() {
   const { clip, settings, welcome } = Route.useSearch()
   const session = useSuspenseSession()
   const navigate = useNavigate()
+  const openClipDialog = useOpenClipDialog()
   const openDesktopSettings = useOpenSettings("desktop")
   const settingsFromOverview = useRouterState({
     select: (state) => state.location.state.settingsFromOverview === true,
@@ -72,26 +74,9 @@ function AppLayout() {
   }
 
   const handleNavigateClip = useCallback(
-    (entry: { id: string; gameId: string | null }) => {
-      void navigate({
-        to: ".",
-        search: (prev: AppSearch) => ({
-          ...prev,
-          clip: entry.id,
-        }),
-        mask: entry.gameId
-          ? {
-              to: "/games/$gameId/clips/$clipId",
-              params: { gameId: entry.gameId, clipId: entry.id },
-            }
-          : {
-              to: "/clips/$clipId",
-              params: { clipId: entry.id },
-            },
-        replace: true,
-      })
-    },
-    [navigate],
+    (entry: { id: string; gameId: string | null }) =>
+      openClipDialog(entry.id, entry.gameId, { replace: true }),
+    [openClipDialog],
   )
 
   const handleCloseSettings = useCallback(() => {

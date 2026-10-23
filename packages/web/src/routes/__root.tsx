@@ -3,10 +3,6 @@ import { createRootRouteWithContext, Outlet } from "@tanstack/react-router"
 import { Suspense, lazy, useEffect } from "react"
 
 import { OAuthErrorToast } from "@/components/auth/oauth-error-toast"
-import {
-  RouteErrorState,
-  RouteNotFoundState,
-} from "@/components/feedback/route-state"
 import { redirectToSetupBeforeLoad } from "@/lib/auth-guards"
 import { alloyWindowChrome } from "@/lib/desktop"
 import { RuntimeConfigEvents } from "@/lib/runtime-config-events"
@@ -15,10 +11,6 @@ export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
   beforeLoad: redirectToSetupBeforeLoad,
-  errorComponent: (props) => <RouteErrorState {...props} variant="screen" />,
-  notFoundComponent: (props) => (
-    <RouteNotFoundState {...props} variant="screen" />
-  ),
   component: RootLayout,
 })
 

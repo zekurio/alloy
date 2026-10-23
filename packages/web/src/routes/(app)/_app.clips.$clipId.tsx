@@ -1,10 +1,7 @@
-import { HttpError } from "@alloy/api"
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
-import { useCallback, useEffect, useState } from "react"
+import { createFileRoute } from "@tanstack/react-router"
 
-import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
-import { goBackInBrowserHistory } from "@/lib/browser-url"
-import { clipDetailQueryOptions } from "@/lib/clip-queries"
+import { ClipPermalinkModal } from "@/components/app/clip-permalink-modal"
+import { ensureClipForPermalink } from "@/lib/clip-navigation"
 
 /**
  * Game-agnostic clip permalink: the canonical URL for clips without a game.
@@ -12,68 +9,12 @@ import { clipDetailQueryOptions } from "@/lib/clip-queries"
  * viewer dialog over the home feed.
  */
 export const Route = createFileRoute("/(app)/_app/clips/$clipId")({
-  loader: async ({ context, params }) => {
-    try {
-      const clip = await context.queryClient.ensureQueryData(
-        clipDetailQueryOptions(params.clipId),
-      )
-      return { clip }
-    } catch (error) {
-      if (
-        error instanceof HttpError &&
-        (error.status === 401 || error.status === 403 || error.status === 404)
-      ) {
-        throw redirect({ to: "/", replace: true })
-      }
-      throw error
-    }
-  },
+  loader: ({ context, params }) =>
+    ensureClipForPermalink(context.queryClient, params.clipId, null),
   component: ClipModalRoute,
 })
 
 function ClipModalRoute() {
   const { clipId } = Route.useParams()
-  const router = useRouter()
-  const [modalClipId, setModalClipId] = useState<string | null>(clipId)
-
-  useEffect(() => {
-    setModalClipId(clipId)
-  }, [clipId])
-
-  const handleClose = useCallback(() => {
-    setModalClipId(null)
-    if (!goBackInBrowserHistory()) {
-      void router.navigate({ to: "/", replace: true })
-    }
-  }, [router])
-
-  const handleNavigate = useCallback(
-    (entry: { id: string; gameId: string | null }) => {
-      setModalClipId(entry.id)
-      if (entry.gameId) {
-        void router.navigate({
-          to: "/games/$gameId/clips/$clipId",
-          params: { gameId: entry.gameId, clipId: entry.id },
-          search: {},
-          replace: true,
-        })
-        return
-      }
-      void router.navigate({
-        to: "/clips/$clipId",
-        params: { clipId: entry.id },
-        search: {},
-        replace: true,
-      })
-    },
-    [router],
-  )
-
-  return (
-    <ClipViewerDialog
-      clipId={modalClipId}
-      onClose={handleClose}
-      onNavigate={handleNavigate}
-    />
-  )
+  return <ClipPermalinkModal clipId={clipId} gameId={null} />
 }

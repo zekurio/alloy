@@ -6,39 +6,22 @@ import { sanitizeLoginRedirect } from "./login-redirect"
 import { loadAuthConfig, loadSession, type Session } from "./session-suspense"
 
 type AuthRouteContext = {
-  authConfig?: PublicAuthConfig
-  session?: Session | null
+  authConfig: PublicAuthConfig
+  session: Session | null
 }
 
-function authContext(config: PublicAuthConfig, session: Session | null) {
-  return { authConfig: config, session }
-}
-
-function contextSession(context: AuthRouteContext): Session | null | undefined {
-  if (Object.prototype.hasOwnProperty.call(context, "session")) {
-    return context.session ?? null
-  }
-  return undefined
-}
-
-function loadContextAuthConfig(context: AuthRouteContext) {
-  return context.authConfig
-    ? Promise.resolve(context.authConfig)
-    : loadAuthConfig()
-}
-
-function loadContextSession(context: AuthRouteContext) {
-  const session = contextSession(context)
-  return session !== undefined ? Promise.resolve(session) : loadSession()
-}
-
+/**
+ * Root guard. Runs before every child route's guard, so those only need the
+ * session it puts on the context: setup and onboarding have already been
+ * redirected to `/setup` here.
+ */
 export async function redirectToSetupBeforeLoad({
   location,
 }: {
   location: { pathname: string }
-}) {
+}): Promise<AuthRouteContext> {
   if (location.pathname === "/setup") {
-    return authContext(await loadAuthConfig(), null)
+    return { authConfig: await loadAuthConfig(), session: null }
   }
 
   const configPromise = loadAuthConfig()
@@ -51,54 +34,27 @@ export async function redirectToSetupBeforeLoad({
   if (shouldForceOnboarding(config, session)) {
     throw redirect({ to: "/setup" })
   }
-  return authContext(config, session)
+  return { authConfig: config, session }
 }
 
-export async function requireStrictAuthBeforeLoad({
+export function requireStrictAuthBeforeLoad({
   context,
 }: {
   context: AuthRouteContext
 }) {
-  const [config, session] = await Promise.all([
-    loadContextAuthConfig(context),
-    loadContextSession(context),
-  ])
-
-  if (config.adminAccountRequired) {
-    throw redirect({ to: "/setup" })
-  }
-
-  if (shouldForceOnboarding(config, session)) {
-    throw redirect({ to: "/setup" })
-  }
-
-  if (!session) {
+  if (!context.session) {
     throw redirect({ to: "/login" })
   }
-  return authContext(config, session)
 }
 
-export async function redirectAuthedBeforeLoad({
+export function redirectAuthedBeforeLoad({
   context,
   search,
 }: {
   context: AuthRouteContext
   search?: { redirect?: string }
 }) {
-  const [config, session] = await Promise.all([
-    loadContextAuthConfig(context),
-    loadContextSession(context),
-  ])
-
-  if (config.adminAccountRequired) {
-    throw redirect({ to: "/setup" })
-  }
-
-  if (shouldForceOnboarding(config, session)) {
-    throw redirect({ to: "/setup" })
-  }
-
-  if (session) {
+  if (context.session) {
     // Already signed in: honor a same-origin redirect target (the desktop
     // browser-login handshake returns to its confirmation page here) before
     // falling back to home.
@@ -106,5 +62,4 @@ export async function redirectAuthedBeforeLoad({
     if (target) throw redirect({ href: target })
     throw redirect({ to: "/" })
   }
-  return authContext(config, session)
 }

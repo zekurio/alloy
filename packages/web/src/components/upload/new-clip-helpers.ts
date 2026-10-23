@@ -13,10 +13,6 @@ export interface SelectedFile {
   file: File
   contentType: AcceptedMediaContentType
   name: string
-  size: string
-  resolution: string
-  fps: string
-  duration: string
   /** ms — for the server's `/initiate` body and the trim UI. */
   durationMs: number
   width: number

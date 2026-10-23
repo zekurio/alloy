@@ -16,7 +16,6 @@ export function canPlayContainer(contentType: string): boolean {
 }
 
 function probe(type: string): boolean {
-  if (!globalThis.document) return true
   const cached = probeResults.get(type)
   if (cached !== undefined) return cached
   const result = document.createElement("video").canPlayType(type) !== ""

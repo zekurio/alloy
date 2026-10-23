@@ -1,7 +1,6 @@
 import { t } from "@alloy/i18n"
 
 import { api } from "@/lib/api"
-import { formatMediaDurationMs } from "@/lib/media-time"
 import { requireObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 import { formatBytes } from "@/lib/storage-format"
 import { teardownVideoElement } from "@/lib/video-events"
@@ -53,10 +52,6 @@ export function probeFile(file: File): Promise<ProbedFile> {
       resolve({
         file,
         name: file.name,
-        size: formatBytes(file.size),
-        resolution: `${width}×${height}`,
-        fps: "—FPS",
-        duration: formatMediaDurationMs(durationMs),
         durationMs,
         width,
         height,
@@ -89,10 +84,6 @@ async function probeImage(file: File): Promise<ProbedFile> {
     return {
       file,
       name: file.name,
-      size: formatBytes(file.size),
-      resolution: `${width}×${height}`,
-      fps: "",
-      duration: "",
       durationMs: 0,
       width,
       height,

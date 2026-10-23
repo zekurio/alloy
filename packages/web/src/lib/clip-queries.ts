@@ -1,4 +1,5 @@
 import type { ClipRow, QueueClip, UpdateClipInput, UserClip } from "@alloy/api"
+import type { ProfileMediaParams } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import {
@@ -27,8 +28,6 @@ import { clipKeys } from "./clip-query-keys"
 import { useUploadQueueStream } from "./clip-queue-stream"
 import { errorMessage } from "./error-message"
 import { invalidateStorageUsage } from "./user-queries"
-
-export { profileMediaQueryOptions } from "./profile-media-queries"
 
 export { invalidateClipCaches, removeClipDetailFromCache }
 export { clipKeys }
@@ -73,8 +72,45 @@ export function warmClipDetailCache(qc: QueryClient, row: ClipRow): void {
 
 // The server's maximum page size for user media listings.
 const USER_CLIPS_PAGE_LIMIT = 50
+const PROFILE_MEDIA_PAGE_LIMIT = 30
 
 export type UserClipsSort = "recent" | "oldest"
+
+/**
+ * One offset page of a user's media. The cursor is the next offset as a
+ * string, so these feeds keep the page shape the clip cache patchers expect.
+ */
+async function fetchUserMediaPage(
+  handle: string,
+  params: Pick<ProfileMediaParams, "tab" | "media" | "sort" | "game">,
+  limit: number,
+  pageParam: string | null,
+) {
+  const offset = Number(pageParam ?? 0)
+  const items = await api.users.fetchMedia(handle, {
+    ...params,
+    limit,
+    offset,
+  })
+  return {
+    items,
+    nextCursor: items.length === limit ? String(offset + items.length) : null,
+  }
+}
+
+export function profileMediaQueryOptions(
+  username: string,
+  params: Pick<ProfileMediaParams, "tab" | "media" | "sort" | "game">,
+) {
+  return infiniteQueryOptions({
+    queryKey: clipKeys.profileMedia(username, params),
+    // SAFETY: The offset cursor is a string; null denotes the first page.
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) =>
+      fetchUserMediaPage(username, params, PROFILE_MEDIA_PAGE_LIMIT, pageParam),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  })
+}
 
 /**
  * Every clip a user has uploaded, all media kinds, paged in listing order.
@@ -86,25 +122,16 @@ export function userClipsInfiniteQueryOptions(
   sort: UserClipsSort = "recent",
 ) {
   return infiniteQueryOptions({
-    queryKey: [...clipKeys.infinite(), "user-clips", handle, { sort }],
+    queryKey: clipKeys.userClips(handle, sort),
     // SAFETY: The offset cursor is a string; null denotes the first page.
     initialPageParam: null as string | null,
-    queryFn: async ({ pageParam }) => {
-      const offset = Number(pageParam ?? 0)
-      const items = await api.users.fetchMedia(handle, {
-        media: "all",
-        sort,
-        limit: USER_CLIPS_PAGE_LIMIT,
-        offset,
-      })
-      return {
-        items,
-        nextCursor:
-          items.length === USER_CLIPS_PAGE_LIMIT
-            ? String(offset + items.length)
-            : null,
-      }
-    },
+    queryFn: ({ pageParam }) =>
+      fetchUserMediaPage(
+        handle,
+        { media: "all", sort },
+        USER_CLIPS_PAGE_LIMIT,
+        pageParam,
+      ),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: handle.length > 0,
   })

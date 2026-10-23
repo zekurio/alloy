@@ -8,7 +8,6 @@ import {
   infiniteQueryOptions,
   queryOptions,
   useQuery,
-  useQueryClient,
 } from "@tanstack/react-query"
 
 import { api } from "./api"
@@ -89,7 +88,7 @@ export function userProfileViewerQueryOptions(handle: string) {
   })
 }
 
-function setProfileViewerInCache(
+export function setProfileViewerInCache(
   qc: QueryClient,
   handle: string,
   viewer: ProfileViewer,
@@ -97,16 +96,6 @@ function setProfileViewerInCache(
   qc.setQueryData<UserProfileViewer>(userKeys.profileViewer(handle), (old) =>
     old ? { ...old, viewer } : { viewer, counts: null },
   )
-}
-
-export function useProfileCachePatchers(handle: string) {
-  const qc = useQueryClient()
-
-  return {
-    setViewer: (viewer: ProfileViewer) => {
-      setProfileViewerInCache(qc, handle, viewer)
-    },
-  }
 }
 
 export async function invalidateProfileIdentityCaches(

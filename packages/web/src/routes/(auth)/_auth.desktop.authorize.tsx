@@ -7,7 +7,6 @@ import {
   type DesktopAuthorizeSearch,
 } from "@/lib/desktop-authorize"
 import { searchString } from "@/lib/route-search"
-import { loadAuthConfig, loadSession } from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(auth)/_auth/desktop/authorize")({
   validateSearch: (search): DesktopAuthorizeSearch => ({
@@ -15,12 +14,8 @@ export const Route = createFileRoute("/(auth)/_auth/desktop/authorize")({
     state: searchString(search.state),
     code_challenge: searchString(search.code_challenge),
   }),
-  loader: async ({ context, location }) => {
-    const config = context.authConfig ?? (await loadAuthConfig())
-    if (config.adminAccountRequired) {
-      throw redirect({ to: "/setup" })
-    }
-    const session = context.session ?? (await loadSession())
+  loader: ({ context, location }) => {
+    const { session } = context
     if (!session) {
       throw redirect({ to: "/login", search: { redirect: location.href } })
     }
