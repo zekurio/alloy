@@ -442,6 +442,9 @@ export function SetPosterButton({
 }) {
   const mutation = useSetClipPosterMutation()
   const feedback = useActionFeedback()
+  // Compact mode lets the state icon stand in for the label on screen.
+  const label = (text: string) =>
+    compact ? <span className="sr-only">{text}</span> : text
   return (
     <FeedbackButton
       type="button"
@@ -449,9 +452,9 @@ export function SetPosterButton({
       size={compact ? "icon" : "sm"}
       disabled={mutation.isPending}
       state={feedback.feedback.state}
-      pendingLabel={compact ? null : t("Updating…")}
-      successLabel={compact ? null : t("Poster updated")}
-      errorLabel={compact ? null : t("Try again")}
+      pendingLabel={label(t("Updating…"))}
+      successLabel={label(t("Poster updated"))}
+      errorLabel={label(t("Try again"))}
       aria-label={compact ? t("Use frame as poster") : undefined}
       title={
         feedback.feedback.state === "error"
@@ -470,7 +473,7 @@ export function SetPosterButton({
         }, t("Couldn't update the poster"))
       }}
     >
-      {mutation.isPending ? <Spinner className="size-4" /> : <ImageIcon />}
+      <ImageIcon />
       {compact ? null : t("Use frame as poster")}
     </FeedbackButton>
   )
