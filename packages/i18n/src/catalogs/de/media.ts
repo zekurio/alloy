@@ -80,6 +80,7 @@ export const MEDIA_MESSAGES = {
   "Couldn't load more clips": "Weitere Clips konnten nicht geladen werden",
   "Couldn't load recommendations": "Empfehlungen konnten nicht geladen werden",
   "Couldn't load screenshot": "Screenshot konnte nicht geladen werden",
+  "Couldn't load screenshots": "Screenshots konnten nicht geladen werden",
   "Couldn't load this game": "Dieses Spiel konnte nicht geladen werden",
   "Couldn't open image": "Bild konnte nicht geöffnet werden",
   "Couldn't prepare clip": "Clip konnte nicht vorbereitet werden",
