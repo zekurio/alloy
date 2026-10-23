@@ -262,6 +262,7 @@ export const MEDIA_MESSAGES = {
   Share: "Teilen",
   "Share clip": "Clip teilen",
   "Show clips for {game}": "Clips für {game} anzeigen",
+  "Show one more": "Ein weiteres anzeigen",
   "Show {count} more": "{count} weitere anzeigen",
   "Sign in to see recommendations": "Melde dich an, um Empfehlungen zu sehen",
   Square: "Quadratisch",

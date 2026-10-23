@@ -1,5 +1,5 @@
 import type { GameRow } from "@alloy/api"
-import { t } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import {
   Combobox,
   ComboboxContent,
@@ -353,12 +353,11 @@ export function GameCombobox({
                   "text-foreground-muted hover:bg-accent hover:text-accent-foreground",
                 )}
               >
-                {t("Show {count} more", {
-                  count: Math.min(
-                    PAGE_SIZE,
-                    effectiveItems.length - visibleCount,
-                  ),
-                })}
+                {tp(
+                  Math.min(PAGE_SIZE, effectiveItems.length - visibleCount),
+                  "Show one more",
+                  "Show {count} more",
+                )}
               </button>
             ) : null}
             <ComboboxEmpty>
