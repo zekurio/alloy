@@ -73,11 +73,12 @@ async function remuxToFastStart(
       srcPath,
       // ffmpeg's default selection keeps only one stream of each type. Map all
       // video and audio while excluding data/timecode streams that MP4 may not
-      // accept during a packet-copy remux.
+      // accept during a packet-copy remux. Audio is optional: a required map
+      // fails the remux of a silent recording.
       "-map",
       "0:v",
       "-map",
-      "0:a",
+      "0:a?",
       "-c",
       "copy",
       "-movflags",
