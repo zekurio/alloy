@@ -232,7 +232,6 @@ export const ACCOUNT_MESSAGES = {
   "Your profile and clips will be hidden until you sign back in and reactivate.":
     "Dein Profil und deine Clips werden ausgeblendet, bis du dich wieder anmeldest und reaktivierst.",
   "e.g. Laptop, YubiKey": "z.B. Laptop, YubiKey",
-  more: "mehr",
   "this game": "dieses Spiel",
   user: "Nutzer",
   users: "Nutzer",

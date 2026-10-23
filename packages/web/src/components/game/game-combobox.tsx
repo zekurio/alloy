@@ -1,5 +1,5 @@
 import type { GameRow } from "@alloy/api"
-import { t } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import {
   Combobox,
   ComboboxContent,
@@ -9,11 +9,13 @@ import {
   ComboboxList,
 } from "@alloy/ui/components/combobox"
 import { InputGroupAddon } from "@alloy/ui/components/input-group"
+import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { SearchIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { GameIcon } from "@/components/game/game-icon"
+import { errorMessage } from "@/lib/error-message"
 import {
   useLocalGameSearchQuery,
   useResolveGameMutation,
@@ -151,11 +153,12 @@ export function GameCombobox({
             lastExternalNameRef.current = row.name
             onChange(row)
           },
-          onError: () => {
+          onError: (cause) => {
             setPendingItem(null)
             // Roll the input back to whatever the parent still thinks is
             // selected — we couldn't finish the handshake.
             setInputValue(value?.name ?? "")
+            toast.error(errorMessage(cause, t("Couldn't add game")))
           },
         },
       )
@@ -350,16 +353,18 @@ export function GameCombobox({
                   "text-foreground-muted hover:bg-accent hover:text-accent-foreground",
                 )}
               >
-                {t("Show")}
-                {Math.min(PAGE_SIZE, effectiveItems.length - visibleCount)}{" "}
-                {t("more")}
+                {tp(
+                  Math.min(PAGE_SIZE, effectiveItems.length - visibleCount),
+                  "Show one more",
+                  "Show {count} more",
+                )}
               </button>
             ) : null}
             <ComboboxEmpty>
               {localSearchQuery.isError
-                ? t("Couldn’t load games")
+                ? t("Couldn't load games")
                 : searchQuery.isError
-                  ? t("Couldn’t reach SteamGridDB")
+                  ? t("Couldn't reach SteamGridDB")
                   : debouncedQuery.trim().length === 0
                     ? t("Start typing to search")
                     : t("No matches")}
