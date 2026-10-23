@@ -9,7 +9,7 @@ import {
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, game } from "@alloy/db/schema"
-import { requireSession } from "@alloy/server/auth/require-session"
+import { requireSession } from "@alloy/server/auth/session"
 import { db } from "@alloy/server/db/index"
 import { lookupGamesByName } from "@alloy/server/games/lookup"
 import {

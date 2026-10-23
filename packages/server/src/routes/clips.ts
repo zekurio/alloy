@@ -1,5 +1,5 @@
 import { clip } from "@alloy/db/schema"
-import { requireSession } from "@alloy/server/auth/require-session"
+import { requireSession } from "@alloy/server/auth/session"
 import {
   clipAccessResponse,
   resolveClipAccess,

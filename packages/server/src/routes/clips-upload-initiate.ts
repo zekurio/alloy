@@ -1,7 +1,7 @@
 import { normalizeTags } from "@alloy/contracts"
 import { clip, clipMention, clipTag } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
-import { requireSession } from "@alloy/server/auth/require-session"
+import { requireSession } from "@alloy/server/auth/session"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { resolveTrimRange } from "@alloy/server/clips/trim-range"
 import { configStore } from "@alloy/server/config/store"

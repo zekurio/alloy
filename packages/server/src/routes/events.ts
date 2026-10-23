@@ -1,6 +1,5 @@
 import { createLogger } from "@alloy/logging"
-import { requireSession } from "@alloy/server/auth/require-session"
-import { isSessionActive } from "@alloy/server/auth/session"
+import { isSessionActive, requireSession } from "@alloy/server/auth/session"
 import {
   type QueueEvent,
   subscribeToAuthorQueue,

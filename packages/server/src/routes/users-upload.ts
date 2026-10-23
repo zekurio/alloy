@@ -1,5 +1,5 @@
 import { t } from "@alloy/contracts/schema"
-import { requireSession } from "@alloy/server/auth/require-session"
+import { requireSession } from "@alloy/server/auth/session"
 import { errorResult } from "@alloy/server/runtime/http-response"
 import type { UserAssetRole } from "@alloy/server/storage/driver"
 import { assetStorage } from "@alloy/server/storage/index"

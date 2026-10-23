@@ -1,5 +1,5 @@
 import { clip, clipRendition } from "@alloy/db/schema"
-import { requireSession } from "@alloy/server/auth/require-session"
+import { requireSession } from "@alloy/server/auth/session"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { resetFailedClipForEncode } from "@alloy/server/clips/reencode"
 import {

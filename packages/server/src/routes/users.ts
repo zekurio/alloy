@@ -7,11 +7,11 @@ import {
   disableUserIdentity,
   reactivateSelfDisabledIdentity,
 } from "@alloy/server/auth/identity"
-import { requireSession } from "@alloy/server/auth/require-session"
 import {
   deleteAllSessionsForUser,
   getSession,
   requireAnySession,
+  requireSession,
 } from "@alloy/server/auth/session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { db } from "@alloy/server/db/index"

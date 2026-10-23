@@ -1,6 +1,6 @@
 import { t } from "@alloy/contracts/schema"
 import { clip } from "@alloy/db/schema"
-import { requireSession } from "@alloy/server/auth/require-session"
+import { requireSession } from "@alloy/server/auth/session"
 import { clipAssetVersion } from "@alloy/server/clips/asset-version"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
