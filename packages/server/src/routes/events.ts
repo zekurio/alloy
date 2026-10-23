@@ -95,6 +95,9 @@ export const eventsRoute = new Hono().get(
             continue
           }
 
+          // The session check above awaited; an abort or shutdown that landed
+          // during it found no wake installed, so look again before sleeping.
+          if (!isOpen()) break
           await sleepUntilWoken(HEARTBEAT_MS, (next) => {
             wake = next
           })
