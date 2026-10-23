@@ -18,11 +18,7 @@ import { MediaStage } from "@/components/clip-editor/media-stage"
 import { TrimElapsed } from "@/components/clip-editor/transport-controls"
 import { TrimTimeline } from "@/components/clip-editor/trim-timeline"
 import type { TrimRange } from "@/components/clip-editor/use-trim-playback"
-import {
-  useExternalVideoVolume,
-  VideoPlayer,
-  VolumeControl,
-} from "@/components/video/video-player"
+import { useExternalVideoVolume } from "@/components/video/video-player"
 import { formatTrimMs } from "@/lib/media-time"
 
 import { ClipEditorDetails } from "./library-clip-editor-details"
@@ -30,7 +26,9 @@ import {
   ClipEditorPreviewPlaceholder,
   type ClipEditorMediaState,
   type ClipEditorPlaybackState,
+  ClipEditorVideo,
   ClipProcessingNotice,
+  EditorVolumeControl,
   SetPosterButton,
 } from "./library-clip-editor-media"
 import {
@@ -250,14 +248,9 @@ function MobileTrimControls({
               <SetPosterButton clipId={clipId} playback={playback} compact />
             ) : null}
             {media.playbackSrc && !media.previewUnavailable ? (
-              <VolumeControl
-                muted={playerVolume.state.muted}
-                volume={playerVolume.state.volume}
-                onToggleMute={playerVolume.toggleMute}
-                onVolumeChange={playerVolume.setVolume}
-                onVolumeChangeEnd={playerVolume.finishVolumeChange}
+              <EditorVolumeControl
+                playerVolume={playerVolume}
                 iconClassName="size-9 rounded-md"
-                iconGlyphClassName="size-4"
               />
             ) : null}
           </div>
@@ -337,7 +330,6 @@ function MobileClipVideo({
   playback: ClipEditorPlaybackState
   trimming: boolean
 }) {
-  if (!media.playbackSrc) return null
   const onTimeUpdate = trimming
     ? playback.handleTimeUpdate
     : (seconds: number) => {
@@ -346,29 +338,15 @@ function MobileClipVideo({
       }
 
   return (
-    <VideoPlayer
-      src={media.playbackSrc}
-      playbackRange={media.playbackRange}
-      durationHint={media.durationHint}
-      sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
-      poster={media.poster}
-      posterBlurHash={media.posterBlurHash}
-      fallbackSeed={media.fallbackSeed}
-      aspectRatio={media.aspectRatio}
-      maxDisplayHeight="100%"
+    <ClipEditorVideo
+      row={row}
+      media={media}
+      playback={playback}
       controls={!trimming}
       chromeSize={trimming ? undefined : "compact"}
-      initialTime={playback.getCurrentMs() / 1000}
       onVideoClick={trimming ? () => playback.togglePlayback() : undefined}
-      playerRef={playback.playerRef}
       onTimeUpdate={onTimeUpdate}
-      onPlayingChange={playback.setPlaying}
-      onFrameReady={() => {
-        media.setCloudFrameReady(true)
-        playback.seek(playback.getCurrentMs())
-      }}
-      onEnded={playback.handleEnded}
-      onPlaybackError={media.onPlaybackError}
+      onFrameReady={() => playback.seek(playback.getCurrentMs())}
     />
   )
 }

@@ -57,7 +57,6 @@ type IdentityTextFieldConfig = {
   label: string
   name: "username" | "displayName"
   onChangeValue?: (value: string) => string
-  type: "text"
   validate: (value: string) => string | undefined
 }
 
@@ -199,14 +198,12 @@ export function ProfileCard({
       description: t("Shown instead of your username. Leave empty to use it."),
       label: t("Display name"),
       name: "displayName",
-      type: "text",
       validate: validateDisplayName,
     },
     {
       autoComplete: "username",
       label: t("Username"),
       name: "username",
-      type: "text",
       validate: validateUsername,
     },
   ]
@@ -333,7 +330,6 @@ export function ProfileCard({
                   <ProfileTextField
                     field={field}
                     label={config.label}
-                    type={config.type}
                     autoComplete={config.autoComplete}
                     isSubmitting={form.state.isSubmitting}
                     submissionAttempts={form.state.submissionAttempts}

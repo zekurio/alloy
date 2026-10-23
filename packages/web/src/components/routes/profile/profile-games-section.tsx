@@ -3,19 +3,20 @@ import { Button } from "@alloy/ui/components/button"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { useInfiniteQuery } from "@tanstack/react-query"
 
-import {
-  ContentEmptyState,
-  EmptyState,
-} from "@/components/feedback/empty-state"
+import { ContentEmptyState } from "@/components/feedback/empty-state"
 import { GameCard } from "@/components/game/game-card"
 import { GamesGrid } from "@/components/routes/games/games-grid"
+import { LoadErrorState } from "@/components/routes/load-error"
 import { profileGamesQueryOptions } from "@/lib/user-queries"
 
 export function ProfileGamesSection({ username }: { username: string }) {
   const query = useInfiniteQuery(profileGamesQueryOptions(username))
   if (!query.data) {
     return query.isError ? (
-      <EmptyState title={t("Couldn't load games")} />
+      <LoadErrorState
+        title={t("Couldn't load games")}
+        onRetry={() => void query.refetch()}
+      />
     ) : (
       <LoadingState />
     )

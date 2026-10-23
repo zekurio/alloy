@@ -11,6 +11,7 @@ import { SignInReactivationPrompt } from "@/components/account/reactivate-accoun
 import { authClient } from "@/lib/auth-client"
 import { useLoginRedirect } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
+import { errorMessage } from "@/lib/error-message"
 import { usePasskeySupport } from "@/lib/passkey-support"
 
 import { OAuthSignIn } from "./oauth-sign-in"
@@ -149,10 +150,9 @@ function DesktopLoginPage({
     try {
       await desktop.openConnect()
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : t("Could not reach server."),
-        { id: DESKTOP_LOGIN_ERROR_TOAST_ID },
-      )
+      toast.error(errorMessage(cause, t("Could not reach server.")), {
+        id: DESKTOP_LOGIN_ERROR_TOAST_ID,
+      })
     } finally {
       setPending(false)
     }

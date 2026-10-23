@@ -1,12 +1,9 @@
 import { t } from "@alloy/i18n"
 import { LoadingState } from "@alloy/ui/components/loading-state"
-import { AlertCircleIcon } from "lucide-react"
 
-import {
-  ContentEmptyState,
-  EmptyState,
-} from "@/components/feedback/empty-state"
+import { ContentEmptyState } from "@/components/feedback/empty-state"
 import { GameCard } from "@/components/game/game-card"
+import { LoadErrorState } from "@/components/routes/load-error"
 import { useGamesListQuery } from "@/lib/game-queries"
 
 import { GamesGrid } from "./games-grid"
@@ -23,7 +20,7 @@ function GamesEmpty() {
 }
 
 export function GamesSection() {
-  const { data: games, error, isPending } = useGamesListQuery()
+  const { data: games, error, isPending, refetch } = useGamesListQuery()
   return (
     <section>
       {games !== undefined ? (
@@ -41,10 +38,9 @@ export function GamesSection() {
           </GamesGrid>
         )
       ) : error ? (
-        <EmptyState
-          icon={AlertCircleIcon}
-          size="lg"
+        <LoadErrorState
           title={t("Couldn't load games")}
+          onRetry={() => void refetch()}
         />
       ) : isPending ? (
         <LoadingState />

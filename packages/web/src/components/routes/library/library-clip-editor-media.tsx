@@ -15,6 +15,7 @@ import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { cn } from "@alloy/ui/lib/utils"
 import { ImageIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import type { ComponentProps } from "react"
 
 import {
   MediaStage,
@@ -221,8 +222,10 @@ export type ClipEditorPlaybackState = ReturnType<typeof useTrimPlayback>
 /** The trim editor's volume control, bound to the preview player's volume. */
 export function EditorVolumeControl({
   playerVolume,
+  iconClassName = "size-8 rounded-md",
 }: {
   playerVolume: ReturnType<typeof useExternalVideoVolume>
+  iconClassName?: string
 }) {
   return (
     <VolumeControl
@@ -231,8 +234,55 @@ export function EditorVolumeControl({
       onToggleMute={playerVolume.toggleMute}
       onVolumeChange={playerVolume.setVolume}
       onVolumeChangeEnd={playerVolume.finishVolumeChange}
-      iconClassName="size-8 rounded-md"
+      iconClassName={iconClassName}
       iconGlyphClassName="size-4"
+    />
+  )
+}
+
+/**
+ * The preview player on the editor stage. The desktop and touch layouts share
+ * its source and playback wiring and differ only in chrome, click handling
+ * and time updates.
+ */
+export function ClipEditorVideo({
+  row,
+  media,
+  playback,
+  onFrameReady,
+  ...chrome
+}: {
+  row: ClipRow
+  media: ClipEditorMediaState
+  playback: ClipEditorPlaybackState
+  /** Runs after the stage has marked the cloud frame ready. */
+  onFrameReady?: () => void
+} & Pick<
+  ComponentProps<typeof VideoPlayer>,
+  "controls" | "chromeSize" | "onVideoClick" | "onTimeUpdate"
+>) {
+  if (!media.playbackSrc) return null
+  return (
+    <VideoPlayer
+      src={media.playbackSrc}
+      playbackRange={media.playbackRange}
+      durationHint={media.durationHint}
+      sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
+      poster={media.poster}
+      posterBlurHash={media.posterBlurHash}
+      fallbackSeed={media.fallbackSeed}
+      aspectRatio={media.aspectRatio}
+      maxDisplayHeight="100%"
+      initialTime={playback.getCurrentMs() / 1000}
+      playerRef={playback.playerRef}
+      onPlayingChange={playback.setPlaying}
+      onFrameReady={() => {
+        media.setCloudFrameReady(true)
+        onFrameReady?.()
+      }}
+      onEnded={playback.handleEnded}
+      onPlaybackError={media.onPlaybackError}
+      {...chrome}
     />
   )
 }
@@ -259,25 +309,13 @@ export function ClipEditorStage({
     <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
       <MediaStage aspectRatio={media.aspectRatio}>
         {media.playbackSrc ? (
-          <VideoPlayer
-            src={media.playbackSrc}
-            playbackRange={media.playbackRange}
-            durationHint={media.durationHint}
-            sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
-            poster={media.poster}
-            posterBlurHash={media.posterBlurHash}
-            fallbackSeed={media.fallbackSeed}
-            aspectRatio={media.aspectRatio}
-            maxDisplayHeight="100%"
+          <ClipEditorVideo
+            row={row}
+            media={media}
+            playback={playback}
             controls={false}
-            initialTime={playback.getCurrentMs() / 1000}
             onVideoClick={() => playback.togglePlayback()}
-            playerRef={playback.playerRef}
             onTimeUpdate={playback.handleTimeUpdate}
-            onPlayingChange={playback.setPlaying}
-            onFrameReady={() => media.setCloudFrameReady(true)}
-            onEnded={playback.handleEnded}
-            onPlaybackError={media.onPlaybackError}
           />
         ) : (
           <ClipEditorPreviewPlaceholder media={media} />
@@ -404,6 +442,9 @@ export function SetPosterButton({
 }) {
   const mutation = useSetClipPosterMutation()
   const feedback = useActionFeedback()
+  // Compact mode lets the state icon stand in for the label on screen.
+  const label = (text: string) =>
+    compact ? <span className="sr-only">{text}</span> : text
   return (
     <FeedbackButton
       type="button"
@@ -411,9 +452,9 @@ export function SetPosterButton({
       size={compact ? "icon" : "sm"}
       disabled={mutation.isPending}
       state={feedback.feedback.state}
-      pendingLabel={compact ? null : t("Updating…")}
-      successLabel={compact ? null : t("Poster updated")}
-      errorLabel={compact ? null : t("Try again")}
+      pendingLabel={label(t("Updating…"))}
+      successLabel={label(t("Poster updated"))}
+      errorLabel={label(t("Try again"))}
       aria-label={compact ? t("Use frame as poster") : undefined}
       title={
         feedback.feedback.state === "error"
@@ -432,7 +473,7 @@ export function SetPosterButton({
         }, t("Couldn't update the poster"))
       }}
     >
-      {mutation.isPending ? <Spinner className="size-4" /> : <ImageIcon />}
+      <ImageIcon />
       {compact ? null : t("Use frame as poster")}
     </FeedbackButton>
   )

@@ -2,6 +2,7 @@ import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { LoadingState } from "@alloy/ui/components/loading-state"
+import { useMutation } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { FileQuestionIcon, FolderXIcon, MonitorIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
@@ -18,6 +19,7 @@ import { errorMessage } from "@/lib/error-message"
 import { EditorBody } from "./library-editor-body"
 import { BackToLibraryButton } from "./library-editor-shared"
 import {
+  type NavigableLibraryEntry,
   useLibraryEntryNavigation,
   useLibrarySearch,
   useNavigateToLibraryEntry,
@@ -85,8 +87,6 @@ function LibraryEditorContent({
   const librarySearch = useLibrarySearch()
   const navigation = useLibraryEntryNavigation({ type: "local", id: captureId })
   const { snapshot, error, refreshing, prevEntry, nextEntry } = navigation
-  const [deleting, setDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const currentEntry = navigation.currentEntry
@@ -100,29 +100,27 @@ function LibraryEditorContent({
     }
   }, [currentEntry, navigateToEntry])
 
-  const deleteCapture = async () => {
-    if (deleting || !item) return
-    setDeleteError(null)
-    setDeleting(true)
-    const fallback = nextEntry ?? prevEntry
-    try {
-      await desktop.recording.deleteLibraryCapture(item.id)
+  const deleteCapture = useMutation({
+    mutationFn: ({
+      id,
+    }: {
+      id: string
+      fallback: NavigableLibraryEntry | null
+    }) => desktop.recording.deleteLibraryCapture(id),
+    onSuccess: (_, { id, fallback }) => {
       // The next entry may be a cloud clip linked to a local capture. Remove
       // this path synchronously so it cannot be selected while the re-scan is
       // still in flight and fail playback with MEDIA_ERR_SRC_NOT_SUPPORTED.
-      notifyLibraryCapturesChanged(item.id)
+      notifyLibraryCapturesChanged(id)
       setDeleteDialogOpen(false)
-      setDeleting(false)
       if (fallback) {
         navigateToEntry(fallback)
       } else {
         void navigate({ to: "/library", search: librarySearch, replace: true })
       }
-    } catch (cause) {
-      setDeleteError(errorMessage(cause, t("Couldn't delete capture")))
-      setDeleting(false)
-    }
-  }
+    },
+  })
+  const deleting = deleteCapture.isPending
 
   if (error) {
     return (
@@ -194,13 +192,20 @@ function LibraryEditorContent({
         open={deleteDialogOpen}
         onOpenChange={(open) => {
           setDeleteDialogOpen(open)
-          if (!open) setDeleteError(null)
+          if (!open) deleteCapture.reset()
         }}
         pending={deleting}
-        error={deleteError}
-        onConfirm={() => {
-          void deleteCapture()
-        }}
+        error={
+          deleteCapture.error
+            ? errorMessage(deleteCapture.error, t("Couldn't delete capture"))
+            : null
+        }
+        onConfirm={() =>
+          deleteCapture.mutate({
+            id: item.id,
+            fallback: nextEntry ?? prevEntry,
+          })
+        }
       />
     </AppMain>
   )

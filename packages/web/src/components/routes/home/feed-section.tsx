@@ -3,14 +3,11 @@ import { t } from "@alloy/i18n"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
-import { AlertCircleIcon } from "lucide-react"
 import { useMemo } from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
-import {
-  ContentEmptyState,
-  EmptyState,
-} from "@/components/feedback/empty-state"
+import { ContentEmptyState } from "@/components/feedback/empty-state"
+import { LoadErrorState } from "@/components/routes/load-error"
 import { feedFilterId, useFeedInfiniteQuery } from "@/lib/feed-queries"
 import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
 
@@ -97,6 +94,7 @@ function FeedSectionBody({
   filter,
   feedId,
   viewerId,
+  onRetry,
 }: {
   initialLoad: boolean
   hasData: boolean
@@ -106,19 +104,14 @@ function FeedSectionBody({
   filter: FeedFilter
   feedId: string
   viewerId: string | undefined
+  onRetry: () => void
 }) {
   if (initialLoad) {
     return <LoadingState />
   }
 
   if (!hasData && error) {
-    return (
-      <EmptyState
-        icon={AlertCircleIcon}
-        size="lg"
-        title={t("Couldn't load feed")}
-      />
-    )
+    return <LoadErrorState title={t("Couldn't load feed")} onRetry={onRetry} />
   }
 
   if (!hasRows) {
@@ -227,6 +220,7 @@ export function FeedSection({ filter, sort, viewerId }: FeedSectionProps) {
           filter={filter}
           feedId={state.feedId}
           viewerId={viewerId}
+          onRetry={() => void state.refetch()}
         />
       </div>
 

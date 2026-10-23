@@ -2,8 +2,6 @@ import type { TranslationCatalog } from "../catalog"
 
 export const ACCOUNT_MESSAGES = {
   " and {count} {label}": " und {count} {label}",
-  ". Do you want to show their profile anyway?":
-    ". Möchtest du das Profil trotzdem anzeigen?",
   Account: "Konto",
   "Account & data": "Konto & Daten",
   "Account deleted": "Konto gelöscht",
@@ -225,7 +223,8 @@ export const ACCOUNT_MESSAGES = {
   "You may need another sign-in method to access your account.":
     "Vielleicht brauchst du eine andere Anmeldemethode, um auf dein Konto zuzugreifen.",
   "You're not signed in anywhere else.": "Du bist nirgendwo sonst angemeldet.",
-  "You've blocked @": "Du hast @ blockiert",
+  "You've blocked @{handle}. Do you want to show their profile anyway?":
+    "Du hast @{handle} blockiert. Möchtest du das Profil trotzdem anzeigen?",
   "Your browser will prompt you to use Touch ID, Face ID, Windows Hello, or a security key.":
     "Dein Browser fordert dich auf, Touch ID, Face ID, Windows Hello oder einen Sicherheitsschlüssel zu verwenden.",
   "Your profile and clips are hidden while your account is disabled.":

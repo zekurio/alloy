@@ -6,7 +6,7 @@ import { useMemo } from "react"
 
 import { SortDropdown } from "@/components/clip/sort-dropdown"
 import { CLIP_SORT_OPTIONS, DEFAULT_CLIP_SORT } from "@/lib/clip-sort"
-import { homeFeedFilter, type HomeSearch } from "@/lib/home-search"
+import { homeFeedFilter } from "@/lib/home-search"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 import { FeedChipBar } from "./feed-chip-bar"
@@ -19,19 +19,19 @@ export function HomePageInner({
 }) {
   const to = screenshots ? "/screenshots" : "/"
   const session = useSuspenseSession()
-  // SAFETY: The home route's validateSearch function returns HomeSearch.
-  const search = useSearch({ strict: false }) as HomeSearch
-  const toolbarSearchKey = JSON.stringify(search)
-  const toolbarSearch = useMemo(() => search, [toolbarSearchKey])
+  // The router keeps the search object's identity while its contents match.
+  const search = useSearch({
+    from: screenshots ? "/(app)/_app/screenshots" : "/(app)/_app/",
+  })
 
   const filter = useMemo(
     () => ({
-      ...homeFeedFilter(toolbarSearch),
+      ...homeFeedFilter(search),
       media: screenshots ? ("image" as const) : ("video" as const),
     }),
-    [toolbarSearch, screenshots],
+    [search, screenshots],
   )
-  const sort: ClipFeedSort = toolbarSearch.sort ?? DEFAULT_CLIP_SORT
+  const sort: ClipFeedSort = search.sort ?? DEFAULT_CLIP_SORT
 
   const viewerId = session?.user.id
   // Nothing to narrow or reorder: keep the toolbar only while a game filter
@@ -47,7 +47,7 @@ export function HomePageInner({
         <Link
           to={to}
           search={{
-            ...toolbarSearch,
+            ...search,
             // The default sort stays out of the URL.
             sort: opt.key === DEFAULT_CLIP_SORT ? undefined : opt.key,
           }}
@@ -61,7 +61,7 @@ export function HomePageInner({
     <AppMainColumn>
       {showToolbar ? (
         <PageToolbar pinned rail={false}>
-          <FeedChipBar filter={filter} search={toolbarSearch} to={to} />
+          <FeedChipBar filter={filter} search={search} to={to} />
           <div className="shrink-0">{sortControl}</div>
         </PageToolbar>
       ) : null}

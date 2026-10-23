@@ -26,6 +26,7 @@ import {
   useDeleteClipMutation,
   useTrimClipMutation,
 } from "@/lib/clip-queries"
+import type { RecordingLibraryItem } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 
 import { ClipEditorDetails } from "./library-clip-editor-details"
@@ -273,7 +274,7 @@ function ClipEditorBody({
         />
       )}
 
-      <DeleteClipDialog
+      <DeleteServerBackedDialog
         open={deleteFlow.open}
         onOpenChange={deleteFlow.setOpen}
         pending={deleteFlow.pending}
@@ -309,7 +310,7 @@ function useServerBackedClipDelete({
   handoffPoster,
 }: {
   row: ClipRow
-  localItem: Parameters<typeof DeleteClipDialog>[0]["localItem"]
+  localItem: RecordingLibraryItem | null
   prevEntry: NavigableLibraryEntry | null
   nextEntry: NavigableLibraryEntry | null
   handoffPoster: LibraryHandoffPoster
@@ -327,7 +328,7 @@ function useServerBackedClipDelete({
     async ({
       keptLocalItem,
     }: {
-      keptLocalItem: Parameters<typeof DeleteClipDialog>[0]["localItem"]
+      keptLocalItem: RecordingLibraryItem | null
     }) => {
       setOpen(false)
       if (keptLocalItem) {
@@ -403,39 +404,4 @@ function useServerBackedClipDelete({
       : null,
     confirm,
   }
-}
-
-/**
- * Action row under the trimmer: editor hand-off and download. A pending trim
- * saves through the Details sheet's Save button, together with the fields.
- */
-function DeleteClipDialog({
-  open,
-  onOpenChange,
-  pending,
-  error,
-  localItem,
-  title,
-  onConfirm,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  pending: boolean
-  error: string | null
-  localItem: Parameters<typeof DeleteServerBackedDialog>[0]["localItem"]
-  title: string
-  onConfirm: (deleteLocal: boolean) => void
-}) {
-  return (
-    <DeleteServerBackedDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      pending={pending}
-      error={error}
-      title={title}
-      noun="clip"
-      localItem={localItem}
-      onConfirm={onConfirm}
-    />
-  )
 }

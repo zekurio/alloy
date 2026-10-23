@@ -3,8 +3,9 @@ import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
 import { useQuery } from "@tanstack/react-query"
-import { CircleAlertIcon, ExternalLinkIcon, RefreshCcwIcon } from "lucide-react"
+import { ExternalLinkIcon } from "lucide-react"
 
+import { LoadErrorCallout } from "@/components/routes/load-error"
 import {
   LinkedAccountsCard,
   shouldShowLinkedAccountsCard,
@@ -67,7 +68,10 @@ export function SecuritySettings() {
 
   if (!security.accounts) {
     return (
-      <SecurityLoadError message={security.error} onRetry={security.retry} />
+      <LoadErrorCallout
+        message={security.error}
+        onRetry={() => void security.retry()}
+      />
     )
   }
 
@@ -81,7 +85,10 @@ export function SecuritySettings() {
     <>
       {/* A failed passkey load hides the card, so offer the retry here. */}
       {security.error ? (
-        <SecurityLoadError message={security.error} onRetry={security.retry} />
+        <LoadErrorCallout
+          message={security.error}
+          onRetry={() => void security.retry()}
+        />
       ) : null}
       {showLinkedAccounts && (
         <LinkedAccountsCard
@@ -100,27 +107,6 @@ export function SecuritySettings() {
         />
       )}
     </>
-  )
-}
-
-function SecurityLoadError({
-  message,
-  onRetry,
-}: {
-  message: string | null
-  onRetry: () => Promise<void>
-}) {
-  return (
-    <Callout tone="destructive">
-      <CircleAlertIcon />
-      <div className="flex flex-1 items-center justify-between gap-3">
-        <span>{message}</span>
-        <Button variant="outline" size="sm" onClick={() => void onRetry()}>
-          <RefreshCcwIcon />
-          {t("Try again")}
-        </Button>
-      </div>
-    </Callout>
   )
 }
 

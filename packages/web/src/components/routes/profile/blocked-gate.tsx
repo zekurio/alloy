@@ -34,9 +34,10 @@ export function BlockedGate({
         <AlertDialogHeader>
           <AlertDialogTitle>{t("Show this profile?")}</AlertDialogTitle>
           <AlertDialogDescription>
-            {t("You've blocked @")}
-            {handle}
-            {t(". Do you want to show their profile anyway?")}
+            {t(
+              "You've blocked @{handle}. Do you want to show their profile anyway?",
+              { handle },
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

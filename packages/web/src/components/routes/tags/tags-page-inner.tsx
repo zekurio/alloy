@@ -6,20 +6,17 @@ import { LoadingState } from "@alloy/ui/components/loading-state"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Link, useSearch } from "@tanstack/react-router"
-import { AlertCircleIcon, GlobeIcon, HashIcon, TagIcon } from "lucide-react"
+import { AlertCircleIcon, HashIcon, TagIcon } from "lucide-react"
 import { useMemo } from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
-import {
-  FilterChipRail,
-  type FilterChipOption,
-} from "@/components/clip/filter-chip-rail"
 import {
   SortDropdown,
   type SortDropdownOption,
 } from "@/components/clip/sort-dropdown"
 import { EmptyState } from "@/components/feedback/empty-state"
-import { GameIcon } from "@/components/game/game-icon"
+import { GameFilterRail } from "@/components/routes/game-filter-rail"
+import { LoadErrorState } from "@/components/routes/load-error"
 import { sanitizeTag } from "@/lib/clip-fields"
 import { formatCount } from "@/lib/number-format"
 import { useSuspenseSession } from "@/lib/session-suspense"
@@ -35,8 +32,7 @@ const SORTS: ReadonlyArray<SortDropdownOption<"top" | "recent">> = [
 export function TagsPageInner({ tag: rawTag }: { tag: string }) {
   const session = useSuspenseSession()
   const viewerId = session?.user.id
-  // SAFETY: This route's validateSearch function returns TagSearch.
-  const search = useSearch({ strict: false }) as TagSearch
+  const search = useSearch({ from: "/(app)/_app/tags/$tag" })
   const tag = sanitizeTag(rawTag)
   const filters = tagFilters(search)
   const { data: summary } = useTagSummaryQuery(tag)
@@ -103,33 +99,19 @@ function TagFilterBar({
   games: GameListRow[] | undefined
 }) {
   const filters = tagFilters(search)
-  const activeGameId = filters.gameId
-  const ALL_GAMES = "__all"
-
-  const gameOptions: FilterChipOption<string>[] = [
-    { key: ALL_GAMES, label: t("All games"), icon: <GlobeIcon /> },
-    ...(games ?? []).map((g) => ({
-      key: g.id,
-      label: g.name,
-      icon: <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />,
-    })),
-  ]
 
   return (
     <>
       {games && games.length > 0 ? (
-        <FilterChipRail
-          activeKey={activeGameId ?? ALL_GAMES}
-          options={gameOptions}
-          renderOptionLink={(opt, active) => (
+        <GameFilterRail
+          games={games}
+          gameKey={(game) => game.id}
+          activeGame={filters.gameId ?? null}
+          renderLink={(game) => (
             <Link
               to="/tags/$tag"
               params={{ tag }}
-              search={{
-                ...search,
-                game: opt.key === ALL_GAMES ? undefined : opt.key,
-              }}
-              data-active={active ? "true" : undefined}
+              search={{ ...search, game }}
             />
           )}
         />
@@ -173,6 +155,7 @@ function TagClipsSection({
     hasNextPage,
     isFetchingNextPage,
     isPending,
+    refetch,
   } = useTagClipsInfiniteQuery(tag, filters)
   const rows = useMemo(
     () => (data ? data.pages.flatMap((page) => page.items) : []),
@@ -192,10 +175,9 @@ function TagClipsSection({
 
   if (error && rows.length === 0) {
     return (
-      <EmptyState
-        icon={AlertCircleIcon}
-        size="lg"
+      <LoadErrorState
         title={t("Couldn't load clips")}
+        onRetry={() => void refetch()}
       />
     )
   }

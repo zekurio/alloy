@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
+import { useMutation } from "@tanstack/react-query"
 import {
   ChevronDownIcon,
   CloudIcon,
@@ -117,29 +118,19 @@ function LocationMenu({
   downloadAction?: ReactNode
   deleteAction?: LocationDeleteAction | null
 }) {
-  const [removingLocal, setRemovingLocal] = useState(false)
-  const [removeError, setRemoveError] = useState<string | null>(null)
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
+  const removeLocal = useMutation({
+    mutationFn: deleteLocalLibraryCopy,
+    onSuccess: () => setRemoveDialogOpen(false),
+    onError: (cause) =>
+      clientLogger.warn("[library] Failed to remove local clip copy.", cause),
+  })
+  const removingLocal = removeLocal.isPending
   const hasSize = sizeBytes !== null && sizeBytes !== undefined && sizeBytes > 0
 
   const revealLocal = () => {
     if (!localItem) return
     void alloyDesktop()?.recording.revealLibraryCapture(localItem.id)
-  }
-
-  const removeLocal = async () => {
-    if (!localItem || removingLocal) return
-    setRemoveError(null)
-    setRemovingLocal(true)
-    try {
-      await deleteLocalLibraryCopy(localItem)
-      setRemoveDialogOpen(false)
-    } catch (cause) {
-      clientLogger.warn("[library] Failed to remove local clip copy.", cause)
-      setRemoveError(t("Couldn't remove the local copy"))
-    } finally {
-      setRemovingLocal(false)
-    }
   }
 
   return (
@@ -212,7 +203,7 @@ function LocationMenu({
         open={removeDialogOpen}
         onOpenChange={(open) => {
           setRemoveDialogOpen(open)
-          if (!open) setRemoveError(null)
+          if (!open) removeLocal.reset()
         }}
         title={t("Remove the local copy?")}
         description={t(
@@ -221,8 +212,10 @@ function LocationMenu({
         confirmLabel={t("Remove local copy")}
         pendingLabel={t("Removing...")}
         pending={removingLocal}
-        error={removeError}
-        onConfirm={() => void removeLocal()}
+        error={removeLocal.error ? t("Couldn't remove the local copy") : null}
+        onConfirm={() => {
+          if (localItem) removeLocal.mutate(localItem)
+        }}
       />
     </div>
   )
