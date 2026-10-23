@@ -408,9 +408,9 @@ async fn desktop_shell(
                 .get()
                 .ok_or("Desktop logging is not ready.")?
                 .as_ref()
-                .ok_or("Could not open the desktop logs folder.")?;
+                .ok_or("Couldn't open the desktop logs folder.")?;
             log::logger().flush();
-            open::that(directory).map_err(logged("Could not open the desktop logs folder."))
+            open::that(directory).map_err(logged("Couldn't open the desktop logs folder."))
         }
         DesktopShellOperation::ReloadApp => window
             .reload()
