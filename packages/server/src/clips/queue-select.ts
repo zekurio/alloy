@@ -2,9 +2,10 @@ import { normalizeBlurHash, type QueueClip } from "@alloy/contracts"
 import { clip, game } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { isoDate } from "@alloy/server/runtime/date"
-import { and, desc, eq, isNotNull, isNull, or, sql } from "drizzle-orm"
+import { and, desc, eq, isNotNull, isNull, or } from "drizzle-orm"
 
 import { clipAssetVersion } from "./asset-version"
+import { clipEncodeActive } from "./select"
 
 const activeCondition = or(
   eq(clip.status, "pending"),
@@ -20,7 +21,7 @@ const queueSelection = {
   gameSlug: game.slug,
   title: clip.title,
   status: clip.status,
-  encodeActive: sql<boolean>`${clip.encode_request_id} is not null or ${clip.encode_run_id} is not null`,
+  encodeActive: clipEncodeActive,
   encodeProgress: clip.encode_progress,
   encodeStage: clip.encode_stage,
   encodeTier: clip.encode_tier,

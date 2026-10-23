@@ -31,7 +31,7 @@ const logger = createLogger("users")
 const USER_ASSET_CONTENT_TYPE = "image/webp"
 // The active-write fence provides correctness. This short delay merely avoids
 // waking the worker during the normal small-image upload/attach path.
-const PREWRITE_DELETION_DELAY_MS = 60 * 1000
+export const PREWRITE_DELETION_DELAY_MS = 60 * 1000
 const USER_ASSET_TARGETS = {
   avatar: { width: 512, height: 512 },
   banner: { width: 1500, height: 375 },

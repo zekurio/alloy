@@ -1,3 +1,5 @@
+import { crc32 } from "node:zlib"
+
 type ZipEntry = {
   filename: string
   stream:
@@ -17,22 +19,6 @@ type CentralEntry = {
 
 const UINT16_MAX = 0xffff
 const UINT32_MAX = 0xffffffff
-const textEncoder = new TextEncoder()
-
-const CRC_TABLE = new Uint32Array(256)
-for (let n = 0; n < 256; n++) {
-  let c = n
-  for (let k = 0; k < 8; k++) {
-    c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
-  }
-  CRC_TABLE[n] = c >>> 0
-}
-
-function updateCrc(crc: number, chunk: Uint8Array): number {
-  let c = crc
-  for (const byte of chunk) c = (CRC_TABLE[(c ^ byte) & 0xff] ?? 0) ^ (c >>> 8)
-  return c
-}
 
 function dosDateTime(date = new Date()) {
   const year = Math.max(1980, date.getFullYear())
@@ -45,111 +31,70 @@ function dosDateTime(date = new Date()) {
   }
 }
 
-function concatBytes(chunks: Uint8Array[]): Uint8Array {
-  const size = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0)
-  const out = new Uint8Array(size)
-  let offset = 0
-  for (const chunk of chunks) {
-    out.set(chunk, offset)
-    offset += chunk.byteLength
+function zip64ExtraField(values: number[]): Buffer {
+  const buf = Buffer.alloc(4 + values.length * 8)
+  buf.writeUInt16LE(0x0001, 0)
+  buf.writeUInt16LE(values.length * 8, 2)
+  for (const [index, value] of values.entries()) {
+    buf.writeBigUInt64LE(BigInt(value), 4 + index * 8)
   }
-  return out
-}
-
-function bytes(value: string): Uint8Array {
-  return textEncoder.encode(value)
-}
-
-function u16(view: DataView, offset: number, value: number): void {
-  view.setUint16(offset, value, true)
-}
-
-function u32(view: DataView, offset: number, value: number): void {
-  view.setUint32(offset, value >>> 0, true)
-}
-
-function u64(view: DataView, offset: number, value: number): void {
-  view.setBigUint64(offset, BigInt(value), true)
-}
-
-function writeUInt32LE(value: number): Uint8Array {
-  const buf = new Uint8Array(4)
-  u32(new DataView(buf.buffer), 0, value)
   return buf
 }
 
-function writeUInt64LE(value: number): Uint8Array {
-  const buf = new Uint8Array(8)
-  u64(new DataView(buf.buffer), 0, value)
-  return buf
-}
-
-function zip64ExtraField(values: number[]): Uint8Array {
-  const data = concatBytes(values.map(writeUInt64LE))
-  const header = new Uint8Array(4)
-  const view = new DataView(header.buffer)
-  u16(view, 0, 0x0001)
-  u16(view, 2, data.length)
-  return concatBytes([header, data])
-}
-
-function localHeader(filename: Uint8Array): Uint8Array {
+function localHeader(filename: Buffer): Buffer {
   const { date, time } = dosDateTime()
-  const buf = new Uint8Array(30)
-  const view = new DataView(buf.buffer)
-  u32(view, 0, 0x04034b50)
-  u16(view, 4, 45)
-  u16(view, 6, 0x0808)
-  u16(view, 8, 0)
-  u16(view, 10, time)
-  u16(view, 12, date)
-  u32(view, 18, UINT32_MAX)
-  u32(view, 22, UINT32_MAX)
-  u16(view, 26, filename.length)
   const extra = zip64ExtraField([0, 0])
-  u16(view, 28, extra.length)
-  return concatBytes([buf, filename, extra])
+  const buf = Buffer.alloc(30)
+  buf.writeUInt32LE(0x04034b50, 0)
+  buf.writeUInt16LE(45, 4)
+  buf.writeUInt16LE(0x0808, 6)
+  buf.writeUInt16LE(0, 8)
+  buf.writeUInt16LE(time, 10)
+  buf.writeUInt16LE(date, 12)
+  buf.writeUInt32LE(UINT32_MAX, 18)
+  buf.writeUInt32LE(UINT32_MAX, 22)
+  buf.writeUInt16LE(filename.length, 26)
+  buf.writeUInt16LE(extra.length, 28)
+  return Buffer.concat([buf, filename, extra])
 }
 
-function dataDescriptor(crc: number, size: number): Uint8Array {
-  return concatBytes([
-    writeUInt32LE(0x08074b50),
-    writeUInt32LE(crc),
-    writeUInt64LE(size),
-    writeUInt64LE(size),
-  ])
+function dataDescriptor(crc: number, size: number): Buffer {
+  const buf = Buffer.alloc(24)
+  buf.writeUInt32LE(0x08074b50, 0)
+  buf.writeUInt32LE(crc, 4)
+  buf.writeBigUInt64LE(BigInt(size), 8)
+  buf.writeBigUInt64LE(BigInt(size), 16)
+  return buf
 }
 
-function centralHeader(entry: CentralEntry): Uint8Array {
-  const filename = bytes(entry.filename)
+function centralHeader(entry: CentralEntry): Buffer {
+  const filename = Buffer.from(entry.filename)
   const extra = zip64ExtraField([entry.size, entry.size, entry.offset])
   const { date, time } = dosDateTime()
-  const buf = new Uint8Array(46)
-  const view = new DataView(buf.buffer)
-  u32(view, 0, 0x02014b50)
-  u16(view, 4, 45)
-  u16(view, 6, 45)
-  u16(view, 8, 0x0808)
-  u16(view, 10, 0)
-  u16(view, 12, time)
-  u16(view, 14, date)
-  u32(view, 16, entry.crc)
-  u32(view, 20, UINT32_MAX)
-  u32(view, 24, UINT32_MAX)
-  u16(view, 28, filename.length)
-  u16(view, 30, extra.length)
-  u32(view, 42, UINT32_MAX)
-  return concatBytes([buf, filename, extra])
+  const buf = Buffer.alloc(46)
+  buf.writeUInt32LE(0x02014b50, 0)
+  buf.writeUInt16LE(45, 4)
+  buf.writeUInt16LE(45, 6)
+  buf.writeUInt16LE(0x0808, 8)
+  buf.writeUInt16LE(0, 10)
+  buf.writeUInt16LE(time, 12)
+  buf.writeUInt16LE(date, 14)
+  buf.writeUInt32LE(entry.crc, 16)
+  buf.writeUInt32LE(UINT32_MAX, 20)
+  buf.writeUInt32LE(UINT32_MAX, 24)
+  buf.writeUInt16LE(filename.length, 28)
+  buf.writeUInt16LE(extra.length, 30)
+  buf.writeUInt32LE(UINT32_MAX, 42)
+  return Buffer.concat([buf, filename, extra])
 }
 
 function endOfCentralDirectory(count: number, size: number, offset: number) {
-  const buf = new Uint8Array(22)
-  const view = new DataView(buf.buffer)
-  u32(view, 0, 0x06054b50)
-  u16(view, 8, Math.min(count, UINT16_MAX))
-  u16(view, 10, Math.min(count, UINT16_MAX))
-  u32(view, 12, Math.min(size, UINT32_MAX))
-  u32(view, 16, Math.min(offset, UINT32_MAX))
+  const buf = Buffer.alloc(22)
+  buf.writeUInt32LE(0x06054b50, 0)
+  buf.writeUInt16LE(Math.min(count, UINT16_MAX), 8)
+  buf.writeUInt16LE(Math.min(count, UINT16_MAX), 10)
+  buf.writeUInt32LE(Math.min(size, UINT32_MAX), 12)
+  buf.writeUInt32LE(Math.min(offset, UINT32_MAX), 16)
   return buf
 }
 
@@ -157,26 +102,24 @@ function zip64EndOfCentralDirectory(
   count: number,
   size: number,
   offset: number,
-): Uint8Array {
-  const buf = new Uint8Array(56)
-  const view = new DataView(buf.buffer)
-  u32(view, 0, 0x06064b50)
-  u64(view, 4, 44)
-  u16(view, 12, 45)
-  u16(view, 14, 45)
-  u64(view, 24, count)
-  u64(view, 32, count)
-  u64(view, 40, size)
-  u64(view, 48, offset)
+): Buffer {
+  const buf = Buffer.alloc(56)
+  buf.writeUInt32LE(0x06064b50, 0)
+  buf.writeBigUInt64LE(44n, 4)
+  buf.writeUInt16LE(45, 12)
+  buf.writeUInt16LE(45, 14)
+  buf.writeBigUInt64LE(BigInt(count), 24)
+  buf.writeBigUInt64LE(BigInt(count), 32)
+  buf.writeBigUInt64LE(BigInt(size), 40)
+  buf.writeBigUInt64LE(BigInt(offset), 48)
   return buf
 }
 
-function zip64EndOfCentralDirectoryLocator(offset: number): Uint8Array {
-  const buf = new Uint8Array(20)
-  const view = new DataView(buf.buffer)
-  u32(view, 0, 0x07064b50)
-  u64(view, 8, offset)
-  u32(view, 16, 1)
+function zip64EndOfCentralDirectoryLocator(offset: number): Buffer {
+  const buf = Buffer.alloc(20)
+  buf.writeUInt32LE(0x07064b50, 0)
+  buf.writeBigUInt64LE(BigInt(offset), 8)
+  buf.writeUInt32LE(1, 16)
   return buf
 }
 
@@ -204,26 +147,25 @@ async function* zipChunks(
     const filename = `${String(index + 1).padStart(3, "0")}-${safeZipFilename(
       entry.filename,
     )}`
-    const filenameBytes = bytes(filename)
+    const filenameBytes = Buffer.from(filename)
     const start = offset
     const header = localHeader(filenameBytes)
     offset += header.length
     yield header
 
-    let crc = 0xffffffff
+    let crc = 0
     let size = 0
     for await (const chunk of stream) {
-      crc = updateCrc(crc, chunk)
+      crc = crc32(chunk, crc)
       size += chunk.length
       offset += chunk.length
       yield chunk
     }
 
-    const finalCrc = (crc ^ 0xffffffff) >>> 0
-    const descriptor = dataDescriptor(finalCrc, size)
+    const descriptor = dataDescriptor(crc, size)
     offset += descriptor.length
     yield descriptor
-    central.push({ filename, crc: finalCrc, size, offset: start })
+    central.push({ filename, crc, size, offset: start })
   }
 
   const centralOffset = offset

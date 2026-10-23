@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto"
+
 import { bytesToBase64Url } from "@alloy/server/encoding/base64url"
 
 const textEncoder = new TextEncoder()
@@ -39,12 +41,7 @@ export function constantTimeEqual(
   left: Uint8Array,
   right: Uint8Array,
 ): boolean {
-  if (left.byteLength !== right.byteLength) return false
-  let diff = 0
-  for (let i = 0; i < left.byteLength; i++) {
-    diff |= left[i] ^ right[i]
-  }
-  return diff === 0
+  return left.byteLength === right.byteLength && timingSafeEqual(left, right)
 }
 
 function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {

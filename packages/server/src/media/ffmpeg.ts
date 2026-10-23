@@ -3,6 +3,9 @@ import { transcodeSettings } from "./transcode-settings"
 
 const STDERR_TAIL_LINES = 100
 
+/** Flags for every unattended ffmpeg run: no banner, never read stdin. */
+export const FFMPEG_BATCH_ARGS = ["-hide_banner", "-nostdin"] as const
+
 const MIN_TIMEOUT_MS = 5 * 60 * 1000
 const MAX_TIMEOUT_MS = 2 * 60 * 60 * 1000
 
@@ -16,9 +19,10 @@ export function transcodeTimeoutMs(durationMs: number): number {
 }
 
 /**
- * Run ffmpeg with the given output args. Progress is parsed from
- * `-progress pipe:1` key=value output and reported as seconds of media
- * written, so callers can turn it into a percentage against a known duration.
+ * Run ffmpeg with the given input and output args, logging errors only and
+ * overwriting existing outputs. Progress is parsed from `-progress pipe:1`
+ * key=value output and reported as seconds of media written, so callers can
+ * turn it into a percentage against a known duration.
  * The process is SIGTERM'd (then SIGKILL'd) on abort or timeout; the last
  * stderr lines are attached to thrown errors for diagnosis.
  */
@@ -33,7 +37,15 @@ export function runFfmpeg(opts: {
   return runProcess({
     name: "ffmpeg",
     command: transcodeSettings().ffmpegPath,
-    args: ["-hide_banner", "-nostdin", "-progress", "pipe:1", ...opts.args],
+    args: [
+      ...FFMPEG_BATCH_ARGS,
+      "-v",
+      "error",
+      "-y",
+      "-progress",
+      "pipe:1",
+      ...opts.args,
+    ],
     timeoutMs: opts.timeoutMs,
     cwd: opts.cwd,
     signal: opts.signal,

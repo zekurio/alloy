@@ -5,12 +5,14 @@ import {
   publishClipUpsertById,
 } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
+import type { DbTransaction } from "@alloy/server/db/transaction"
 import { mediaAssetDeletionIntents } from "@alloy/server/storage/deletion-producers"
 import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
 import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
 import { and, eq, lt, sql } from "drizzle-orm"
+import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 
 import {
   clearedStageColumns,
@@ -47,6 +49,61 @@ function finishedAssetLeaseColumns(
     failure_reason: null,
     updated_at: new Date(),
   }
+}
+
+const assetKeyColumns = {
+  sourceKey: clip.source_key,
+  waveformKey: clip.waveform_key,
+  cutKey: clip.cut_key,
+  thumbKey: clip.thumb_key,
+}
+
+/**
+ * Lock the clip row the run still owns, apply `columns`, and queue deletion
+ * of the `replaced` assets that `retainedKeys` no longer reference, all in
+ * one transaction. `alsoQueue` adds deletions of its own and returns their
+ * count. Returns false when the run lost the row.
+ */
+async function commitAssetReplacement(
+  id: string,
+  runId: string,
+  replacement: {
+    columns: PgUpdateSetSource<typeof clip>
+    replaced: (keyof typeof assetKeyColumns)[]
+    retainedKeys: (string | null)[]
+    reason: string
+    alsoQueue?: (tx: DbTransaction) => Promise<number>
+  },
+): Promise<boolean> {
+  const ownedByRun = and(eq(clip.id, id), eq(clip.encode_run_id, runId))
+  const queuedDeletions = await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select(assetKeyColumns)
+      .from(clip)
+      .where(ownedByRun)
+      .limit(1)
+      .for("update")
+    if (!current) return null
+
+    const [updated] = await tx
+      .update(clip)
+      .set(replacement.columns)
+      .where(ownedByRun)
+      .returning({ id: clip.id })
+    if (!updated) return null
+
+    const intents = mediaAssetDeletionIntents({
+      keys: replacement.replaced.map((name) => current[name]),
+      retainedKeys: replacement.retainedKeys,
+      reason: replacement.reason,
+      source: { type: "media-run", id: runId },
+    })
+    await enqueueStorageDeletions(intents, { tx })
+    return intents.length + ((await replacement.alsoQueue?.(tx)) ?? 0)
+  })
+  if (queuedDeletions === null) return false
+  if (queuedDeletions > 0) wakeStorageDeletionWorker()
+  return true
 }
 
 export const clipMediaStore: MediaStore = {
@@ -112,113 +169,41 @@ export const clipMediaStore: MediaStore = {
   },
 
   async commitSource(id, runId, patch: MediaSourcePatch) {
-    const result = await withUploadActivityStopped(id, () =>
-      db.transaction(async (tx) => {
-        const [current] = await tx
-          .select({
-            sourceKey: clip.source_key,
-            waveformKey: clip.waveform_key,
-            cutKey: clip.cut_key,
-          })
-          .from(clip)
-          .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-          .limit(1)
-          .for("update")
-        if (!current) return { committed: false, queuedDeletions: 0 }
-
-        const [updated] = await tx
-          .update(clip)
-          .set({
-            ...sourcePatchToColumns(patch),
-            updated_at: new Date(),
-          })
-          .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-          .returning({ id: clip.id })
-        if (!updated) return { committed: false, queuedDeletions: 0 }
-
-        const intents = mediaAssetDeletionIntents({
-          keys: [current.sourceKey, current.waveformKey, current.cutKey],
-          retainedKeys: [patch.sourceKey, patch.waveformKey, patch.cutKey],
-          reason: "media source replaced",
-          source: { type: "media-run", id: runId },
-        })
-        await enqueueStorageDeletions(intents, { tx })
-        const stagedIntents = await deleteUploadTicketsWithStorageIntents(
-          { type: "clip", id },
-          "media source committed",
-          tx,
-        )
-        return {
-          committed: true,
-          queuedDeletions: intents.length + stagedIntents,
-        }
+    return withUploadActivityStopped(id, () =>
+      commitAssetReplacement(id, runId, {
+        columns: { ...sourcePatchToColumns(patch), updated_at: new Date() },
+        replaced: ["sourceKey", "waveformKey", "cutKey"],
+        retainedKeys: [patch.sourceKey, patch.waveformKey, patch.cutKey],
+        reason: "media source replaced",
+        alsoQueue: (tx) =>
+          deleteUploadTicketsWithStorageIntents(
+            { type: "clip", id },
+            "media source committed",
+            tx,
+          ),
       }),
     )
-    if (result.queuedDeletions > 0) wakeStorageDeletionWorker()
-    return result.committed
   },
 
   async commitThumb(id, runId, patch: MediaThumbPatch) {
-    const result = await db.transaction(async (tx) => {
-      const [current] = await tx
-        .select({ thumbKey: clip.thumb_key })
-        .from(clip)
-        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-        .limit(1)
-        .for("update")
-      if (!current) return { committed: false, queuedDeletions: 0 }
-
-      const [updated] = await tx
-        .update(clip)
-        .set({ ...thumbPatchToColumns(patch), updated_at: new Date() })
-        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-        .returning({ id: clip.id })
-      if (!updated) return { committed: false, queuedDeletions: 0 }
-
-      const intents = mediaAssetDeletionIntents({
-        keys: [current.thumbKey],
-        retainedKeys: [patch.thumbKey],
-        reason: "media thumbnail replaced",
-        source: { type: "media-run", id: runId },
-      })
-      await enqueueStorageDeletions(intents, { tx })
-      return { committed: true, queuedDeletions: intents.length }
+    return commitAssetReplacement(id, runId, {
+      columns: { ...thumbPatchToColumns(patch), updated_at: new Date() },
+      replaced: ["thumbKey"],
+      retainedKeys: [patch.thumbKey],
+      reason: "media thumbnail replaced",
     })
-    if (result.queuedDeletions > 0) wakeStorageDeletionWorker()
-    return result.committed
   },
 
   async commitWaveform(id, runId, waveformKey, completion) {
-    const result = await db.transaction(async (tx) => {
-      const [current] = await tx
-        .select({ waveformKey: clip.waveform_key })
-        .from(clip)
-        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-        .limit(1)
-        .for("update")
-      if (!current) return { committed: false, queuedDeletions: 0 }
-
-      const [updated] = await tx
-        .update(clip)
-        .set({
-          ...finishedAssetLeaseColumns(completion),
-          waveform_key: waveformKey,
-        })
-        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-        .returning({ id: clip.id })
-      if (!updated) return { committed: false, queuedDeletions: 0 }
-
-      const intents = mediaAssetDeletionIntents({
-        keys: [current.waveformKey],
-        retainedKeys: [waveformKey],
-        reason: "media waveform replaced",
-        source: { type: "media-run", id: runId },
-      })
-      await enqueueStorageDeletions(intents, { tx })
-      return { committed: true, queuedDeletions: intents.length }
+    return commitAssetReplacement(id, runId, {
+      columns: {
+        ...finishedAssetLeaseColumns(completion),
+        waveform_key: waveformKey,
+      },
+      replaced: ["waveformKey"],
+      retainedKeys: [waveformKey],
+      reason: "media waveform replaced",
     })
-    if (result.queuedDeletions > 0) wakeStorageDeletionWorker()
-    return result.committed
   },
 
   async finishThumbnailBackfill(id, runId, completion) {

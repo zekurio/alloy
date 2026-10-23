@@ -15,11 +15,11 @@ export type IndexedGameNameLookupCandidate = {
   clipCount: number
 }
 
+/** `queries` must be trimmed and deduplicated, as `uniqueLookupNames` returns. */
 export async function lookupIndexedGamesByName(
-  names: string[],
+  queries: string[],
   viewerId: string | null,
 ): Promise<Map<string, IndexedGameNameLookupCandidate[]>> {
-  const queries = uniqueLookupQueries(names)
   const matches = new Map<string, IndexedGameNameLookupCandidate[]>()
   for (const name of queries) matches.set(exactNameKey(name), [])
   if (queries.length === 0) return matches
@@ -92,20 +92,6 @@ export async function lookupIndexedGamesByName(
   return matches
 }
 
-function uniqueLookupQueries(names: string[]): string[] {
-  const seen = new Set<string>()
-  const result: string[] = []
-  for (const name of names) {
-    const trimmed = name.trim()
-    if (!trimmed) continue
-    const key = exactNameKey(trimmed)
-    if (seen.has(key)) continue
-    seen.add(key)
-    result.push(trimmed)
-  }
-  return result
-}
-
 function indexedGameMatchCondition(names: string[]): SQL | undefined {
   const exactKeys = names.map(exactNameKey)
   const conditions: SQL[] = [
@@ -113,6 +99,9 @@ function indexedGameMatchCondition(names: string[]): SQL | undefined {
     inArray(sql<string>`lower(${clip.game})`, exactKeys),
   ]
 
+  // Left unescaped: this only prefilters rows for the exact and normalized
+  // comparisons above, and a `_` wildcard is what lets "Half_Life" reach
+  // "Half-Life".
   for (const name of names) {
     const pattern = `%${name}%`
     conditions.push(ilike(game.name, pattern), ilike(clip.game, pattern))

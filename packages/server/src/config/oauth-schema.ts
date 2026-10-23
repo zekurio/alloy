@@ -78,7 +78,7 @@ function validateOAuthProvider(
       message: endpointsMessage,
     })
   }
-  if (!provider.usernameClaim || provider.usernameClaim.trim().length === 0) {
+  if (provider.usernameClaim.trim().length === 0) {
     ctx.addIssue({
       code: "custom",
       path: ["usernameClaim"],

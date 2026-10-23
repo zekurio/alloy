@@ -1,5 +1,6 @@
 import { createReadStream } from "node:fs"
 import { stat, readFile } from "node:fs/promises"
+import { isAbsolute, join, relative, resolve } from "node:path"
 import { Readable } from "node:stream"
 
 import type { PublicAuthConfig } from "@alloy/contracts"
@@ -9,7 +10,6 @@ import { buildPublicAuthConfig } from "./auth/public-config"
 import { getSession } from "./auth/session"
 import { configStore } from "./config/store"
 import { env } from "./env"
-import { isAbsolute, join, relative, resolve } from "./runtime/path"
 import { clipHead } from "./web-clip-head"
 import { htmlEscape, withInjectedHead } from "./web-html"
 

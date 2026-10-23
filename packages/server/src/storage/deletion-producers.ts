@@ -1,6 +1,8 @@
+import type { GameAssetRole } from "@alloy/contracts"
 import type { StorageDeletionInput } from "@alloy/server/storage/deletion-policy"
 
 import { clipKeyDeletionNamespace } from "./clip-key"
+import { assetRoleKeyBase, type UserAssetRole } from "./driver"
 
 export interface ClipStorageDeletionSnapshot {
   clipId: string
@@ -16,11 +18,7 @@ export interface ClipStorageDeletionSnapshot {
   }[]
 }
 
-/**
- * Classify every object whose ownership disappears with a clip row. Keeping
- * this pure makes the transaction boundary easy to test independently from
- * PostgreSQL and the physical storage driver.
- */
+/** Classify every object whose ownership disappears with a clip row. */
 export function clipStorageDeletionIntents(
   snapshot: ClipStorageDeletionSnapshot,
 ): StorageDeletionInput[] {
@@ -121,6 +119,55 @@ export function mediaAssetDeletionIntents(input: {
     })
   }
   return deduplicateDeletionIntents(intents)
+}
+
+export interface ManagedAssetDeletion<
+  Role extends UserAssetRole | GameAssetRole,
+> {
+  role: Role
+  previousUrl: string | null
+  retainedKey?: string | null
+  reason: string
+  source: { type: string; id?: string | null }
+}
+
+/**
+ * Deletion intent for the versioned asset object `previousUrl` names, unless
+ * it is `retainedKey`. URLs outside `pathPrefix`, keys of another owner or
+ * role, and legacy unversioned keys yield none.
+ */
+export function managedAssetDeletionIntents(
+  pathPrefix: string,
+  ownerId: string,
+  input: ManagedAssetDeletion<UserAssetRole | GameAssetRole>,
+): StorageDeletionInput[] {
+  const key = managedAssetKey(
+    input.previousUrl,
+    pathPrefix,
+    ownerId,
+    input.role,
+  )
+  if (!key || key.toLowerCase() === input.retainedKey?.toLowerCase()) return []
+  return [
+    { namespace: "assets", key, reason: input.reason, source: input.source },
+  ]
+}
+
+function managedAssetKey(
+  publicUrl: string | null,
+  pathPrefix: string,
+  ownerId: string,
+  role: UserAssetRole | GameAssetRole,
+): string | null {
+  if (!publicUrl) return null
+  const base = publicUrl.split("?", 1)[0]
+  if (!base?.startsWith(pathPrefix)) return null
+  const key = base.slice(pathPrefix.length)
+  const roleBase = assetRoleKeyBase(ownerId, role).toLowerCase()
+  const normalized = key.toLowerCase()
+  if (!normalized.startsWith(`${roleBase}-`)) return null
+  const versionAndExtension = normalized.slice(roleBase.length + 1)
+  return /^[0-9a-f]{32}\.webp$/.test(versionAndExtension) ? key : null
 }
 
 export function posterDeletionIntents(input: {

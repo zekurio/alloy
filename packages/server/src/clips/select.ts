@@ -17,6 +17,9 @@ import { eq, sql } from "drizzle-orm"
 
 import { clipAssetVersion } from "./asset-version"
 
+/** Whether an encode is requested or running, independent of clip status. */
+export const clipEncodeActive = sql<boolean>`${clip.encode_request_id} is not null or ${clip.encode_run_id} is not null`
+
 export const clipSelection = {
   mediaKind: clip.media_kind,
   id: clip.id,
@@ -45,7 +48,7 @@ export const clipSelection = {
   trimStartMs: clip.trim_start_ms,
   trimEndMs: clip.trim_end_ms,
   status: clip.status,
-  encodeActive: sql<boolean>`${clip.encode_request_id} is not null or ${clip.encode_run_id} is not null`,
+  encodeActive: clipEncodeActive,
   encodeProgress: clip.encode_progress,
   encodeStage: clip.encode_stage,
   encodeTier: clip.encode_tier,

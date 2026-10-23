@@ -13,19 +13,12 @@ type ClipAccessPolicy = {
   readiness: ClipAccessReadiness
 }
 
-export const CLIP_ACCESS_POLICIES = {
+const CLIP_ACCESS_POLICIES = {
   metadata: {
     notReadyError: "Not found",
     readiness: "ready-or-owner-admin",
   },
   engagement: {
-    notReadyError: "Not found",
-    readiness: "ready",
-  },
-  // Anonymous social-crawler surfaces (app-shell head, Mastodon status doc).
-  // Same rules as `engagement`, named separately so those call sites read as
-  // what they are.
-  embed: {
     notReadyError: "Not found",
     readiness: "ready",
   },
@@ -40,12 +33,10 @@ export const CLIP_ACCESS_POLICIES = {
 } as const satisfies Record<string, ClipAccessPolicy>
 
 export type ClipAccessPolicyName = keyof typeof CLIP_ACCESS_POLICIES
-export type ClipAccessStatus = 401 | 403 | 404
-
 export type ClipAccessDenied = {
   accessible: false
   error: string
-  status: ClipAccessStatus
+  status: 404
 }
 
 export type ClipAccessInput = {
@@ -79,17 +70,17 @@ export function evaluateClipAccess(input: ClipAccessInput): ClipAccessDecision {
   const canBypassVisibility = isOwner || isAdmin
 
   if (input.authorDisabledAt && !canBypassVisibility) {
-    return denied("Not found", 404)
+    return denied("Not found")
   }
 
   if (input.privacy === "private" && !canBypassVisibility) {
-    return denied("Not found", 404)
+    return denied("Not found")
   }
 
   if (
     !canReadStatus(input.status, accessPolicy.readiness, canBypassVisibility)
   ) {
-    return denied(accessPolicy.notReadyError, 404)
+    return denied(accessPolicy.notReadyError)
   }
 
   return { accessible: true, isOwner, isAdmin }
@@ -104,9 +95,6 @@ function canReadStatus(
   return readiness === "ready-or-owner-admin" && canBypassVisibility
 }
 
-export function denied(
-  error: string,
-  status: ClipAccessStatus,
-): ClipAccessDenied {
-  return { accessible: false, error, status }
+export function denied(error: string): ClipAccessDenied {
+  return { accessible: false, error, status: 404 }
 }

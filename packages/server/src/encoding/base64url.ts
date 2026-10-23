@@ -1,29 +1,23 @@
 const BASE64URL_RE = /^[A-Za-z0-9_-]*$/
-const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
 
 export function bytesToBase64Url(bytes: Uint8Array): string {
-  let binary = ""
-  for (const byte of bytes) binary += String.fromCharCode(byte)
-  return btoa(binary)
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/, "")
+  return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString(
+    "base64url",
+  )
 }
 
 export function base64UrlToBytes(value: string): Uint8Array {
-  if (!BASE64URL_RE.test(value)) {
+  // Buffer skips characters outside the alphabet and a dangling final
+  // character instead of failing, so reject both up front.
+  if (!BASE64URL_RE.test(value) || value.length % 4 === 1) {
     throw new Error("Invalid base64url")
   }
-  const padded = value
-    .replaceAll("-", "+")
-    .replaceAll("_", "/")
-    .padEnd(Math.ceil(value.length / 4) * 4, "=")
-  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0))
+  return new Uint8Array(Buffer.from(value, "base64url"))
 }
 
 export function base64UrlEncodeText(value: string): string {
-  return bytesToBase64Url(textEncoder.encode(value))
+  return Buffer.from(value, "utf8").toString("base64url")
 }
 
 export function base64UrlDecodeText(value: string): string {

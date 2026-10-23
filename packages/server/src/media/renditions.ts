@@ -1,4 +1,5 @@
 import { mkdir, stat } from "node:fs/promises"
+import { join } from "node:path"
 
 import {
   deriveRenditionNames,
@@ -7,7 +8,6 @@ import {
   type VideoCodec,
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
-import { join } from "@alloy/server/runtime/path"
 
 import {
   buildEncoderGlobalArgs,
@@ -131,9 +131,6 @@ function buildRenditionArgs(options: {
   const threads = transcodeSettings().threads
   const softwareEncoder = options.config.hardwareAcceleration === "none"
   return [
-    "-v",
-    "error",
-    "-y",
     ...buildEncoderGlobalArgs(options.config),
     ...(options.trim ? ["-ss", String(options.trim.startMs / 1000)] : []),
     "-i",

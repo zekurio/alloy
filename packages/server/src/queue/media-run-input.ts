@@ -1,7 +1,8 @@
+import { join } from "node:path"
+
 import { createLogger } from "@alloy/logging"
 import { type ExtractedPoster, extractPoster } from "@alloy/server/media/poster"
 import { probeMedia } from "@alloy/server/media/probe"
-import { join } from "@alloy/server/runtime/path"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 
 import { abortMediaProcessing } from "./media-abort"

@@ -20,6 +20,7 @@ import {
   transcodeEncoder,
   transcodeEncoderName,
 } from "./encoders"
+import { FFMPEG_BATCH_ARGS } from "./ffmpeg"
 import { processFailureKind, runProcess } from "./run-process"
 import { transcodeSettings } from "./transcode-settings"
 
@@ -143,8 +144,7 @@ async function probeEncoderMatrix(
 
 function functionalProbeArgs(config: TranscodingConfig): string[] {
   return [
-    "-hide_banner",
-    "-nostdin",
+    ...FFMPEG_BATCH_ARGS,
     ...buildEncoderGlobalArgs(config),
     "-f",
     "lavfi",

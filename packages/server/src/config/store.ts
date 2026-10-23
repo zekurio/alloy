@@ -74,7 +74,7 @@ let transcodingSetting = deepFreeze(DEFAULT_TRANSCODING)
 let state: Readonly<RuntimeConfig> | null = null
 
 function currentState(): Readonly<RuntimeConfig> {
-  return (state ??= freezeRuntimeConfig(buildRuntimeConfig()))
+  return (state ??= deepFreeze(buildRuntimeConfig()))
 }
 
 type Listener = (
@@ -117,6 +117,11 @@ const AUTH_TOGGLE_ENV_NAMES = {
   requireAuthToBrowse: "ALLOY_REQUIRE_AUTH_TO_BROWSE",
 } as const
 
+/**
+ * Merge `patch` into the stored toggles. Like {@link setOAuthProviders}, this
+ * reads the in-memory snapshot before writing, so callers hold
+ * `withAdminAccessChange` to keep concurrent admin writes from losing fields.
+ */
 export async function setAuthToggles(
   patch: Partial<AuthToggles>,
 ): Promise<void> {
@@ -148,7 +153,8 @@ export async function setAuthToggles(
  * new list are cancelled alongside the config write; managed icons the
  * previous list referenced but the next list does not are enqueued for
  * deletion in the same transaction. Callers must wake the storage deletion
- * worker when `queuedIconDeletions > 0`.
+ * worker when `queuedIconDeletions > 0`, and hold `withAdminAccessChange` so
+ * concurrent saves cannot drop each other's kept secrets.
  */
 export async function setOAuthProviders(
   providers: OAuthProviderConfig[],
@@ -252,10 +258,6 @@ export function storedOAuthClientSecret(providerId: string): string {
   return oauthClientSecretsSetting[providerId] ?? ""
 }
 
-function freezeRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
-  return deepFreeze(config)
-}
-
 function deepFreeze<T>(value: T): T {
   if (!value || Object(value) !== value || Object.isFrozen(value)) {
     return value
@@ -278,7 +280,7 @@ function notify(next: RuntimeConfig, prev: RuntimeConfig): void {
 
 function refreshState(): void {
   const prev = currentState()
-  state = freezeRuntimeConfig(buildRuntimeConfig())
+  state = deepFreeze(buildRuntimeConfig())
   notify(state, prev)
 }
 
@@ -346,25 +348,11 @@ export async function initializeConfigStore(): Promise<void> {
   refreshState()
 }
 
-function assertDbOwnedKey(
-  key: keyof RuntimeConfig,
-): asserts key is DbOwnedConfigKey {
-  if (
-    key !== "setupComplete" &&
-    key !== "appearance" &&
-    key !== "transcoding" &&
-    key !== "uploadLimits"
-  ) {
-    throw new Error(
-      `Runtime config key "${String(key)}" is declarative and must be set with environment variables or Nix options.`,
-    )
-  }
-}
-
 interface ConfigStore {
   get<K extends keyof RuntimeConfig>(key: K): RuntimeConfig[K]
   getAll(): Readonly<RuntimeConfig>
-  set<K extends keyof RuntimeConfig>(
+  /** Persist a DB-owned key; every other key comes from env or Nix options. */
+  set<K extends DbOwnedConfigKey>(
     key: K,
     value: RuntimeConfig[K],
   ): Promise<void>
@@ -379,37 +367,35 @@ export const configStore: ConfigStore = {
     return structuredClone(currentState())
   },
   async set(key, value) {
-    assertDbOwnedKey(key)
-    if (key === "setupComplete") {
-      const nextSetup = SetupSettingSchema.parse({ setupComplete: value })
-      await writeSetting("setup", nextSetup)
-      setupSetting = deepFreeze(nextSetup)
-      refreshState()
-      return
+    switch (key) {
+      case "setupComplete": {
+        const next = SetupSettingSchema.parse({ setupComplete: value })
+        await writeSetting("setup", next)
+        setupSetting = deepFreeze(next)
+        break
+      }
+      case "appearance": {
+        const next = AppearanceConfigSchema.parse(value)
+        await writeSetting("appearance", next)
+        appearanceSetting = deepFreeze(next)
+        break
+      }
+      case "uploadLimits": {
+        const next = UploadLimitsSchema.parse(value)
+        await writeSetting("uploadLimits", next)
+        uploadLimitsSetting = deepFreeze(next)
+        break
+      }
+      case "transcoding": {
+        const next = TranscodingConfigSchema.parse(value)
+        await db.transaction(async (tx) => {
+          await writeSetting("transcoding", next, tx)
+          await synchronizeMediaGeneration(next, tx)
+        })
+        transcodingSetting = deepFreeze(next)
+        break
+      }
     }
-
-    if (key === "appearance") {
-      const nextAppearance = AppearanceConfigSchema.parse(value)
-      await writeSetting("appearance", nextAppearance)
-      appearanceSetting = deepFreeze(nextAppearance)
-      refreshState()
-      return
-    }
-
-    if (key === "uploadLimits") {
-      const next = UploadLimitsSchema.parse(value)
-      await writeSetting("uploadLimits", next)
-      uploadLimitsSetting = deepFreeze(next)
-      refreshState()
-      return
-    }
-
-    const nextTranscoding = TranscodingConfigSchema.parse(value)
-    await db.transaction(async (tx) => {
-      await writeSetting("transcoding", nextTranscoding, tx)
-      await synchronizeMediaGeneration(nextTranscoding, tx)
-    })
-    transcodingSetting = deepFreeze(nextTranscoding)
     refreshState()
   },
   subscribe(fn) {

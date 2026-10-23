@@ -1,9 +1,9 @@
 import { stat } from "node:fs/promises"
+import { join } from "node:path"
 
 import type { AcceptedContentType } from "@alloy/contracts"
 import { faststartPath } from "@alloy/server/media/mp4-layout"
 import type { MediaProbe } from "@alloy/server/media/probe"
-import { join } from "@alloy/server/runtime/path"
 import { clipStorage } from "@alloy/server/storage/index"
 import { downloadStagedUploadToFile } from "@alloy/server/uploads/staged"
 import { selectVideoTicketKey } from "@alloy/server/uploads/tickets"

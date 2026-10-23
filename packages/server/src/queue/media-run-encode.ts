@@ -1,4 +1,5 @@
 import { rm } from "node:fs/promises"
+import { join } from "node:path"
 
 import type { TranscodingConfig } from "@alloy/contracts"
 import {
@@ -6,7 +7,6 @@ import {
   type LadderStep,
 } from "@alloy/server/media/renditions"
 import { encodeExactCut } from "@alloy/server/media/trim"
-import { join } from "@alloy/server/runtime/path"
 import { clipStorage } from "@alloy/server/storage/index"
 
 import { abortMediaProcessing } from "./media-abort"

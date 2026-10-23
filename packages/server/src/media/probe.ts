@@ -95,10 +95,7 @@ export function sourceCodecsString(
     .join(",")
 }
 
-/**
- * RFC 6381 video codec string from ffprobe stream fields. Exported for unit
- * tests; callers go through {@link probeMedia}.
- */
+/** RFC 6381 video codec string from ffprobe stream fields. */
 function buildVideoCodecString(
   stream: Pick<
     FfprobeStream,

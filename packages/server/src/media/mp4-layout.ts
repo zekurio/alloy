@@ -66,9 +66,6 @@ async function remuxToFastStart(
     timeoutMs: transcodeTimeoutMs(FASTSTART_REMUX_TIMEOUT_SOURCE_MS),
     signal,
     args: [
-      "-v",
-      "error",
-      "-y",
       "-i",
       srcPath,
       // ffmpeg's default selection keeps only one stream of each type. Map all

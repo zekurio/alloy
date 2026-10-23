@@ -1,5 +1,6 @@
+import { join } from "node:path"
+
 import { runFfmpeg, transcodeTimeoutMs } from "@alloy/server/media/ffmpeg"
-import { join } from "@alloy/server/runtime/path"
 import { clipStorage } from "@alloy/server/storage/index"
 
 import { abortMediaProcessing } from "./media-abort"
@@ -28,7 +29,6 @@ export async function resolveWaveformAudio(options: {
   const outputPath = join(options.workDir, "waveform.m4a")
   await runFfmpeg({
     args: [
-      "-y",
       "-i",
       options.sourcePath,
       "-map",
