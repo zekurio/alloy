@@ -1,4 +1,3 @@
-import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { useCallback, useEffect, useImperativeHandle, useMemo } from "react"
 import type {
   Dispatch,
@@ -23,6 +22,7 @@ interface VideoPlayerControlsOptions {
   getCurrentTime: () => number
   getDuration: () => number
   isCoarsePointer: boolean
+  isFullscreen: boolean
   mutedRef: MutableRefObject<boolean>
   pauseInternal: () => void
   playerRef: PlayerCoreProps["playerRef"]
@@ -43,6 +43,7 @@ export function useVideoPlayerControls({
   getCurrentTime,
   getDuration,
   isCoarsePointer,
+  isFullscreen,
   mutedRef,
   pauseInternal,
   playerRef,
@@ -147,16 +148,10 @@ export function useVideoPlayerControls({
     requestFullscreenBestEffort(element, "video player")
   }, [containerRef])
 
-  const onFullscreenChange = useCallback(() => {
-    const nextIsFullscreen = isFullscreenElement(containerRef.current)
-    if (nextIsFullscreen && isCoarsePointer) screen.orientation?.unlock?.()
-    setChromeVisible(true)
-  }, [containerRef, isCoarsePointer, setChromeVisible])
-
   useEffect(() => {
-    onFullscreenChange()
-  }, [onFullscreenChange])
-  useDocumentEvent("fullscreenchange", onFullscreenChange)
+    if (isFullscreen && isCoarsePointer) screen.orientation?.unlock?.()
+    setChromeVisible(true)
+  }, [isCoarsePointer, isFullscreen, setChromeVisible])
 
   const keyCommand = useMemo<VideoKeyCommand>(
     () => ({

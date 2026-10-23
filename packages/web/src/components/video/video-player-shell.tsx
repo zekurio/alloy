@@ -1,9 +1,8 @@
 import { t } from "@alloy/i18n"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { CLIP_MEDIA_BACKGROUND_CLASS } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo } from "react"
 import type {
   CSSProperties,
   FocusEventHandler,
@@ -12,8 +11,6 @@ import type {
   ReactNode,
   RefObject,
 } from "react"
-
-import { isFullscreenElement } from "@/lib/fullscreen"
 
 import {
   handleVideoKeyCommand,
@@ -33,8 +30,6 @@ export type LoadStatus =
   | { kind: "loading" }
   | { kind: "ready" }
   | { kind: "error"; message: string }
-
-/* ─── Shells ───────────────────────────────────────────────────────── */
 
 export function BareShell({
   containerRef,
@@ -102,10 +97,10 @@ export function ChromeShell({
   onPointerMove,
   onPointerLeave,
   onFocus,
+  isFullscreen,
   onKeyCommand,
   enableHorizontalSeekShortcuts = true,
   bar,
-  barBelow = false,
   children,
 }: {
   containerRef: RefObject<HTMLDivElement | null>
@@ -117,16 +112,13 @@ export function ChromeShell({
   onPointerMove?: PointerEventHandler<HTMLDivElement>
   onPointerLeave?: PointerEventHandler<HTMLDivElement>
   onFocus?: FocusEventHandler<HTMLDivElement>
+  isFullscreen: boolean
   onKeyCommand: VideoKeyCommand
   enableHorizontalSeekShortcuts?: boolean
   /** Chrome controls rendered inside the media viewport. */
   bar?: ReactNode
-  /** When true, the bar is rendered as a sibling below the media frame
-   *  instead of overlaying the video. */
-  barBelow?: boolean
   children: ReactNode
 }) {
-  const [isFullscreen, setIsFullscreen] = useState(false)
   const mediaSizingStyle = useMemo<CSSProperties | undefined>(() => {
     if (isFullscreen) return undefined
     // The shell owns the aspect-ratio so there is a single rounded box defining
@@ -140,15 +132,6 @@ export function ChromeShell({
     () => mediaShellSizingStyle(aspectRatio, maxDisplayHeight, isFullscreen),
     [aspectRatio, isFullscreen, maxDisplayHeight],
   )
-
-  const onFullscreenChange = useCallback(() => {
-    setIsFullscreen(isFullscreenElement(containerRef.current))
-  }, [containerRef])
-
-  useEffect(() => {
-    onFullscreenChange()
-  }, [onFullscreenChange])
-  useDocumentEvent("fullscreenchange", onFullscreenChange)
 
   const onKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
@@ -199,9 +182,8 @@ export function ChromeShell({
         <div data-slot="video-player-frame" className="absolute inset-0">
           {children}
         </div>
-        {barBelow ? null : bar}
+        {bar}
       </div>
-      {barBelow ? bar : null}
     </div>
   )
 }
@@ -274,8 +256,6 @@ function mediaShellSizingStyle(
   // which then wins and the ratio is satisfied by the box it's placed in.
   return style
 }
-
-/* ─── Load overlay ─────────────────────────────────────────────────── */
 
 export function LoadOverlay({
   status,

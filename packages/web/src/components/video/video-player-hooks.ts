@@ -1,4 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
+import type { RefObject } from "react"
+
+import { isFullscreenElement } from "@/lib/fullscreen"
 
 import type { MediaPlaybackRange } from "./video-player-types"
 import { createPlayThresholdTracker } from "./video-player-view"
@@ -36,20 +40,40 @@ export function useVideoChromeVisibility(isCoarsePointer: boolean) {
   }
 }
 
-export function usePlayingTimeSync(
-  playing: boolean,
-  syncTime: () => void,
-): void {
+/** The player container while it is the fullscreen element, else null. */
+export function useFullscreenContainer(
+  containerRef: RefObject<HTMLDivElement | null>,
+): HTMLDivElement | null {
+  const [fullscreenContainer, setFullscreenContainer] =
+    useState<HTMLDivElement | null>(null)
+
+  const onFullscreenChange = useCallback(() => {
+    const container = containerRef.current
+    setFullscreenContainer(isFullscreenElement(container) ? container : null)
+  }, [containerRef])
+
   useEffect(() => {
-    if (!playing) return
+    onFullscreenChange()
+  }, [onFullscreenChange])
+  useDocumentEvent("fullscreenchange", onFullscreenChange)
+
+  return fullscreenContainer
+}
+
+/** Calls `onFrame` on every animation frame while `active` is true. */
+export function useFrameLoop(active: boolean, onFrame: () => void): void {
+  const frame = useEffectEvent(onFrame)
+
+  useEffect(() => {
+    if (!active) return
     let rafId = 0
     const tick = () => {
-      syncTime()
+      frame()
       rafId = requestAnimationFrame(tick)
     }
     rafId = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafId)
-  }, [playing, syncTime])
+  }, [active])
 }
 
 export function usePlayThreshold({

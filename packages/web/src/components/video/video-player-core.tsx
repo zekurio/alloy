@@ -10,14 +10,19 @@ import { teardownVideoElement } from "@/lib/video-events"
 import { useMediaEngine } from "./video-media-engine"
 import { useActiveVideoPlayer } from "./video-player-active"
 import { useVideoPlayerControls } from "./video-player-controls"
-import { useVideoPlayerEvents } from "./video-player-core-events"
+import {
+  usePlaybackEnd,
+  useRenderedFrame,
+  useSourceLoading,
+} from "./video-player-core-events"
 import {
   useControlledVideoClick,
   useVideoChromePointerHandlers,
 } from "./video-player-core-interactions"
 import type { PlayerCoreProps } from "./video-player-core-types"
 import {
-  usePlayingTimeSync,
+  useFrameLoop,
+  useFullscreenContainer,
   usePlayThreshold,
   useVideoChromeVisibility,
 } from "./video-player-hooks"
@@ -28,12 +33,7 @@ import {
   LoadOverlay,
   type LoadStatus,
 } from "./video-player-shell"
-import {
-  finiteMediaDuration,
-  playbackDuration,
-  toMediaTime,
-  toPlaybackTime,
-} from "./video-player-timeline"
+import { readPlaybackClock } from "./video-player-timeline"
 import { VideoFrame } from "./video-player-video"
 import { isInterruptedPlayRequest, mediaErrorMessage } from "./video-source"
 
@@ -74,11 +74,12 @@ export function PlayerCore({
   const {
     src: mediaUrl,
     mediaKey,
-    activePlaybackRange,
     onMediaError,
     switchingRendition,
   } = useMediaEngine(spec, videoRef, renditionPlayback, playbackRange)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const fullscreenContainer = useFullscreenContainer(containerRef)
+  const isFullscreen = fullscreenContainer !== null
   const playerVolume = usePlayerVolume()
   const initialPlayerVolumeRef = useRef(playerVolume)
   const playingRef = useRef(false)
@@ -87,13 +88,7 @@ export function PlayerCore({
   const initialMutedPropRef = useRef(initialMuted)
   const lastTimeRef = useRef(0)
   const playRequestIdRef = useRef(0)
-  const hasRenderedFrameRef = useRef(false)
   const rangeEndedRef = useRef(false)
-  const resumeRef = useRef<{ time: number; play: boolean } | null>(null)
-  const prevSourceRef = useRef<{
-    identity: string
-    mediaKey: string
-  } | null>(null)
 
   const [status, setStatus] = useState<LoadStatus>({ kind: "loading" })
   const [buffering, setBuffering] = useState(false)
@@ -104,7 +99,8 @@ export function PlayerCore({
   const [playing, setPlaying] = useState(false)
   const [volume, setVolumeState] = useState(playerVolume.volume)
   const [muted, setMutedState] = useState(initialMuted || playerVolume.muted)
-  const [hasRenderedFrame, setHasRenderedFrame] = useState(false)
+  const { hasRenderedFrame, markFrameRendered, resetRenderedFrame } =
+    useRenderedFrame(onFrameReady)
   const [playbackRate, setPlaybackRate] = useState(playbackRateProp)
   // The poster stands in for the media until the viewer's own frame is on
   // screen — playback starting, or a seek they asked for. The first decoded
@@ -128,8 +124,6 @@ export function PlayerCore({
   const onTimeUpdateRef = useRef(onTimeUpdate)
   const onPlayingChangeRef = useRef(onPlayingChange)
   const onPlaybackErrorRef = useRef(onPlaybackError)
-  const onFrameReadyRef = useRef(onFrameReady)
-  const onEndedRef = useRef(onEnded)
 
   useEffect(() => {
     const video = videoRef.current
@@ -143,36 +137,25 @@ export function PlayerCore({
     onTimeUpdateRef.current = onTimeUpdate
     onPlayingChangeRef.current = onPlayingChange
     onPlaybackErrorRef.current = onPlaybackError
-    onFrameReadyRef.current = onFrameReady
-    onEndedRef.current = onEnded
-  }, [onTimeUpdate, onPlayingChange, onPlaybackError, onFrameReady, onEnded])
+  }, [onTimeUpdate, onPlayingChange, onPlaybackError])
 
   const readDuration = useCallback(() => {
     const video = videoRef.current
     return video
-      ? playbackDuration(
-          finiteMediaDuration(video.duration),
-          activePlaybackRange,
-          durationHint,
-        )
+      ? readPlaybackClock(video, playbackRange, durationHint).duration
       : 0
-  }, [activePlaybackRange, durationHint])
+  }, [playbackRange, durationHint])
 
   const readCurrentTime = useCallback(() => {
     const video = videoRef.current
     return video
-      ? toPlaybackTime(
-          video.currentTime || 0,
-          finiteMediaDuration(video.duration),
-          activePlaybackRange,
-          durationHint,
-        )
+      ? readPlaybackClock(video, playbackRange, durationHint).currentTime
       : 0
-  }, [activePlaybackRange, durationHint])
+  }, [playbackRange, durationHint])
 
   const checkPlayThreshold = usePlayThreshold({
     identity,
-    playbackRange: activePlaybackRange,
+    playbackRange,
     durationHint,
     onPlayThreshold,
   })
@@ -196,14 +179,11 @@ export function PlayerCore({
       return
     }
     setBufferedEnd(
-      toPlaybackTime(
+      readPlaybackClock(video, playbackRange, durationHint).toPlaybackTime(
         video.buffered.end(video.buffered.length - 1),
-        finiteMediaDuration(video.duration),
-        activePlaybackRange,
-        durationHint,
       ),
     )
-  }, [activePlaybackRange, durationHint])
+  }, [playbackRange, durationHint])
 
   const clearBuffering = useCallback(() => {
     if (bufferingTimerRef.current !== null) {
@@ -262,25 +242,9 @@ export function PlayerCore({
     async (reportBlocked = true) => {
       const video = videoRef.current
       if (!video) return
-      const mediaDuration = finiteMediaDuration(video.duration)
-      const duration = playbackDuration(
-        mediaDuration,
-        activePlaybackRange,
-        durationHint,
-      )
-      const currentTime = toPlaybackTime(
-        video.currentTime || 0,
-        mediaDuration,
-        activePlaybackRange,
-        durationHint,
-      )
-      if (duration > 0 && currentTime >= duration - 0.01) {
-        video.currentTime = toMediaTime(
-          0,
-          mediaDuration,
-          activePlaybackRange,
-          durationHint,
-        )
+      const clock = readPlaybackClock(video, playbackRange, durationHint)
+      if (clock.duration > 0 && clock.currentTime >= clock.duration - 0.01) {
+        video.currentTime = clock.toMediaTime(0)
         lastTimeRef.current = 0
         setCurrentTime(0)
       }
@@ -306,7 +270,7 @@ export function PlayerCore({
         }
       }
     },
-    [activePlaybackRange, durationHint],
+    [playbackRange, durationHint],
   )
 
   const pauseInternal = useCallback(() => {
@@ -318,11 +282,8 @@ export function PlayerCore({
     (targetSec: number, keepPlaying: boolean = playingRef.current) => {
       const video = videoRef.current
       if (!video) return
-      const dur = playbackDuration(
-        finiteMediaDuration(video.duration),
-        activePlaybackRange,
-        durationHint,
-      )
+      const clock = readPlaybackClock(video, playbackRange, durationHint)
+      const dur = clock.duration
       const min = Math.max(0, shortcutBounds?.start ?? 0)
       const max = Math.max(
         min,
@@ -332,12 +293,7 @@ export function PlayerCore({
         min,
         Math.min(max, Number.isFinite(targetSec) ? targetSec : 0),
       )
-      video.currentTime = toMediaTime(
-        clamped,
-        finiteMediaDuration(video.duration),
-        activePlaybackRange,
-        durationHint,
-      )
+      video.currentTime = clock.toMediaTime(clamped)
       rangeEndedRef.current = dur > 0 && clamped >= dur - 0.01
       setPosterHeld(false)
       setCurrentTime(clamped)
@@ -345,8 +301,8 @@ export function PlayerCore({
       if (keepPlaying) void playInternal()
     },
     [
-      activePlaybackRange,
       durationHint,
+      playbackRange,
       playInternal,
       shortcutBounds?.end,
       shortcutBounds?.start,
@@ -393,7 +349,7 @@ export function PlayerCore({
     video.playbackRate = playbackRate
   }, [playbackRate])
 
-  usePlayingTimeSync(playing, syncTime)
+  useFrameLoop(playing, syncTime)
 
   const {
     keyCommand,
@@ -408,6 +364,7 @@ export function PlayerCore({
     getCurrentTime: readCurrentTime,
     getDuration: readDuration,
     isCoarsePointer,
+    isFullscreen,
     mutedRef,
     pauseInternal,
     playerRef,
@@ -451,47 +408,46 @@ export function PlayerCore({
     scheduleChromeHide,
   ])
 
-  const {
-    handleLoadedMetadata,
-    handleLoadedData,
-    handleCanPlay,
-    handleTimeUpdate,
-    handlePlaying,
-    handleEnded,
-  } = useVideoPlayerEvents({
+  const handleLoadedMetadata = useSourceLoading({
     videoRef,
     identity,
     mediaKey,
-    activePlaybackRange,
+    playbackRange,
     durationHint,
     playbackRate,
     initialTime,
     autoPlay,
-    loop,
     isCoarsePointer,
-    clearBuffering,
-    clearChromeHideTimer,
-    setChromeVisible,
-    setStatus,
-    setDuration,
-    setCurrentTime,
-    setBufferedEnd,
-    setHasRenderedFrame,
-    setPlayingState,
-    syncBuffered,
-    syncTime,
-    playInternal,
     volumeRef,
     mutedRef,
     playingRef,
     lastTimeRef,
     playRequestIdRef,
-    hasRenderedFrameRef,
     rangeEndedRef,
-    resumeRef,
-    prevSourceRef,
-    onFrameReadyRef,
-    onEndedRef,
+    setStatus,
+    setDuration,
+    setCurrentTime,
+    setBufferedEnd,
+    setPlayingState,
+    clearBuffering,
+    clearChromeHideTimer,
+    setChromeVisible,
+    syncBuffered,
+    playInternal,
+    markFrameRendered,
+    resetRenderedFrame,
+  })
+  const { handleTimeUpdate, handleEnded } = usePlaybackEnd({
+    videoRef,
+    playbackRange,
+    durationHint,
+    loop,
+    rangeEndedRef,
+    setPlayingState,
+    syncTime,
+    syncBuffered,
+    playInternal,
+    onEnded,
   })
   const {
     handlePointerMove: handleChromePointerMove,
@@ -524,16 +480,25 @@ export function PlayerCore({
       placeholderVisible={!hasRenderedFrame}
       posterVisible={Boolean(poster) && (posterHeld || !hasRenderedFrame)}
       autoPlay={autoPlay}
-      loop={loop && !activePlaybackRange}
+      loop={loop && !playbackRange}
       muted={muted}
       onPointerDown={focusPlayerContainer}
       onClick={clickHandler}
       onLoadedMetadata={handleLoadedMetadata}
-      onLoadedData={handleLoadedData}
-      onCanPlay={handleCanPlay}
+      onLoadedData={markFrameRendered}
+      onCanPlay={() => {
+        markFrameRendered()
+        clearBuffering()
+      }}
       onWaiting={handleWaiting}
       onStalled={handleWaiting}
-      onPlaying={handlePlaying}
+      onPlaying={(event) => {
+        clearBuffering()
+        if (
+          event.currentTarget.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+        )
+          markFrameRendered()
+      }}
       onDurationChange={syncTime}
       onTimeUpdate={handleTimeUpdate}
       onProgress={syncBuffered}
@@ -577,11 +542,14 @@ export function PlayerCore({
       onPointerMove={handleChromePointerMove}
       onPointerLeave={handleChromePointerLeave}
       onFocus={activatePlayer}
+      isFullscreen={isFullscreen}
       onKeyCommand={keyCommand}
       enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
       bar={
         <ChromeBar
           containerRef={containerRef}
+          fullscreenContainer={fullscreenContainer}
+          isCoarsePointer={isCoarsePointer}
           playing={playing}
           duration={duration}
           currentTime={currentTime}
