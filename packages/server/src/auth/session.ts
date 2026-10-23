@@ -158,6 +158,12 @@ export async function getSession(c: Context): Promise<SessionData | null> {
   return session
 }
 
+/** The signed-in user, or null when signed out or the account is not active. */
+export async function getActiveUser(c: Context): Promise<User | null> {
+  const session = await getSession(c)
+  return session?.user.status === "active" ? session.user : null
+}
+
 /**
  * Whether a session is still signed in to an active account. Long-lived
  * requests such as event streams authenticate once, then call this to notice

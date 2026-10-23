@@ -2,7 +2,7 @@ import { MEDIA_FILTERS, type ProfileMediaParams } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipMention, game } from "@alloy/db/schema"
-import { getSession } from "@alloy/server/auth/session"
+import { getActiveUser } from "@alloy/server/auth/session"
 import { clipSelection, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { gameSelection, serialiseGameRow } from "@alloy/server/games/ref"
@@ -108,8 +108,7 @@ async function visibleClipConditions(
   c: Context,
   { includeOwnerUploads = false }: { includeOwnerUploads?: boolean } = {},
 ): Promise<SQL[]> {
-  const session = await getSession(c)
-  const activeUser = session?.user.status === "active" ? session.user : null
+  const activeUser = await getActiveUser(c)
   const isOwner = activeUser?.id === row.id
   const isAdmin = activeUser?.role === "admin"
   const canSeeUploads = includeOwnerUploads && (isOwner || isAdmin)
@@ -131,9 +130,7 @@ export async function listTaggedClips(
   c: Context,
   options?: ProfileMediaParams,
 ) {
-  const session = await getSession(c)
-  const isAdmin =
-    session?.user.status === "active" && session.user.role === "admin"
+  const isAdmin = (await getActiveUser(c))?.role === "admin"
 
   const conditions: SQL[] = [
     eq(clipMention.mentioned_user_id, row.id),

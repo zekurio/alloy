@@ -1,8 +1,12 @@
-import { UNCATEGORISED_GAME_ID, MEDIA_FILTERS } from "@alloy/contracts"
+import {
+  type FeedChipsResponse,
+  UNCATEGORISED_GAME_ID,
+  MEDIA_FILTERS,
+} from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipView, game } from "@alloy/db/schema"
-import { getSession } from "@alloy/server/auth/session"
+import { getActiveUser } from "@alloy/server/auth/session"
 import { clipSelection } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { gameSelection, serialiseGameRow } from "@alloy/server/games/ref"
@@ -60,8 +64,7 @@ export const feedRoute = new Hono()
       cursor: rawCursor,
     } = c.req.valid("query")
 
-    const session = await getSession(c)
-    const viewerId = session?.user.status === "active" ? session.user.id : null
+    const viewerId = (await getActiveUser(c))?.id ?? null
 
     const conditions: SQL[] = publicClipListingConditions(media)
     if (excludeClipId) conditions.push(ne(clip.id, excludeClipId))
@@ -104,9 +107,7 @@ export const feedRoute = new Hono()
   .get("/chips", tbValidator("query", ChipsQuery), async (c) => {
     const { limit, media } = c.req.valid("query")
 
-    const session = await getSession(c)
-    const viewerId = session?.user.status === "active" ? session.user.id : null
-    const vid = viewerId ?? null
+    const viewerId = (await getActiveUser(c))?.id ?? null
 
     const interaction = sql<number>`(count(distinct ${clipView.clip_id}))::int`
     const clipCount = sql<number>`(count(distinct ${clip.id}))::int`
@@ -128,7 +129,7 @@ export const feedRoute = new Hono()
         clipView,
         and(
           eq(clipView.clip_id, clip.id),
-          sql`${clipView.user_id} = ${vid}::uuid`,
+          sql`${clipView.user_id} = ${viewerId}::uuid`,
         ),
       )
       .where(and(...conditions))
@@ -150,7 +151,5 @@ export const feedRoute = new Hono()
       }
     })
 
-    return c.json({
-      games,
-    })
+    return c.json({ games } satisfies FeedChipsResponse)
   })

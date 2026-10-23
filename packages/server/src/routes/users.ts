@@ -1,3 +1,8 @@
+import type {
+  UserProfile,
+  UserProfileViewer,
+  UserStorageUsage,
+} from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { block, clip } from "@alloy/db/schema"
@@ -9,7 +14,7 @@ import {
 } from "@alloy/server/auth/identity"
 import {
   deleteAllSessionsForUser,
-  getSession,
+  getActiveUser,
   requireAnySession,
   requireSession,
 } from "@alloy/server/auth/session"
@@ -68,11 +73,10 @@ export const usersRoute = new Hono()
   )
   .get("/search", tbValidator("query", SearchQuery), async (c) => {
     const { q, limit } = c.req.valid("query")
-    const session = await getSession(c)
     const rows = await searchVisibleUsers({
       q,
       limit,
-      viewerId: session?.user.status === "active" ? session.user.id : null,
+      viewerId: (await getActiveUser(c))?.id ?? null,
     })
     return c.json(rows)
   })
@@ -88,7 +92,7 @@ export const usersRoute = new Hono()
     return c.json({
       usedBytes: await selectSourceStorageUsedBytes(db, c.var.viewerId),
       quotaBytes: c.var.session.user.storage_quota_bytes,
-    })
+    } satisfies UserStorageUsage)
   })
   .post("/me/disable", requireSession, async (c) => {
     const viewerId = c.var.viewerId
@@ -175,7 +179,7 @@ export const usersRoute = new Hono()
       return c.json({
         user: toPublicUser(row),
         counts,
-      })
+      } satisfies UserProfile)
     },
   )
   .get(
@@ -184,13 +188,16 @@ export const usersRoute = new Hono()
     loadUserTarget,
     async (c) => {
       const row = c.var.target
-      const session = await getSession(c)
-      if (!session || session.user.status !== "active") {
-        return c.json({ viewer: null, counts: null })
+      const viewerUser = await getActiveUser(c)
+      if (!viewerUser) {
+        return c.json({
+          viewer: null,
+          counts: null,
+        } satisfies UserProfileViewer)
       }
 
-      const viewerId = session.user.id
-      const isAdmin = session.user.role === "admin"
+      const viewerId = viewerUser.id
+      const isAdmin = viewerUser.role === "admin"
       const isSelf = viewerId === row.id
       const [viewer, counts] = await Promise.all([
         resolveViewerState(viewerId, row.id),
@@ -202,7 +209,7 @@ export const usersRoute = new Hono()
       return c.json({
         viewer,
         counts,
-      })
+      } satisfies UserProfileViewer)
     },
   )
   .get(
