@@ -65,9 +65,6 @@ export function validateGameCreatorsResponse(
     "Invalid game creators response: creators must be an array",
   ).map((item) => {
     const row = objectRecord(item, "game creator")
-    // The creators query does not select display_name yet. Read a missing
-    // value as "not set" until it does.
-    row.displayName ??= null
     validateUserSummary(row, "game creator")
     validateNonNegativeInteger(
       row.clipCount,
