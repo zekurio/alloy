@@ -10,28 +10,22 @@ import {
 import { Suspense, lazy, useEffect, useRef } from "react"
 
 import { api } from "@/lib/api"
+import { isAdmin } from "@/lib/auth-access"
 import { errorMessage } from "@/lib/error-message"
-import {
-  invalidateAuthConfig,
-  loadAuthConfig,
-  loadSession,
-} from "@/lib/session-suspense"
+import { invalidateAuthConfig, loadSession } from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(auth)/setup")({
   loader: async ({ context }) => {
-    const config = context.authConfig ?? (await loadAuthConfig())
-    const session = config.adminAccountRequired
-      ? null
-      : (context.session ?? (await loadSession()))
-    // SAFETY: The auth API includes the optional role field on session users.
-    const role = (session?.user as { role?: string } | undefined)?.role
+    const config = context.authConfig
+    // The root guard skips the session on /setup, so load it here.
+    const session = config.adminAccountRequired ? null : await loadSession()
     if (!config.adminAccountRequired && !session) {
       throw redirect({ to: "/login" })
     }
     if (!config.adminAccountRequired && !config.setupRequired) {
       throw redirect({ to: "/" })
     }
-    if (!config.adminAccountRequired && role !== "admin") {
+    if (!config.adminAccountRequired && !isAdmin(session)) {
       throw redirect({ to: "/" })
     }
     return { config }

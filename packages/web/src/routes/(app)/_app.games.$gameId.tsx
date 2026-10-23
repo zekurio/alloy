@@ -1,17 +1,9 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router"
-import { Suspense, lazy } from "react"
 
+import { GameDetailPageInner } from "@/components/routes/game-detail/game-detail-page-inner"
 import { feedInfiniteQueryOptions } from "@/lib/feed-queries"
 import { gameQueryOptions } from "@/lib/game-queries"
 import { gameClipsSort, parseGameSearch } from "@/lib/game-search"
-
-const loadGameDetailPageInner = async () => {
-  const module =
-    await import("@/components/routes/game-detail/game-detail-page-inner")
-  return { default: module.GameDetailPageInner }
-}
-
-const GameDetailPageInner = lazy(loadGameDetailPageInner)
 
 export const Route = createFileRoute("/(app)/_app/games/$gameId")({
   validateSearch: parseGameSearch,
@@ -24,7 +16,6 @@ export const Route = createFileRoute("/(app)/_app/games/$gameId")({
     const gamePromise = context.queryClient.fetchQuery(
       gameQueryOptions(params.gameId),
     )
-    void loadGameDetailPageInner()
     void gamePromise
       .then((game) =>
         context.queryClient.prefetchInfiniteQuery(
@@ -50,13 +41,13 @@ function GameDetailPage() {
   const sort = gameClipsSort(search)
 
   return (
-    <Suspense fallback={null}>
+    <>
       <GameDetailPageInner
         gameId={gameId}
         sort={sort}
         creator={search.creator ?? null}
       />
       <Outlet />
-    </Suspense>
+    </>
   )
 }

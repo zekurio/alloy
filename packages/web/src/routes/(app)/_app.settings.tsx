@@ -4,8 +4,6 @@ import { SettingsPage } from "@/components/routes/settings/settings-dialog"
 import { requireStrictAuthBeforeLoad } from "@/lib/auth-guards"
 
 export const Route = createFileRoute("/(app)/_app/settings")({
-  beforeLoad: async ({ context }) => {
-    await requireStrictAuthBeforeLoad({ context })
-  },
+  beforeLoad: requireStrictAuthBeforeLoad,
   component: SettingsPage,
 })

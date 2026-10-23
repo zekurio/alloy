@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { Suspense, lazy } from "react"
 
+import { LibraryEditorPage } from "@/components/routes/library/library-editor-page"
 import { requireStrictAuthBeforeLoad } from "@/lib/auth-guards"
 import { alloyDesktop } from "@/lib/desktop"
 import {
@@ -8,13 +8,6 @@ import {
   type LibrarySearchInput,
   parseLibrarySearch,
 } from "@/lib/library-search"
-
-const loadLibraryEditorPage = async () => {
-  const module = await import("@/components/routes/library/library-editor-page")
-  return { default: module.LibraryEditorPage }
-}
-
-const LibraryEditorPage = lazy(loadLibraryEditorPage)
 
 type LibraryEditorSearch = LibrarySearch & {
   prompt?: "game"
@@ -35,12 +28,9 @@ function parseLibraryEditorSearch(
 
 export const Route = createFileRoute("/(app)/_app/library/$captureId")({
   validateSearch: parseLibraryEditorSearch,
-  beforeLoad: async ({ context }) => {
-    await requireStrictAuthBeforeLoad({ context })
+  beforeLoad: ({ context }) => {
+    requireStrictAuthBeforeLoad({ context })
     if (!alloyDesktop()) throw redirect({ to: "/" })
-  },
-  loader: () => {
-    void loadLibraryEditorPage()
   },
   component: LibraryCaptureRoute,
 })
@@ -49,8 +39,6 @@ function LibraryCaptureRoute() {
   const { captureId } = Route.useParams()
   const { prompt } = Route.useSearch()
   return (
-    <Suspense fallback={null}>
-      <LibraryEditorPage captureId={captureId} promptGame={prompt === "game"} />
-    </Suspense>
+    <LibraryEditorPage captureId={captureId} promptGame={prompt === "game"} />
   )
 }
