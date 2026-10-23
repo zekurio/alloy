@@ -6,15 +6,14 @@ import { assetStorage } from "@alloy/server/storage/index"
 import { imageBodyLimit } from "@alloy/server/uploads/image-body-limit"
 import { USER_ASSET_ROUTE_KEY_RE } from "@alloy/server/users/user-asset-deletion"
 import {
-  EXT_FOR_CONTENT_TYPE,
   removeUserAsset,
   uploadUserAsset,
   userAssetLimit,
-  type UserAssetUpdateResult,
 } from "@alloy/server/users/user-assets"
 import { type Context, Hono } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 
+import { imageFileError } from "./image-upload"
 import { immutableImageAssetsRoute } from "./immutable-image-assets"
 import { tbValidator } from "./validation"
 
@@ -22,33 +21,12 @@ const UserAssetUploadForm = t.object({
   file: t.instanceof(File, { message: "Expected an uploaded image file" }),
 })
 
-function validateUserAssetFile(
-  role: UserAssetRole,
-  file: File,
-): UserAssetUpdateResult | null {
-  const limit = userAssetLimit(role)
-  if (file.size === 0) {
-    return { ok: false, status: 400, error: "Empty image data" }
-  }
-  if (file.size > limit.maxBytes) {
-    return {
-      ok: false,
-      status: 413,
-      error: `${limit.label} too large. Max ${limit.maxBytes / 1024 / 1024} MB`,
-    }
-  }
-  if (!Object.hasOwn(EXT_FOR_CONTENT_TYPE, file.type)) {
-    return { ok: false, status: 400, error: "Unsupported image type" }
-  }
-  return null
-}
-
 async function uploadUserAssetResponse(
   viewerId: string,
   role: UserAssetRole,
   file: File,
 ) {
-  const invalid = validateUserAssetFile(role, file)
+  const invalid = imageFileError(file, userAssetLimit(role))
   if (invalid) return invalid
 
   const bytes = new Uint8Array(await file.arrayBuffer())
