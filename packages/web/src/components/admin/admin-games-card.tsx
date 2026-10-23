@@ -79,7 +79,7 @@ export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
         </div>
       </div>
 
-      {error ? (
+      {!games ? (
         <Callout tone="destructive">
           {errorMessage(error, t("Couldn't load games"))}
         </Callout>

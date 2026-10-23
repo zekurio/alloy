@@ -91,9 +91,6 @@ export function CreateGameDialog() {
         assets,
       })
       setAdminGameCacheRow(queryClient, created)
-      setName("")
-      setReleaseDate("")
-      setStaged({})
       setOpen(false)
     } catch (cause) {
       setSubmitError(errorMessage(cause, t("Couldn't create game")))
@@ -103,7 +100,18 @@ export function CreateGameDialog() {
   }
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={setOpen}>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen) {
+          setName("")
+          setReleaseDate("")
+          setStaged({})
+          setSubmitError(null)
+        }
+        setOpen(nextOpen)
+      }}
+    >
       <ResponsiveDialogTrigger
         render={
           <Button type="button" size="icon" aria-label={t("Add game")}>

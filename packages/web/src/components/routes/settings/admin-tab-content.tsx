@@ -21,13 +21,15 @@ function AdminLoadError({ message }: { message: string }) {
 /**
  * Wraps a panel body that needs the loaded admin config, handling the load-error
  * and not-yet-loaded states so each panel stays focused on its own content.
+ * Loaded config wins over an error: a failed background refetch must not
+ * unmount the form and drop its unsaved edits.
  */
 function withAdminConfig(render: (config: AdminRuntimeConfig) => ReactNode) {
   return function AdminConfigPanel() {
     const ctx = useAdminConfigContext()
+    if (ctx.config) return <>{render(ctx.config)}</>
     if (ctx.loadError) return <AdminLoadError message={ctx.loadError} />
-    if (!ctx.config) return <LoadingState variant="panel" />
-    return <>{render(ctx.config)}</>
+    return <LoadingState variant="panel" />
   }
 }
 

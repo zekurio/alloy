@@ -51,7 +51,7 @@ export function AdminWebhooksCard({ hideHeader }: { hideHeader?: boolean }) {
         )}
       </SettingsIntro>
 
-      {error ? (
+      {!webhooks ? (
         <Callout tone="destructive">
           {errorMessage(error, t("Couldn't load webhooks"))}
         </Callout>
