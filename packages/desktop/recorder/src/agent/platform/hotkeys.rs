@@ -6,9 +6,14 @@ use std::{
 
 use windows_sys::Win32::{
     Foundation::{LPARAM, LRESULT, WPARAM},
-    UI::WindowsAndMessaging::{
-        CallNextHookEx, GetMessageW, SetWindowsHookExW, UnhookWindowsHookEx, KBDLLHOOKSTRUCT, MSG,
-        WH_KEYBOARD_LL, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
+    UI::{
+        Input::KeyboardAndMouse::{
+            GetAsyncKeyState, VIRTUAL_KEY, VK_CONTROL, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT,
+        },
+        WindowsAndMessaging::{
+            CallNextHookEx, GetMessageW, SetWindowsHookExW, UnhookWindowsHookEx, KBDLLHOOKSTRUCT,
+            MSG, WH_KEYBOARD_LL, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
+        },
     },
 };
 
@@ -38,7 +43,6 @@ struct NativeHotkey {
 #[derive(Default)]
 struct HotkeyState {
     hotkeys: [Option<NativeHotkey>; 2],
-    held_modifier_keys: u8,
     hotkey_down: [bool; 2],
 }
 
@@ -134,14 +138,6 @@ fn update_hotkey_state(key: u32, down: bool) -> Option<usize> {
     let mut state = hotkey_state()
         .lock()
         .unwrap_or_else(|error| error.into_inner());
-    if let Some(bit) = modifier_bit(key) {
-        if down {
-            state.held_modifier_keys |= bit;
-        } else {
-            state.held_modifier_keys &= !bit;
-        }
-        return None;
-    }
     let mut action = None;
     for index in 0..state.hotkeys.len() {
         let Some(hotkey) = state.hotkeys[index] else {
@@ -152,7 +148,7 @@ fn update_hotkey_state(key: u32, down: bool) -> Option<usize> {
         }
         let was_down = state.hotkey_down[index];
         state.hotkey_down[index] = down;
-        if down && !was_down && active_modifiers(state.held_modifier_keys) == hotkey.modifiers {
+        if down && !was_down && held_modifiers() == hotkey.modifiers {
             action = Some(index);
         }
     }
@@ -163,29 +159,19 @@ fn hotkey_state() -> &'static Mutex<HotkeyState> {
     HOTKEY_STATE.get_or_init(|| Mutex::new(HotkeyState::default()))
 }
 
-fn active_modifiers(keys: u8) -> Modifiers {
+/// Reads the modifiers from Windows instead of tracking them from hook
+/// events: the hook misses key-ups while another desktop has input (Win+L,
+/// UAC prompts), which would leave a modifier stuck. Windows updates this
+/// state after the hook returns only for the key being handled, which here
+/// is the hotkey's own key, never a modifier.
+fn held_modifiers() -> Modifiers {
+    // SAFETY: GetAsyncKeyState only reads the system-wide key state.
+    let held = |key: VIRTUAL_KEY| unsafe { GetAsyncKeyState(i32::from(key)) } < 0;
     Modifiers {
-        control: keys & 0b0000_0011 != 0,
-        alt: keys & 0b0000_1100 != 0,
-        shift: keys & 0b0011_0000 != 0,
-        meta: keys & 0b1100_0000 != 0,
-    }
-}
-
-fn modifier_bit(key: u32) -> Option<u8> {
-    match key {
-        0x11 => Some(0b0000_0011), // VK_CONTROL
-        0x12 => Some(0b0000_1100), // VK_MENU
-        0x10 => Some(0b0011_0000), // VK_SHIFT
-        0xA2 => Some(0b0000_0001), // VK_LCONTROL
-        0xA3 => Some(0b0000_0010), // VK_RCONTROL
-        0xA4 => Some(0b0000_0100), // VK_LMENU
-        0xA5 => Some(0b0000_1000), // VK_RMENU
-        0xA0 => Some(0b0001_0000), // VK_LSHIFT
-        0xA1 => Some(0b0010_0000), // VK_RSHIFT
-        0x5B => Some(0b0100_0000), // VK_LWIN
-        0x5C => Some(0b1000_0000), // VK_RWIN
-        _ => None,
+        control: held(VK_CONTROL),
+        alt: held(VK_MENU),
+        shift: held(VK_SHIFT),
+        meta: held(VK_LWIN) || held(VK_RWIN),
     }
 }
 

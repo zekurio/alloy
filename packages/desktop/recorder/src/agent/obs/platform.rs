@@ -6,14 +6,14 @@ use std::{
 };
 
 use serde_json::Value;
-use windows_sys::Win32::Media::Audio::{eCapture, eCommunications, eConsole, eRender};
+use windows_sys::Win32::Media::Audio::{eCapture, eRender};
 
 use crate::{
     agent::platform::{
         audio_application_id_from_parts, audio_applications,
         com::{
             active_audio_endpoint_devices, create_mm_device_enumerator, default_endpoint_id,
-            endpoint_friendly_name, endpoint_id, initialize_com, uninitialize_com, ComPtr,
+            endpoint_friendly_name, endpoint_id, ComApartment, ComPtr,
         },
         command_output, DetectedGame,
     },
@@ -89,16 +89,11 @@ fn platform_gpu_labels() -> Vec<String> {
 }
 
 fn windows_audio_devices() -> Result<Vec<RecordingAudioDevice>, String> {
-    unsafe {
-        let Some(uninitialize) = initialize_com() else {
-            return Err("Could not initialize COM for audio-device discovery.".to_string());
-        };
-        let devices = enumerate_active_audio_devices();
-        if uninitialize {
-            uninitialize_com();
-        }
-        devices
-    }
+    let _com = ComApartment::initialize()
+        .ok_or_else(|| "Could not initialize COM for audio-device discovery.".to_string())?;
+    // SAFETY: COM is initialized on this thread until `_com` drops, after
+    // every interface the enumeration creates.
+    unsafe { enumerate_active_audio_devices() }
 }
 
 unsafe fn enumerate_active_audio_devices() -> Result<Vec<RecordingAudioDevice>, String> {
@@ -166,24 +161,11 @@ fn audio_device_kind_order(kind: &RecordingAudioDeviceKind) -> u8 {
 pub(in crate::agent) fn platform_default_audio_device_id(
     kind: &RecordingAudioDeviceKind,
 ) -> Option<String> {
+    let _com = ComApartment::initialize()?;
+    // SAFETY: COM stays initialized until `_com` drops, after `enumerator`.
     unsafe {
-        let uninitialize = initialize_com()?;
-        let enumerator = create_mm_device_enumerator();
-        let id = enumerator.as_ref().and_then(|enumerator| {
-            let (data_flow, role) = default_audio_endpoint_selector(kind);
-            default_endpoint_id(enumerator, data_flow, role)
-        });
-        if uninitialize {
-            uninitialize_com();
-        }
-        id
-    }
-}
-
-fn default_audio_endpoint_selector(kind: &RecordingAudioDeviceKind) -> (i32, i32) {
-    match kind {
-        RecordingAudioDeviceKind::Output => (eRender, eConsole),
-        RecordingAudioDeviceKind::Input => (eCapture, eCommunications),
+        let enumerator = create_mm_device_enumerator()?;
+        default_endpoint_id(&enumerator, kind)
     }
 }
 
