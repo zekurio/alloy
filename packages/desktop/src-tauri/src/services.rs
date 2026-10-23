@@ -3,7 +3,7 @@ use std::{
     io::{self, Write},
     path::{Path, PathBuf},
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, PoisonError,
         atomic::{AtomicU64, Ordering},
     },
 };
@@ -70,15 +70,26 @@ impl DesktopWindowState {
 /// Persistent desktop state lives in a small JSON file. Unknown fields stay in
 /// the document when one service changes its settings, so other native
 /// services can use the same file without losing theirs.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct PreferencesStore {
     path: PathBuf,
+    /// Held for each read-modify-write, so a window size save and a server
+    /// change cannot each write back a document without the other's edit.
+    writes: Mutex<()>,
+}
+
+/// What the preferences file holds when it can be read at all.
+enum StoredDocument {
+    Valid(Map<String, Value>),
+    /// The file exists but is not a JSON object.
+    Corrupt,
 }
 
 impl PreferencesStore {
     pub fn new(state_dir: impl Into<PathBuf>) -> Self {
         Self {
             path: state_dir.into().join(PREFERENCES_FILE),
+            writes: Mutex::new(()),
         }
     }
 
@@ -103,29 +114,25 @@ impl PreferencesStore {
         validate_contract_id(bridge_contract)?;
         let server_url = canonical_server_url(server_url)?;
         let server_version = nonempty_string(server_version)?;
-        let mut servers = self.get_servers();
-        servers.retain(|server| server.server_url != server_url);
-        servers.insert(
-            0,
-            DesktopSavedServer {
-                server_url,
-                last_connected_at: now_rfc3339(),
-                server_version: Some(server_version),
-                http_contract,
-                bridge_contract,
-            },
-        );
-        servers.truncate(MAX_SAVED_SERVERS);
-        self.write_servers(&servers)?;
-        Ok(servers)
+        self.update_servers(|servers| {
+            servers.retain(|server| server.server_url != server_url);
+            servers.insert(
+                0,
+                DesktopSavedServer {
+                    server_url,
+                    last_connected_at: now_rfc3339(),
+                    server_version: Some(server_version),
+                    http_contract,
+                    bridge_contract,
+                },
+            );
+            servers.truncate(MAX_SAVED_SERVERS);
+        })
     }
 
     pub fn forget_server(&self, server_url: &str) -> Result<Vec<DesktopSavedServer>, String> {
         let server_url = canonical_server_url(server_url)?;
-        let mut servers = self.get_servers();
-        servers.retain(|server| server.server_url != server_url);
-        self.write_servers(&servers)?;
-        Ok(servers)
+        self.update_servers(|servers| servers.retain(|server| server.server_url != server_url))
     }
 
     pub fn get_window_state(&self) -> Option<DesktopWindowState> {
@@ -133,38 +140,101 @@ impl PreferencesStore {
     }
 
     pub fn remember_window_state(&self, state: DesktopWindowState) -> Result<(), String> {
-        let mut document = self.read_document();
-        document.insert(
-            WINDOW_STATE_KEY.into(),
-            serde_json::to_value(state).map_err(|_| "Could not encode the window size.")?,
-        );
-        self.write_document(document)
-            .map_err(|_| "Could not save the window size.".into())
+        let state = serde_json::to_value(state).map_err(|_| "Could not encode the window size.")?;
+        self.update("Could not save the window size.", |document| {
+            document.insert(WINDOW_STATE_KEY.into(), state);
+            Ok(())
+        })
     }
 
+    fn update_servers(
+        &self,
+        change: impl FnOnce(&mut Vec<DesktopSavedServer>),
+    ) -> Result<Vec<DesktopSavedServer>, String> {
+        self.update("Could not save server settings.", |document| {
+            let mut servers = normalize_servers(document.get("servers"));
+            change(&mut servers);
+            document.insert(
+                "servers".into(),
+                serde_json::to_value(&servers)
+                    .map_err(|_| "Could not encode saved server settings.")?,
+            );
+            Ok(servers)
+        })
+    }
+
+    /// The document for reading. An unreadable or corrupt file reads as
+    /// empty; only `update` decides what happens to it.
     fn read_document(&self) -> Map<String, Value> {
-        let Ok(raw) = fs::read_to_string(&self.path) else {
-            return Map::new();
-        };
-        match serde_json::from_str::<Value>(&raw) {
-            Ok(Value::Object(document)) => document,
-            _ => Map::new(),
+        match self.read_stored() {
+            Ok(StoredDocument::Valid(document)) => document,
+            Ok(StoredDocument::Corrupt) => {
+                log::warn!("{} is not a valid preferences file.", self.path.display());
+                Map::new()
+            }
+            Err(error) => {
+                log::warn!("Could not read {}: {error}", self.path.display());
+                Map::new()
+            }
         }
     }
 
-    fn write_servers(&self, servers: &[DesktopSavedServer]) -> Result<(), String> {
-        let mut document = self.read_document();
-        document.insert(
-            "servers".into(),
-            serde_json::to_value(servers).map_err(|_| "Could not encode saved server settings.")?,
-        );
-        self.write_document(document)
-            .map_err(|_| "Could not save server settings.".into())
+    fn read_stored(&self) -> io::Result<StoredDocument> {
+        let raw = match fs::read(&self.path) {
+            Ok(raw) => raw,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                return Ok(StoredDocument::Valid(Map::new()));
+            }
+            Err(error) => return Err(error),
+        };
+        Ok(match serde_json::from_slice::<Value>(&raw) {
+            Ok(Value::Object(document)) => StoredDocument::Valid(document),
+            _ => StoredDocument::Corrupt,
+        })
     }
 
-    fn write_document(&self, document: Map<String, Value>) -> io::Result<()> {
-        let data = serde_json::to_vec_pretty(&Value::Object(document)).map_err(io::Error::other)?;
-        atomic_write(&self.path, &data)
+    /// Applies `change` to the stored document and writes it back, one caller
+    /// at a time. A file that cannot be read is left alone and the change
+    /// fails with `failure`: writing over it would drop every other setting.
+    /// A corrupt file is moved to `preferences.json.bak` first, so the saved
+    /// servers in it can still be recovered by hand.
+    fn update<T>(
+        &self,
+        failure: &str,
+        change: impl FnOnce(&mut Map<String, Value>) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let _writes = self.writes.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut document = match self.read_stored() {
+            Ok(StoredDocument::Valid(document)) => document,
+            Ok(StoredDocument::Corrupt) => {
+                let backup = self.path.with_extension("json.bak");
+                if let Err(error) = fs::rename(&self.path, &backup) {
+                    log::warn!(
+                        "Could not move the corrupt {} aside: {error}",
+                        self.path.display()
+                    );
+                    return Err(failure.into());
+                }
+                log::warn!(
+                    "{} was not a valid preferences file. Moved it to {} and started a new one.",
+                    self.path.display(),
+                    backup.display()
+                );
+                Map::new()
+            }
+            Err(error) => {
+                log::warn!("Could not read {}: {error}", self.path.display());
+                return Err(failure.into());
+            }
+        };
+        let result = change(&mut document)?;
+        let data =
+            serde_json::to_vec_pretty(&Value::Object(document)).map_err(|_| failure.to_string())?;
+        atomic_write(&self.path, &data).map_err(|error| {
+            log::warn!("Could not write {}: {error}", self.path.display());
+            failure.to_string()
+        })?;
+        Ok(result)
     }
 }
 

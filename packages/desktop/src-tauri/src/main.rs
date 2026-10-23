@@ -67,9 +67,6 @@ const DEFAULT_WINDOW_STATE: DesktopWindowState = DesktopWindowState {
 /// dragging a window edge does not rewrite the preferences file every frame.
 const WINDOW_STATE_SAVE_DELAY: Duration = Duration::from_millis(400);
 
-/// Bumped on every resize so only the last save of a burst runs.
-static WINDOW_STATE_REVISION: AtomicU64 = AtomicU64::new(0);
-
 struct Host {
     connecting: tokio::sync::Mutex<()>,
     cancel: Mutex<Option<watch::Sender<bool>>>,
@@ -624,23 +621,34 @@ fn flush_window_state(app: &AppHandle, host: &Host) {
 }
 
 /// Coalesces a burst of resize events into one write after the user stops
-/// dragging.
-fn queue_window_state_save(window: WebviewWindow, services: Arc<DesktopServices>) {
-    let revision = WINDOW_STATE_REVISION.fetch_add(1, Ordering::Relaxed) + 1;
+/// dragging. `revisions` belongs to one window and is bumped on each of its
+/// resizes, so only the last save of that window's burst runs.
+fn queue_window_state_save(
+    window: WebviewWindow,
+    services: Arc<DesktopServices>,
+    revisions: Arc<AtomicU64>,
+) {
+    let revision = revisions.fetch_add(1, Ordering::Relaxed) + 1;
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(WINDOW_STATE_SAVE_DELAY).await;
-        if WINDOW_STATE_REVISION.load(Ordering::Relaxed) != revision {
+        if revisions.load(Ordering::Relaxed) != revision {
             return;
         }
-        save_window_state(&window, &services);
+        // The save reads and fsyncs the preferences file.
+        tauri::async_runtime::spawn_blocking(move || save_window_state(&window, &services));
     });
 }
 
 fn track_window_state(window: &WebviewWindow, services: Arc<DesktopServices>) {
     let tracked = window.clone();
+    let revisions = Arc::new(AtomicU64::new(0));
     window.clone().on_window_event(move |event| {
         if matches!(event, WindowEvent::Resized(_)) {
-            queue_window_state_save(tracked.clone(), Arc::clone(&services));
+            queue_window_state_save(
+                tracked.clone(),
+                Arc::clone(&services),
+                Arc::clone(&revisions),
+            );
         }
     });
 }
