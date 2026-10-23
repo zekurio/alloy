@@ -116,10 +116,11 @@ export async function finishOAuthCallback(
   c: Context,
   providerId: string,
 ): Promise<{ redirectTo: string }> {
+  // Clear the single-use state cookie up front so no failure below leaves it,
+  // including a provider that was disabled while the flow was in progress.
+  const browserNonce = readOAuthStateCookie(c, providerId)
+  clearOAuthStateCookie(c, providerId)
   const provider = requireEnabledProvider(providerId)
-  // Clear the single-use state cookie up front so no failure below leaves it.
-  const browserNonce = readOAuthStateCookie(c, provider.providerId)
-  clearOAuthStateCookie(c, provider.providerId)
   const currentURL = new URL(c.req.url)
   const state = currentURL.searchParams.get("state")
   if (!state) throw new Error("Missing OAuth state.")
