@@ -12,14 +12,15 @@ import { errorMessage } from "@/lib/error-message"
 import { userKeys } from "@/lib/user-queries"
 
 import {
-  adminUserEditableFields,
+  adminUserFieldChanges,
+  adminUserIsBanned,
   type AdminUserEditableFields,
   type AdminUserRow,
 } from "./admin-user-data"
 
 type UpdateAdminUserVariables = {
   user: AdminUserRow
-  next: AdminUserEditableFields
+  changes: Partial<AdminUserEditableFields>
 }
 
 function useAdminUsersQuery(search: string) {
@@ -42,83 +43,70 @@ function useAdminUsersQuery(search: string) {
   }
 }
 
-function useDeleteAdminUser() {
+/**
+ * A mutation on one user row. It refreshes the user list on success and
+ * reports the row it is working on, so that row's menu stays disabled.
+ */
+function useAdminUserRowMutation<TVariables, TResult>({
+  rowId,
+  mutationFn,
+  onSuccess,
+}: {
+  rowId: (variables: TVariables) => string
+  mutationFn: (variables: TVariables) => Promise<TResult>
+  onSuccess?: (variables: TVariables) => Promise<void>
+}) {
   const queryClient = useQueryClient()
   const { isPending, mutateAsync, variables } = useMutation({
-    mutationFn: (user: AdminUserRow) => api.admin.deleteUser(user.id),
-    onSuccess: () => {
+    mutationFn,
+    onSuccess: async (_result, variables) => {
       void queryClient.invalidateQueries({ queryKey: adminKeys.users() })
+      await onSuccess?.(variables)
     },
   })
-  const onDelete = useCallback(
-    (user: AdminUserRow) => mutateAsync(user).then(() => undefined),
+  const run = useCallback(
+    async (variables: TVariables) => {
+      await mutateAsync(variables)
+    },
     [mutateAsync],
   )
 
   return {
-    busyId: isPending ? (variables?.id ?? null) : null,
-    onDelete,
+    busyId: isPending && variables !== undefined ? rowId(variables) : null,
+    run,
   }
 }
 
-function nextAdminUserStatus(user: AdminUserRow) {
-  if (user.adminSuspendedAt === undefined) {
-    return user.status === "disabled" ? "active" : "disabled"
-  }
-  return user.adminSuspendedAt ? "active" : "disabled"
-}
-
-function useToggleAdminUserStatus() {
+function useAdminUserMutations(currentUserId: string) {
   const queryClient = useQueryClient()
-  const { isPending, mutateAsync, variables } = useMutation({
-    mutationFn: (user: AdminUserRow) =>
+  const remove = useAdminUserRowMutation({
+    rowId: (user: AdminUserRow) => user.id,
+    mutationFn: (user) => api.admin.deleteUser(user.id),
+  })
+  const toggleStatus = useAdminUserRowMutation({
+    rowId: (user: AdminUserRow) => user.id,
+    mutationFn: (user) =>
       api.admin.updateUser(user.id, {
-        status: nextAdminUserStatus(user),
+        status: adminUserIsBanned(user) ? "active" : "disabled",
       }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: adminKeys.users() })
-    },
   })
-  const onToggleStatus = useCallback(
-    (user: AdminUserRow) => mutateAsync(user).then(() => undefined),
-    [mutateAsync],
-  )
-
-  return {
-    busyId: isPending ? (variables?.id ?? null) : null,
-    onToggleStatus,
-  }
-}
-
-function useUpdateAdminUser(currentUserId: string) {
-  const queryClient = useQueryClient()
-  const { isPending, mutateAsync, variables } = useMutation({
-    mutationFn: ({ user, next }: UpdateAdminUserVariables) => {
-      const current = adminUserEditableFields(user)
-      const roleChanged = current.role !== next.role
-      const quotaChanged = current.storageQuotaBytes !== next.storageQuotaBytes
-
-      return api.admin.updateUser(user.id, {
-        role: roleChanged ? next.role : undefined,
-        storageQuotaBytes: quotaChanged ? next.storageQuotaBytes : undefined,
-      })
-    },
-    onSuccess: async (updated, { user, next }) => {
-      const quotaChanged = user.storageQuotaBytes !== next.storageQuotaBytes
-      void queryClient.invalidateQueries({ queryKey: adminKeys.users() })
-      if (updated.id === currentUserId && quotaChanged) {
+  const update = useAdminUserRowMutation({
+    rowId: ({ user }: UpdateAdminUserVariables) => user.id,
+    mutationFn: ({ user, changes }) => api.admin.updateUser(user.id, changes),
+    onSuccess: async ({ user, changes }) => {
+      if (user.id === currentUserId && "storageQuotaBytes" in changes) {
         await queryClient.invalidateQueries({ queryKey: userKeys.storage() })
       }
     },
   })
+
+  const runUpdate = update.run
   const onUpdate = useCallback(
     (user: AdminUserRow, next: AdminUserEditableFields): Promise<void> => {
-      const current = adminUserEditableFields(user)
-      const roleChanged = current.role !== next.role
-      const quotaChanged = current.storageQuotaBytes !== next.storageQuotaBytes
-      if (!roleChanged && !quotaChanged) return Promise.resolve()
+      const changes = adminUserFieldChanges(user, next)
+      if (!changes) return Promise.resolve()
 
-      if (user.id === currentUserId && roleChanged && next.role !== "admin") {
+      if (user.id === currentUserId && changes.role === "user") {
         return Promise.reject(
           new Error(
             t(
@@ -128,30 +116,16 @@ function useUpdateAdminUser(currentUserId: string) {
         )
       }
 
-      return mutateAsync({ user, next }).then(() => undefined)
+      return runUpdate({ user, changes })
     },
-    [currentUserId, mutateAsync],
+    [currentUserId, runUpdate],
   )
 
   return {
-    busyId: isPending ? (variables?.user.id ?? null) : null,
+    busyId: remove.busyId ?? toggleStatus.busyId ?? update.busyId,
+    onDelete: remove.run,
+    onToggleStatus: toggleStatus.run,
     onUpdate,
-  }
-}
-
-function useAdminUserMutations(currentUserId: string) {
-  const deleteMutation = useDeleteAdminUser()
-  const toggleStatusMutation = useToggleAdminUserStatus()
-  const updateMutation = useUpdateAdminUser(currentUserId)
-
-  return {
-    busyId:
-      deleteMutation.busyId ??
-      toggleStatusMutation.busyId ??
-      updateMutation.busyId,
-    onDelete: deleteMutation.onDelete,
-    onToggleStatus: toggleStatusMutation.onToggleStatus,
-    onUpdate: updateMutation.onUpdate,
   }
 }
 

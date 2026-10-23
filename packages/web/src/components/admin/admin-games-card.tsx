@@ -10,13 +10,7 @@ import {
   InputGroupInput,
 } from "@alloy/ui/components/input-group"
 import { LoadingState } from "@alloy/ui/components/loading-state"
-import {
-  Section,
-  SectionContent,
-  SectionHeader,
-  SectionTitle,
-} from "@alloy/ui/components/section"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { SearchIcon, Trash2Icon } from "lucide-react"
 import { useMemo, useState } from "react"
 
@@ -29,7 +23,7 @@ import { errorMessage } from "@/lib/error-message"
 import { removeAdminGameCacheRow } from "./admin-game-data"
 import { CreateGameDialog, EditGameDialog } from "./admin-game-dialogs"
 
-export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
+export function AdminGamesCard() {
   const { data: games, isPending, error } = useQuery(adminGamesQueryOptions())
   const [search, setSearch] = useState("")
   const filteredGames = useMemo(() => {
@@ -49,20 +43,14 @@ export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
         : t("{count} games", { count: games.length })
       : null
 
-  const body = isPending ? (
-    <LoadingState variant="panel" />
-  ) : (
+  if (isPending) return <LoadingState variant="panel" />
+
+  return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {hideHeader ? (
-          <span className="text-foreground-muted text-sm tabular-nums">
-            {summary}
-          </span>
-        ) : (
-          <p className="text-foreground-muted text-sm">
-            {t("Manage games and their artwork.")}
-          </p>
-        )}
+        <span className="text-foreground-muted text-sm tabular-nums">
+          {summary}
+        </span>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <InputGroup className="w-full sm:max-w-xs">
             <InputGroupAddon align="inline-start">
@@ -95,17 +83,6 @@ export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
         </div>
       )}
     </div>
-  )
-
-  if (hideHeader) return body
-
-  return (
-    <Section>
-      <SectionHeader>
-        <SectionTitle>{t("Games")}</SectionTitle>
-      </SectionHeader>
-      <SectionContent>{body}</SectionContent>
-    </Section>
   )
 }
 
@@ -140,24 +117,12 @@ function AdminGameCard({ game }: { game: AdminGameRow }) {
 
 function GameActions({ game }: { game: AdminGameRow }) {
   const queryClient = useQueryClient()
-  const [deleting, setDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
-
-  const handleDelete = async () => {
-    if (deleting) return
-    setDeleteError(null)
-    setDeleting(true)
-    try {
-      await api.admin.deleteGame(game.id)
-      removeAdminGameCacheRow(queryClient, game.id)
-      setDeleteOpen(false)
-    } catch (cause) {
-      setDeleteError(errorMessage(cause, t("Couldn't delete game")))
-    } finally {
-      setDeleting(false)
-    }
-  }
+  const remove = useMutation({
+    mutationFn: () => api.admin.deleteGame(game.id),
+    // Dropping the row from the cache unmounts it, and its dialog with it.
+    onSuccess: () => removeAdminGameCacheRow(queryClient, game.id),
+  })
 
   return (
     <div className="flex shrink-0 items-center gap-1.5">
@@ -182,7 +147,7 @@ function GameActions({ game }: { game: AdminGameRow }) {
         open={deleteOpen}
         onOpenChange={(open) => {
           setDeleteOpen(open)
-          if (!open) setDeleteError(null)
+          if (!open) remove.reset()
         }}
         title={t("Delete this game?")}
         description={t(
@@ -190,9 +155,13 @@ function GameActions({ game }: { game: AdminGameRow }) {
         )}
         confirmLabel={t("Delete")}
         pendingLabel={t("Deleting")}
-        pending={deleting}
-        error={deleteError}
-        onConfirm={handleDelete}
+        pending={remove.isPending}
+        error={
+          remove.error
+            ? errorMessage(remove.error, t("Couldn't delete game"))
+            : null
+        }
+        onConfirm={() => remove.mutate()}
       >
         <DeleteGamePreview game={game} />
       </ConfirmDeleteDialog>

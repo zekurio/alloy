@@ -27,7 +27,11 @@ import { errorMessage } from "@/lib/error-message"
 import { storageUsagePercent, storageUsageTone } from "@/lib/storage-format"
 import { displayName, userAvatar } from "@/lib/user-display"
 
-import type { AdminUserEditableFields, AdminUserRow } from "./admin-user-data"
+import {
+  adminUserIsBanned,
+  type AdminUserEditableFields,
+  type AdminUserRow,
+} from "./admin-user-data"
 import { EditUserDialog } from "./admin-user-dialogs"
 
 interface UsersListProps {
@@ -62,12 +66,6 @@ export function UsersList({
       ))}
     </div>
   )
-}
-
-function adminUserIsBanned(user: AdminUserRow): boolean {
-  return user.adminSuspendedAt === undefined
-    ? user.status === "disabled"
-    : user.adminSuspendedAt !== null
 }
 
 const UserCard = memo(function UserCard({

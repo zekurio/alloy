@@ -8,12 +8,11 @@ import { message, t } from "@alloy/i18n"
 import { Callout } from "@alloy/ui/components/callout"
 import { Input } from "@alloy/ui/components/input"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
-import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 
-import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 
+import { useAdminConfigMutation } from "./admin-config-context"
 import { SettingsSections, SettingsSubsection } from "./settings-panel"
 import { useSettingsSaveBar } from "./settings-save-context"
 
@@ -86,8 +85,8 @@ export function UploadLimitsSettingsContent({
 }) {
   const saved = config.uploadLimits
   const [draft, setDraft] = useState(() => draftFromLimits(saved))
-  const [saving, setSaving] = useState(false)
-  const queryClient = useQueryClient()
+  const saveLimits = useAdminConfigMutation(api.admin.updateUploadLimits)
+  const saving = saveLimits.isPending
   useEffect(() => setDraft(draftFromLimits(saved)), [saved])
 
   const validation = UploadLimitsSchema.safeParse(
@@ -107,13 +106,7 @@ export function UploadLimitsSettingsContent({
     if (saving || !dirty) return
     if (!validation.success)
       throw new Error(t("Fix the invalid settings before saving."))
-    setSaving(true)
-    try {
-      const updated = await api.admin.updateUploadLimits(validation.data)
-      queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
-    } finally {
-      setSaving(false)
-    }
+    await saveLimits.mutateAsync(validation.data)
   }
 
   useSettingsSaveBar({

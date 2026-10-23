@@ -175,7 +175,6 @@ export const ADMIN_MESSAGES = {
   Logo: "Logo",
   "Lowercase letters, numbers, and hyphens only.":
     "Nur Kleinbuchstaben, Zahlen und Bindestriche.",
-  "Manage games and their artwork.": "Spiele und ihre Bilder verwalten.",
   "Managed by environment variable": "Durch Umgebungsvariable verwaltet",
   "Max FPS": "Max. FPS",
   "Max FPS must be from 1 to 240.": "Max. FPS muss zwischen 1 und 240 liegen.",

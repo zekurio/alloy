@@ -6,7 +6,6 @@ import type {
 import { WEBHOOK_PROVIDERS, type WebhookProvider } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import {
   Field,
   FieldDescription,
@@ -17,10 +16,8 @@ import { Input } from "@alloy/ui/components/input"
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
-  ResponsiveDialogClose,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
-  ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
@@ -40,6 +37,7 @@ import type { FormEvent, ReactElement, ReactNode } from "react"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 
+import { AdminDialogFooter } from "./admin-dialog-footer"
 import {
   setAdminWebhookCacheRow,
   WEBHOOK_PROVIDER_LABELS,
@@ -305,7 +303,13 @@ function WebhookDialog({
             {children}
             <FieldError>{error}</FieldError>
           </ResponsiveDialogBody>
-          <WebhookDialogFooter isPending={isPending} error={error} />
+          <AdminDialogFooter
+            pending={isPending}
+            failed={Boolean(error)}
+            pendingLabel={t("Saving…")}
+          >
+            {t("Save")}
+          </AdminDialogFooter>
         </form>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
@@ -362,34 +366,5 @@ function WebhookSecretField({
       />
       <FieldDescription>{description}</FieldDescription>
     </Field>
-  )
-}
-
-function WebhookDialogFooter({
-  isPending,
-  error,
-}: {
-  isPending: boolean
-  error: string | null
-}) {
-  return (
-    <ResponsiveDialogFooter>
-      <ResponsiveDialogClose
-        render={<Button type="button" variant="ghost" disabled={isPending} />}
-      >
-        {t("Cancel")}
-      </ResponsiveDialogClose>
-      <FeedbackButton
-        type="submit"
-        variant="primary"
-        size="sm"
-        state={isPending ? "pending" : error ? "error" : "idle"}
-        pendingLabel={t("Saving…")}
-        errorLabel={t("Try again")}
-        disabled={isPending}
-      >
-        {t("Save")}
-      </FeedbackButton>
-    </ResponsiveDialogFooter>
   )
 }

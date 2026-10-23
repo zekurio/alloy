@@ -5,6 +5,8 @@ import type { QueryClient } from "@tanstack/react-query"
 import { adminKeys } from "@/lib/admin-query-keys"
 import { invalidateGameQueries } from "@/lib/game-queries"
 
+// The editor's tab order, cover first; `@alloy/contracts` lists the same roles
+// in a different order.
 export const GAME_ASSET_ROLES: GameAssetRole[] = [
   "grid",
   "hero",

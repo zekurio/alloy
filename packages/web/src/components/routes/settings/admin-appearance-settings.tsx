@@ -3,29 +3,34 @@ import { t } from "@alloy/i18n"
 import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
-import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
 
 import { LoginAppearancePreview } from "@/components/routes/admin-settings/login-appearance-preview"
+import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
 import {
   SettingsSections,
   SettingsSubsection,
 } from "@/components/routes/settings/settings-panel"
 import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
-import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
-import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
 
 export function AppearanceSettingsContent({
   config,
 }: {
   config: AdminRuntimeConfig
 }) {
-  const queryClient = useQueryClient()
-  const [enabledPending, setEnabledPending] = useState(false)
-  const [enabledError, setEnabledError] = useState<string | null>(null)
-  const [treatmentPending, setTreatmentPending] = useState(false)
+  const toggleSplash = useAdminConfigMutation(
+    (enabled: boolean) =>
+      api.admin.updateAppearanceConfig({ loginSplash: { enabled } }),
+    { authConfigChanged: true },
+  )
+  const saveSplashTreatment = useAdminConfigMutation(
+    (treatment: { blurPx: number; darkenOpacity: number }) =>
+      api.admin.updateAppearanceConfig({ loginSplash: treatment }),
+    { authConfigChanged: true },
+  )
+  const treatmentPending = saveSplashTreatment.isPending
   const splash = config.appearance.loginSplash
   const [draftBlurPx, setDraftBlurPx] = useState(splash.blurPx)
   const [draftDarkenOpacity, setDraftDarkenOpacity] = useState(
@@ -47,23 +52,6 @@ export function AppearanceSettingsContent({
     setDraftDarkenOpacity(splash.darkenOpacity)
   }, [splash.blurPx, splash.darkenOpacity])
 
-  async function updateSplashEnabled(next: boolean) {
-    if (enabledPending) return
-    setEnabledError(null)
-    setEnabledPending(true)
-    try {
-      const updated = await api.admin.updateAppearanceConfig({
-        loginSplash: { enabled: next },
-      })
-      queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
-      publishRuntimeConfigUpdate({ authConfigChanged: true })
-    } catch (cause) {
-      setEnabledError(errorMessage(cause, t("Couldn't update backdrop")))
-    } finally {
-      setEnabledPending(false)
-    }
-  }
-
   function cancelTreatment() {
     setDraftBlurPx(splash.blurPx)
     setDraftDarkenOpacity(splash.darkenOpacity)
@@ -71,19 +59,10 @@ export function AppearanceSettingsContent({
 
   async function saveTreatment() {
     if (treatmentPending || !treatmentChanged) return
-    setTreatmentPending(true)
-    try {
-      const updated = await api.admin.updateAppearanceConfig({
-        loginSplash: {
-          blurPx: draftBlurPx,
-          darkenOpacity: draftDarkenOpacity,
-        },
-      })
-      queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
-      publishRuntimeConfigUpdate({ authConfigChanged: true })
-    } finally {
-      setTreatmentPending(false)
-    }
+    await saveSplashTreatment.mutateAsync({
+      blurPx: draftBlurPx,
+      darkenOpacity: draftDarkenOpacity,
+    })
   }
 
   // The enabled switch applies immediately; only the blur/darkening treatment
@@ -117,15 +96,18 @@ export function AppearanceSettingsContent({
                 <div className="flex flex-col items-end gap-1.5">
                   <Switch
                     checked={splash.enabled}
-                    onCheckedChange={updateSplashEnabled}
-                    disabled={enabledPending}
+                    onCheckedChange={(next) => toggleSplash.mutate(next)}
+                    disabled={toggleSplash.isPending}
                   />
-                  {enabledError ? (
+                  {toggleSplash.error ? (
                     <span
                       role="alert"
                       className="text-destructive max-w-48 text-right text-xs"
                     >
-                      {enabledError}
+                      {errorMessage(
+                        toggleSplash.error,
+                        t("Couldn't update backdrop"),
+                      )}
                     </span>
                   ) : null}
                 </div>

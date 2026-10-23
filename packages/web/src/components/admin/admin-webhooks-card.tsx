@@ -6,12 +6,6 @@ import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { List, ListItemButton } from "@alloy/ui/components/list"
 import { LoadingState } from "@alloy/ui/components/loading-state"
-import {
-  Section,
-  SectionContent,
-  SectionHeader,
-  SectionTitle,
-} from "@alloy/ui/components/section"
 import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
@@ -34,16 +28,16 @@ import {
 } from "./admin-webhook-data"
 import { CreateWebhookDialog, EditWebhookDialog } from "./admin-webhook-dialogs"
 
-export function AdminWebhooksCard({ hideHeader }: { hideHeader?: boolean }) {
+export function AdminWebhooksCard() {
   const {
     data: webhooks,
     isPending,
     error,
   } = useQuery(adminWebhooksQueryOptions())
 
-  const body = isPending ? (
-    <LoadingState variant="panel" />
-  ) : (
+  if (isPending) return <LoadingState variant="panel" />
+
+  return (
     <div className="flex flex-col gap-4">
       <SettingsIntro action={<CreateWebhookDialog />}>
         {t(
@@ -65,17 +59,6 @@ export function AdminWebhooksCard({ hideHeader }: { hideHeader?: boolean }) {
         </List>
       )}
     </div>
-  )
-
-  if (hideHeader) return body
-
-  return (
-    <Section>
-      <SectionHeader>
-        <SectionTitle>{t("Webhooks")}</SectionTitle>
-      </SectionHeader>
-      <SectionContent>{body}</SectionContent>
-    </Section>
   )
 }
 

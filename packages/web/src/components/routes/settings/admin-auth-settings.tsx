@@ -12,6 +12,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { CircleAlertIcon } from "lucide-react"
 import { useState } from "react"
 
+import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
 import { EnvManagedNote } from "@/components/routes/settings/admin-env-note"
 import {
   SettingsSections,
@@ -62,25 +63,14 @@ export function AuthSettingsContent({
   config: AdminRuntimeConfig
 }) {
   const queryClient = useQueryClient()
-  const [pendingToggle, setPendingToggle] = useState<AuthToggleKey | null>(null)
+  const toggle = useAdminConfigMutation(
+    ({ key, enabled }: { key: AuthToggleKey; enabled: boolean }) =>
+      api.admin.updateAuthConfig({ [key]: enabled }),
+    { authConfigChanged: true },
+  )
+  const pendingToggle = toggle.isPending ? toggle.variables.key : null
   const [providerPending, setProviderPending] = useState(false)
-  const [toggleError, setToggleError] = useState<string | null>(null)
   const [providerError, setProviderError] = useState<string | null>(null)
-
-  async function updateToggle(key: AuthToggleKey, next: boolean) {
-    if (pendingToggle) return
-    setToggleError(null)
-    setPendingToggle(key)
-    try {
-      const updated = await api.admin.updateAuthConfig({ [key]: next })
-      queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
-      publishRuntimeConfigUpdate({ authConfigChanged: true })
-    } catch (cause) {
-      setToggleError(errorMessage(cause, t("Couldn't update authentication")))
-    } finally {
-      setPendingToggle(null)
-    }
-  }
 
   async function saveProviders(
     providers: AdminOAuthProviderInput[],
@@ -131,14 +121,22 @@ export function AuthSettingsContent({
                   checked={config[item.key]}
                   locked={config.authLocks[item.key]}
                   pending={pendingToggle === item.key}
-                  onChange={(next) => updateToggle(item.key, next)}
+                  onChange={(enabled) => {
+                    if (!toggle.isPending)
+                      toggle.mutate({ key: item.key, enabled })
+                  }}
                 />
               ))}
             </SettingRows>
-            {toggleError ? (
+            {toggle.error ? (
               <Callout tone="destructive" className="mt-3 text-xs">
                 <CircleAlertIcon />
-                <span>{toggleError}</span>
+                <span>
+                  {errorMessage(
+                    toggle.error,
+                    t("Couldn't update authentication"),
+                  )}
+                </span>
               </Callout>
             ) : null}
           </SettingsSubsection>
