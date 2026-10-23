@@ -1,4 +1,4 @@
-use std::{ffi::c_void, ptr};
+use std::{ffi::c_void, marker::PhantomData, ptr};
 
 use windows_sys::core::{IUnknown_Vtbl, GUID, HRESULT, PWSTR};
 use windows_sys::Win32::{
@@ -111,19 +111,44 @@ struct AudioPropVariant {
     data: [usize; 2],
 }
 
-pub(crate) unsafe fn initialize_com() -> Option<bool> {
-    let hr = CoInitializeEx(ptr::null(), COINIT_APARTMENTTHREADED as u32);
-    if succeeded(hr) {
-        Some(true)
-    } else if hr == RPC_E_CHANGED_MODE {
-        Some(false)
-    } else {
-        None
+/// COM initialized on the current thread for as long as this value lives.
+/// Bind it before any `ComPtr`: locals drop in reverse order, so every
+/// interface is released before `CoUninitialize` runs.
+pub(crate) struct ComApartment {
+    uninitialize: bool,
+    // CoUninitialize must run on the thread that called CoInitializeEx.
+    _thread_bound: PhantomData<*const ()>,
+}
+
+impl ComApartment {
+    /// Enters a single-threaded apartment, or joins the thread's existing
+    /// multithreaded one without taking ownership of it.
+    pub(crate) fn initialize() -> Option<Self> {
+        // SAFETY: CoInitializeEx has no preconditions. Every successful call,
+        // S_FALSE included, is balanced by Drop on this thread.
+        let hr = unsafe { CoInitializeEx(ptr::null(), COINIT_APARTMENTTHREADED as u32) };
+        let uninitialize = if succeeded(hr) {
+            true
+        } else if hr == RPC_E_CHANGED_MODE {
+            false
+        } else {
+            return None;
+        };
+        Some(Self {
+            uninitialize,
+            _thread_bound: PhantomData,
+        })
     }
 }
 
-pub(crate) unsafe fn uninitialize_com() {
-    CoUninitialize();
+impl Drop for ComApartment {
+    fn drop(&mut self) {
+        if self.uninitialize {
+            // SAFETY: Balances the successful CoInitializeEx in `initialize`;
+            // the raw-pointer marker keeps this value on that thread.
+            unsafe { CoUninitialize() };
+        }
+    }
 }
 
 pub(crate) unsafe fn create_mm_device_enumerator() -> Option<ComPtr> {

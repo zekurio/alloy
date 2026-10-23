@@ -47,9 +47,8 @@ use windows_sys::Win32::{
 
 use super::{
     com::{
-        active_audio_endpoint_devices, com_vtbl, create_mm_device_enumerator, initialize_com,
-        query_interface, release_com, string_from_cotaskmem_pwstr, succeeded, uninitialize_com,
-        ComPtr, IMMDeviceVtbl,
+        active_audio_endpoint_devices, com_vtbl, create_mm_device_enumerator, query_interface,
+        release_com, string_from_cotaskmem_pwstr, succeeded, ComApartment, ComPtr, IMMDeviceVtbl,
     },
     game_matching::clean_user_facing_process_name,
     valid_capture_dimensions,
@@ -162,16 +161,12 @@ struct IStreamVtbl {
 }
 
 pub(super) fn active_audio_sessions() -> HashMap<u32, AudioSessionProcess> {
-    unsafe {
-        let Some(uninitialize) = initialize_com() else {
-            return HashMap::new();
-        };
-        let sessions = enumerate_active_audio_sessions().unwrap_or_default();
-        if uninitialize {
-            uninitialize_com();
-        }
-        sessions
-    }
+    let Some(_com) = ComApartment::initialize() else {
+        return HashMap::new();
+    };
+    // SAFETY: COM stays initialized until `_com` drops, after every
+    // interface the enumeration creates.
+    unsafe { enumerate_active_audio_sessions() }.unwrap_or_default()
 }
 
 unsafe fn enumerate_active_audio_sessions() -> Option<HashMap<u32, AudioSessionProcess>> {

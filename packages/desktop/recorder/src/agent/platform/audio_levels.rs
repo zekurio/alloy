@@ -2,8 +2,7 @@ use super::{
     audio_application_id_from_parts,
     com::{
         active_audio_endpoint_devices, com_vtbl, create_mm_device_enumerator, endpoint_id,
-        initialize_com, query_interface, succeeded, uninitialize_com, ComPtr,
-        IMMDeviceEnumeratorVtbl, IMMDeviceVtbl,
+        query_interface, succeeded, ComApartment, ComPtr, IMMDeviceEnumeratorVtbl, IMMDeviceVtbl,
     },
     windows_audio::{
         process_executable, process_path, IAudioSessionControl2Vtbl, IAudioSessionEnumeratorVtbl,
@@ -172,34 +171,31 @@ fn audio_level_subscription_active() -> bool {
 }
 
 fn run_audio_level_monitor() {
-    unsafe {
-        let Some(uninitialize) = initialize_com() else {
-            let mut monitor = lock_audio_level_monitor();
-            monitor.deadline = None;
-            monitor.running = false;
-            return;
-        };
+    let Some(_com) = ComApartment::initialize() else {
+        let mut monitor = lock_audio_level_monitor();
+        monitor.deadline = None;
+        monitor.running = false;
+        return;
+    };
 
-        let mut meters = AudioLevelMeters::default();
-        let mut refreshed_at: Option<Instant> = None;
-        while audio_level_subscription_active() {
-            // Endpoints and app sessions come and go; re-enumerate on a slow
-            // cadence and only poll the cached meter interfaces in between.
-            if refreshed_at.is_none_or(|at| at.elapsed() >= AUDIO_LEVEL_REFRESH_INTERVAL) {
-                meters = collect_audio_level_meters(&mut meters);
-                refreshed_at = Some(Instant::now());
-            }
-
-            emit_event(RecordingEvent::AudioLevels {
-                levels: poll_audio_levels(&meters),
-            });
-            thread::sleep(AUDIO_LEVEL_POLL_INTERVAL);
+    // Declared after `_com`, so the meters are released before COM is
+    // uninitialized.
+    let mut meters = AudioLevelMeters::default();
+    let mut refreshed_at: Option<Instant> = None;
+    while audio_level_subscription_active() {
+        // Endpoints and app sessions come and go; re-enumerate on a slow
+        // cadence and only poll the cached meter interfaces in between.
+        if refreshed_at.is_none_or(|at| at.elapsed() >= AUDIO_LEVEL_REFRESH_INTERVAL) {
+            // SAFETY: COM is initialized on this thread for the whole loop.
+            meters = unsafe { collect_audio_level_meters(&mut meters) };
+            refreshed_at = Some(Instant::now());
         }
 
-        drop(meters);
-        if uninitialize {
-            uninitialize_com();
-        }
+        emit_event(RecordingEvent::AudioLevels {
+            // SAFETY: Every cached meter was activated in this apartment.
+            levels: unsafe { poll_audio_levels(&meters) },
+        });
+        thread::sleep(AUDIO_LEVEL_POLL_INTERVAL);
     }
 }
 
