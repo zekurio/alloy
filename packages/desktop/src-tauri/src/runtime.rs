@@ -9,6 +9,7 @@ use alloy_desktop::capture_library::{
     media,
     poster::{POSTER_WAIT, wait_for_poster},
 };
+use alloy_desktop::logging::logged;
 use alloy_desktop::login::{LEGACY_ACCESS_COOKIE, SESSION_COOKIE};
 use alloy_desktop::recording_host::{
     PlayNotificationSoundRequest, RecorderHost, RecorderHostOptions, RecordingCapture,
@@ -790,8 +791,9 @@ pub fn arg<T: DeserializeOwned>(args: &[Value], index: usize) -> Result<T, Strin
 }
 
 pub fn to_value(value: impl Serialize) -> Result<Value, String> {
-    serde_json::to_value(value).map_err(error)
+    serde_json::to_value(value).map_err(logged("Could not encode the native result."))
 }
+
 pub fn error(cause: impl std::fmt::Display) -> String {
     cause.to_string()
 }

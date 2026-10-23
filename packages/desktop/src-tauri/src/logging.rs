@@ -122,6 +122,28 @@ pub fn init(dir: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+/// For `map_err`: logs `error` and returns `message`. The user sees a fixed
+/// message the i18n catalog can translate, and the log keeps the cause.
+pub fn logged<E: std::error::Error>(message: &'static str) -> impl FnOnce(E) -> String {
+    move |error| {
+        log::warn!("{message} {}", describe(&error));
+        message.to_owned()
+    }
+}
+
+/// An error followed by its sources. reqwest and Tauri keep the underlying
+/// TLS, DNS, or WebView failure in the source chain, not in their own text.
+pub fn describe(error: &dyn std::error::Error) -> String {
+    let mut text = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        text.push_str(": ");
+        text.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    text
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

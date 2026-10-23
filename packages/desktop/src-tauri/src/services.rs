@@ -14,15 +14,19 @@ use tauri::AppHandle;
 use tauri::Manager;
 use tokio::sync::broadcast;
 
-use alloy_desktop::server::server_origin;
+use alloy_desktop::logging::logged;
+use alloy_desktop::server::{
+    HTTP_CONTRACT_1, MAX_SAFE_INTEGER, TAURI_BRIDGE_CONTRACT_1, server_origin,
+};
+use url::Url;
 
 use tauri_plugin_updater::UpdaterExt;
 
 const PREFERENCES_FILE: &str = "preferences.json";
 const WINDOW_STATE_KEY: &str = "window";
 const MAX_SAVED_SERVERS: usize = 8;
-const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 const UPDATE_UNSUPPORTED_ERROR: &str = "Automatic updates are unavailable in this build.";
+const CHECK_FAILED: &str = "Couldn't check for updates.";
 /// The smallest window the web app can lay out in, matching the builders in
 /// `main.rs`.
 pub const MIN_WINDOW_WIDTH: u32 = 800;
@@ -103,17 +107,15 @@ impl PreferencesStore {
             .map(|server| server.server_url.clone())
     }
 
+    /// Moves a server to the top of the list. `origin` and `server_version`
+    /// come from a `Server` that passed `Server::check`, which accepts only
+    /// the contracts recorded here.
     pub fn remember_server(
         &self,
-        server_url: &str,
+        origin: &Url,
         server_version: &str,
-        http_contract: u64,
-        bridge_contract: u64,
     ) -> Result<Vec<DesktopSavedServer>, String> {
-        validate_contract_id(http_contract)?;
-        validate_contract_id(bridge_contract)?;
-        let server_url = canonical_server_url(server_url)?;
-        let server_version = nonempty_string(server_version)?;
+        let server_url = origin.origin().ascii_serialization();
         self.update_servers(|servers| {
             servers.retain(|server| server.server_url != server_url);
             servers.insert(
@@ -121,17 +123,17 @@ impl PreferencesStore {
                 DesktopSavedServer {
                     server_url,
                     last_connected_at: now_rfc3339(),
-                    server_version: Some(server_version),
-                    http_contract,
-                    bridge_contract,
+                    server_version: Some(server_version.to_owned()),
+                    http_contract: HTTP_CONTRACT_1,
+                    bridge_contract: TAURI_BRIDGE_CONTRACT_1,
                 },
             );
             servers.truncate(MAX_SAVED_SERVERS);
         })
     }
 
-    pub fn forget_server(&self, server_url: &str) -> Result<Vec<DesktopSavedServer>, String> {
-        let server_url = canonical_server_url(server_url)?;
+    pub fn forget_server(&self, origin: &Url) -> Result<Vec<DesktopSavedServer>, String> {
+        let server_url = origin.origin().ascii_serialization();
         self.update_servers(|servers| servers.retain(|server| server.server_url != server_url))
     }
 
@@ -308,23 +310,6 @@ fn safe_integer(value: &Value) -> Option<u64> {
     (number > 0 && number <= MAX_SAFE_INTEGER).then_some(number)
 }
 
-fn validate_contract_id(value: u64) -> Result<(), String> {
-    if value == 0 || value > MAX_SAFE_INTEGER {
-        Err("The desktop contract ID is invalid.".into())
-    } else {
-        Ok(())
-    }
-}
-
-fn nonempty_string(value: &str) -> Result<String, String> {
-    let value = value.trim();
-    if value.is_empty() {
-        Err("The server version is invalid.".into())
-    } else {
-        Ok(value.to_owned())
-    }
-}
-
 fn canonical_server_url(value: &str) -> Result<String, String> {
     let origin = server_origin(value)?;
     Ok(origin.origin().ascii_serialization())
@@ -402,10 +387,18 @@ struct UpdateRuntime {
     install_in_flight: bool,
 }
 
+/// Why `restart_to_install` returned instead of restarting.
+pub enum RestartError {
+    /// Nothing was stopped, so Alloy keeps running as before.
+    BeforeShutdown(String),
+    /// The shutdown step ran, so the recorder and library must be resumed.
+    AfterShutdown(String),
+}
+
 /// Native services used by the Tauri command handlers.
 pub struct DesktopServices {
     app: AppHandle,
-    preferences: PreferencesStore,
+    pub preferences: PreferencesStore,
     updates: Mutex<UpdateRuntime>,
     update_events: broadcast::Sender<DesktopUpdateState>,
 }
@@ -434,37 +427,6 @@ impl DesktopServices {
             }),
             update_events,
         }
-    }
-
-    pub fn get_servers(&self) -> Vec<DesktopSavedServer> {
-        self.preferences.get_servers()
-    }
-
-    pub fn get_current_server(&self) -> Option<String> {
-        self.preferences.get_current_server()
-    }
-
-    pub fn remember_server(
-        &self,
-        server_url: &str,
-        server_version: &str,
-        http_contract: u64,
-        bridge_contract: u64,
-    ) -> Result<Vec<DesktopSavedServer>, String> {
-        self.preferences
-            .remember_server(server_url, server_version, http_contract, bridge_contract)
-    }
-
-    pub fn forget_server(&self, server_url: &str) -> Result<Vec<DesktopSavedServer>, String> {
-        self.preferences.forget_server(server_url)
-    }
-
-    pub fn get_window_state(&self) -> Option<DesktopWindowState> {
-        self.preferences.get_window_state()
-    }
-
-    pub fn remember_window_state(&self, state: DesktopWindowState) -> Result<(), String> {
-        self.preferences.remember_window_state(state)
     }
 
     pub fn get_update_state(&self) -> DesktopUpdateState {
@@ -531,7 +493,7 @@ impl DesktopServices {
             )
         {
             if let Err(error) = result {
-                return Err(error.to_string());
+                return Err(logged(CHECK_FAILED)(error));
             }
             updates.state.last_checked_at = Some(now_rfc3339());
             self.publish_locked(&updates);
@@ -561,7 +523,7 @@ impl DesktopServices {
             }
             Err(error) => {
                 self.finish_check_locked(&mut updates);
-                Err(error.to_string())
+                Err(logged(CHECK_FAILED)(error))
             }
         }
     }
@@ -607,19 +569,22 @@ impl DesktopServices {
             Err(error) => {
                 updates.state.status = DesktopUpdateStatus::Available;
                 self.publish_locked(&updates);
-                Err(error.to_string())
+                Err(logged("Couldn't download the update.")(error))
             }
         }
     }
 
-    pub async fn restart_to_install<F, Fut>(&self, shutdown: F) -> Result<(), String>
+    /// Runs `shutdown`, installs the downloaded update, and restarts. Any
+    /// error after `shutdown` has started is `RestartError::AfterShutdown`.
+    pub async fn restart_to_install<F, Fut>(&self, shutdown: F) -> Result<(), RestartError>
     where
         F: FnOnce() -> Fut,
         Fut: std::future::Future<Output = Result<(), String>>,
     {
-        self.require_updater()?;
+        self.require_updater()
+            .map_err(RestartError::BeforeShutdown)?;
         let (update, bytes) = {
-            let mut updates = self.lock_updates()?;
+            let mut updates = self.lock_updates().map_err(RestartError::BeforeShutdown)?;
             if updates.install_in_flight {
                 return Ok(());
             }
@@ -632,19 +597,21 @@ impl DesktopServices {
         };
 
         if let Err(error) = shutdown().await {
-            let mut updates = self.lock_updates()?;
+            let mut updates = self.lock_updates().map_err(RestartError::AfterShutdown)?;
             updates.install_in_flight = false;
-            return Err(error);
+            return Err(RestartError::AfterShutdown(error));
         }
         if let Err(error) = update.install(bytes.as_ref()) {
-            let mut updates = self.lock_updates()?;
+            let mut updates = self.lock_updates().map_err(RestartError::AfterShutdown)?;
             updates.install_in_flight = false;
             updates.state.status = DesktopUpdateStatus::Downloaded;
             self.publish_locked(&updates);
-            return Err(error.to_string());
+            return Err(RestartError::AfterShutdown(logged(
+                "Couldn't restart to update.",
+            )(error)));
         }
         {
-            let mut updates = self.lock_updates()?;
+            let mut updates = self.lock_updates().map_err(RestartError::AfterShutdown)?;
             updates.install_in_flight = false;
             updates.pending = None;
             updates.downloaded = None;
@@ -688,11 +655,12 @@ impl DesktopServices {
             .app
             .try_state::<tauri_plugin_autostart::AutoLaunchManager>()
             .ok_or_else(|| "Autostart is unavailable in this build.".to_string())?;
-        if enabled {
-            manager.enable().map_err(|error| error.to_string())?;
+        let changed = if enabled {
+            manager.enable()
         } else {
-            manager.disable().map_err(|error| error.to_string())?;
-        }
+            manager.disable()
+        };
+        changed.map_err(logged("Couldn't update the startup setting."))?;
         Ok(self.get_autostart_state())
     }
 
@@ -702,7 +670,7 @@ impl DesktopServices {
         if !has_update_public_key(&self.app) {
             return Err(UPDATE_UNSUPPORTED_ERROR.into());
         }
-        self.app.updater().map_err(|error| error.to_string())
+        self.app.updater().map_err(logged(CHECK_FAILED))
     }
 
     fn require_updater(&self) -> Result<(), String> {
