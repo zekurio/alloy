@@ -14,6 +14,7 @@ import {
   type RecordingLibraryItem,
   type RecordingLibrarySnapshot,
 } from "@/lib/desktop"
+import { errorMessage } from "@/lib/error-message"
 import { useGameNameLookupQuery } from "@/lib/game-queries"
 
 export type LibraryItemView = RecordingLibraryItem & {
@@ -49,9 +50,7 @@ export async function refreshLibrarySnapshotCache(
 
 function librarySnapshotErrorMessage(cause: unknown): string | null {
   if (!cause) return null
-  return cause instanceof Error
-    ? cause.message
-    : t("Could not scan local clips.")
+  return errorMessage(cause, t("Could not scan local clips."))
 }
 
 /**
