@@ -1,15 +1,12 @@
-import type { RegistrationResponseJSON } from "@simplewebauthn/browser"
-
 import type {
-  AuthRedirect,
-  AuthResult,
   AuthSessionSummary,
   LinkedAccount,
   Passkey,
-  RequestFn,
   SessionData,
-  SessionStore,
-} from "./auth"
+} from "@alloy/contracts"
+import type { RegistrationResponseJSON } from "@simplewebauthn/browser"
+
+import type { AuthRedirect, AuthResult, RequestFn, SessionStore } from "./auth"
 import { AUTH_PATHS } from "./auth-paths"
 import {
   type JsonValidator,

@@ -1,8 +1,8 @@
+import { messageFromUnknown } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { buttonVariants } from "@alloy/ui/lib/button-variants"
-import { messageFromUnknown } from "@alloy/ui/lib/error-message"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import type {

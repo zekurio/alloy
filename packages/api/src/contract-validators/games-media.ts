@@ -5,8 +5,9 @@ import {
   validateBoolean,
   validateEnumString,
   validateNonNegativeInteger,
+  validateNullableDateString,
   validateNullablePositiveInteger,
-  validateNullableUrlString,
+  validateNullablePublicImageSrcString,
   validateNumber,
   validateOptionalUrlString,
   validatePositiveInteger,
@@ -17,6 +18,8 @@ import {
 } from "@alloy/api/runtime-validation"
 import {
   type AdminGameRow,
+  GAME_NAME_LOOKUP_REASONS,
+  GAME_SOURCE,
   type GameDetail,
   type GameListRow,
   type GameNameLookupResponse,
@@ -27,48 +30,77 @@ import {
 } from "@alloy/contracts"
 
 import type { ApiJsonInput } from "../json-value"
-import { validateGameRowFields, validateGameSource } from "./shared"
+import { validateNullableBlurHash } from "./shared"
 
-const GAME_NAME_LOOKUP_REASON = new Set([
-  "indexed-exact-name",
-  "indexed-normalized-name",
-  "steamgriddb-exact-name",
-  "steamgriddb-normalized-name",
-  "no-match",
-  "ambiguous",
-])
-export function validateGameRow(value: ApiJsonInput): GameRow {
-  const row = objectRecord(value, "game")
-  validateGameRowFields(row, "game")
-  validateGameSource(row, "game")
+const GAME_SOURCE_SET: ReadonlySet<string> = new Set(GAME_SOURCE)
+const GAME_NAME_LOOKUP_REASON_SET: ReadonlySet<string> = new Set(
+  GAME_NAME_LOOKUP_REASONS,
+)
+const GAME_IMAGE_KEYS = ["heroUrl", "gridUrl", "logoUrl", "iconUrl"] as const
+
+export function validateGameRow(value: ApiJsonInput, label = "game"): GameRow {
+  const row = objectRecord(value, label)
+  validateRequiredString(row.id, `Invalid ${label} response: id is required`)
+  for (const key of ["name", "slug"] as const) {
+    validateRequiredString(
+      row[key],
+      `Invalid ${label} response: ${key} is required`,
+    )
+  }
+  validateEnumString(
+    row.source,
+    GAME_SOURCE_SET,
+    `Invalid ${label} response: source is invalid`,
+  )
+  validateNullablePositiveInteger(
+    row.steamgriddbId,
+    `Invalid ${label} response: steamgriddbId must be a positive integer or null`,
+  )
+  validateNullableDateString(
+    row.releaseDate,
+    `Invalid ${label} response: releaseDate must be a date string or null`,
+  )
+  for (const key of GAME_IMAGE_KEYS) {
+    validateNullablePublicImageSrcString(
+      row[key],
+      `Invalid ${label} response: ${key} must be an image URL or public asset path`,
+    )
+  }
+  for (const key of ["heroBlurHash", "gridBlurHash"] as const) {
+    validateNullableBlurHash(row[key], `Invalid ${label} response: ${key}`)
+  }
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as GameRow
 }
 
-export function validateGameListRow(value: ApiJsonInput): GameListRow {
-  const row = objectRecord(value, "game")
-  validateGameRowFields(row, "game")
-  validateGameSource(row, "game")
+export function validateGameListRow(
+  value: ApiJsonInput,
+  label = "game",
+): GameListRow {
+  const row = objectRecord(value, label)
+  validateGameRow(row, label)
   validateNonNegativeInteger(
     row.clipCount,
-    "Invalid game response: clipCount must be a non-negative integer",
+    `Invalid ${label} response: clipCount must be a non-negative integer`,
   )
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as GameListRow
 }
 
 export function validateGameListRows(value: ApiJsonInput): GameListRow[] {
-  return validateArray(value, "Invalid games response").map(validateGameListRow)
+  return validateArray(value, "Invalid games response").map((item) =>
+    validateGameListRow(item),
+  )
 }
 
 export function validateGameRows(value: ApiJsonInput): GameRow[] {
-  return validateArray(value, "Invalid games response").map(validateGameRow)
+  return validateArray(value, "Invalid games response").map((item) =>
+    validateGameRow(item),
+  )
 }
 
 export function validateAdminGameRow(value: ApiJsonInput): AdminGameRow {
-  // AdminGameRow is structurally a GameRow plus clipCount, same as GameListRow.
-  // SAFETY: The checks above validate every field in the asserted response contract.
-  return validateGameListRow(value) as AdminGameRow
+  return validateGameListRow(value, "admin game")
 }
 
 export function validateAdminGameRows(value: ApiJsonInput): AdminGameRow[] {
@@ -78,15 +110,7 @@ export function validateAdminGameRows(value: ApiJsonInput): AdminGameRow[] {
 }
 
 export function validateGameDetail(value: ApiJsonInput): GameDetail {
-  const row = objectRecord(value, "game detail")
-  validateGameRowFields(row, "game detail")
-  validateGameSource(row, "game detail")
-  validateNonNegativeInteger(
-    row.clipCount,
-    "Invalid game detail response: clipCount must be a non-negative integer",
-  )
-  // SAFETY: The checks above validate every field in the asserted response contract.
-  return value as GameDetail
+  return validateGameListRow(value, "game detail")
 }
 
 export function validateGameNameLookupResponse(
@@ -115,7 +139,7 @@ export function validateGameNameLookupResponse(
     }
     validateEnumString(
       result.reason,
-      GAME_NAME_LOOKUP_REASON,
+      GAME_NAME_LOOKUP_REASON_SET,
       "Invalid game name lookup response: reason is invalid",
     )
     if (result.game !== null) validateGameRow(result.game)
@@ -155,16 +179,13 @@ function validateSteamGridDBSearchResult(
       "Invalid game search response: verified must be boolean",
     )
   }
-  if (row.iconUrl !== undefined) {
-    validateNullableUrlString(
-      row.iconUrl,
-      "Invalid game search response: iconUrl must be a URL or null",
-    )
-  }
-  if (row.logoUrl !== undefined) {
-    validateNullableUrlString(
-      row.logoUrl,
-      "Invalid game search response: logoUrl must be a URL or null",
+  // Games the catalogue already knows answer with their stored artwork, which
+  // is a public asset path when an admin uploaded it.
+  for (const key of GAME_IMAGE_KEYS) {
+    if (row[key] === undefined) continue
+    validateNullablePublicImageSrcString(
+      row[key],
+      `Invalid game search response: ${key} must be an image URL or public asset path`,
     )
   }
   // SAFETY: The checks above validate every field in the asserted response contract.

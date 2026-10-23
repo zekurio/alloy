@@ -1,4 +1,10 @@
-import type { AuthSessionSummary, AuthUser } from "@alloy/contracts"
+import type {
+  AuthSessionSummary,
+  AuthUser,
+  LinkedAccount,
+  Passkey,
+  SessionData,
+} from "@alloy/contracts"
 import type { AuthSession, User } from "@alloy/db/auth-schema"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 
@@ -45,7 +51,7 @@ export function publicAuthUserRow(row: User): AuthUser {
   }
 }
 
-function publicAuthSessionRow(row: AuthSession) {
+function publicAuthSessionRow(row: AuthSession): SessionData["session"] {
   return {
     id: row.id,
     userId: row.user_id,
@@ -56,7 +62,7 @@ function publicAuthSessionRow(row: AuthSession) {
   }
 }
 
-export function publicSessionData(row: PublicSessionData) {
+export function publicSessionData(row: PublicSessionData): SessionData {
   return {
     session: publicAuthSessionRow(row.session),
     user: publicAuthUserRow(row.user),
@@ -84,7 +90,7 @@ export function publicAuthSessionSummary(
   }
 }
 
-export function publicPasskeyRow(row: PublicPasskeyRow) {
+export function publicPasskeyRow(row: PublicPasskeyRow): Passkey {
   return {
     id: row.id,
     name: row.name,
@@ -93,7 +99,9 @@ export function publicPasskeyRow(row: PublicPasskeyRow) {
   }
 }
 
-export function publicLinkedAccountRow(row: PublicLinkedAccountRow) {
+export function publicLinkedAccountRow(
+  row: PublicLinkedAccountRow,
+): LinkedAccount {
   return {
     id: row.id,
     providerId: row.providerId,

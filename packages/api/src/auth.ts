@@ -1,8 +1,7 @@
 import {
   type AuthErrorCode,
-  type AuthSessionSummary,
   isStringValue,
-  type AuthUser,
+  type SessionData,
 } from "@alloy/contracts"
 import { useSyncExternalStore } from "react"
 
@@ -33,34 +32,13 @@ export interface CreateAuthOptions {
   redirect?: AuthRedirect
 }
 
-export type { AuthSessionSummary, AuthUser }
-
-export type SessionData = {
-  session: {
-    id: string
-    userId: string
-    expiresAt: string | null
-    createdAt: string
-    updatedAt: string
-    lastSeenAt: string | null
-  }
-  user: AuthUser
-}
-
-export type Passkey = {
-  id: string
-  name: string | null
-  createdAt: string
-  deviceType: string
-}
-
-export type LinkedAccount = {
-  id: string
-  providerId: string
-  accountId: string
-  accountLabel: string | null
-  createdAt: string
-}
+export type {
+  AuthSessionSummary,
+  AuthUser,
+  LinkedAccount,
+  Passkey,
+  SessionData,
+} from "@alloy/contracts"
 
 type StoreState = {
   data: SessionData | null

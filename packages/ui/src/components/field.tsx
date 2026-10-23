@@ -1,6 +1,6 @@
+import { messageFromUnknown } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Label } from "@alloy/ui/components/label"
-import { messageFromUnknown } from "@alloy/ui/lib/error-message"
 import { cn } from "@alloy/ui/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
 import { useMemo } from "react"
