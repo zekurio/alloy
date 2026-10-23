@@ -16,6 +16,7 @@ import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
+import { ownsKeyboardInput } from "@/components/video/video-keyboard"
 import {
   clipDetailQueryOptions,
   seedClipDetailInCache,
@@ -142,15 +143,8 @@ export function ClipViewerDialog({
 
 function isEditableKeyTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
-  if (target.isContentEditable) return true
   const tag = target.tagName
-  return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    tag === "BUTTON" ||
-    tag === "A"
-  )
+  return ownsKeyboardInput(target) || tag === "BUTTON" || tag === "A"
 }
 
 function seedClipDetail(
