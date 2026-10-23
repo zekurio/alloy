@@ -38,6 +38,7 @@ import {
   steamgriddbErrorResponse,
   SlugParam,
 } from "./games-helpers"
+import { userSummarySelection } from "./users-helpers"
 import { limitQueryParam, tbValidator } from "./validation"
 
 const MediaQuery = t.object({ media: t.enum(MEDIA_FILTERS).$default("video") })
@@ -246,15 +247,13 @@ export const gamesRoute = new Hono()
 
       const creators = await db
         .select({
-          id: user.id,
-          username: user.username,
-          image: user.image,
+          ...userSummarySelection,
           clipCount: sql<number>`count(*)::int`,
         })
         .from(clip)
         .innerJoin(user, eq(clip.author_id, user.id))
         .where(and(gameCondition, ...publicClipListingConditions(media)))
-        .groupBy(user.id, user.username, user.image)
+        .groupBy(user.id, user.username, user.display_name, user.image)
         .orderBy(desc(sql`count(*)`), user.username)
         .limit(limit)
 

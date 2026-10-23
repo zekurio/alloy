@@ -29,6 +29,8 @@ import { getEnabledProviderConfig } from "./oauth-config"
 
 const oauthClientCache = new Map<string, Promise<Configuration>>()
 const USER_INFO_TIMEOUT_MS = 10_000
+// Visible ASCII only (RFC 7230 header values with no whitespace).
+const BEARER_TOKEN_PATTERN = /^[\x21-\x7E]+$/
 
 // Provider metadata and secrets are runtime-mutable (admin settings). Drop
 // discovered client configurations on any config change so the next sign-in
@@ -104,6 +106,12 @@ export async function fetchOAuthUserInfo(
   accessToken: string,
   expectedSubject: string | typeof skipSubjectCheck,
 ): Promise<JsonObject> {
+  // Bearer tokens are visible ASCII. Anything else makes Headers throw a
+  // TypeError that quotes the whole Authorization header, token included,
+  // on both the openid-client path and the plain fetch below.
+  if (!BEARER_TOKEN_PATTERN.test(accessToken)) {
+    throw new Error("OAuth provider returned a malformed access token.")
+  }
   if (providerUsesOpenId(provider)) {
     return await fetchUserInfo(config, accessToken, expectedSubject)
   }
