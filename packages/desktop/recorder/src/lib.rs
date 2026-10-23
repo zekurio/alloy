@@ -1,9 +1,9 @@
 //! The Alloy recorder.
 //!
 //! The capture pipeline is Windows-only, but the pieces the desktop host shares
-//! with it — the JSON wire types, the settings helpers, the filename sanitizers
-//! and the protocol constants — are platform-neutral so the host still builds
-//! (and tests) on macOS and Linux.
+//! with it — the JSON wire types, the filename sanitizers and the protocol
+//! constants — are platform-neutral so the host still builds (and tests) on
+//! macOS and Linux. `settings` holds the agent's platform-free settings helpers.
 
 pub mod names;
 pub mod protocol;
