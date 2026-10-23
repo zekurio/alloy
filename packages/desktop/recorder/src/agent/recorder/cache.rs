@@ -190,11 +190,19 @@ impl Recorder {
         }
     }
 
+    /// Each lookup starts PowerShell on this thread, and adapters only change
+    /// with a driver install or an external GPU. Keep the first list Windows
+    /// returns; retry on the idle cadence only while lookups fail.
     pub(super) fn refresh_gpu_cache(&mut self) {
-        if self.should_refresh_idle_cache(self.cached_gpus_at, HARDWARE_DISCOVERY_CACHE_TTL) {
-            self.cached_gpus = platform_gpus();
-            self.cached_gpus_at = Some(Instant::now());
+        if self.cached_gpus_listed
+            || !self.should_refresh_idle_cache(self.cached_gpus_at, HARDWARE_DISCOVERY_CACHE_TTL)
+        {
+            return;
         }
+        let gpus = platform_gpus();
+        self.cached_gpus_listed = gpus.is_some();
+        self.cached_gpus = gpus.unwrap_or_else(|| vec!["adapter:0".to_string()]);
+        self.cached_gpus_at = Some(Instant::now());
     }
 
     fn refresh_audio_device_cache(&mut self) {
