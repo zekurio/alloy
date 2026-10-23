@@ -2,7 +2,6 @@ import { t } from "@alloy/contracts/schema"
 import { authChallenge } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
-import { errorDetail } from "@alloy/server/runtime/error-message"
 import type { Context } from "hono"
 import {
   authorizationCodeGrant,
@@ -30,6 +29,7 @@ import {
   loginURLWithOAuthError,
   normalizeCallbackURL,
   oauthClient,
+  oauthErrorLogDetail,
   requireEnabledProvider,
   scopesForProvider,
 } from "./oauth-client"
@@ -124,14 +124,15 @@ export async function finishOAuthCallback(
   providerId: string,
 ): Promise<{ redirectTo: string }> {
   const provider = requireEnabledProvider(providerId)
+  // Clear the single-use state cookie up front so no failure below leaves it.
+  const browserNonce = readOAuthStateCookie(c, provider.providerId)
+  clearOAuthStateCookie(c, provider.providerId)
   const currentURL = new URL(c.req.url)
   const state = currentURL.searchParams.get("state")
   if (!state) throw new Error("Missing OAuth state.")
 
   const challenge = await consumeOAuthChallenge(state)
   const payload = requireOAuthChallengePayload(challenge.payload)
-  const browserNonce = readOAuthStateCookie(c, provider.providerId)
-  clearOAuthStateCookie(c, provider.providerId)
   try {
     if (payload.providerId !== provider.providerId) {
       throw new Error("OAuth provider changed during sign-in.")
@@ -195,7 +196,7 @@ export async function finishOAuthCallback(
   } catch (cause) {
     logger.warn(
       `${payload.mode} callback failed for ${provider.providerId}:`,
-      errorDetail(cause, "Unknown OAuth callback error"),
+      oauthErrorLogDetail(cause),
     )
     // A failed link keeps the user signed in, so send them back to where they
     // started (settings). A failed sign-in leaves them logged out, so route to

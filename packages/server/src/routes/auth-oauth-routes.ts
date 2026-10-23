@@ -1,9 +1,6 @@
 import { t } from "@alloy/contracts/schema"
 import { authAccount } from "@alloy/db/auth-schema"
-import {
-  clearOAuthStateCookie,
-  setOAuthStateCookie,
-} from "@alloy/server/auth/cookies"
+import { setOAuthStateCookie } from "@alloy/server/auth/cookies"
 import { unlinkOAuthAccountPreservingSignIn } from "@alloy/server/auth/identity"
 import {
   fallbackOAuthErrorRedirect,
@@ -91,12 +88,10 @@ export const authOAuthRoute = new Hono()
     },
   )
   .get("/oauth2/callback/:providerId", async (c) => {
-    const providerId = c.req.param("providerId")
     try {
-      const result = await finishOAuthCallback(c, providerId)
+      const result = await finishOAuthCallback(c, c.req.param("providerId"))
       return c.redirect(result.redirectTo)
     } catch (cause) {
-      clearOAuthStateCookie(c, providerId)
       return c.redirect(fallbackOAuthErrorRedirect(cause))
     }
   })

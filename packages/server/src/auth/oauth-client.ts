@@ -6,10 +6,12 @@ import {
 import { secretStore } from "@alloy/server/config/secret-store"
 import { configStore } from "@alloy/server/config/store"
 import { env } from "@alloy/server/env"
-import { errorMessage } from "@alloy/server/runtime/error-message"
+import { errorDetail, errorMessage } from "@alloy/server/runtime/error-message"
+import { DrizzleQueryError } from "drizzle-orm"
 import {
   allowInsecureRequests,
   AuthorizationResponseError,
+  ClientError,
   ClientSecretBasic,
   ClientSecretPost,
   Configuration,
@@ -266,7 +268,25 @@ function oauthErrorMessage(cause: unknown): string {
     )
   }
 
-  return errorMessage(cause, "OAuth sign-in failed.")
+  // Only Alloy's own plain errors and openid-client's fixed messages reach the
+  // browser. Other messages can quote secrets: a failed query's message is its
+  // SQL plus bound params (the provider's tokens on account writes), and fetch
+  // rejects a malformed token by quoting the Authorization header.
+  if (
+    cause instanceof ClientError ||
+    (cause instanceof Error && Object.getPrototypeOf(cause) === Error.prototype)
+  ) {
+    return errorMessage(cause, "OAuth sign-in failed.")
+  }
+  return "OAuth sign-in failed."
+}
+
+/** Log detail for a failed callback that leaves out query params. */
+export function oauthErrorLogDetail(cause: unknown): string {
+  if (cause instanceof DrizzleQueryError) {
+    return errorDetail(cause.cause, "Database query failed")
+  }
+  return errorDetail(cause, "Unknown OAuth callback error")
 }
 
 function providerErrorMessage(
