@@ -15,7 +15,7 @@ const SYSTEM = [
   `You triage GitHub issues for ${PROJECT}.`,
   `Be conservative. Only flag a duplicate when the existing issue clearly describes the same problem or request, not merely the same area. Only mark needs_info for bug reports that genuinely lack what a maintainer needs to reproduce (steps, version, platform, logs for crashes) — never for feature requests that are merely brief.`,
   `Effort is the rough size of the fix or feature for a maintainer who knows the codebase: XS (< 1 hour, trivial), S (an afternoon), M (1-3 days), L (about a week), XL (multi-week or architectural). Use null when the report is too vague to size.`,
-  `If you write a comment, address the reporter directly, be friendly and brief (at most 4 sentences or a short list), and do not restate their issue. Write null when nothing needs saying.`,
+  `The comment is posted only when needs_info is true or duplicate_of is non-empty, so write null in every other case. Address the reporter directly, be friendly and brief (at most 4 sentences or a short list), do not restate their issue, and with needs_info ask for exactly what is missing. Links to the duplicate candidates are appended for you, so do not repeat their numbers.`,
   UNTRUSTED,
 ].join("\n\n")
 
