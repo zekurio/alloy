@@ -1,8 +1,7 @@
 import { type QueueClip } from "@alloy/api"
-import { useNavigate } from "@tanstack/react-router"
 import { Suspense, useCallback, useEffect, useMemo } from "react"
 
-import type { AppSearch } from "@/lib/app-search"
+import { useOpenClipDialog } from "@/lib/clip-navigation"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 import type { PublishClipInput } from "./new-clip-helpers"
@@ -27,30 +26,10 @@ function UploadFlowInner() {
 
 function AuthedUploadFlow() {
   const { setPublishClip, setQueueState } = useUploadActions()
-  const navigate = useNavigate()
+  const openClipDialog = useOpenClipDialog()
   const handleOpenClip = useCallback(
-    (row: QueueClip) => {
-      void navigate({
-        to: ".",
-        search: (prev: AppSearch) => ({
-          ...prev,
-          clip: row.id,
-        }),
-        mask: row.gameSlug
-          ? {
-              to: "/games/$gameId/clips/$clipId",
-              params: {
-                gameId: row.gameSlug,
-                clipId: row.id,
-              },
-            }
-          : {
-              to: "/clips/$clipId",
-              params: { clipId: row.id },
-            },
-      })
-    },
-    [navigate],
+    (row: QueueClip) => openClipDialog(row.id, row.gameSlug),
+    [openClipDialog],
   )
   const { runUpload, queue } = useUploadQueueState(handleOpenClip)
 

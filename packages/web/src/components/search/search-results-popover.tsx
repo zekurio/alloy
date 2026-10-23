@@ -15,7 +15,7 @@ import {
   useLibrarySnapshot,
   type LibraryItemView,
 } from "@/components/routes/library/library-data"
-import type { AppSearch } from "@/lib/app-search"
+import { useOpenClipDialog } from "@/lib/clip-navigation"
 import { alloyDesktop } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 import { type UserListRow, useSearchQuery } from "@/lib/search-api"
@@ -59,6 +59,7 @@ function useSearchPopoverState(
   setOpen: (value: boolean) => void,
 ) {
   const navigate = useNavigate()
+  const openClipDialog = useOpenClipDialog()
   const [activeIndex, setActiveIndex] = useState(0)
   const rootRef = useRef<HTMLDivElement | null>(null)
 
@@ -74,22 +75,9 @@ function useSearchPopoverState(
     (row: ClipRow) => {
       closePopover()
       clear()
-      const gameId = row.gameRef ? row.gameRef.slug : null
-      void navigate({
-        to: ".",
-        search: (prev: AppSearch) => ({ ...prev, clip: row.id }),
-        mask: gameId
-          ? {
-              to: "/games/$gameId/clips/$clipId",
-              params: { gameId, clipId: row.id },
-            }
-          : {
-              to: "/clips/$clipId",
-              params: { clipId: row.id },
-            },
-      })
+      openClipDialog(row.id, row.gameRef ? row.gameRef.slug : null)
     },
-    [clear, closePopover, navigate],
+    [clear, closePopover, openClipDialog],
   )
 
   const commitLocalClip = useCallback(

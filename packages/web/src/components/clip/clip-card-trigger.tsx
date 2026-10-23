@@ -3,14 +3,13 @@ import { UNCATEGORISED_GAME_SLUG } from "@alloy/contracts"
 import { t, tp } from "@alloy/i18n"
 import { ClipCard } from "@alloy/ui/components/clip-card"
 import { useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
 import { memo, useCallback, useMemo } from "react"
 
 import { gameHref, userProfileHref } from "@/lib/app-paths"
-import type { AppSearch } from "@/lib/app-search"
 import { clientLogger } from "@/lib/client-log"
 import { PRIVACY_BY_VALUE } from "@/lib/clip-fields"
 import { toClipCardData } from "@/lib/clip-format"
+import { useOpenClipDialog } from "@/lib/clip-navigation"
 import { warmClipDetailCache } from "@/lib/clip-queries"
 
 import { useClipCardAuthorLink, useClipCardGameLink } from "./clip-card-links"
@@ -32,7 +31,7 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
   onOpen,
 }: ClipCardTriggerProps) {
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
+  const openClipDialog = useOpenClipDialog()
   const list = useClipList()
   const card = useMemo(() => toClipCardData(row), [row])
 
@@ -55,20 +54,8 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
       onOpen(row)
       return
     }
-    void navigate({
-      to: ".",
-      search: (prev: AppSearch) => ({ ...prev, clip: card.clipId }),
-      mask: gameId
-        ? {
-            to: "/games/$gameId/clips/$clipId",
-            params: { gameId: String(gameId), clipId: card.clipId },
-          }
-        : {
-            to: "/clips/$clipId",
-            params: { clipId: card.clipId },
-          },
-    })
-  }, [navigate, gameId, card.clipId, list, preloadClip, onOpen, row])
+    openClipDialog(card.clipId, gameId)
+  }, [openClipDialog, gameId, card.clipId, list, preloadClip, onOpen, row])
 
   const handlePreviewError = useCallback((cause: unknown) => {
     clientLogger.warn("[clip-card] Hover preview playback failed.", cause)
