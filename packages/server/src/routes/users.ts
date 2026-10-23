@@ -85,18 +85,9 @@ export const usersRoute = new Hono()
     return accountState(c, nullableIsoDate(row?.disabledAt ?? null))
   })
   .get("/me/storage", requireSession, async (c) => {
-    const viewerId = c.var.viewerId
-    const [row, usedBytes] = await Promise.all([
-      db
-        .select({ quotaBytes: user.storage_quota_bytes })
-        .from(user)
-        .where(eq(user.id, viewerId))
-        .limit(1),
-      selectSourceStorageUsedBytes(db, viewerId),
-    ])
     return c.json({
-      usedBytes,
-      quotaBytes: row[0]?.quotaBytes ?? null,
+      usedBytes: await selectSourceStorageUsedBytes(db, c.var.viewerId),
+      quotaBytes: c.var.session.user.storage_quota_bytes,
     })
   })
   .post("/me/disable", requireSession, async (c) => {
