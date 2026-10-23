@@ -1,23 +1,8 @@
-import { nonEmpty, normalizePublicServerUrl } from "@alloy/env"
-
-const DEFAULT_SERVER_URL = "http://localhost:2552"
-function webServerUrl(): string {
-  if (globalThis.window) return window.location.origin
-
-  return (
-    nonEmpty(process.env.INTERNAL_API_URL) ??
-    nonEmpty(process.env.VITE_SERVER_URL) ??
-    DEFAULT_SERVER_URL
-  )
-}
-
+// The API serves the web app, so API and share links use the page's origin.
 export function apiOrigin(): string {
-  return normalizePublicServerUrl(webServerUrl())
+  return window.location.origin
 }
 
 export function publicOrigin(): string {
-  if (globalThis.window) return window.location.origin
-  return normalizePublicServerUrl(
-    nonEmpty(process.env.PUBLIC_SERVER_URL) ?? webServerUrl(),
-  )
+  return window.location.origin
 }

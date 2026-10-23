@@ -1,6 +1,4 @@
 export function consumeCurrentQueryParam(key: string): string | null {
-  if (!globalThis.window) return null
-
   const url = currentPublicUrl()
   const value = url.searchParams.get(key)
   if (value === null) return null
@@ -15,7 +13,7 @@ export function consumeCurrentQueryParam(key: string): string | null {
 }
 
 export function canGoBackInBrowserHistory(): boolean {
-  return Boolean(globalThis.window && window.history.length > 1)
+  return window.history.length > 1
 }
 
 export function goBackInBrowserHistory(): boolean {
@@ -24,12 +22,7 @@ export function goBackInBrowserHistory(): boolean {
   return true
 }
 
-export function currentUrlWithQueryParam(
-  key: string,
-  value: string,
-): string | null {
-  if (!globalThis.window) return null
-
+export function currentUrlWithQueryParam(key: string, value: string): string {
   const url = currentPublicUrl()
   url.hash = ""
   url.searchParams.set(key, value)

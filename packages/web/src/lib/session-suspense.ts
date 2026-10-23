@@ -10,6 +10,11 @@ type SessionData = ReturnType<typeof useSession>["data"]
 
 export type Session = NonNullable<SessionData>
 
+type RouteAuthContext = {
+  session?: SessionData
+  authConfig?: PublicAuthConfig
+}
+
 type RouteSessionState = {
   found: boolean
   data: SessionData
@@ -25,22 +30,24 @@ let sessionRetryPromise: Promise<SessionData> | null = null
 let configPromiseCache: Promise<PublicAuthConfig> | null = null
 let sessionLoadWarningLogged = false
 
+/** The deepest route context that carries `key`, set by the root guard. */
+function routeAuthContext(
+  matches: ReadonlyArray<{ context?: unknown }>,
+  key: keyof RouteAuthContext,
+): RouteAuthContext | null {
+  for (let i = matches.length - 1; i >= 0; i -= 1) {
+    // SAFETY: Route matches carry the root context that defines these keys.
+    const context = matches[i]?.context as RouteAuthContext | undefined
+    if (context && Object.hasOwn(context, key)) return context
+  }
+  return null
+}
+
 function useRouteSession(): RouteSessionState {
   return useRouterState({
     select: (state): RouteSessionState => {
-      for (let i = state.matches.length - 1; i >= 0; i -= 1) {
-        // SAFETY: Route matches carry the root context that defines session.
-        const context = state.matches[i]?.context as
-          | { session?: SessionData }
-          | undefined
-        if (
-          context &&
-          Object.prototype.hasOwnProperty.call(context, "session")
-        ) {
-          return { found: true, data: context.session ?? null }
-        }
-      }
-      return { found: false, data: null }
+      const context = routeAuthContext(state.matches, "session")
+      return { found: context !== null, data: context?.session ?? null }
     },
   })
 }
@@ -48,30 +55,14 @@ function useRouteSession(): RouteSessionState {
 function useRouteAuthConfig(): RouteAuthConfigState {
   return useRouterState({
     select: (state): RouteAuthConfigState => {
-      for (let i = state.matches.length - 1; i >= 0; i -= 1) {
-        // SAFETY: Route matches carry the root context that defines authConfig.
-        const context = state.matches[i]?.context as
-          | { authConfig?: PublicAuthConfig }
-          | undefined
-        if (
-          context &&
-          Object.prototype.hasOwnProperty.call(context, "authConfig")
-        ) {
-          return { found: true, data: context.authConfig ?? null }
-        }
-      }
-      return { found: false, data: null }
+      const context = routeAuthContext(state.matches, "authConfig")
+      return { found: context !== null, data: context?.authConfig ?? null }
     },
   })
 }
 
 function sessionInitializedPromise(): Promise<void> {
   if (sessionInitialPromise) return sessionInitialPromise
-
-  if (!globalThis.window) {
-    sessionInitialPromise = Promise.resolve()
-    return sessionInitialPromise
-  }
 
   const current = authClient.$store.getSnapshot()
   if (!current.isPending) {
@@ -99,8 +90,6 @@ function sessionInitializedPromise(): Promise<void> {
  * failed fetch triggers a refetch, shared across concurrent callers.
  */
 export async function loadSession(): Promise<SessionData> {
-  if (!globalThis.window) return null
-
   await sessionInitializedPromise()
   const snapshot = authClient.$store.getSnapshot()
   if (!snapshot.error) return snapshot.data
@@ -141,10 +130,6 @@ function readBootstrapAuthConfig(): PublicAuthConfig | null {
 }
 
 export function loadAuthConfig(): Promise<PublicAuthConfig> {
-  if (!globalThis.window) {
-    return api.authConfig.fetch()
-  }
-
   if (!configPromiseCache) {
     const bootstrap = readBootstrapAuthConfig()
     configPromiseCache = bootstrap
@@ -165,10 +150,6 @@ export function useSuspenseSession(): SessionData {
   const routeSession = useRouteSession()
   const { data } = useSession()
   if (routeSession.found) return routeSession.data
-
-  if (!globalThis.window) {
-    return null
-  }
 
   use(sessionInitializedPromise())
   return data

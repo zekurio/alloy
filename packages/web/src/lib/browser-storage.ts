@@ -1,93 +1,44 @@
 import { clientLogger } from "./client-log"
 
-type BrowserStorageKind = "localStorage" | "sessionStorage"
-
 const warnedStorageFailures = new Set<string>()
 
-function storageLabel(kind: BrowserStorageKind): string {
-  return kind
-}
-
-function warnStorageFailure(
-  kind: BrowserStorageKind,
-  action: string,
-  key: string,
-  cause: unknown,
-): void {
-  const warningKey = `${kind}:${action}`
-  if (warnedStorageFailures.has(warningKey)) return
-  warnedStorageFailures.add(warningKey)
+function warnStorageFailure(action: string, key: string, cause: unknown): void {
+  if (warnedStorageFailures.has(action)) return
+  warnedStorageFailures.add(action)
   clientLogger.warn(
-    `[storage] ${storageLabel(kind)} ${action} failed for ${key}.`,
+    `[storage] sessionStorage ${action} failed for ${key}.`,
     cause,
   )
 }
 
-function browserStorage(kind: BrowserStorageKind): Storage | null {
-  if (!globalThis.window) return null
+function sessionStorageOrNull(): Storage | null {
   try {
-    return window[kind]
+    return window.sessionStorage
   } catch (cause) {
-    warnStorageFailure(kind, "access", kind, cause)
+    warnStorageFailure("access", "sessionStorage", cause)
     return null
   }
 }
 
-function readStorageItem(kind: BrowserStorageKind, key: string): string | null {
-  const storage = browserStorage(kind)
+export function readSessionStorageItem(key: string): string | null {
+  const storage = sessionStorageOrNull()
   if (!storage) return null
   try {
     return storage.getItem(key)
   } catch (cause) {
-    warnStorageFailure(kind, "read", key, cause)
+    warnStorageFailure("read", key, cause)
     return null
   }
 }
 
-function writeStorageItem(
-  kind: BrowserStorageKind,
-  key: string,
-  value: string,
-): boolean {
-  const storage = browserStorage(kind)
+export function writeSessionStorageItem(key: string, value: string): boolean {
+  const storage = sessionStorageOrNull()
   if (!storage) return false
   try {
     storage.setItem(key, value)
     return true
   } catch (cause) {
-    warnStorageFailure(kind, "write", key, cause)
+    warnStorageFailure("write", key, cause)
     return false
   }
-}
-
-function removeStorageItem(kind: BrowserStorageKind, key: string): boolean {
-  const storage = browserStorage(kind)
-  if (!storage) return false
-  try {
-    storage.removeItem(key)
-    return true
-  } catch (cause) {
-    warnStorageFailure(kind, "remove", key, cause)
-    return false
-  }
-}
-
-export function readLocalStorageItem(key: string): string | null {
-  return readStorageItem("localStorage", key)
-}
-
-export function writeLocalStorageItem(key: string, value: string): boolean {
-  return writeStorageItem("localStorage", key, value)
-}
-
-export function removeLocalStorageItem(key: string): boolean {
-  return removeStorageItem("localStorage", key)
-}
-
-export function readSessionStorageItem(key: string): string | null {
-  return readStorageItem("sessionStorage", key)
-}
-
-export function writeSessionStorageItem(key: string, value: string): boolean {
-  return writeStorageItem("sessionStorage", key, value)
 }

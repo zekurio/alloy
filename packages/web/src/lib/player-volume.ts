@@ -1,4 +1,5 @@
 import { t } from "@alloy/contracts/schema"
+import { createLocalStorageDriver } from "@alloy/ui/lib/local-storage"
 import { useSyncExternalStore } from "react"
 
 export type PlayerVolumeState = {
@@ -8,11 +9,19 @@ export type PlayerVolumeState = {
 
 const STORAGE_KEY = "alloy.player-volume"
 const PERSIST_INTERVAL_MS = 200
-const SERVER_SNAPSHOT: PlayerVolumeState = { volume: 1, muted: false }
 const PlayerVolumeSchema = t.object({
   volume: t.number(),
   muted: t.boolean(),
 })
+const storage = createLocalStorageDriver(
+  STORAGE_KEY,
+  (value): PlayerVolumeState => {
+    const result = PlayerVolumeSchema.safeParse(value)
+    return result.success
+      ? normalizePlayerVolume(result.data)
+      : defaultPlayerVolume()
+  },
+)
 
 const listeners = new Set<() => void>()
 let state: PlayerVolumeState | null = null
@@ -22,11 +31,7 @@ let lastPersistedAt = 0
 let listeningToWindow = false
 
 export function usePlayerVolume(): PlayerVolumeState {
-  return useSyncExternalStore(
-    subscribePlayerVolume,
-    playerVolumeSnapshot,
-    () => SERVER_SNAPSHOT,
-  )
+  return useSyncExternalStore(subscribePlayerVolume, playerVolumeSnapshot)
 }
 
 export function writePlayerVolume(next: PlayerVolumeState): void {
@@ -52,13 +57,7 @@ export function flushPlayerVolume(): void {
   const pending = pendingPersistence
   pendingPersistence = null
   lastPersistedAt = Date.now()
-  if (!globalThis.localStorage) return
-
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pending))
-  } catch {
-    // Storage can be unavailable in privacy-restricted or embedded contexts.
-  }
+  storage.write(pending)
 }
 
 function subscribePlayerVolume(listener: () => void): () => void {
@@ -68,12 +67,12 @@ function subscribePlayerVolume(listener: () => void): () => void {
 }
 
 function playerVolumeSnapshot(): PlayerVolumeState {
-  state ??= readStoredPlayerVolume()
+  state ??= storage.read()
   return state
 }
 
 function schedulePersistence(): void {
-  if (persistTimer !== null || !globalThis.window) return
+  if (persistTimer !== null) return
   persistTimer = window.setTimeout(
     flushPlayerVolume,
     Math.max(0, PERSIST_INTERVAL_MS - (Date.now() - lastPersistedAt)),
@@ -81,7 +80,7 @@ function schedulePersistence(): void {
 }
 
 function ensureWindowListeners(): void {
-  if (listeningToWindow || !globalThis.window) return
+  if (listeningToWindow) return
   listeningToWindow = true
   window.addEventListener("storage", handleStorage)
   window.addEventListener("pagehide", flushPlayerVolume)
@@ -94,34 +93,11 @@ function handleStorage(event: StorageEvent): void {
   pendingPersistence = null
   lastPersistedAt = Date.now()
 
-  const next = parsePlayerVolume(event.newValue)
+  const next = storage.refresh()
   const current = playerVolumeSnapshot()
   if (next.volume === current.volume && next.muted === current.muted) return
   state = next
   for (const listener of listeners) listener()
-}
-
-function readStoredPlayerVolume(): PlayerVolumeState {
-  if (!globalThis.localStorage) return defaultPlayerVolume()
-
-  try {
-    return parsePlayerVolume(localStorage.getItem(STORAGE_KEY))
-  } catch {
-    return defaultPlayerVolume()
-  }
-}
-
-function parsePlayerVolume(value: string | null): PlayerVolumeState {
-  if (!value) return defaultPlayerVolume()
-
-  try {
-    const result = PlayerVolumeSchema.safeParse(JSON.parse(value))
-    return result.success
-      ? normalizePlayerVolume(result.data)
-      : defaultPlayerVolume()
-  } catch {
-    return defaultPlayerVolume()
-  }
 }
 
 function normalizePlayerVolume(value: PlayerVolumeState): PlayerVolumeState {

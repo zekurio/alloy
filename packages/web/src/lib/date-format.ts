@@ -10,24 +10,6 @@ export function dateTime(value: DateInput): number | null {
   return validDate(value)?.getTime() ?? null
 }
 
-export function isoDateString(value: DateInput = new Date()): string {
-  return validDate(value)?.toISOString() ?? ""
-}
-
-export function compareDateAsc(a: DateInput, b: DateInput): number {
-  return (
-    (dateTime(a) ?? Number.POSITIVE_INFINITY) -
-    (dateTime(b) ?? Number.POSITIVE_INFINITY)
-  )
-}
-
-export function compareDateDesc(a: DateInput, b: DateInput): number {
-  return (
-    (dateTime(b) ?? Number.NEGATIVE_INFINITY) -
-    (dateTime(a) ?? Number.NEGATIVE_INFINITY)
-  )
-}
-
 function formatShortDate(value: DateInput): string {
   const date = validDate(value)
   if (!date) return ""

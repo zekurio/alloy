@@ -28,10 +28,6 @@ function makeClient(): QueryClient {
 }
 
 export function getQueryClient(): QueryClient {
-  if (!globalThis.window) {
-    // Server render — new client per request.
-    return makeClient()
-  }
   if (!browserClient) browserClient = makeClient()
   return browserClient
 }
