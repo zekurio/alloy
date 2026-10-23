@@ -1,6 +1,6 @@
 import { normalizeTags } from "@alloy/contracts"
 import { clip, clipMention, clipTag } from "@alloy/db/schema"
-import { requireSession } from "@alloy/server/auth/require-session"
+import { requireSession } from "@alloy/server/auth/session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
@@ -13,16 +13,13 @@ import {
 import { eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
-import { IdParam, UpdateBody } from "./clips-helpers"
-import {
-  selectClipForMutation,
-  updatedClipResponse,
-} from "./clips-upload-access"
+import { UpdateBody } from "./clips-helpers"
+import { loadMutableClip, updatedClipResponse } from "./clips-upload-access"
 import { resolveMentionIds } from "./clips-upload-helpers"
 import { clipsUploadImageRoutes } from "./clips-upload-image"
 import { clipsUploadLifecycleRoutes } from "./clips-upload-lifecycle"
 import { clipsUploadMediaRoutes } from "./clips-upload-media"
-import { tbValidator } from "./validation"
+import { IdParam, tbValidator } from "./validation"
 
 export const clipsUploadRoutes = new Hono()
   .route("/", clipsUploadLifecycleRoutes)
@@ -33,18 +30,11 @@ export const clipsUploadRoutes = new Hono()
     requireSession,
     tbValidator("param", IdParam),
     tbValidator("json", UpdateBody),
+    loadMutableClip({ allowAdmin: true }),
     async (c) => {
-      const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
       const body = c.req.valid("json")
-
-      const access = await selectClipForMutation(c, {
-        id,
-        viewerId,
-        allowAdmin: true,
-      })
-      if ("response" in access) return access.response
-      const row = access.row
+      const row = c.var.clip
 
       const patch: Partial<typeof clip.$inferInsert> = {
         updated_at: new Date(),
@@ -119,18 +109,13 @@ export const clipsUploadRoutes = new Hono()
       return updatedClipResponse(c, id)
     },
   )
-  .delete("/:id", requireSession, tbValidator("param", IdParam), async (c) => {
-    const viewerId = c.var.viewerId
-    const { id } = c.req.valid("param")
-
-    const access = await selectClipForMutation(c, {
-      id,
-      viewerId,
-      allowAdmin: true,
-    })
-    if ("response" in access) return access.response
-    const row = access.row
-
-    await deleteClipRowAndAssets(row)
-    return deleted(c)
-  })
+  .delete(
+    "/:id",
+    requireSession,
+    tbValidator("param", IdParam),
+    loadMutableClip({ allowAdmin: true }),
+    async (c) => {
+      await deleteClipRowAndAssets(c.var.clip)
+      return deleted(c)
+    },
+  )

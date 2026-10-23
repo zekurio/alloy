@@ -1,6 +1,6 @@
 import { t } from "@alloy/contracts/schema"
 import { clip } from "@alloy/db/schema"
-import { requireSession } from "@alloy/server/auth/require-session"
+import { requireSession } from "@alloy/server/auth/session"
 import { clipAssetVersion } from "@alloy/server/clips/asset-version"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
@@ -23,12 +23,8 @@ import { imageBodyLimit } from "@alloy/server/uploads/image-body-limit"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 
-import { IdParam } from "./clips-helpers"
-import {
-  selectClipForMutation,
-  updatedClipResponse,
-} from "./clips-upload-access"
-import { tbValidator } from "./validation"
+import { loadMutableClip, updatedClipResponse } from "./clips-upload-access"
+import { IdParam, tbValidator } from "./validation"
 
 const ImageEditForm = t.object({
   file: t.instanceof(File),
@@ -41,17 +37,12 @@ export const clipsUploadImageRoutes = new Hono().post(
   imageBodyLimit("screenshotMaxBytes"),
   tbValidator("param", IdParam),
   tbValidator("form", ImageEditForm),
+  loadMutableClip({ statuses: ["ready"] }),
   async (c) => {
     const limits = configStore.get("uploadLimits")
     const { id } = c.req.valid("param")
     const { file, sourceVersion } = c.req.valid("form")
-    const access = await selectClipForMutation(c, {
-      id,
-      viewerId: c.var.viewerId,
-      statuses: ["ready"],
-    })
-    if ("response" in access) return access.response
-    const row = access.row
+    const row = c.var.clip
     if (row.media_kind !== "image" || !row.source_key)
       return badRequest(c, "This operation requires a screenshot")
     if (

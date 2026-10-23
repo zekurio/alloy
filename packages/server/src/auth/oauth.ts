@@ -1,7 +1,5 @@
 import { t } from "@alloy/contracts/schema"
-import { authChallenge } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
-import { db } from "@alloy/server/db/index"
 import type { Context } from "hono"
 import {
   authorizationCodeGrant,
@@ -13,10 +11,11 @@ import {
 } from "openid-client"
 
 import { completeAuthenticatedSignIn } from "./account-sign-in"
-import { insertAuthChallengeAndWake } from "./challenge-expiry"
+import { insertAuthChallenge } from "./challenges"
 import { clearOAuthStateCookie, readOAuthStateCookie } from "./cookies"
 import { linkAccountToUser, resolveSignInUser } from "./oauth-accounts"
 import {
+  browserNonceMatches,
   consumeOAuthChallenge,
   OAUTH_PURPOSE,
   OAUTH_STATE_TTL_MS,
@@ -101,20 +100,14 @@ async function startOAuthFlow(input: {
     userId: input.userId,
   }
 
-  const [challenge] = await insertAuthChallengeAndWake(() =>
-    db
-      .insert(authChallenge)
-      .values({
-        user_id: input.mode === "link" ? (input.userId ?? null) : null,
-        purpose: OAUTH_PURPOSE,
-        identifier: state,
-        challenge: state,
-        payload,
-        expires_at: new Date(Date.now() + OAUTH_STATE_TTL_MS),
-      })
-      .returning({ id: authChallenge.id }),
-  )
-  if (!challenge) throw new Error("Could not start OAuth flow.")
+  await insertAuthChallenge({
+    purpose: OAUTH_PURPOSE,
+    identifier: state,
+    challenge: state,
+    payload,
+    userId: input.mode === "link" ? (input.userId ?? null) : null,
+    ttlMs: OAUTH_STATE_TTL_MS,
+  })
 
   return { browserNonce, url: url.toString() }
 }
@@ -123,10 +116,11 @@ export async function finishOAuthCallback(
   c: Context,
   providerId: string,
 ): Promise<{ redirectTo: string }> {
+  // Clear the single-use state cookie up front so no failure below leaves it,
+  // including a provider that was disabled while the flow was in progress.
+  const browserNonce = readOAuthStateCookie(c, providerId)
+  clearOAuthStateCookie(c, providerId)
   const provider = requireEnabledProvider(providerId)
-  // Clear the single-use state cookie up front so no failure below leaves it.
-  const browserNonce = readOAuthStateCookie(c, provider.providerId)
-  clearOAuthStateCookie(c, provider.providerId)
   const currentURL = new URL(c.req.url)
   const state = currentURL.searchParams.get("state")
   if (!state) throw new Error("Missing OAuth state.")
@@ -137,7 +131,7 @@ export async function finishOAuthCallback(
     if (payload.providerId !== provider.providerId) {
       throw new Error("OAuth provider changed during sign-in.")
     }
-    if (browserNonce !== payload.browserNonce) {
+    if (!browserNonceMatches(browserNonce, payload.browserNonce)) {
       throw new Error("OAuth sign-in did not start in this browser.")
     }
 

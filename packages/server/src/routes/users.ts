@@ -1,5 +1,9 @@
+import type {
+  UserProfile,
+  UserProfileViewer,
+  UserStorageUsage,
+} from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
-import { user } from "@alloy/db/auth-schema"
 import { block, clip } from "@alloy/db/schema"
 import { createZipStream } from "@alloy/server/archive/zip-stream"
 import { clearSessionCookies } from "@alloy/server/auth/cookies"
@@ -7,15 +11,15 @@ import {
   disableUserIdentity,
   reactivateSelfDisabledIdentity,
 } from "@alloy/server/auth/identity"
-import { requireSession } from "@alloy/server/auth/require-session"
 import {
   deleteAllSessionsForUser,
-  getSession,
+  getActiveUser,
   requireAnySession,
+  requireSession,
 } from "@alloy/server/auth/session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { db } from "@alloy/server/db/index"
-import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
+import { isoDate } from "@alloy/server/runtime/date"
 import {
   accountState,
   badRequest,
@@ -27,7 +31,7 @@ import { pipeReadable } from "@alloy/server/runtime/streaming"
 import { clipStorage } from "@alloy/server/storage/index"
 import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
 import { accountDeletionState } from "@alloy/server/users/account-deletion-state"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
 
@@ -40,6 +44,7 @@ import {
   UserMediaQuery,
 } from "./users-clip-listings"
 import {
+  loadUserTarget,
   resolveViewerState,
   SearchQuery,
   searchVisibleUsers,
@@ -47,11 +52,6 @@ import {
   toPublicUser,
   UsernameParam,
 } from "./users-helpers"
-import {
-  deleteViewerBlock,
-  resolveRelationshipTarget,
-  resolveUserTarget,
-} from "./users-relationship"
 import { limitQueryParam, tbValidator } from "./validation"
 
 const ClipBatchQuery = t.object({
@@ -63,46 +63,27 @@ export const usersRoute = new Hono()
     "/:username/media",
     tbValidator("param", UsernameParam),
     tbValidator("query", UserMediaQuery),
+    loadUserTarget,
     async (c) => {
-      const result = await resolveUserTarget(c, c.req.valid("param").username)
-      if ("response" in result) return result.response
       const options = c.req.valid("query")
       const list = options.tab === "tagged" ? listTaggedClips : listUserClips
-      return c.json(await list(result.target, c, options))
+      return c.json(await list(c.var.target, c, options))
     },
   )
   .get("/search", tbValidator("query", SearchQuery), async (c) => {
     const { q, limit } = c.req.valid("query")
-    const session = await getSession(c)
     const rows = await searchVisibleUsers({
       q,
       limit,
-      viewerId: session?.user.status === "active" ? session.user.id : null,
+      viewerId: (await getActiveUser(c))?.id ?? null,
     })
     return c.json(rows)
   })
-  .get("/me/account", requireSession, async (c) => {
-    const [row] = await db
-      .select({ disabledAt: user.disabled_at })
-      .from(user)
-      .where(eq(user.id, c.var.viewerId))
-      .limit(1)
-    return accountState(c, nullableIsoDate(row?.disabledAt ?? null))
-  })
   .get("/me/storage", requireSession, async (c) => {
-    const viewerId = c.var.viewerId
-    const [row, usedBytes] = await Promise.all([
-      db
-        .select({ quotaBytes: user.storage_quota_bytes })
-        .from(user)
-        .where(eq(user.id, viewerId))
-        .limit(1),
-      selectSourceStorageUsedBytes(db, viewerId),
-    ])
     return c.json({
-      usedBytes,
-      quotaBytes: row[0]?.quotaBytes ?? null,
-    })
+      usedBytes: await selectSourceStorageUsedBytes(db, c.var.viewerId),
+      quotaBytes: c.var.session.user.storage_quota_bytes,
+    } satisfies UserStorageUsage)
   })
   .post("/me/disable", requireSession, async (c) => {
     const viewerId = c.var.viewerId
@@ -176,91 +157,71 @@ export const usersRoute = new Hono()
       return batchProgress(c, "deleted", batch.length, rows.length > limit)
     },
   )
-  .get("/:username", tbValidator("param", UsernameParam), async (c) => {
-    const { username } = c.req.valid("param")
-    const result = await resolveUserTarget(c, username)
-    if ("response" in result) return result.response
-    const row = result.target
-    const counts = await selectProfileCounts(row.id, {
-      includeRestrictedClips: false,
-    })
+  .get(
+    "/:username",
+    tbValidator("param", UsernameParam),
+    loadUserTarget,
+    async (c) => {
+      const row = c.var.target
+      const counts = await selectProfileCounts(row.id, {
+        includeRestrictedClips: false,
+      })
 
-    return c.json({
-      user: toPublicUser(row),
-      counts,
-    })
-  })
-  .get("/:username/viewer", tbValidator("param", UsernameParam), async (c) => {
-    const { username } = c.req.valid("param")
-    const sessionPromise = getSession(c)
-    const result = await resolveUserTarget(c, username)
-    if ("response" in result) return result.response
-    const row = result.target
+      return c.json({
+        user: toPublicUser(row),
+        counts,
+      } satisfies UserProfile)
+    },
+  )
+  .get(
+    "/:username/viewer",
+    tbValidator("param", UsernameParam),
+    loadUserTarget,
+    async (c) => {
+      const row = c.var.target
+      const viewerUser = await getActiveUser(c)
+      if (!viewerUser) {
+        return c.json({
+          viewer: null,
+          counts: null,
+        } satisfies UserProfileViewer)
+      }
 
-    const session = await sessionPromise
-    if (!session || session.user.status !== "active") {
-      return c.json({ viewer: null, counts: null })
-    }
+      const viewerId = viewerUser.id
+      const isAdmin = viewerUser.role === "admin"
+      const isSelf = viewerId === row.id
+      const [viewer, counts] = await Promise.all([
+        resolveViewerState(viewerId, row.id),
+        isSelf || isAdmin
+          ? selectProfileCounts(row.id, { includeRestrictedClips: true })
+          : Promise.resolve(null),
+      ])
 
-    const viewerId = session.user.id
-    const isAdmin = session.user.role === "admin"
-    const isSelf = viewerId === row.id
-    const [viewer, counts] = await Promise.all([
-      resolveViewerState(viewerId, row.id),
-      isSelf || isAdmin
-        ? selectProfileCounts(row.id, { includeRestrictedClips: true })
-        : Promise.resolve(null),
-    ])
-
-    return c.json({
-      viewer,
-      counts,
-    })
-  })
-  .get("/:username/clips", tbValidator("param", UsernameParam), async (c) => {
-    const { username } = c.req.valid("param")
-    const result = await resolveUserTarget(c, username)
-    if ("response" in result) return result.response
-    const row = result.target
-
-    return c.json(await listUserClips(row, c))
-  })
+      return c.json({
+        viewer,
+        counts,
+      } satisfies UserProfileViewer)
+    },
+  )
   .get(
     "/:username/games",
     tbValidator("param", UsernameParam),
     tbValidator("query", UserGamesQuery),
-    async (c) => {
-      const { username } = c.req.valid("param")
-      const query = c.req.valid("query")
-      const result = await resolveUserTarget(c, username)
-      if ("response" in result) return result.response
-      const row = result.target
-
-      return c.json(await listUserGames(row, c, query))
-    },
+    loadUserTarget,
+    async (c) =>
+      c.json(await listUserGames(c.var.target, c, c.req.valid("query"))),
   )
-  .get("/:username/tagged", tbValidator("param", UsernameParam), async (c) => {
-    const { username } = c.req.valid("param")
-    const result = await resolveUserTarget(c, username)
-    if ("response" in result) return result.response
-    const row = result.target
-
-    return c.json(await listTaggedClips(row, c))
-  })
   .post(
     "/:username/block",
     requireSession,
     tbValidator("param", UsernameParam),
+    loadUserTarget,
     async (c) => {
-      const { username } = c.req.valid("param")
       const viewerId = c.var.viewerId
-      const result = await resolveRelationshipTarget(c, {
-        username,
-        viewerId,
-        selfError: "You can't block yourself.",
-      })
-      if ("response" in result) return result.response
-      const target = result.target
+      const target = c.var.target
+      if (viewerId === target.id) {
+        return badRequest(c, "You can't block yourself.")
+      }
 
       await db
         .insert(block)
@@ -278,8 +239,16 @@ export const usersRoute = new Hono()
     "/:username/block",
     requireSession,
     tbValidator("param", UsernameParam),
+    loadUserTarget,
     async (c) => {
-      const { username } = c.req.valid("param")
-      return deleteViewerBlock(c, username, c.var.viewerId)
+      await db
+        .delete(block)
+        .where(
+          and(
+            eq(block.blocker_id, c.var.viewerId),
+            eq(block.blocked_id, c.var.target.id),
+          ),
+        )
+      return booleanFlag(c, "blocked", false)
     },
   )

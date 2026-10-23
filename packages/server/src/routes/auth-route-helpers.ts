@@ -7,7 +7,7 @@ import { forbidden } from "@alloy/server/runtime/http-response"
 import type { Context } from "hono"
 import { createMiddleware } from "hono/factory"
 
-const MUTATING_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"])
+export const MUTATING_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"])
 const CSRF_EXEMPT_PATHS = ["/api/assets/upload/"]
 
 function isCsrfExemptPath(path: string): boolean {

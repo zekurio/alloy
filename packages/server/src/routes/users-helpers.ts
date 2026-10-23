@@ -5,6 +5,7 @@ import { block, clip } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { requiredSql } from "@alloy/server/db/sql"
 import { isoDate } from "@alloy/server/runtime/date"
+import { notFound } from "@alloy/server/runtime/http-response"
 import {
   and,
   eq,
@@ -16,6 +17,7 @@ import {
   type SQL,
   sql,
 } from "drizzle-orm"
+import { createMiddleware } from "hono/factory"
 
 import { publicClipPrivacyCondition } from "./clips-helpers"
 import { limitQueryParam, requiredTrimmedString } from "./validation"
@@ -126,7 +128,7 @@ export function toPublicUser(row: UserRow): PublicUser {
   }
 }
 
-export async function resolveTarget(segment: string): Promise<UserRow | null> {
+async function resolveTarget(segment: string): Promise<UserRow | null> {
   const [row] = await db
     .select()
     .from(user)
@@ -139,6 +141,16 @@ export async function resolveTarget(segment: string): Promise<UserRow | null> {
     .limit(1)
   return row ?? null
 }
+
+/** Loads the account named by `:username` unless it is disabled, or 404s. */
+export const loadUserTarget = createMiddleware<{
+  Variables: { target: UserRow }
+}>(async (c, next) => {
+  const target = await resolveTarget(c.req.param("username") ?? "")
+  if (!target) return notFound(c)
+  c.set("target", target)
+  await next()
+})
 
 export async function resolveViewerState(
   viewerId: string | null,

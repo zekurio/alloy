@@ -32,8 +32,6 @@ import {
   requiredTrimmedString,
 } from "./validation"
 
-export const IdParam = t.object({ id: t.uuid() })
-
 type ClipListSort = "top" | "recent"
 
 type ClipListCursorPayload = {

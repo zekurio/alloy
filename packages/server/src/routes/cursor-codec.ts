@@ -7,7 +7,6 @@ import {
 const CursorPayloadSchema = t.record(t.string(), t.unknown())
 const CursorStringSchema = t.string()
 const CursorNumberSchema = t.number()
-const CursorBooleanSchema = t.boolean()
 
 type CursorPayload = t.infer<typeof CursorPayloadSchema>
 type CursorValue = CursorPayload[string]
@@ -40,11 +39,6 @@ export function cursorDate(value: CursorValue): Date | null {
 export function cursorRequiredString(value: CursorValue): string | null {
   const parsed = CursorStringSchema.safeParse(value)
   return parsed.success && parsed.data.trim() ? parsed.data : null
-}
-
-export function cursorBoolean(value: CursorValue): boolean | null {
-  const parsed = CursorBooleanSchema.safeParse(value)
-  return parsed.success ? parsed.data : null
 }
 
 // Postgres timestamp (without time zone) ::text output, e.g.

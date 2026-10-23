@@ -8,7 +8,7 @@ import {
 import { db } from "@alloy/server/db/index"
 import { forbidden, unauthorized } from "@alloy/server/runtime/http-response"
 import { requestIp } from "@alloy/server/runtime/request-ip"
-import { and, eq, gt } from "drizzle-orm"
+import { and, desc, eq, gt, ne, sql } from "drizzle-orm"
 import type { Context } from "hono"
 import { createMiddleware } from "hono/factory"
 
@@ -158,6 +158,12 @@ export async function getSession(c: Context): Promise<SessionData | null> {
   return session
 }
 
+/** The signed-in user, or null when signed out or the account is not active. */
+export async function getActiveUser(c: Context): Promise<User | null> {
+  const session = await getSession(c)
+  return session?.user.status === "active" ? session.user : null
+}
+
 /**
  * Whether a session is still signed in to an active account. Long-lived
  * requests such as event streams authenticate once, then call this to notice
@@ -189,6 +195,54 @@ export async function deleteCurrentSession(c: Context): Promise<void> {
 
 export async function deleteAllSessionsForUser(userId: string): Promise<void> {
   await db.delete(authSession).where(eq(authSession.user_id, userId))
+}
+
+/** A user's live sessions, the current one first, then most recently used. */
+export function listUserSessions(
+  userId: string,
+  currentId: string,
+): Promise<AuthSession[]> {
+  return db
+    .select()
+    .from(authSession)
+    .where(
+      and(
+        eq(authSession.user_id, userId),
+        gt(authSession.expires_at, new Date()),
+      ),
+    )
+    .orderBy(
+      desc(eq(authSession.id, currentId)),
+      desc(
+        sql`coalesce(${authSession.last_seen_at}, ${authSession.created_at})`,
+      ),
+      desc(authSession.created_at),
+    )
+}
+
+/** Delete every other session of the user and count the live ones. */
+export async function deleteOtherSessions(
+  userId: string,
+  keepId: string,
+): Promise<number> {
+  const now = new Date()
+  // Expired rows go too, but only live sessions count as revoked.
+  const deleted = await db
+    .delete(authSession)
+    .where(and(eq(authSession.user_id, userId), ne(authSession.id, keepId)))
+    .returning({ expiresAt: authSession.expires_at })
+  return deleted.filter((row) => row.expiresAt > now).length
+}
+
+export async function deleteUserSession(
+  userId: string,
+  sessionId: string,
+): Promise<boolean> {
+  const [deleted] = await db
+    .delete(authSession)
+    .where(and(eq(authSession.id, sessionId), eq(authSession.user_id, userId)))
+    .returning({ id: authSession.id })
+  return deleted !== undefined
 }
 
 export const requireAnySession = createMiddleware<{

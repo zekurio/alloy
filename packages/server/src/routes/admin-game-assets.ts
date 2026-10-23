@@ -18,16 +18,12 @@ import { withStorageObjectWriteActivity } from "@alloy/server/storage/write-acti
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 import sharp from "sharp"
 
+import { imageFileError } from "./image-upload"
 import { immutableImageAssetsRoute } from "./immutable-image-assets"
 
 const logger = createLogger("admin-games")
 
 const GAME_ASSET_CONTENT_TYPE = "image/webp"
-const EXT_FOR_CONTENT_TYPE = {
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-} satisfies Record<string, string>
 
 // Standardized output sizes. Hero/grid are cropped to a fixed frame; logo and
 // icon keep their aspect ratio and transparency (no flatten).
@@ -64,20 +60,11 @@ export async function prepareGameAsset(
   role: GameAssetRole,
   file: File,
 ): Promise<PreparedGameAsset> {
-  const maxBytes = configStore.get("uploadLimits").gameAssetMaxBytes
-  if (file.size === 0) {
-    return { ok: false, status: 400, error: "Empty image data" }
-  }
-  if (file.size > maxBytes) {
-    return {
-      ok: false,
-      status: 413,
-      error: `Image too large. Max ${maxBytes / 1024 / 1024} MB`,
-    }
-  }
-  if (!Object.hasOwn(EXT_FOR_CONTENT_TYPE, file.type)) {
-    return { ok: false, status: 400, error: "Unsupported image type" }
-  }
+  const invalid = imageFileError(file, {
+    label: "Image",
+    maxBytes: configStore.get("uploadLimits").gameAssetMaxBytes,
+  })
+  if (invalid) return invalid
 
   const buf = Buffer.from(await file.arrayBuffer())
   const validation = validateImageBytes(buf, file.type)

@@ -2,13 +2,14 @@ import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
+import { clearedStageColumns } from "@alloy/server/queue/clip-media-store-columns"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import {
   selectLockedQuotaState,
   uploadWouldExceedQuota,
 } from "@alloy/server/storage/quota"
 import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
-import { and, eq, inArray, sql } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import type { Context } from "hono"
 
 export type UploadQuotaResult =
@@ -69,21 +70,6 @@ export async function resolveMentionIds(
   return rows.map((row) => row.id)
 }
 
-export async function resolveMentionUsernames(
-  usernames: ReadonlyArray<string>,
-  actorId: string,
-): Promise<string[]> {
-  const deduped = [
-    ...new Set(usernames.map((username) => username.toLowerCase())),
-  ]
-  if (deduped.length === 0) return []
-  const rows = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(inArray(sql`lower(${user.username})`, deduped))
-  return rows.flatMap((row) => (row.id === actorId ? [] : [row.id]))
-}
-
 export async function markUploadFailed(
   authorId: string,
   clipId: string,
@@ -104,10 +90,7 @@ export async function markUploadFailed(
         encode_run_id: null,
         encode_locked_at: null,
         encode_attempt: 0,
-        encode_stage: null,
-        encode_tier: null,
-        encode_tier_index: null,
-        encode_tier_count: null,
+        ...clearedStageColumns,
         encode_progress: 0,
         encode_failed_fingerprint: null,
         encode_failed_generation: null,

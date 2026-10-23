@@ -45,7 +45,7 @@ import { authPasskeyRoutes } from "./auth-passkey-routes"
 import {
   authenticatedSignInResponse,
   authError,
-  csrf,
+  MUTATING_METHODS,
 } from "./auth-route-helpers"
 import { authSessionRoutes } from "./auth-session-routes"
 import { tbValidator } from "./validation"
@@ -68,7 +68,6 @@ const STRICT_AUTH_RATE_LIMIT_PATHS = new Set([
   "/oauth/sign-in",
   "/oauth/link",
 ])
-const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"])
 const ACCOUNT_BANNED_CODE = AUTH_ERROR_CODES.accountBanned
 
 function authSubpath(c: Context): string {
@@ -93,7 +92,6 @@ const standardAuthRateLimit = rateLimiter({
 })
 
 export const authRoute = new Hono()
-  .use("*", csrf)
   .use("*", standardAuthRateLimit)
   .use("/passkey/sign-up/options", strictAuthRateLimit)
   .use("/passkey/sign-in/options", strictAuthRateLimit)

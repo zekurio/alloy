@@ -1,14 +1,8 @@
 import { USER_ROLES, USER_STATUSES } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
-import { user } from "@alloy/db/auth-schema"
 import {
-  activeAccountState,
-  disabledAccountState,
-} from "@alloy/server/auth/account-state"
-import {
-  assertCanRemoveAdminInTransaction,
   createUserIdentity,
-  withAdminAccessInvariant,
+  updateUserIdentityAsAdmin,
 } from "@alloy/server/auth/identity"
 import { deleteAllSessionsForUser } from "@alloy/server/auth/session"
 import {
@@ -19,7 +13,6 @@ import {
 } from "@alloy/server/runtime/http-response"
 import { deleteUserAccount } from "@alloy/server/users/account-deletion"
 import { accountDeletionState } from "@alloy/server/users/account-deletion-state"
-import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 
 import {
@@ -31,11 +24,7 @@ import {
   decodeCursorPayload,
   encodeCursorPayload,
 } from "./cursor-codec"
-import { requiredTrimmedString, tbValidator } from "./validation"
-
-const UserIdParam = t.object({
-  id: t.string().uuid(),
-})
+import { IdParam, requiredTrimmedString, tbValidator } from "./validation"
 
 const UsersQuery = t.object({
   cursor: t.string().optional(),
@@ -70,56 +59,7 @@ const UserPatch = t
   )
 
 async function updateAdminUser(id: string, patch: t.infer<typeof UserPatch>) {
-  const disabling = patch.status === "disabled"
-  const mutate = () =>
-    withAdminAccessInvariant(async (tx) => {
-      const [current] = await tx
-        .select({
-          role: user.role,
-          status: user.status,
-          disabledAt: user.disabled_at,
-          adminSuspendedAt: user.admin_suspended_at,
-        })
-        .from(user)
-        .where(eq(user.id, id))
-        .limit(1)
-        .for("update")
-      if (!current) return null
-
-      const nextRole = patch.role ?? current.role
-      const nextStatus = patch.status ?? current.status
-      const losesAdminAccess =
-        current.role === "admin" &&
-        current.status === "active" &&
-        (nextRole !== "admin" || nextStatus !== "active")
-      if (losesAdminAccess) {
-        await assertCanRemoveAdminInTransaction(tx, id)
-      }
-
-      const now = new Date()
-      const update: Partial<typeof user.$inferInsert> = { updated_at: now }
-      if (patch.role !== undefined) update.role = patch.role
-      if (patch.status !== undefined) {
-        const accountState =
-          patch.status === "disabled"
-            ? disabledAccountState(current, "administrator", now)
-            : activeAccountState()
-        update.status = accountState.status
-        update.disabled_at = accountState.disabledAt
-        update.admin_suspended_at = accountState.adminSuspendedAt
-      }
-      if (patch.storageQuotaBytes !== undefined) {
-        update.storage_quota_bytes = patch.storageQuotaBytes
-      }
-
-      const [updated] = await tx
-        .update(user)
-        .set(update)
-        .where(eq(user.id, id))
-        .returning({ id: user.id })
-      return updated ?? null
-    })
-
+  const mutate = () => updateUserIdentityAsAdmin(id, patch)
   const updated =
     patch.status === "active"
       ? await accountDeletionState.withInactive(id, mutate)
@@ -128,7 +68,7 @@ async function updateAdminUser(id: string, patch: t.infer<typeof UserPatch>) {
   if (!updated.value) return null
 
   // A disabled account must not keep live sessions.
-  if (disabling) await deleteAllSessionsForUser(id)
+  if (patch.status === "disabled") await deleteAllSessionsForUser(id)
 
   const [row] = await selectAdminUserStorageRows([id])
   return row ?? null
@@ -177,7 +117,7 @@ export const adminUsersRoute = new Hono()
       return badRequestFromCause(c, cause, "Couldn't create user.")
     }
   })
-  .delete("/users/:id", tbValidator("param", UserIdParam), async (c) => {
+  .delete("/users/:id", tbValidator("param", IdParam), async (c) => {
     try {
       const { id } = c.req.valid("param")
       const deleted = await deleteUserAccount(id, "administrator")
@@ -189,7 +129,7 @@ export const adminUsersRoute = new Hono()
   })
   .patch(
     "/users/:id",
-    tbValidator("param", UserIdParam),
+    tbValidator("param", IdParam),
     tbValidator("json", UserPatch),
     async (c) => {
       try {

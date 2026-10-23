@@ -1,7 +1,7 @@
 import { normalizeTags } from "@alloy/contracts"
 import { clip, clipMention, clipTag } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
-import { requireSession } from "@alloy/server/auth/require-session"
+import { requireSession } from "@alloy/server/auth/session"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { resolveTrimRange } from "@alloy/server/clips/trim-range"
 import { configStore } from "@alloy/server/config/store"
@@ -70,10 +70,10 @@ async function cleanupFailedInitiate(
 }
 
 async function resolveInitiateDetails(
-  c: Context,
   body: InitiateBodyInput,
   viewerId: string,
-): Promise<InitiateDetails | { response: Response }> {
+  gameRef: InitiateDetails["gameRef"],
+): Promise<InitiateDetails> {
   const trim =
     body.trimStartMs !== undefined &&
     body.trimEndMs !== undefined &&
@@ -84,13 +84,6 @@ async function resolveInitiateDetails(
           durationMs: body.durationMs,
         })
       : null
-  const gameRef =
-    body.gameId === undefined || body.gameId === null
-      ? null
-      : await getGameRefById(body.gameId)
-  if (body.gameId !== undefined && body.gameId !== null && !gameRef) {
-    return { response: badRequest(c, "Unknown game") }
-  }
   return {
     privacy: body.privacy ?? "public",
     trim,
@@ -252,8 +245,10 @@ async function initiateClipUpload(
   uploadKey: string,
 ) {
   return withUploadActivityStopped(clipId, async () => {
-    const details = await resolveInitiateDetails(c, body, viewerId)
-    if ("response" in details) return details.response
+    const gameId = body.gameId ?? null
+    const gameRef = gameId === null ? null : await getGameRefById(gameId)
+    if (gameId !== null && !gameRef) return badRequest(c, "Unknown game")
+    const details = await resolveInitiateDetails(body, viewerId, gameRef)
     const videoUpload = await mintInitiateUpload({
       clipId,
       uploadKey,

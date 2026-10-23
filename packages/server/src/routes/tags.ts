@@ -1,4 +1,4 @@
-import { sanitizeTag } from "@alloy/contracts"
+import { sanitizeTag, type TagGamesResponse } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipTag, game } from "@alloy/db/schema"
@@ -125,5 +125,5 @@ export const tagsRoute = new Hono()
         ...serialiseGameRow(row),
         clipCount: row.clipCount,
       })),
-    })
+    } satisfies TagGamesResponse)
   })

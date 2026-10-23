@@ -9,8 +9,7 @@ import { noContent } from "@alloy/server/runtime/http-response"
 import { eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
-import { IdParam } from "./clips-helpers"
-import { tbValidator } from "./validation"
+import { IdParam, tbValidator } from "./validation"
 
 export const clipsViewRoutes = new Hono().post(
   "/:id/view",

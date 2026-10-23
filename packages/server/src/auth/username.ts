@@ -14,6 +14,9 @@ const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
 // embeds, chips and the Mastodon status document.
 const DISPLAY_NAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}]/u
 const USERNAME_DOT_SEGMENTS = new Set([".", ".."])
+// Fixed segments under `/api/users`. `GET /search` shadows the profile of a
+// user named "search" (lookups ignore case), and `me` is the self alias.
+const RESERVED_USERNAMES = new Set(["me", "search"])
 const MAX_LEN = USERNAME_MAX_LENGTH
 const MIN_LEN = USERNAME_MIN_LENGTH
 const MAX_SUFFIX = 100
@@ -30,6 +33,9 @@ export function normalizeUsername(input: string): string {
   }
   if (USERNAME_DOT_SEGMENTS.has(username)) {
     throw new Error("Username cannot be a path dot-segment.")
+  }
+  if (RESERVED_USERNAMES.has(username.toLowerCase())) {
+    throw new Error("That username is reserved.")
   }
   return username
 }
@@ -108,6 +114,7 @@ export async function generateUniqueUsername(hints: {
 }
 
 async function isUsernameAvailable(candidate: string): Promise<boolean> {
+  if (RESERVED_USERNAMES.has(candidate.toLowerCase())) return false
   const rows = await db
     .select({ id: user.id })
     .from(user)

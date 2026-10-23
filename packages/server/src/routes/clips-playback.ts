@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto"
-
 import type { ClipPrivacy } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { createLogger } from "@alloy/logging"
@@ -18,13 +16,13 @@ import { Hono } from "hono"
 import type { Context } from "hono"
 import { stream } from "hono/streaming"
 
-import { contentDisposition, downloadFilename, IdParam } from "./clips-helpers"
+import { contentDisposition, downloadFilename } from "./clips-helpers"
 import {
   mediaCacheControl,
   streamResolved,
   streamThumbnail,
 } from "./clips-playback-streams"
-import { tbValidator } from "./validation"
+import { IdParam, tbValidator } from "./validation"
 
 const logger = createLogger("clips")
 
@@ -34,8 +32,7 @@ const RenditionParam = t.object({
 })
 
 function thumbnailEtag(key: string): string {
-  const hash = createHash("sha256").update(key).digest("hex").slice(0, 32)
-  return `"thumb1-${hash}"`
+  return `"thumb1-${clipAssetVersion(key)}"`
 }
 
 /**

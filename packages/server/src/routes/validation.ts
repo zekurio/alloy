@@ -51,6 +51,9 @@ export function tbValidator<
   }) as MiddlewareHandler<AppEnv, Path, Value>
 }
 
+// Route params named `id` are uuids everywhere.
+export const IdParam = t.object({ id: t.uuid() })
+
 export function limitQueryParam(max: number, defaultValue: number) {
   return t.coerce.number().int().min(1).max(max).$default(defaultValue)
 }
@@ -66,7 +69,7 @@ export function requiredTrimmedString(max?: number) {
 
 export function optionalNullableTrimmedString(max?: number) {
   const schema = t.string().trim()
-  return (max === undefined ? schema : schema.max(max)).optional().nullable()
+  return (max === undefined ? schema : schema.max(max)).nullable().optional()
 }
 
 export function optionalBlankToNullTrimmedString(max: number) {
@@ -85,8 +88,8 @@ export function optionalNullableBlankToNullTrimmedString(max: number) {
     .string()
     .trim()
     .max(max)
-    .optional()
     .nullable()
+    .optional()
     .transform((value) =>
       value === undefined
         ? undefined
