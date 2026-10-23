@@ -1,4 +1,4 @@
-import { MEDIA_FILTERS, type ProfileMediaParams } from "@alloy/contracts"
+import { MEDIA_FILTERS } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipMention, game } from "@alloy/db/schema"
@@ -31,15 +31,16 @@ export const UserMediaQuery = t.object({
   offset: offsetQueryParam(),
 })
 
-function mediaFilters(options?: ProfileMediaParams) {
+type UserMediaOptions = t.infer<typeof UserMediaQuery>
+
+function mediaFilters(options: UserMediaOptions) {
   return [
-    mediaKindCondition(options?.media ?? "video"),
-    options?.game ? eq(game.slug, options.game) : undefined,
+    mediaKindCondition(options.media),
+    options.game ? eq(game.slug, options.game) : undefined,
   ]
 }
 
-function mediaOrder(options: ProfileMediaParams | undefined, fallback: SQL) {
-  if (!options) return [fallback]
+function mediaOrder(options: UserMediaOptions) {
   const date =
     options.sort === "oldest" ? asc(clipListingTime) : desc(clipListingTime)
   return [
@@ -52,7 +53,7 @@ function mediaOrder(options: ProfileMediaParams | undefined, fallback: SQL) {
 export async function listUserClips(
   row: UserRow,
   c: Context,
-  options?: ProfileMediaParams,
+  options: UserMediaOptions,
 ) {
   const conditions = await visibleClipConditions(row, c, {
     includeOwnerUploads: true,
@@ -64,9 +65,9 @@ export async function listUserClips(
     .innerJoin(user, eq(clip.author_id, user.id))
     .leftJoin(game, eq(clip.game_id, game.id))
     .where(and(...conditions, ...mediaFilters(options)))
-    .orderBy(...mediaOrder(options, desc(clipListingTime)))
-    .limit(options?.limit ?? 50)
-    .offset(options?.offset ?? 0)
+    .orderBy(...mediaOrder(options))
+    .limit(options.limit)
+    .offset(options.offset)
   return rows.map(toPublicClipRow)
 }
 
@@ -128,7 +129,7 @@ async function visibleClipConditions(
 export async function listTaggedClips(
   row: UserRow,
   c: Context,
-  options?: ProfileMediaParams,
+  options: UserMediaOptions,
 ) {
   const isAdmin = (await getActiveUser(c))?.role === "admin"
 
@@ -148,8 +149,8 @@ export async function listTaggedClips(
     .innerJoin(user, eq(clip.author_id, user.id))
     .leftJoin(game, eq(clip.game_id, game.id))
     .where(and(...conditions, ...mediaFilters(options)))
-    .orderBy(...mediaOrder(options, desc(clipListingTime)))
-    .limit(options?.limit ?? 50)
-    .offset(options?.offset ?? 0)
+    .orderBy(...mediaOrder(options))
+    .limit(options.limit)
+    .offset(options.offset)
   return rows.map(toPublicClipRow)
 }

@@ -4,7 +4,6 @@ import type {
   UserStorageUsage,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
-import { user } from "@alloy/db/auth-schema"
 import { block, clip } from "@alloy/db/schema"
 import { createZipStream } from "@alloy/server/archive/zip-stream"
 import { clearSessionCookies } from "@alloy/server/auth/cookies"
@@ -20,7 +19,7 @@ import {
 } from "@alloy/server/auth/session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { db } from "@alloy/server/db/index"
-import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
+import { isoDate } from "@alloy/server/runtime/date"
 import {
   accountState,
   badRequest,
@@ -79,14 +78,6 @@ export const usersRoute = new Hono()
       viewerId: (await getActiveUser(c))?.id ?? null,
     })
     return c.json(rows)
-  })
-  .get("/me/account", requireSession, async (c) => {
-    const [row] = await db
-      .select({ disabledAt: user.disabled_at })
-      .from(user)
-      .where(eq(user.id, c.var.viewerId))
-      .limit(1)
-    return accountState(c, nullableIsoDate(row?.disabledAt ?? null))
   })
   .get("/me/storage", requireSession, async (c) => {
     return c.json({
@@ -213,24 +204,12 @@ export const usersRoute = new Hono()
     },
   )
   .get(
-    "/:username/clips",
-    tbValidator("param", UsernameParam),
-    loadUserTarget,
-    async (c) => c.json(await listUserClips(c.var.target, c)),
-  )
-  .get(
     "/:username/games",
     tbValidator("param", UsernameParam),
     tbValidator("query", UserGamesQuery),
     loadUserTarget,
     async (c) =>
       c.json(await listUserGames(c.var.target, c, c.req.valid("query"))),
-  )
-  .get(
-    "/:username/tagged",
-    tbValidator("param", UsernameParam),
-    loadUserTarget,
-    async (c) => c.json(await listTaggedClips(c.var.target, c)),
   )
   .post(
     "/:username/block",
