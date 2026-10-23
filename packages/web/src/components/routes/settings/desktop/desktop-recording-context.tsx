@@ -1,6 +1,5 @@
 import type {
   RecordingDisplay,
-  RecordingEvent,
   RecordingGameProcess,
   RecordingNotificationSoundEvent,
   RecordingNotificationSoundLibrary,
@@ -15,16 +14,15 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react"
-import type { Dispatch, ReactNode, SetStateAction } from "react"
+import type { ReactNode } from "react"
 
-import { alloyDesktop } from "./desktop-native"
-
-type Phase = "loading" | "idle"
+import { useRecordingSync } from "@/components/layout/use-desktop-recording-state"
+import { alloyDesktop } from "@/lib/desktop"
+import { errorMessage } from "@/lib/error-message"
+import { useDesktopQuery } from "@/lib/use-desktop-query"
 
 /**
  * Operations that report failures. Each keeps its own slot so one failing
@@ -45,14 +43,11 @@ interface DesktopRecordingContextValue {
   settings: RecordingSettings | null
   status: RecordingStatus | null
   storageInfo: RecordingStorageInfo | null
-  phase: Phase
   busy: boolean
   /** Failure to load settings at all; panels can't render without them. */
   error: string | null
   /** Latest failure of each operation, cleared when it next runs. */
   errors: Partial<Record<RecordingErrorScope, string>>
-  /** Local-only update, e.g. live slider dragging before committing. */
-  setSettings: Dispatch<SetStateAction<RecordingSettings | null>>
   /** Persist the given settings to the desktop shell. */
   save: (next: RecordingSettings) => Promise<void>
   /** Restart the capture sidecar process and refresh status. */
@@ -75,7 +70,7 @@ interface DesktopRecordingContextValue {
   listDisplays: () => Promise<RecordingDisplay[]>
 }
 
-const EMPTY_SOUND_LIBRARY: RecordingNotificationSoundLibrary = {
+export const EMPTY_SOUND_LIBRARY: RecordingNotificationSoundLibrary = {
   replayBufferStarted: [],
   clipSaved: [],
 }
@@ -94,19 +89,31 @@ export function DesktopRecordingProvider({
   children: ReactNode
 }) {
   const recording = alloyDesktop()?.recording ?? null
-  const [settings, setSettings] = useState<RecordingSettings | null>(null)
-  const [status, setStatus] = useState<RecordingStatus | null>(null)
-  const [storageInfo, setStorageInfo] = useState<RecordingStorageInfo | null>(
-    null,
-  )
-  const [phase, setPhase] = useState<Phase>("loading")
-  const [error, setError] = useState<string | null>(null)
+  const {
+    settings,
+    status,
+    setStatus,
+    loading,
+    loadError,
+    confirmSettings,
+    save: saveSettings,
+  } = useRecordingSync(recording)
+  const {
+    data: storageInfo,
+    setData: setStorageInfo,
+    loading: storageLoading,
+    error: storageError,
+  } = useDesktopQuery(recording ? () => recording.getStorageInfo() : null, [
+    recording,
+  ])
+  const [restarting, setRestarting] = useState(false)
   const [errors, setErrors] = useState<
     Partial<Record<RecordingErrorScope, string>>
   >({})
-  const saveSequence = useRef(0)
-  // Last settings the host confirmed, for rolling back a rejected save.
-  const confirmedSettings = useRef<RecordingSettings | null>(null)
+  const failedLoad = loadError ?? storageError
+  const error = failedLoad
+    ? errorMessage(failedLoad, t("Couldn't load recording settings."))
+    : null
 
   const setScopeError = useCallback(
     (scope: RecordingErrorScope, message: string | null) => {
@@ -121,99 +128,19 @@ export function DesktopRecordingProvider({
     [],
   )
 
-  useEffect(() => {
-    let cancelled = false
-    let unsubscribe: (() => void) | undefined
-    let receivedSettingsEvent = false
-    let receivedStatusEvent = false
-
-    async function load() {
-      if (!recording) {
-        setSettings(null)
-        setStatus(null)
-        setStorageInfo(null)
-        setPhase("idle")
-        return
-      }
-      setPhase("loading")
-      setError(null)
-      try {
-        unsubscribe = recording.onEvent((event: RecordingEvent) => {
-          if (cancelled) return
-          if (event.type === "settings") {
-            receivedSettingsEvent = true
-            confirmedSettings.current = event.settings
-            setSettings(event.settings)
-          }
-          if ("status" in event) {
-            receivedStatusEvent = true
-            setStatus(event.status)
-          }
-        })
-        const [nextSettings, nextStatus, nextStorage] = await Promise.all([
-          recording.getSettings(),
-          recording.getStatus(),
-          recording.getStorageInfo(),
-        ])
-        if (cancelled) return
-        if (!receivedSettingsEvent) {
-          confirmedSettings.current = nextSettings
-          setSettings(nextSettings)
-        }
-        if (!receivedStatusEvent) setStatus(nextStatus)
-        setStorageInfo(nextStorage)
-        setPhase("idle")
-      } catch (cause) {
-        if (!cancelled) {
-          setError(errorText(cause, t("Couldn't load recording settings.")))
-          setPhase("idle")
-        }
-      }
-    }
-
-    void load()
-
-    return () => {
-      cancelled = true
-      unsubscribe?.()
-      confirmedSettings.current = null
-      setSettings(null)
-      setStatus(null)
-      setStorageInfo(null)
-    }
-  }, [recording])
-
   const save = useCallback(
     async (next: RecordingSettings) => {
-      if (!recording) return
       setScopeError("save", null)
-      const sequence = ++saveSequence.current
-      setSettings(next)
       try {
-        const saved = await recording.setSettings(next)
-        confirmedSettings.current = saved
-        if (sequence !== saveSequence.current) return
-        setSettings(saved)
+        await saveSettings(next)
       } catch (cause) {
-        if (sequence !== saveSequence.current) return
         setScopeError(
           "save",
-          errorText(cause, t("Couldn't save recording settings.")),
+          errorMessage(cause, t("Couldn't save recording settings.")),
         )
-        // Roll back so the rejected value neither stays on screen nor gets
-        // written back by the next change, which spreads `settings`. Prefer
-        // what the host holds now; fall back to the last confirmed value.
-        let restored = confirmedSettings.current
-        try {
-          restored = await recording.getSettings()
-          confirmedSettings.current = restored
-        } catch {
-          // Keep the last confirmed settings.
-        }
-        if (sequence === saveSequence.current) setSettings(restored)
       }
     },
-    [recording, setScopeError],
+    [saveSettings, setScopeError],
   )
 
   const chooseOutputFolder = useCallback(async () => {
@@ -226,36 +153,34 @@ export function DesktopRecordingProvider({
       // return it, so save it through the settings path, which moves the
       // library and recorder onto it.
       const current = await recording.getSettings()
-      if (current.outputFolder === folder) {
-        confirmedSettings.current = current
-        setSettings(current)
-      } else await save({ ...current, outputFolder: folder })
+      if (current.outputFolder === folder) confirmSettings(current)
+      else await save({ ...current, outputFolder: folder })
       setStorageInfo(await recording.getStorageInfo())
     } catch (cause) {
       setScopeError(
         "folder",
-        errorText(cause, t("Couldn't change the capture folder.")),
+        errorMessage(cause, t("Couldn't change the capture folder.")),
       )
     }
-  }, [recording, save, setScopeError])
+  }, [recording, save, confirmSettings, setStorageInfo, setScopeError])
 
   const restartBackend = useCallback(async () => {
     if (!recording) return
     setScopeError("restart", null)
-    setPhase("loading")
+    setRestarting(true)
     try {
       const nextStatus = await recording.restartBackend()
       setStatus(nextStatus)
     } catch (cause) {
       setScopeError(
         "restart",
-        errorText(cause, t("Couldn't restart Alloy agent.")),
+        errorMessage(cause, t("Couldn't restart Alloy agent.")),
       )
       throw cause
     } finally {
-      setPhase("idle")
+      setRestarting(false)
     }
-  }, [recording, setScopeError])
+  }, [recording, setStatus, setScopeError])
 
   const listNotificationSounds = useCallback(async () => {
     if (!recording) return EMPTY_SOUND_LIBRARY
@@ -265,7 +190,7 @@ export function DesktopRecordingProvider({
     } catch (cause) {
       setScopeError(
         "sounds",
-        errorText(cause, t("Couldn't load notification sounds.")),
+        errorMessage(cause, t("Couldn't load notification sounds.")),
       )
       return EMPTY_SOUND_LIBRARY
     }
@@ -280,7 +205,7 @@ export function DesktopRecordingProvider({
       } catch (cause) {
         setScopeError(
           "sounds",
-          errorText(cause, t("Couldn't open the sounds folder.")),
+          errorMessage(cause, t("Couldn't open the sounds folder.")),
         )
       }
     },
@@ -294,7 +219,10 @@ export function DesktopRecordingProvider({
       try {
         await recording.previewNotificationSound(sound)
       } catch (cause) {
-        setScopeError("sounds", errorText(cause, t("Couldn't play the sound.")))
+        setScopeError(
+          "sounds",
+          errorMessage(cause, t("Couldn't play the sound.")),
+        )
       }
     },
     [recording, setScopeError],
@@ -308,7 +236,7 @@ export function DesktopRecordingProvider({
     } catch (cause) {
       setScopeError(
         "games",
-        errorText(cause, t("Couldn't load running processes.")),
+        errorMessage(cause, t("Couldn't load running processes.")),
       )
       return []
     }
@@ -320,21 +248,23 @@ export function DesktopRecordingProvider({
     try {
       return await recording.listDisplays()
     } catch (cause) {
-      setScopeError("displays", errorText(cause, t("Couldn't load displays.")))
+      setScopeError(
+        "displays",
+        errorMessage(cause, t("Couldn't load displays.")),
+      )
       return []
     }
   }, [recording, setScopeError])
 
+  const busy = loading || storageLoading || restarting
   const value = useMemo<DesktopRecordingContextValue>(
     () => ({
       settings,
       status,
-      storageInfo,
-      phase,
-      busy: phase !== "idle",
+      storageInfo: storageInfo ?? null,
+      busy,
       error,
       errors,
-      setSettings,
       save,
       restartBackend,
       chooseOutputFolder,
@@ -348,7 +278,7 @@ export function DesktopRecordingProvider({
       settings,
       status,
       storageInfo,
-      phase,
+      busy,
       error,
       errors,
       save,
@@ -405,8 +335,4 @@ export function DesktopRecordingNotice({
       <span>{message}</span>
     </Callout>
   )
-}
-
-function errorText(cause: unknown, fallback: string): string {
-  return cause instanceof Error ? cause.message : fallback
 }

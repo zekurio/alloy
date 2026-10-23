@@ -68,7 +68,3 @@ export function statusIndicator(
   if (settings.captureMode === "game" && !status.activeGame) return "draining"
   return "active"
 }
-
-export function errorText(cause: unknown, fallback: string): string {
-  return cause instanceof Error ? cause.message : fallback
-}

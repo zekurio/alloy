@@ -6,9 +6,9 @@ import { Spinner } from "@alloy/ui/components/spinner"
 import { DownloadIcon, RefreshCcwIcon, SearchIcon } from "lucide-react"
 import { useState } from "react"
 
+import { alloyDesktop } from "@/lib/desktop"
 import { useDesktopUpdateState } from "@/lib/desktop-updates"
-
-import { alloyDesktop } from "./desktop-native"
+import { errorMessage } from "@/lib/error-message"
 
 type Phase = "idle" | "checking" | "downloading" | "installing"
 
@@ -33,51 +33,51 @@ export function DesktopUpdateSettings() {
     phase !== "idle" ||
     (updateState.status !== "idle" && updateState.status !== "available")
 
-  async function restartToInstall() {
+  async function runAction(
+    next: Exclude<Phase, "idle">,
+    action: () => Promise<void>,
+    fallbackError: string,
+  ) {
     setActionMessage(null)
-    setPhase("installing")
+    setPhase(next)
     try {
-      await updates.restartToInstall()
+      await action()
+      // A successful install restarts the app, so it stays "installing".
+      if (next !== "installing") setPhase("idle")
     } catch (cause) {
       setActionMessage({
         tone: "error",
-        text: errorText(cause, t("Couldn't restart to update.")),
+        text: errorMessage(cause, fallbackError),
       })
       setPhase("idle")
     }
   }
 
-  async function downloadUpdate() {
-    setActionMessage(null)
-    setPhase("downloading")
-    try {
-      await updates.downloadUpdate()
-    } catch (cause) {
-      setActionMessage({
-        tone: "error",
-        text: errorText(cause, t("Couldn't download the update.")),
-      })
-    } finally {
-      setPhase("idle")
-    }
-  }
-  async function checkForUpdates() {
-    setActionMessage(null)
-    setPhase("checking")
-    try {
-      const state = await updates.checkForUpdates()
-      if (state.status === "idle") {
-        setActionMessage({ tone: "success", text: t("No updates found.") })
-      }
-    } catch (cause) {
-      setActionMessage({
-        tone: "error",
-        text: errorText(cause, t("Couldn't check for updates.")),
-      })
-    } finally {
-      setPhase("idle")
-    }
-  }
+  const restartToInstall = () =>
+    runAction(
+      "installing",
+      () => updates.restartToInstall(),
+      t("Couldn't restart to update."),
+    )
+  const downloadUpdate = () =>
+    runAction(
+      "downloading",
+      async () => {
+        await updates.downloadUpdate()
+      },
+      t("Couldn't download the update."),
+    )
+  const checkForUpdates = () =>
+    runAction(
+      "checking",
+      async () => {
+        const state = await updates.checkForUpdates()
+        if (state.status === "idle") {
+          setActionMessage({ tone: "success", text: t("No updates found.") })
+        }
+      },
+      t("Couldn't check for updates."),
+    )
 
   return (
     <SettingRow
@@ -183,8 +183,4 @@ export function DesktopUpdateSettings() {
       />
     </SettingRow>
   )
-}
-
-function errorText(cause: unknown, fallback: string): string {
-  return cause instanceof Error ? cause.message : fallback
 }

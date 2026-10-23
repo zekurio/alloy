@@ -1,4 +1,5 @@
 import {
+  RECORDING_AUDIO_MODES,
   RECORDING_MAX_AUDIO_SOURCES,
   type RecordingAudioApplicationSelection,
   type RecordingAudioDeviceKind,
@@ -8,17 +9,10 @@ import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Checkbox } from "@alloy/ui/components/checkbox"
 import { LoadingState } from "@alloy/ui/components/loading-state"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@alloy/ui/components/select"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Slider } from "@alloy/ui/components/slider"
 import { toast } from "@alloy/ui/lib/toast"
-import { cn, sliderValue } from "@alloy/ui/lib/utils"
+import { cn } from "@alloy/ui/lib/utils"
 import {
   AppWindowIcon,
   MicIcon,
@@ -26,7 +20,7 @@ import {
   XIcon,
   type LucideIcon,
 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import type { ReactNode } from "react"
 
 import {
@@ -46,16 +40,16 @@ import {
   deviceLevel,
   useAudioLevels,
 } from "./desktop-audio-levels"
-import { DESKTOP_RECORDING_AUDIO_MODES } from "./desktop-native"
+import { OptionSelect } from "./desktop-option-select"
 import {
   DesktopRecordingNotice,
   useDesktopRecording,
 } from "./desktop-recording-context"
 import {
-  asLiteral,
   AUDIO_DEVICE_KIND_LABELS,
   AUDIO_MODE_LABELS,
 } from "./desktop-recording-helpers"
+import { useSliderDraft } from "./use-slider-draft"
 
 const AUDIO_DEVICE_GROUPS: Array<{
   kind: RecordingAudioDeviceKind
@@ -107,34 +101,18 @@ export function DesktopAudioSettings() {
             )}
             htmlFor="desktop-recording-audio-mode"
           >
-            <Select
+            <OptionSelect
+              id="desktop-recording-audio-mode"
               value={settings.audioMode}
+              options={RECORDING_AUDIO_MODES}
+              optionLabel={(mode) => AUDIO_MODE_LABELS[mode]}
               disabled={controlsDisabled}
-              onValueChange={(value) => {
-                const audioMode = asLiteral(
-                  value,
-                  DESKTOP_RECORDING_AUDIO_MODES,
-                )
-                if (audioMode) void save({ ...settings, audioMode })
-              }}
-            >
-              <SelectTrigger
-                id="desktop-recording-audio-mode"
-                size="sm"
-                className="w-40"
-              >
-                <SelectValue>
-                  {AUDIO_MODE_LABELS[settings.audioMode]}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent align="end">
-                {DESKTOP_RECORDING_AUDIO_MODES.map((mode) => (
-                  <SelectItem key={mode} value={mode}>
-                    {AUDIO_MODE_LABELS[mode]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onValueChange={(audioMode) =>
+                void save({ ...settings, audioMode })
+              }
+              className="w-40"
+              align="end"
+            />
           </SettingRow>
         </SettingRows>
       </SettingsSubsection>
@@ -368,10 +346,8 @@ function ApplicationAudioIcon({
 
 /**
  * One audio source row: enable checkbox, kind icon, label, and a live volume
- * slider with a percentage readout. The slider tracks a local draft while
- * dragging and only persists on commit to avoid a save per pointer move.
- * While live levels are available (`level` is non-null) an OBS-style meter
- * renders below the row.
+ * slider with a percentage readout. While live levels are available (`level`
+ * is non-null) an OBS-style meter renders below the row.
  */
 function AudioRow({
   id,
@@ -402,8 +378,10 @@ function AudioRow({
   onRemove?: () => void
   onChange: (patch: { enabled?: boolean; volume?: number }) => void
 }) {
-  const [draftVolume, setDraftVolume] = useState<number | null>(null)
-  const displayVolume = draftVolume ?? volume
+  const volumeSlider = useSliderDraft(volume, (next) =>
+    onChange({ volume: next }),
+  )
+  const displayVolume = volumeSlider.value
 
   return (
     <div className="not-last:border-border flex flex-col py-3 not-last:border-b first:pt-0 last:pb-0">
@@ -464,13 +442,8 @@ function AudioRow({
             min={0}
             max={100}
             step={1}
-            value={[displayVolume]}
+            {...volumeSlider.sliderProps}
             disabled={busy || !enabled || !available}
-            onValueChange={(value) => setDraftVolume(sliderValue(value))}
-            onValueCommitted={(value) => {
-              setDraftVolume(null)
-              onChange({ volume: sliderValue(value) })
-            }}
             className="min-w-0 flex-1"
           />
           <span

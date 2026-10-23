@@ -1,23 +1,16 @@
-import type { RecordingSettings } from "@alloy/desktop-contracts"
-import { t } from "@alloy/i18n"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@alloy/ui/components/select"
+  RECORDING_BUFFER_STORAGE,
+  type RecordingSettings,
+} from "@alloy/desktop-contracts"
+import { t } from "@alloy/i18n"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Slider } from "@alloy/ui/components/slider"
-import { sliderValue } from "@alloy/ui/lib/utils"
 import { CheckIcon } from "lucide-react"
-import type { Dispatch, SetStateAction } from "react"
 
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 
-import { DESKTOP_RECORDING_BUFFER_STORAGE } from "./desktop-native"
+import { OptionSelect } from "./desktop-option-select"
 import {
-  asLiteral,
   applyQualitySettings,
   BUFFER_STORAGE_LABELS,
   CUSTOM_QUALITY_LABEL,
@@ -29,6 +22,7 @@ import {
   selectedQualityPreset,
   type QualityPresetOption,
 } from "./desktop-recording-helpers"
+import { useSliderDraft } from "./use-slider-draft"
 
 export function QualitySection({
   settings,
@@ -91,14 +85,17 @@ export function QualitySection({
 export function ReplayBufferSection({
   settings,
   busy,
-  setSettings,
   save,
 }: {
   settings: RecordingSettings
   busy: boolean
-  setSettings: Dispatch<SetStateAction<RecordingSettings | null>>
   save: (next: RecordingSettings) => Promise<void>
 }) {
+  const bufferSeconds = useSliderDraft(
+    settings.replayBufferSeconds,
+    (replayBufferSeconds) => void save({ ...settings, replayBufferSeconds }),
+  )
+
   return (
     <SettingsSubsection id="replay-buffer" title={t("Replay buffer")}>
       <SettingRows>
@@ -113,24 +110,12 @@ export function ReplayBufferSection({
               min={15}
               max={600}
               step={15}
-              value={[settings.replayBufferSeconds]}
+              {...bufferSeconds.sliderProps}
               disabled={busy}
-              onValueChange={(value) =>
-                setSettings({
-                  ...settings,
-                  replayBufferSeconds: sliderValue(value),
-                })
-              }
-              onValueCommitted={(value) =>
-                void save({
-                  ...settings,
-                  replayBufferSeconds: sliderValue(value),
-                })
-              }
               className="min-w-0 flex-1"
             />
             <div className="border-border bg-surface-raised min-w-14 rounded-md border px-2 py-1 text-center text-xs font-medium">
-              {formatDuration(settings.replayBufferSeconds)}
+              {formatDuration(bufferSeconds.value)}
             </div>
           </div>
         </SettingRow>
@@ -139,34 +124,18 @@ export function ReplayBufferSection({
           description={t("Where replay video is kept before a clip is saved.")}
           htmlFor="desktop-recording-buffer-storage"
         >
-          <Select
+          <OptionSelect
+            id="desktop-recording-buffer-storage"
             value={settings.bufferStorage}
+            options={RECORDING_BUFFER_STORAGE}
+            optionLabel={(storage) => BUFFER_STORAGE_LABELS[storage]}
             disabled={busy}
-            onValueChange={(value) => {
-              const bufferStorage = asLiteral(
-                value,
-                DESKTOP_RECORDING_BUFFER_STORAGE,
-              )
-              if (bufferStorage) void save({ ...settings, bufferStorage })
-            }}
-          >
-            <SelectTrigger
-              id="desktop-recording-buffer-storage"
-              size="sm"
-              className="w-32"
-            >
-              <SelectValue>
-                {BUFFER_STORAGE_LABELS[settings.bufferStorage]}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent align="end">
-              {DESKTOP_RECORDING_BUFFER_STORAGE.map((storage) => (
-                <SelectItem key={storage} value={storage}>
-                  {BUFFER_STORAGE_LABELS[storage]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onValueChange={(bufferStorage) =>
+              void save({ ...settings, bufferStorage })
+            }
+            className="w-32"
+            align="end"
+          />
         </SettingRow>
       </SettingRows>
     </SettingsSubsection>
@@ -203,21 +172,18 @@ function PresetCard({
   hourly: string
   active: boolean
   disabled?: boolean
-  onSelect?: () => void
+  onSelect: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onSelect}
-      disabled={disabled || !onSelect}
+      disabled={disabled}
       className={[
         "relative flex flex-col gap-0.5 rounded-md border px-3 py-2.5 text-left transition-colors",
         active
           ? "border-accent-border bg-accent/5"
           : "border-border hover:border-border-strong hover:bg-white/[0.03]",
-        !onSelect
-          ? "cursor-default hover:border-border hover:bg-transparent"
-          : "",
         disabled ? "opacity-60" : "",
       ].join(" ")}
     >

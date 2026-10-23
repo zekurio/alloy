@@ -3,12 +3,11 @@ import { Button } from "@alloy/ui/components/button"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Skeleton } from "@alloy/ui/components/skeleton"
 import { Switch } from "@alloy/ui/components/switch"
-import { useState } from "react"
 
+import { alloyDesktop } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 import { useDesktopQuery } from "@/lib/use-desktop-query"
-
-import { alloyDesktop } from "./desktop-native"
 
 export function DesktopAutostartSettings() {
   const desktop = alloyDesktop()
@@ -23,26 +22,16 @@ export function DesktopAutostartSettings() {
   } = useDesktopQuery(desktop ? () => desktop.autostart.getState() : null, [
     desktop,
   ])
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { feedback, run } = useActionFeedback()
 
   if (!desktop) return null
   const autostart = desktop.autostart
 
-  async function toggle(enabled: boolean) {
-    setError(null)
-    setBusy(true)
-    try {
-      setState(await autostart.setEnabled(enabled))
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : t("Couldn't update the startup setting."),
-      )
-    } finally {
-      setBusy(false)
-    }
+  function toggle(enabled: boolean) {
+    void run(
+      async () => setState(await autostart.setEnabled(enabled)),
+      t("Couldn't update the startup setting."),
+    )
   }
 
   return (
@@ -53,9 +42,9 @@ export function DesktopAutostartSettings() {
           {t(
             "Launches in the background so your games are captured right away.",
           )}
-          {error ? (
+          {feedback.state === "error" ? (
             <span role="alert" className="text-destructive mt-1 block">
-              {error}
+              {feedback.message}
             </span>
           ) : state === undefined && loadError && !loading ? (
             <span role="alert" className="text-destructive mt-1 block">
@@ -76,8 +65,8 @@ export function DesktopAutostartSettings() {
       ) : state.supported ? (
         <Switch
           checked={state.enabled}
-          disabled={busy}
-          onCheckedChange={(enabled) => void toggle(enabled)}
+          disabled={feedback.state === "pending"}
+          onCheckedChange={toggle}
         />
       ) : (
         <span className="text-foreground-dim shrink-0 text-xs">
