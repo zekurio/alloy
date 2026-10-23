@@ -45,7 +45,9 @@ export function DesktopAppPanel() {
   const saved = useSavedServers(serverApi)
 
   if (!serverApi) return null
-  if (saved.loading) return <LoadingState variant="panel" />
+  // Only the first load hides the panel. A reload keeps the servers section
+  // mounted so the typed address, errors and an in-flight connect survive.
+  if (!saved.loaded) return <LoadingState variant="panel" />
 
   return (
     <SettingsSections>
@@ -84,6 +86,7 @@ function useSavedServers(serverApi: ServerApi | undefined) {
   const [servers, setServers] = useState<DesktopSavedServer[]>([])
   const [currentServerUrl, setCurrentServerUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loaded, setLoaded] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadNonce, setReloadNonce] = useState(0)
   useEffect(() => {
@@ -107,7 +110,10 @@ function useSavedServers(serverApi: ServerApi | undefined) {
           setLoadError(errorMessage(cause, t("Couldn't load servers.")))
         }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+          setLoaded(true)
+        }
       }
     }
 
@@ -123,6 +129,7 @@ function useSavedServers(serverApi: ServerApi | undefined) {
     setServers,
     currentServerUrl,
     loading,
+    loaded,
     loadError,
     reload: () => setReloadNonce((nonce) => nonce + 1),
   }
@@ -135,7 +142,8 @@ function ServerSettings({
   serverApi: ServerApi
   saved: SavedServers
 }) {
-  const { servers, setServers, currentServerUrl, loadError, reload } = saved
+  const { servers, setServers, currentServerUrl, loading, loadError, reload } =
+    saved
   const [url, setUrl] = useState("")
   const [connectingServerUrl, setConnectingServerUrl] = useState<string | null>(
     null,
@@ -228,6 +236,8 @@ function ServerSettings({
               </Button>
             </div>
           </Callout>
+        ) : loading ? (
+          <LoadingState variant="panel" />
         ) : (
           <SavedServerList
             servers={servers}
