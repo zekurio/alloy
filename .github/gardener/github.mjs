@@ -26,7 +26,7 @@ export async function gh(method, path, body) {
   const res = await fetch(`https://api.github.com${path}`, init)
   if (res.status === 204) return null
   const text = await res.text()
-  const data = text ? JSON.parse(text) : null
+  // Error bodies can be HTML from a proxy, so check the status before parsing.
   if (!res.ok) {
     const error = new Error(
       `GitHub ${method} ${path}: ${res.status} ${text.slice(0, 500)}`,
@@ -34,7 +34,7 @@ export async function gh(method, path, body) {
     error.status = res.status
     throw error
   }
-  return data
+  return text ? JSON.parse(text) : null
 }
 
 export async function ghWrite(method, path, body) {
