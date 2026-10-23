@@ -1,16 +1,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod host;
 mod native_cookies;
+mod preferences;
 mod runtime;
 mod services;
+mod window_state;
 
 use std::{
     io::Write,
-    path::PathBuf,
-    sync::{
-        Arc, Mutex, OnceLock, RwLock,
-        atomic::{AtomicBool, AtomicU64, Ordering},
-    },
+    sync::{Arc, atomic::Ordering},
     time::Duration,
 };
 
@@ -18,18 +17,20 @@ use alloy_desktop::{
     logging::logged,
     login::{BrowserLogin, InjectedCookie, LEGACY_REFRESH_COOKIE, SESSION_COOKIE, SessionToken},
     policy::{
-        CONNECT_WINDOW_LABEL, SERVER_WINDOW_PREFIX, bridge_initialization_script, is_local_app_url,
-        is_same_origin, remote_window_label,
+        CONNECT_WINDOW_LABEL, bridge_initialization_script, is_local_app_url, is_same_origin,
+        remote_window_label,
     },
     server::{Server, server_origin},
 };
+use host::{
+    CancelRegistration, Host, RemoteSession, clear_remote, require_connect_window,
+    require_remote_window, restore_remote, send_cancel,
+};
+use preferences::{DesktopSavedServer, MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH};
 use runtime::{DesktopRuntime, arg, to_value};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use services::{
-    DesktopSavedServer, DesktopServices, DesktopWindowState, MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH,
-    RestartError,
-};
+use services::{DesktopServices, RestartError};
 use sha2::{Digest, Sha256};
 use tauri::{
     AppHandle, Emitter, Manager, RunEvent, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
@@ -41,6 +42,7 @@ use tauri::{
 };
 use tokio::sync::watch;
 use url::Url;
+use window_state::{flush_window_state, restored_window_state, track_window_state};
 
 const DESKTOP_SHELL_PERMISSION: &str = "allow-desktop-shell";
 const DESKTOP_API_PERMISSION: &str = "allow-desktop-api";
@@ -59,71 +61,6 @@ const REMOTE_SHOW_FALLBACK: Duration = Duration::from_secs(3);
 /// replaced the injected bootstrap cookies with its own.
 const COOKIE_HANDOFF_POLL: Duration = Duration::from_millis(200);
 const COOKIE_HANDOFF_TIMEOUT: Duration = Duration::from_secs(10);
-/// Window size used until the user has resized a window once.
-const DEFAULT_WINDOW_STATE: DesktopWindowState = DesktopWindowState {
-    width: 1280,
-    height: 800,
-    maximized: false,
-};
-/// How long after the last resize event the window size is persisted, so
-/// dragging a window edge does not rewrite the preferences file every frame.
-const WINDOW_STATE_SAVE_DELAY: Duration = Duration::from_millis(400);
-
-struct Host {
-    connecting: tokio::sync::Mutex<()>,
-    cancel: Mutex<Option<watch::Sender<bool>>>,
-    remote: RwLock<Option<RemoteSession>>,
-    next_generation: AtomicU64,
-    services: OnceLock<Arc<DesktopServices>>,
-    runtime: OnceLock<Arc<DesktopRuntime>>,
-    /// The log folder, or `None` when file logging could not start.
-    logs: OnceLock<Option<PathBuf>>,
-    quitting: AtomicBool,
-    /// Set while a freshly created connect screen waits to be shown. It stays
-    /// hidden until its page has rendered to avoid a blank window.
-    connect_pending: AtomicBool,
-    /// Set while the connect window is being created, so concurrent requests
-    /// to show it do not race to build a second one.
-    connect_creating: AtomicBool,
-}
-
-struct RemoteSession {
-    generation: u64,
-    origin: Url,
-    window: WebviewWindow,
-}
-
-impl Default for Host {
-    fn default() -> Self {
-        Self {
-            connecting: tokio::sync::Mutex::new(()),
-            cancel: Mutex::new(None),
-            remote: RwLock::new(None),
-            next_generation: AtomicU64::new(0),
-            services: OnceLock::new(),
-            runtime: OnceLock::new(),
-            logs: OnceLock::new(),
-            quitting: AtomicBool::new(false),
-            connect_pending: AtomicBool::new(false),
-            connect_creating: AtomicBool::new(false),
-        }
-    }
-}
-
-impl Host {
-    fn services(&self) -> Result<&Arc<DesktopServices>, String> {
-        self.services
-            .get()
-            .ok_or_else(|| "Desktop services are not ready.".to_string())
-    }
-
-    fn runtime(&self) -> Result<&Arc<DesktopRuntime>, String> {
-        self.runtime
-            .get()
-            .ok_or_else(|| "Desktop runtime is not ready.".to_string())
-    }
-}
-
 /// Why a server window was not installed. `NoSavedSession` is not a failure
 /// to report: the connect flow answers it with a browser sign-in.
 enum InstallError {
@@ -152,30 +89,6 @@ impl From<InstallError> for String {
     }
 }
 
-/// Publishes a connection attempt's cancel sender for `cancel_connect` and
-/// withdraws it when the attempt ends, on every return path.
-struct CancelRegistration<'a> {
-    host: &'a Host,
-}
-
-impl<'a> CancelRegistration<'a> {
-    fn new(host: &'a Host, cancel: watch::Sender<bool>) -> Result<Self, String> {
-        *host
-            .cancel
-            .lock()
-            .map_err(logged("Login state is unavailable."))? = Some(cancel);
-        Ok(Self { host })
-    }
-}
-
-impl Drop for CancelRegistration<'_> {
-    fn drop(&mut self) {
-        if let Ok(mut cancel) = self.host.cancel.lock() {
-            *cancel = None;
-        }
-    }
-}
-
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ConnectedServer {
@@ -193,37 +106,6 @@ enum DesktopShellOperation {
     OpenSettings,
     OpenLogsFolder,
     ReloadApp,
-}
-
-fn require_connect_window(window: &WebviewWindow) -> Result<(), String> {
-    let url = window
-        .url()
-        .map_err(logged("Could not check the connect window."))?;
-    if window.label() == CONNECT_WINDOW_LABEL && is_local_app_url(&url) {
-        Ok(())
-    } else {
-        Err("Only the bundled connect window can call this operation.".into())
-    }
-}
-
-fn require_remote_window(window: &WebviewWindow, host: &Host) -> Result<(u64, Url), String> {
-    if !window.label().starts_with(SERVER_WINDOW_PREFIX) {
-        return Err("Only the selected server window can call this operation.".into());
-    }
-    let current_url = window
-        .url()
-        .map_err(logged("Could not check the server window."))?;
-    let remote = host
-        .remote
-        .read()
-        .map_err(logged("Server window state is unavailable."))?;
-    let Some(remote) = remote.as_ref() else {
-        return Err("The server window is no longer active.".into());
-    };
-    if remote.window != *window || !is_same_origin(&current_url, &remote.origin) {
-        return Err("The server window is not authorized for this server.".into());
-    }
-    Ok((remote.generation, remote.origin.clone()))
 }
 
 #[tauri::command]
@@ -552,117 +434,6 @@ fn open_external(url: &Url) {
     if matches!(url.scheme(), "http" | "https") {
         let _ = open::that_detached(url.as_str());
     }
-}
-
-/// The size a new window opens with: the last saved size, clamped to the
-/// primary monitor so a window saved on a larger display still opens fully
-/// on screen.
-fn restored_window_state(app: &AppHandle, services: &DesktopServices) -> DesktopWindowState {
-    let saved = services
-        .preferences
-        .get_window_state()
-        .unwrap_or(DEFAULT_WINDOW_STATE);
-    let Ok(Some(monitor)) = app.primary_monitor() else {
-        return saved;
-    };
-    let available = monitor.size().to_logical::<f64>(monitor.scale_factor());
-    DesktopWindowState::clamped(
-        saved.width.min(available.width.round() as u32),
-        saved.height.min(available.height.round() as u32),
-        saved.maximized,
-    )
-}
-
-/// Writes a window's current geometry to the preferences file. A maximized
-/// window reports the screen size, so its last normal size is kept for when
-/// it is restored unmaximized.
-fn save_window_state(window: &WebviewWindow, services: &DesktopServices) {
-    // A minimized window reports a zero size, and its maximized flag is
-    // cleared, so skip it: minimizing must not change the remembered size.
-    let Ok(minimized) = window.is_minimized() else {
-        return;
-    };
-    if minimized {
-        return;
-    }
-    let previous = services
-        .preferences
-        .get_window_state()
-        .unwrap_or(DEFAULT_WINDOW_STATE);
-    let Ok(maximized) = window.is_maximized() else {
-        return;
-    };
-    let (width, height) = if maximized {
-        (previous.width, previous.height)
-    } else {
-        let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor()) else {
-            return;
-        };
-        if size.width == 0 || size.height == 0 {
-            return;
-        }
-        let logical = size.to_logical::<f64>(scale);
-        (logical.width.round() as u32, logical.height.round() as u32)
-    };
-    let state = DesktopWindowState::clamped(width, height, maximized);
-    if state == previous {
-        return;
-    }
-    if let Err(error) = services.preferences.remember_window_state(state) {
-        log::warn!("Could not save the window size: {error}");
-    }
-}
-
-/// Saves the geometry of every window still alive, so quitting right after a
-/// resize does not lose it.
-fn flush_window_state(app: &AppHandle, host: &Host) {
-    let Ok(services) = host.services() else {
-        return;
-    };
-    if let Some(window) = app.get_webview_window(CONNECT_WINDOW_LABEL) {
-        save_window_state(&window, services);
-    }
-    if let Some(window) = host
-        .remote
-        .read()
-        .ok()
-        .and_then(|remote| remote.as_ref().map(|session| session.window.clone()))
-    {
-        save_window_state(&window, services);
-    }
-}
-
-/// Coalesces a burst of resize events into one write after the user stops
-/// dragging. `revisions` belongs to one window and is bumped on each of its
-/// resizes, so only the last save of that window's burst runs.
-fn queue_window_state_save(
-    window: WebviewWindow,
-    services: Arc<DesktopServices>,
-    revisions: Arc<AtomicU64>,
-) {
-    let revision = revisions.fetch_add(1, Ordering::Relaxed) + 1;
-    tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(WINDOW_STATE_SAVE_DELAY).await;
-        if revisions.load(Ordering::Relaxed) != revision {
-            return;
-        }
-        // The save reads and fsyncs the preferences file.
-        tauri::async_runtime::spawn_blocking(move || save_window_state(&window, &services));
-    });
-}
-
-fn track_window_state(window: &WebviewWindow, services: Arc<DesktopServices>) {
-    let tracked = window.clone();
-    let revisions = Arc::new(AtomicU64::new(0));
-    window.clone().on_window_event(move |event| {
-        if matches!(event, WindowEvent::Resized(_)) {
-            queue_window_state_save(
-                tracked.clone(),
-                Arc::clone(&services),
-                Arc::clone(&revisions),
-            );
-        }
-    });
 }
 
 /// `show` is false when the app was started as a login item: the saved server
@@ -1034,40 +805,6 @@ fn add_remote_capability(app: &AppHandle, label: &str, origin: &Url) -> Result<(
         .permission("core:event:allow-unlisten");
     app.add_capability(capability)
         .map_err(logged("Could not authorize the Alloy server window."))
-}
-
-fn clear_remote(host: &Host, generation: u64) -> bool {
-    if let Ok(mut remote) = host.remote.write()
-        && remote
-            .as_ref()
-            .is_some_and(|session| session.generation == generation)
-    {
-        *remote = None;
-        true
-    } else {
-        false
-    }
-}
-
-fn send_cancel(host: &Host) -> Result<(), String> {
-    let cancel = host
-        .cancel
-        .lock()
-        .map_err(logged("Login state is unavailable."))?;
-    if let Some(cancel) = cancel.as_ref() {
-        let _ = cancel.send(true);
-    }
-    Ok(())
-}
-
-fn restore_remote(host: &Host, generation: u64, previous: Option<RemoteSession>) {
-    if let Ok(mut remote) = host.remote.write()
-        && remote
-            .as_ref()
-            .is_some_and(|session| session.generation == generation)
-    {
-        *remote = previous;
-    }
 }
 
 fn ensure_not_cancelled(cancelled: &watch::Receiver<bool>) -> Result<(), String> {

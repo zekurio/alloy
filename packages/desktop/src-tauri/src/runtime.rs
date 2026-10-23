@@ -21,7 +21,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use tokio::sync::{Mutex, RwLock, watch};
 use url::Url;
 
-use crate::{Host, require_remote_window};
+use crate::host::{Host, require_remote_window};
 
 pub struct LibraryRuntime {
     pub library: CaptureLibrary,
