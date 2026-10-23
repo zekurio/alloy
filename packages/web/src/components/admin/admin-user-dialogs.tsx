@@ -77,6 +77,7 @@ export function EditUserDialog({
     if (!open) return
     setQuotaGiB(formatQuotaGiB(user.storageQuotaBytes))
     setRole(normalizeRole(user.role))
+    setSubmitError(null)
   }, [open, user.storageQuotaBytes, user.role])
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -193,13 +194,7 @@ export function CreateUserDialog() {
   const [username, setUsername] = useState("")
   const [role, setRole] = useState<"admin" | "user">("user")
 
-  useEffect(() => {
-    if (!open) return
-    setUsername("")
-    setRole("user")
-  }, [open])
-
-  const { error, isPending, mutate } = useMutation({
+  const { error, isPending, mutate, reset } = useMutation({
     mutationFn: (input: { username: string; role: "admin" | "user" }) =>
       api.admin.createUser(input),
     onSuccess: () => {
@@ -207,6 +202,14 @@ export function CreateUserDialog() {
       return queryClient.invalidateQueries({ queryKey: adminKeys.users() })
     },
   })
+
+  useEffect(() => {
+    if (!open) return
+    setUsername("")
+    setRole("user")
+    reset()
+  }, [open, reset])
+
   const submitError = error
     ? errorMessage(error, t("Couldn't create user"))
     : null

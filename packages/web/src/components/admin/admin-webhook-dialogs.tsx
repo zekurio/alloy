@@ -54,15 +54,7 @@ export function CreateWebhookDialog() {
   const [url, setUrl] = useState("")
   const [secret, setSecret] = useState("")
 
-  useEffect(() => {
-    if (open) return
-    setName("")
-    setProvider("discord")
-    setUrl("")
-    setSecret("")
-  }, [open])
-
-  const { error, isPending, mutate } = useMutation({
+  const { error, isPending, mutate, reset } = useMutation({
     mutationFn: () => {
       const input: AdminWebhookInput = {
         name: name.trim(),
@@ -77,6 +69,16 @@ export function CreateWebhookDialog() {
       setOpen(false)
     },
   })
+
+  useEffect(() => {
+    if (open) return
+    setName("")
+    setProvider("discord")
+    setUrl("")
+    setSecret("")
+    reset()
+  }, [open, reset])
+
   const submitError = error
     ? errorMessage(error, t("Couldn't create webhook"))
     : null
@@ -183,16 +185,7 @@ export function EditWebhookDialog({
   const [url, setUrl] = useState("")
   const [secret, setSecret] = useState("")
 
-  useEffect(() => {
-    if (!open) return
-    setName(webhook.name)
-    // Both start blank: the stored URL may be masked and the secret is never
-    // sent back, so an empty field means "keep what is stored".
-    setUrl("")
-    setSecret("")
-  }, [open, webhook.name])
-
-  const { error, isPending, mutate } = useMutation({
+  const { error, isPending, mutate, reset } = useMutation({
     mutationFn: () => {
       const patch: AdminWebhookPatch = { name: name.trim() }
       if (url.trim()) patch.url = url.trim()
@@ -204,6 +197,17 @@ export function EditWebhookDialog({
       setOpen(false)
     },
   })
+
+  useEffect(() => {
+    if (!open) return
+    setName(webhook.name)
+    // Both start blank: the stored URL may be masked and the secret is never
+    // sent back, so an empty field means "keep what is stored".
+    setUrl("")
+    setSecret("")
+    reset()
+  }, [open, webhook.name, reset])
+
   const submitError = error
     ? errorMessage(error, t("Couldn't save webhook"))
     : null

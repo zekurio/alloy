@@ -246,7 +246,10 @@ function ToggleUserStatusDialog({
   return (
     <ConfirmActionDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => {
+        onOpenChange(next)
+        if (!next) setError(null)
+      }}
       title={
         isBanned
           ? t("Unban {username}?", { username: user.username })
@@ -299,7 +302,10 @@ function DeleteUserDialog({
   return (
     <ConfirmDeleteDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => {
+        onOpenChange(next)
+        if (!next) setError(null)
+      }}
       title={t("Delete {username}?", { username: user.username })}
       description={t(
         "This removes their sessions and clips. It can't be undone.",
