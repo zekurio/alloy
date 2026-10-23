@@ -3,6 +3,7 @@ import { Button } from "@alloy/ui/components/button"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { DownloadIcon, Trash2Icon } from "lucide-react"
 import { useState } from "react"
 
@@ -10,36 +11,14 @@ import { StorageQuota } from "@/components/storage-quota"
 import { api } from "@/lib/api"
 import { startBrowserDownload } from "@/lib/browser-download"
 import { errorMessage } from "@/lib/error-message"
-import { getQueryClient } from "@/lib/query-client"
 
-function useDeleteAllClipsAction() {
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const onDeleteAllClips = async () => {
-    if (pending) return false
-    setError(null)
-    setPending(true)
-    try {
-      let deleted = 0
-      let hasMore = true
-      while (hasMore) {
-        const result = await api.users.deleteAllClips()
-        deleted += result.deleted
-        hasMore = result.hasMore
-        if (result.deleted === 0) break
-      }
-      await getQueryClient().invalidateQueries()
-      return true
-    } catch (cause) {
-      setError(errorMessage(cause, t("Couldn't delete clips")))
-      return false
-    } finally {
-      setPending(false)
-    }
+async function deleteAllClips() {
+  let hasMore = true
+  while (hasMore) {
+    const result = await api.users.deleteAllClips()
+    if (result.deleted === 0) break
+    hasMore = result.hasMore
   }
-
-  return { pending, error, setError, onDeleteAllClips }
 }
 
 function DownloadClipsRow() {
@@ -74,18 +53,16 @@ function DownloadClipsRow() {
   )
 }
 
-function DeleteClipsRow({
-  pending,
-  error,
-  clearError,
-  onDeleteAllClips,
-}: {
-  pending: boolean
-  error: string | null
-  clearError: () => void
-  onDeleteAllClips: () => Promise<boolean>
-}) {
+function DeleteClipsRow() {
+  const queryClient = useQueryClient()
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const remove = useMutation({
+    mutationFn: deleteAllClips,
+    onSuccess: () => setDeleteOpen(false),
+    // Batches that finished before a failure are gone too, so every clip
+    // cache is stale either way.
+    onSettled: () => queryClient.invalidateQueries(),
+  })
 
   return (
     <SettingRow
@@ -108,19 +85,19 @@ function DeleteClipsRow({
           open={deleteOpen}
           onOpenChange={(open) => {
             setDeleteOpen(open)
-            if (!open) clearError()
+            if (!open) remove.reset()
           }}
           title={t("Delete all clips?")}
           description={t("This permanently removes every clip you uploaded.")}
           confirmLabel={t("Delete clips")}
           pendingLabel={t("Deleting...")}
-          pending={pending}
-          error={error}
-          onConfirm={() => {
-            void onDeleteAllClips().then((deleted) => {
-              if (deleted) setDeleteOpen(false)
-            })
-          }}
+          pending={remove.isPending}
+          error={
+            remove.error
+              ? errorMessage(remove.error, t("Couldn't delete clips"))
+              : null
+          }
+          onConfirm={() => remove.mutate()}
         />
       </>
     </SettingRow>
@@ -132,18 +109,10 @@ export function StorageUsageCard() {
 }
 
 export function ClipDataCard() {
-  const { pending, error, setError, onDeleteAllClips } =
-    useDeleteAllClipsAction()
-
   return (
     <SettingRows>
       <DownloadClipsRow />
-      <DeleteClipsRow
-        pending={pending}
-        error={error}
-        clearError={() => setError(null)}
-        onDeleteAllClips={onDeleteAllClips}
-      />
+      <DeleteClipsRow />
     </SettingRows>
   )
 }
