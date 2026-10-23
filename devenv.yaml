@@ -1,5 +1,6 @@
 # Pin devenv's nixpkgs to the same channel flake.nix tracks so local Node/pnpm
-# and packaging stay aligned. Bump together with `nix flake update`.
+# and packaging stay aligned. Bump both together with `nix flake update nixpkgs`
+# and `devenv update nixpkgs`; CI fails when the two locks disagree.
 inputs:
   nixpkgs:
     url: github:NixOS/nixpkgs/nixos-unstable

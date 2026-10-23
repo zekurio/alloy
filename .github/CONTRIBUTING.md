@@ -72,9 +72,9 @@ validation in the PR. Native integration tests and the Nix security test remain.
 2. Open the PR against `dev` and fill in the pull request template, including
    how you verified the change.
 3. CI runs formatting, lint, typecheck, and a server/web build. Changes that
-   touch Nix files, the lockfile, or the root manifests also run a
-   Nix flake check. Desktop changes additionally build the Tauri host, the
-   recorder, and the Windows installer.
+   touch Nix files, the lockfile, or the root manifests also run a Nix flake
+   check and build the devenv shell. Desktop changes additionally build the
+   Tauri host, the recorder, and the Windows installer.
 
 Releases are tagged from `dev` by maintainers; see
 [RELEASING.md](RELEASING.md) for the release process.

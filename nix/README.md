@@ -18,8 +18,9 @@ module. The development shell lives separately in `devenv.nix`.
 - `module-security-test.nix` checks production-mode and HTTPS enforcement,
   including environment overrides.
 - `dev-dotenv.sh` and `dev-postgres.sh` back the devenv shell hook. The first
-  creates `.env` with generated local secrets. The second runs the repo-local
-  Postgres; `devenv.nix` exposes it as `alloy-postgres start|stop` and
+  creates `.env` from `.env.example` with generated local secrets. The second
+  runs the repo-local Postgres on a Unix socket under devenv's runtime
+  directory; `devenv.nix` exposes it as `alloy-postgres start|stop` and
   `alloy-postgres-stop`.
 
 The top-level `pnpmConfigHook` uses the pnpm executable in `nativeBuildInputs`.
@@ -41,9 +42,11 @@ dependency store changes, regenerate `pnpmDepsHash` in `package.nix`:
 3. Copy the reported `got: sha256-...` hash into `pnpmDepsHash`.
 4. Rebuild with the real hash and run `nix flake check`.
 
-Keep the nixpkgs inputs in `flake.lock` and `devenv.lock` aligned when updating
-them. Pinning pnpm does not pin nixpkgs' fetcher implementation, so a nixpkgs
-update still needs a package build.
+Keep the nixpkgs inputs in `flake.lock` and `devenv.lock` aligned: run
+`nix flake update nixpkgs` and `devenv update nixpkgs` together. The `nix`
+workflow fails when the two revisions differ. Pinning pnpm does not pin
+nixpkgs' fetcher implementation, so a nixpkgs update still needs a package
+build.
 
 ## Validation
 
@@ -51,7 +54,11 @@ update still needs a package build.
 pnpm verify
 nix flake check
 nix build .#alloy
+devenv test
 ```
+
+`devenv test` builds the shell, runs the entry hook and checks that it produced
+`.env` and a reachable Postgres. CI runs it when the devenv files change.
 
 On a non-Linux host, `nix flake check` skips the Linux checks. Use
 `nix flake check --all-systems --no-build` to evaluate them, and a Linux

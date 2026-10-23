@@ -1,68 +1,28 @@
 #!/usr/bin/env bash
-# Repo-local Postgres shared by every devenv shell. `start` reuses the running
-# server or starts one on a random free localhost port, then writes PGHOST,
-# PGPORT and DATABASE_URL to $env_file for enterShell to source. `stop` shuts
-# it down.
+# Repo-local Postgres shared by every devenv shell. It listens only on a Unix
+# socket under devenv's runtime directory, so DATABASE_URL and PGHOST are
+# static values from devenv.nix and nothing can collide with a system-wide
+# Postgres. `start` reuses the running server or starts one; `stop` shuts it
+# down.
 set -eu
 
 data="$DEVENV_ROOT/.devenv/state/alloy-postgres"
-run="$DEVENV_ROOT/.devenv/run/postgres"
-env_file="$run/env"
-pid_file="$run/postgres.pid"
+# Must match postgresSocketDir in devenv.nix.
+run="$DEVENV_RUNTIME/postgres"
 db=alloy
 user=postgres
 
-write_env() {
-  sed -n '1p' "$data/postmaster.pid" >"$pid_file"
-  {
-    printf 'PGHOST=127.0.0.1\n'
-    printf 'PGPORT=%s\n' "$1"
-    printf 'DATABASE_URL=postgres://postgres@127.0.0.1:%s/alloy\n' "$1"
-  } >"$env_file"
-}
-
-# Pick a random free localhost port. The bind race between probe and pg_ctl
-# is theoretical for a dev shell; pg_ctl fails loudly if lost.
-pick_port() {
-  while :; do
-    # $RANDOM is 0..32767, so this probes within 20000..52767.
-    candidate=$((20000 + RANDOM))
-    if ! (exec 3<>"/dev/tcp/127.0.0.1/$candidate") 2>/dev/null; then
-      printf '%s\n' "$candidate"
-      return 0
-    fi
-  done
-}
-
-# The server recorded in $env_file is alive and accepting connections.
+# The server accepts connections on the socket.
 ready() {
-  [ -f "$env_file" ] || return 1
-  # shellcheck source=/dev/null
-  . "$env_file"
-  [ -n "${PGPORT:-}" ] || return 1
-  pid="$(
-    cat "$pid_file" 2>/dev/null ||
-      sed -n '1p' "$data/postmaster.pid" 2>/dev/null ||
-      true
-  )"
-  [ -n "$pid" ] || return 1
-  kill -0 "$pid" >/dev/null 2>&1 || return 1
-  pg_isready -h "${PGHOST:-127.0.0.1}" -p "$PGPORT" -U "$user" -d "$db" \
-    >/dev/null 2>&1
+  pg_isready -h "$run" -U "$user" -d "$db" >/dev/null 2>&1
 }
 
-# A server is running without a usable $env_file; rewrite it from
-# postmaster.pid instead of starting a second one.
-recover_running() {
+# A server from this data directory is alive, reachable or not.
+running() {
   [ -s "$data/postmaster.pid" ] || return 1
   pid="$(sed -n '1p' "$data/postmaster.pid")"
-  port="$(sed -n '4p' "$data/postmaster.pid")"
   [ -n "$pid" ] || return 1
-  [ -n "$port" ] || return 1
-  kill -0 "$pid" >/dev/null 2>&1 || return 1
-  pg_isready -h 127.0.0.1 -p "$port" -U "$user" -d "$db" >/dev/null 2>&1 ||
-    return 1
-  write_env "$port"
+  kill -0 "$pid" >/dev/null 2>&1
 }
 
 start() {
@@ -77,46 +37,40 @@ start() {
     exit 1
   fi
 
-  if ready || recover_running; then
+  if ready; then
     return 0
   fi
-  rm -f "$env_file"
-
-  port="$(pick_port)"
+  # Alive but not on our socket, e.g. started by an older version of this
+  # script on a TCP port: restart it with the current options.
+  if running; then
+    pg_ctl -D "$data" -w stop >/dev/null
+  fi
 
   if [ ! -s "$data/PG_VERSION" ]; then
     initdb -D "$data" -U "$user" --auth=trust --no-locale >/dev/null 9>&-
   fi
 
-  # direnv captures hook output on extra file descriptors. Close them for the
-  # daemon starter so Postgres cannot keep `direnv export` alive.
+  # No TCP listener; the socket is usable by this user only since the
+  # cluster trusts every connection. direnv captures hook output on extra
+  # file descriptors: close them for the daemon starter so Postgres cannot
+  # keep `direnv export` alive.
   pg_ctl \
     -D "$data" \
     -l "$run/postgres.log" \
-    -o "-h 127.0.0.1 -p $port -k $run" \
+    -o "-c listen_addresses='' -c unix_socket_directories='$run' -c unix_socket_permissions=0700" \
     -w \
     -t 30 \
     start \
     >/dev/null \
-    3>&- \
-    4>&- \
-    5>&- \
-    6>&- \
-    7>&- \
-    8>&- \
-    9>&-
+    3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-
 
-  write_env "$port"
-
-  createdb -h 127.0.0.1 -p "$port" -U "$user" "$db" >/dev/null 2>&1 9>&- ||
-    true
+  createdb -h "$run" -U "$user" "$db" >/dev/null 2>&1 9>&- || true
 }
 
 stop() {
-  if [ -s "$data/PG_VERSION" ]; then
+  if running; then
     pg_ctl -D "$data" -w stop >/dev/null
   fi
-  rm -f "$env_file" "$pid_file"
 }
 
 case "${1:-}" in
