@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto"
-
 import type { ClipPrivacy } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { createLogger } from "@alloy/logging"
@@ -34,8 +32,7 @@ const RenditionParam = t.object({
 })
 
 function thumbnailEtag(key: string): string {
-  const hash = createHash("sha256").update(key).digest("hex").slice(0, 32)
-  return `"thumb1-${hash}"`
+  return `"thumb1-${clipAssetVersion(key)}"`
 }
 
 /**
