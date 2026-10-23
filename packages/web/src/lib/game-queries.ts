@@ -21,16 +21,17 @@ export const gameKeys = {
   all: ["games"] as const,
   /** steamgriddb autocomplete proxy — branches per normalised query string. */
   search: (query: string) => [...gameKeys.all, "search", query] as const,
+  localSearch: (query: string) =>
+    [...gameKeys.all, "local-search", query] as const,
   /** `/games` landscape grid. One global cache entry. */
   list: () => [...gameKeys.all, "list"] as const,
   lookupByName: (names: readonly string[]) =>
     [...gameKeys.all, "lookup-by-name", names] as const,
   /** Per-game detail for the banner header on `/games/:gameId`. */
-  detailScope: (gameId: string) => [...gameKeys.all, "detail", gameId] as const,
-  detail: (gameId: string) => gameKeys.detailScope(gameId),
+  detail: (gameId: string) => [...gameKeys.all, "detail", gameId] as const,
   /** Top creators chip rail on `/games/:gameId`. */
-  creators: (gameId: string) =>
-    [...gameKeys.detailScope(gameId), "creators"] as const,
+  creators: (gameId: string, media: MediaFilter) =>
+    [...gameKeys.detail(gameId), "creators", media] as const,
 }
 
 export function useSearchGamesQuery(
@@ -60,7 +61,7 @@ export function useLocalGameSearchQuery(
 ): UseQueryResult<GameRow[]> {
   const trimmed = query.trim()
   return useQuery({
-    queryKey: [...gameKeys.all, "local-search", trimmed] as const,
+    queryKey: gameKeys.localSearch(trimmed),
     queryFn: () => api.games.localSearch(trimmed),
     enabled: enabled && trimmed.length > 0,
     staleTime: 30_000,
@@ -122,7 +123,7 @@ export function gameQueryOptions(gameId: string) {
 
 function gameCreatorsQueryOptions(gameId: string, media: MediaFilter = "all") {
   return queryOptions({
-    queryKey: [...gameKeys.creators(gameId), media],
+    queryKey: gameKeys.creators(gameId, media),
     queryFn: () => api.games.fetchCreators(gameId, undefined, media),
     enabled: gameId.length > 0,
   })
