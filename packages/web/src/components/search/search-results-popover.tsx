@@ -22,7 +22,6 @@ import { type UserListRow, useSearchQuery } from "@/lib/search-api"
 
 import { useAppSearch } from "./app-search"
 import { searchLocalClips } from "./local-clip-search"
-import { quote } from "./search-format"
 import {
   ClipRowItem,
   EmptyBlock,
@@ -441,7 +440,7 @@ function SearchResultsBody({
             title={t("No matches")}
             hint={t(
               "Nothing found for {query}. Try a different title, game, file, or user.",
-              { query: quote(query) },
+              { query: `"${query}"` },
             )}
           />
         )}

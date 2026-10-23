@@ -21,6 +21,7 @@ import { GameCombobox } from "@/components/game/game-combobox"
 import { fileExtensionLabel } from "@/components/upload/new-clip-helpers"
 import { CLIP_TITLE_MAX, normalizeClipTitle } from "@/lib/clip-fields"
 import type { RecordingLibraryStagedImport } from "@/lib/desktop"
+import { formatMediaDurationMs } from "@/lib/media-time"
 import { formatBytes } from "@/lib/storage-format"
 
 import type { ImportClipAction } from "./import-clip-action"
@@ -30,34 +31,7 @@ export function ImportClipDetailsDialog({
 }: {
   action: ImportClipAction
 }) {
-  return (
-    <ImportClipDetailsDialogInner
-      staged={action.staged}
-      pending={action.committing}
-      error={action.error}
-      onOpenChange={(open) => {
-        if (!open) void action.discard()
-      }}
-      onCommit={(metadata) => {
-        void action.commit(metadata)
-      }}
-    />
-  )
-}
-
-function ImportClipDetailsDialogInner({
-  staged,
-  pending,
-  error,
-  onOpenChange,
-  onCommit,
-}: {
-  staged: RecordingLibraryStagedImport | null
-  pending: boolean
-  error: string | null
-  onOpenChange: (open: boolean) => void
-  onCommit: (metadata: { title: string; game: GameRow }) => void
-}) {
+  const { staged, committing: pending, error } = action
   const [title, setTitle] = useState("")
   const [game, setGame] = useState<GameRow | null>(null)
   const [submitted, setSubmitted] = useState(false)
@@ -75,7 +49,11 @@ function ImportClipDetailsDialogInner({
   const submit = () => {
     setSubmitted(true)
     if (pending || normalizedTitle.length === 0 || !game) return
-    onCommit({ title: normalizedTitle, game })
+    void action.commit({ title: normalizedTitle, game })
+  }
+
+  const onOpenChange = (open: boolean) => {
+    if (!open) void action.discard()
   }
 
   return (
@@ -180,7 +158,9 @@ function StagedImportSummary({
 }) {
   const details = [
     formatBytes(staged.sizeBytes),
-    formatStagedDuration(staged.durationMs),
+    staged.durationMs && staged.durationMs > 0
+      ? formatMediaDurationMs(staged.durationMs)
+      : null,
     staged.width && staged.height ? `${staged.width}x${staged.height}` : null,
   ].filter((value): value is string => value !== null)
 
@@ -214,12 +194,4 @@ function FileTypeChip({ fileName }: { fileName: string }) {
       )}
     </div>
   )
-}
-
-function formatStagedDuration(durationMs: number | null): string | null {
-  if (!durationMs || durationMs <= 0) return null
-  const totalSeconds = Math.max(1, Math.round(durationMs / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`
 }
