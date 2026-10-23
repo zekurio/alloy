@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-/* eslint-disable no-console */
-
 import { readFileSync, writeFileSync } from "node:fs"
 
 const version = process.argv[2]

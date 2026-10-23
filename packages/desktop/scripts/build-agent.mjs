@@ -1,5 +1,3 @@
-/* eslint-disable no-console */
-
 import { spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"

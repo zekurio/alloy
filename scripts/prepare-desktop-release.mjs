@@ -1,5 +1,3 @@
-/* eslint-disable no-console */
-
 import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 
