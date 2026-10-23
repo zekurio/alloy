@@ -116,23 +116,27 @@ export const authSession = pgTable(
   ],
 )
 
-export const userPasskey = pgTable("user_passkey", {
-  id: uuid().primaryKey().defaultRandom(),
-  user_id: uuid()
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  credential_id: text().notNull().unique(),
-  public_key: text().notNull(),
-  counter: integer().notNull().default(0),
-  name: text(),
-  device_type: text().notNull(),
-  backed_up: boolean().notNull().default(false),
-  transports: text(),
-  aaguid: text(),
-  created_at: timestamp().notNull().defaultNow(),
-  updated_at: timestamp().notNull().defaultNow(),
-  last_used_at: timestamp(),
-})
+export const userPasskey = pgTable(
+  "user_passkey",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    user_id: uuid()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    credential_id: text().notNull().unique(),
+    public_key: text().notNull(),
+    counter: integer().notNull().default(0),
+    name: text(),
+    device_type: text().notNull(),
+    backed_up: boolean().notNull().default(false),
+    transports: text(),
+    aaguid: text(),
+    created_at: timestamp().notNull().defaultNow(),
+    updated_at: timestamp().notNull().defaultNow(),
+    last_used_at: timestamp(),
+  },
+  (t) => [index("user_passkey_user_idx").on(t.user_id)],
+)
 
 export const authAccount = pgTable(
   "auth_account",
@@ -161,6 +165,7 @@ export const authAccount = pgTable(
       t.provider_id,
       t.provider_account_id,
     ),
+    index("auth_account_user_idx").on(t.user_id),
   ],
 )
 
