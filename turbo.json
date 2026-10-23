@@ -28,7 +28,8 @@
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "passThroughEnv": ["ALLOY_*"]
     }
   }
 }
