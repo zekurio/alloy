@@ -12,27 +12,26 @@ export type VideoKeyCommand = {
   toggleFullscreen: () => void
 }
 
+/** Text fields, sliders and comboboxes handle their own keys, arrows included. */
+export function ownsKeyboardInput(target: HTMLElement): boolean {
+  if (target.closest("[data-video-shortcut-scope='ignore']")) return true
+  if (target.isContentEditable) return true
+
+  const tag = target.tagName
+  if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return true
+
+  const role = target.getAttribute("role")
+  return role === "slider" || role === "combobox"
+}
+
 export function shouldHandleVideoShortcut(
   target: EventTarget,
   currentTarget: HTMLDivElement,
 ): boolean {
   if (target === currentTarget) return true
   if (!(target instanceof HTMLElement)) return false
-  if (target.closest("[data-video-shortcut-scope='ignore']")) return false
-  if (target.isContentEditable) return false
-
-  const tag = target.tagName
-  if (
-    tag === "BUTTON" ||
-    tag === "INPUT" ||
-    tag === "SELECT" ||
-    tag === "TEXTAREA"
-  ) {
-    return false
-  }
-
-  const role = target.getAttribute("role")
-  return role !== "slider" && role !== "button" && role !== "combobox"
+  if (ownsKeyboardInput(target)) return false
+  return target.tagName !== "BUTTON" && target.getAttribute("role") !== "button"
 }
 
 function isSpaceKey(e: KeyboardEvent): boolean {
@@ -45,27 +44,15 @@ export function shouldHandleGlobalVideoShortcut(
 ) {
   const target = e.target
   if (!(target instanceof HTMLElement)) return true
-  if (target.closest("[data-video-shortcut-scope='ignore']")) return false
-  if (target.isContentEditable) return false
-
-  const tag = target.tagName
-  if (
-    tag === "INPUT" ||
-    tag === "SELECT" ||
-    tag === "TEXTAREA" ||
-    tag === "A"
-  ) {
-    return false
-  }
+  if (ownsKeyboardInput(target) || target.tagName === "A") return false
 
   const isPlayerControl = Boolean(
     playerRoot?.contains(target) ||
     target.closest("[data-video-player-control]"),
   )
 
-  const role = target.getAttribute("role")
-  if (role === "slider" || role === "combobox") return false
-  if (tag !== "BUTTON" && role !== "button") return true
+  if (target.tagName !== "BUTTON" && target.getAttribute("role") !== "button")
+    return true
 
   // Space activates a button reached with the keyboard, the player's own Mute
   // or Fullscreen included. A button that only holds focus from a mouse click

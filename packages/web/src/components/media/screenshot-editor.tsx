@@ -20,6 +20,8 @@ import {
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
+import { clientLogger } from "@/lib/client-log"
+
 import { ImageZoomControls, useImageZoom } from "./image-zoom"
 import {
   canMoveScreenshotCropAt,
@@ -112,12 +114,12 @@ export function ScreenshotEditor({
   const [image, setImage] = useState<ImageBitmap | null>(null)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
     let bitmap: ImageBitmap | null = null
     setError(null)
     setImage(null)
     const source = mediaUrl
-      ? fetch(mediaUrl).then((response) => {
+      ? fetch(mediaUrl, { signal: controller.signal }).then((response) => {
           if (!response.ok) throw new Error("Could not read screenshot")
           return response.blob()
         })
@@ -128,14 +130,16 @@ export function ScreenshotEditor({
       .then((blob) => createImageBitmap(blob))
       .then((loaded) => {
         bitmap = loaded
-        if (cancelled) loaded.close()
+        if (controller.signal.aborted) loaded.close()
         else setImage(loaded)
       })
-      .catch(() => {
-        if (!cancelled) setError(t("Couldn't open image"))
+      .catch((cause: unknown) => {
+        if (controller.signal.aborted) return
+        clientLogger.warn("[screenshot-editor] Failed to open image.", cause)
+        setError(t("Couldn't open image"))
       })
     return () => {
-      cancelled = true
+      controller.abort()
       bitmap?.close()
     }
   }, [file, mediaUrl])
