@@ -24,7 +24,8 @@ select nixpkgs' default pnpm independently.
 
 ## Updating pnpm or dependencies
 
-Keep the exact pnpm version in `package.json`. When changing it, update the
+Keep the exact pnpm version in `package.json`; `pnpm/action-setup` in the
+workflows reads it from there. When changing it, update the
 tarball hash in `pnpm.nix` too. A major-version change also requires reviewing
 the Nix builder interface and validating the Windows desktop workflows.
 
