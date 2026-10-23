@@ -8,11 +8,10 @@ export interface Logger {
   error(...args: unknown[]): void
 }
 
-export type LogLevel = "INFO" | "WARN" | "ERROR"
-export type LogFormat = "human" | "json"
+type LogLevel = "INFO" | "WARN" | "ERROR"
 
-/** One log call, resolved into structured parts that every sink receives. */
-export interface LogRecord {
+/** One log call, resolved into structured parts. */
+interface LogRecord {
   timestamp: Date
   level: LogLevel
   /** Subsystem the logger was created for, e.g. "queue" or "sidecar". */
@@ -23,12 +22,7 @@ export interface LogRecord {
   context: Record<string, string>
 }
 
-export interface LogSink {
-  write(record: LogRecord): void
-}
-
-const logFormat: LogFormat =
-  process.env.LOG_FORMAT === "json" ? "json" : "human"
+const jsonFormat = process.env.LOG_FORMAT === "json"
 
 function formatLogArg(value: Parameters<typeof inspect>[0]): string {
   if (Object.prototype.toString.call(value) === "[object String]") {
@@ -51,24 +45,18 @@ function sortedContextEntries(ctx: Record<string, string>): [string, string][] {
   )
 }
 
-/** Render a record without colors — for files, pipes, and JSON ingestion. */
-export function formatRecord(record: LogRecord, format: LogFormat): string {
-  const ts = record.timestamp.toISOString()
-  if (format === "json") {
-    return JSON.stringify({
-      ts,
-      level: record.level,
-      scope: record.scope,
-      msg: record.message,
-      ...Object.fromEntries(sortedContextEntries(record.context)),
-    })
+/** One JSON object per line. Context keys never replace the record's own fields. */
+function formatJsonRecord(record: LogRecord): string {
+  const fields = {
+    ts: record.timestamp.toISOString(),
+    level: record.level,
+    scope: record.scope,
+    msg: record.message,
   }
-
-  const contextSuffix = sortedContextEntries(record.context)
-    .map((entry) => `${entry[0]}=${formatContextValue(entry[1])}`)
-    .join(" ")
-  const line = `${ts} ${record.level.padEnd(5)}${record.scope ? ` [${record.scope}]` : ""} ${record.message}`
-  return contextSuffix ? `${line} ${contextSuffix}` : line
+  const context = sortedContextEntries(record.context).filter(
+    ([key]) => !Object.hasOwn(fields, key),
+  )
+  return JSON.stringify({ ...fields, ...Object.fromEntries(context) })
 }
 
 type StyleFormat = Parameters<typeof styleText>[0]
@@ -84,7 +72,7 @@ const LEVEL_STYLE = {
  * plain text when the stream is not a TTY or NO_COLOR is set, so this is safe
  * to use unconditionally for console output.
  */
-export function formatPrettyRecord(
+function formatPrettyRecord(
   record: LogRecord,
   stream: NodeJS.WriteStream,
 ): string {
@@ -101,30 +89,6 @@ export function formatPrettyRecord(
   return contextSuffix ? `${line} ${contextSuffix}` : line
 }
 
-const consoleSink: LogSink = {
-  write(record) {
-    const stream = record.level === "INFO" ? process.stdout : process.stderr
-    const line =
-      logFormat === "json"
-        ? formatRecord(record, "json")
-        : formatPrettyRecord(record, stream)
-    stream.write(`${line}\n`)
-  },
-}
-
-const sinks = new Set<LogSink>([consoleSink])
-
-/**
- * Register an additional destination for every log record (e.g. a file in the
- * desktop app). Returns a function that removes the sink again.
- */
-export function addLogSink(sink: LogSink): () => void {
-  sinks.add(sink)
-  return () => {
-    sinks.delete(sink)
-  }
-}
-
 function emit(level: LogLevel, scope: string | undefined, args: unknown[]) {
   const record: LogRecord = {
     timestamp: new Date(),
@@ -133,12 +97,14 @@ function emit(level: LogLevel, scope: string | undefined, args: unknown[]) {
     message: args.map(formatLogArg).join(" "),
     context: getLogContext(),
   }
-  for (const sink of sinks) {
-    try {
-      sink.write(record)
-    } catch {
-      // Logging must not make the primary operation fail.
-    }
+  const stream = level === "INFO" ? process.stdout : process.stderr
+  try {
+    const line = jsonFormat
+      ? formatJsonRecord(record)
+      : formatPrettyRecord(record, stream)
+    stream.write(`${line}\n`)
+  } catch {
+    // Logging must not make the primary operation fail.
   }
 }
 

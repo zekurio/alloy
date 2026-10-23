@@ -1,6 +1,6 @@
 import { Type } from "typebox"
 import type { StaticDecode, TSchema } from "typebox"
-import { Check, Decode, Errors } from "typebox/value"
+import { Check, Decode } from "typebox/value"
 
 const DecodeErrorsSchema = Type.Object({
   cause: Type.Object({
@@ -40,12 +40,17 @@ export function createEnv<Schema extends TSchema>(
 
 function groupErrors(
   schema: TSchema,
-  value: Parameters<typeof Errors>[1],
+  source: Record<string, string | undefined>,
   cause: unknown,
 ) {
-  return (decodeErrors(cause) ?? [...Errors(schema, value)]).reduce<
-    Record<string, string[]>
-  >((groups, error) => {
+  const errors = decodeErrors(cause)
+  // Validation passed and a transform threw, which TypeBox reports without
+  // a path.
+  if (!errors) {
+    const message = cause instanceof Error ? cause.message : String(cause)
+    return { [throwingKey(schema, source)]: [message] }
+  }
+  return errors.reduce<Record<string, string[]>>((groups, error) => {
     const key = error.instancePath.split("/")[1] ?? ""
     groups[key] = [...(groups[key] ?? []), error.message]
     return groups
@@ -54,6 +59,26 @@ function groupErrors(
 
 function decodeErrors(cause: unknown) {
   return Check(DecodeErrorsSchema, cause) ? cause.cause.errors : null
+}
+
+/** Decode each top-level property alone and return the first that throws. */
+function throwingKey(
+  schema: TSchema,
+  source: Record<string, string | undefined>,
+): string {
+  if (!Type.IsObject(schema)) return ""
+  for (const [key, property] of Object.entries(schema.properties)) {
+    const value = source[key]
+    try {
+      Decode(
+        Type.Object({ [key]: property }),
+        value === undefined ? {} : { [key]: value },
+      )
+    } catch {
+      return key
+    }
+  }
+  return ""
 }
 
 /** TypeBox schema for a postgres:// or postgresql:// connection URL. */
