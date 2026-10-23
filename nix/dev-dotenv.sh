@@ -17,7 +17,8 @@ if [ ! -e "$env_file" ]; then
   sed \
     -e "s/^ALLOY_VIEWER_COOKIE_SECRET=.*/ALLOY_VIEWER_COOKIE_SECRET=$(secret)/" \
     -e "s/^ALLOY_UPLOAD_HMAC_SECRET=.*/ALLOY_UPLOAD_HMAC_SECRET=$(secret)/" \
-    "$template" >"$env_file"
+    "$template" >"$env_file.tmp"
+  mv "$env_file.tmp" "$env_file"
   echo "Created .env from .env.example with generated local secrets" >&2
 fi
 

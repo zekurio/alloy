@@ -3,8 +3,7 @@ name: nix
 # Runs only when packaging-relevant inputs change. `nix/package.nix` builds the
 # server and web from `packages/**` and the root `public/` directory, and the
 # turbo build in checks does not run the Nix derivation, so those inputs are
-# listed here. The desktop packages are not part of that derivation. The
-# devenv files are listed for the shell job below.
+# listed here. The desktop packages are not part of that derivation.
 on:
   pull_request:
     paths:
@@ -14,11 +13,6 @@ on:
       - "public/**"
       - "flake.nix"
       - "flake.lock"
-      - "devenv.nix"
-      - "devenv.yaml"
-      - "devenv.lock"
-      - ".envrc"
-      - ".env.example"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -62,46 +56,3 @@ jobs:
 
       - name: check nix flake
         run: nix flake check --print-build-logs
-
-  devenv:
-    name: devenv shell
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      - name: checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      # The shell and the package must build from the same nixpkgs revision;
-      # nothing else reminds anyone to bump the two locks together.
-      - name: check nixpkgs pins match
-        run: |
-          flake="$(jq -r .nodes.nixpkgs.locked.rev flake.lock)"
-          devenv="$(jq -r .nodes.nixpkgs.locked.rev devenv.lock)"
-          if [ "$flake" != "$devenv" ]; then
-            echo "flake.lock pins nixpkgs $flake but devenv.lock pins $devenv" >&2
-            echo "Run 'nix flake update nixpkgs' and 'devenv update nixpkgs' together." >&2
-            exit 1
-          fi
-
-      - name: install nix
-        uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
-      - name: set up cachix
-        uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
-        with:
-          name: zekurio
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-
-      - name: install devenv
-        run: nix profile install nixpkgs#devenv
-
-      # Builds the shell, runs enterShell (.env creation and the repo-local
-      # Postgres) and the enterTest checks from devenv.nix.
-      - name: test devenv shell
-        run: devenv test

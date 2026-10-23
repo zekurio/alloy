@@ -1,0 +1,76 @@
+name: devenv
+
+# Builds the development shell and runs its entry hook. Scoped to the shell's
+# inputs: nix.yml covers the package, which these files do not affect.
+on:
+  pull_request:
+    paths:
+      - "devenv.nix"
+      - "devenv.yaml"
+      - "devenv.lock"
+      - "flake.lock"
+      - ".envrc"
+      - ".env.example"
+      - "nix/dev-*.sh"
+      - "nix/pnpm.nix"
+      - "package.json"
+      - ".github/workflows/devenv.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  devenv:
+    name: devenv shell
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The shell and the package must build from the same nixpkgs revision;
+      # nothing else reminds anyone to bump the two locks together.
+      - name: check nixpkgs pins match
+        run: |
+          flake="$(jq -r .nodes.nixpkgs.locked.rev flake.lock)"
+          devenv="$(jq -r .nodes.nixpkgs.locked.rev devenv.lock)"
+          if [ "$flake" != "$devenv" ]; then
+            echo "flake.lock pins nixpkgs $flake but devenv.lock pins $devenv" >&2
+            echo "Run 'nix flake update nixpkgs' and 'devenv update nixpkgs' together." >&2
+            exit 1
+          fi
+
+      # devenv's cache serves the CLI build below; cachix-action adds the
+      # repository cache for the shell itself.
+      - name: install nix
+        uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            extra-substituters = https://devenv.cachix.org
+            extra-trusted-public-keys = devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=
+
+      # Read-only on fork PRs (no secret); pushes from same-repo runs.
+      - name: set up cachix
+        uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: zekurio
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      # The CLI comes from the same devenv revision as the modules in
+      # devenv.lock, so the two cannot drift apart.
+      - name: install devenv
+        run: nix profile install --accept-flake-config "github:cachix/devenv/$(jq -r .nodes.devenv.locked.rev devenv.lock)"
+
+      # Builds the shell, runs enterShell (.env creation and the repo-local
+      # Postgres) and the enterTest checks from devenv.nix.
+      - name: test devenv shell
+        run: devenv test

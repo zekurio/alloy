@@ -26,7 +26,10 @@ running() {
 }
 
 start() {
+  # The socket, lock and log are private to this user: the cluster trusts
+  # every connection.
   mkdir -p "$data" "$run"
+  chmod 700 "$run"
 
   # Serialize startup across shells. The lock is released when this script
   # exits, so nothing started below may inherit fd 9.
@@ -50,10 +53,9 @@ start() {
     initdb -D "$data" -U "$user" --auth=trust --no-locale >/dev/null 9>&-
   fi
 
-  # No TCP listener; the socket is usable by this user only since the
-  # cluster trusts every connection. direnv captures hook output on extra
-  # file descriptors: close them for the daemon starter so Postgres cannot
-  # keep `direnv export` alive.
+  # No TCP listener. direnv captures hook output on extra file descriptors:
+  # close them for the daemon starter so Postgres cannot keep `direnv export`
+  # alive.
   pg_ctl \
     -D "$data" \
     -l "$run/postgres.log" \

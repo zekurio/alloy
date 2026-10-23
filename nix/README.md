@@ -43,7 +43,7 @@ dependency store changes, regenerate `pnpmDepsHash` in `package.nix`:
 4. Rebuild with the real hash and run `nix flake check`.
 
 Keep the nixpkgs inputs in `flake.lock` and `devenv.lock` aligned: run
-`nix flake update nixpkgs` and `devenv update nixpkgs` together. The `nix`
+`nix flake update nixpkgs` and `devenv update nixpkgs` together. The `devenv`
 workflow fails when the two revisions differ. Pinning pnpm does not pin
 nixpkgs' fetcher implementation, so a nixpkgs update still needs a package
 build.
