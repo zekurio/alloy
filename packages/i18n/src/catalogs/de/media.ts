@@ -106,8 +106,6 @@ export const MEDIA_MESSAGES = {
   "Delete clips": "Clips löschen",
   "Delete game": "Spiel löschen",
   "Delete this clip?": "Diesen Clip löschen?",
-  "Delete this {noun}?": "{noun} löschen?",
-  "Delete {noun}": "{noun} löschen",
   "Deleting...": "Wird gelöscht...",
   "Description can be at most {max} characters":
     "Die Beschreibung darf höchstens {max} Zeichen lang sein",

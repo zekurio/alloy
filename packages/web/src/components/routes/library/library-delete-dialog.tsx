@@ -11,7 +11,6 @@ export function DeleteServerBackedDialog({
   pending,
   error,
   title,
-  noun,
   localItem,
   onConfirm,
 }: {
@@ -20,7 +19,11 @@ export function DeleteServerBackedDialog({
   pending: boolean
   error?: string | null
   title: string
-  noun: "clip" | "recording"
+  /**
+   * Every caller deletes a clip. Kept optional until the callers in
+   * components/clip stop passing it.
+   */
+  noun?: "clip"
   localItem: RecordingLibraryItem | null
   onConfirm: (deleteLocal: boolean) => void
 }) {
@@ -33,23 +36,16 @@ export function DeleteServerBackedDialog({
     if (open) setDeleteLocal(hasLocalItem)
   }, [hasLocalItem, open])
 
-  const deleteTitle =
-    noun === "clip"
-      ? t("Delete this clip?")
-      : t("Delete this {noun}?", { noun })
-  const deleteAction =
-    noun === "clip" ? t("Delete clip") : t("Delete {noun}", { noun })
-
   return (
     <ConfirmDeleteDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={deleteTitle}
+      title={t("Delete this clip?")}
       description={t(
         '"{title}" will be removed from the server. This can\'t be undone.',
         { title },
       )}
-      confirmLabel={deleteAction}
+      confirmLabel={t("Delete clip")}
       pendingLabel={t("Deleting...")}
       pending={pending}
       error={error}
