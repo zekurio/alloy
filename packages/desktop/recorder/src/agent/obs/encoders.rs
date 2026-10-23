@@ -68,13 +68,11 @@ fn can_create_video_codec(
                 codec: codec.clone(),
                 ..settings.clone()
             };
-            let data = obs.create_data();
-            let result = (|| {
+            let result = obs.with_data(|data| {
                 let quality = effective_quality(&probe_settings);
                 configure_video_encoder(obs, data, &probe_settings, &quality)?;
                 create_video_encoder(obs, &candidate.id, data)
-            })();
-            obs.release_data(data);
+            });
 
             if let Ok(encoder) = result {
                 (obs.obs_encoder_release)(encoder);

@@ -411,7 +411,7 @@ impl LibObs {
         adapter: u32,
     ) -> Result<(), String> {
         self.add_paths(runtime_dir);
-        let locale = CString::new("en-US").expect("static string has no nul byte");
+        let locale = c"en-US";
         if !(self.obs_startup)(locale.as_ptr(), ptr::null(), ptr::null()) {
             return Err("OBS startup failed.".to_string());
         }
@@ -637,52 +637,46 @@ impl LibObs {
         encoders
     }
 
-    pub(in crate::agent) unsafe fn create_data(&self) -> *mut ObsData {
+    unsafe fn create_data(&self) -> *mut ObsData {
         (self.obs_data_create)()
     }
 
-    pub(in crate::agent) unsafe fn release_data(&self, data: *mut ObsData) {
+    unsafe fn release_data(&self, data: *mut ObsData) {
         if !data.is_null() {
             (self.obs_data_release)(data);
         }
     }
 
+    /// Runs `use_data` with a new settings object and releases it afterwards,
+    /// on success and on error alike.
+    pub(in crate::agent) unsafe fn with_data<T>(
+        &self,
+        use_data: impl FnOnce(*mut ObsData) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let data = self.create_data();
+        let result = use_data(data);
+        self.release_data(data);
+        result
+    }
+
+    /// Fails only when `value` contains a nul byte.
     pub(in crate::agent) unsafe fn set_string(
         &self,
         data: *mut ObsData,
-        key: &str,
+        key: &CStr,
         value: &str,
     ) -> Result<(), String> {
-        let key =
-            CString::new(key).map_err(|_| "OBS setting key contained a nul byte.".to_string())?;
-        let value = CString::new(value)
-            .map_err(|_| "OBS setting value contained a nul byte.".to_string())?;
+        let value = c_string(value, "OBS setting value")?;
         (self.obs_data_set_string)(data, key.as_ptr(), value.as_ptr());
         Ok(())
     }
 
-    pub(in crate::agent) unsafe fn set_int(
-        &self,
-        data: *mut ObsData,
-        key: &str,
-        value: i64,
-    ) -> Result<(), String> {
-        let key =
-            CString::new(key).map_err(|_| "OBS setting key contained a nul byte.".to_string())?;
+    pub(in crate::agent) unsafe fn set_int(&self, data: *mut ObsData, key: &CStr, value: i64) {
         (self.obs_data_set_int)(data, key.as_ptr(), value);
-        Ok(())
     }
 
-    pub(in crate::agent) unsafe fn set_bool(
-        &self,
-        data: *mut ObsData,
-        key: &str,
-        value: bool,
-    ) -> Result<(), String> {
-        let key =
-            CString::new(key).map_err(|_| "OBS setting key contained a nul byte.".to_string())?;
+    pub(in crate::agent) unsafe fn set_bool(&self, data: *mut ObsData, key: &CStr, value: bool) {
         (self.obs_data_set_bool)(data, key.as_ptr(), value);
-        Ok(())
     }
 
     pub(in crate::agent) unsafe fn audio_devices(
@@ -705,8 +699,7 @@ impl LibObs {
         source_id: &str,
         kind: RecordingAudioDeviceKind,
     ) -> Result<Vec<RecordingAudioDevice>, String> {
-        let source_id = CString::new(source_id)
-            .map_err(|_| "OBS source id contained a nul byte.".to_string())?;
+        let source_id = c_string(source_id, "OBS source id")?;
         let properties = (self.obs_get_source_properties)(source_id.as_ptr());
         if properties.is_null() {
             return Err(format!(
@@ -753,4 +746,9 @@ impl LibObs {
         (self.obs_properties_destroy)(properties);
         result
     }
+}
+
+/// Converts a runtime string for libobs; `what` names it in the error.
+pub(in crate::agent) fn c_string(value: &str, what: &str) -> Result<CString, String> {
+    CString::new(value).map_err(|_| format!("{what} contained a nul byte."))
 }
