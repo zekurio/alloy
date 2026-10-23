@@ -41,9 +41,6 @@ export const webhook = pgTable(
     updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("webhook_enabled_idx")
-      .on(t.enabled)
-      .where(sql`${t.enabled}`),
     check(
       "webhook_provider_check",
       sql`${t.provider} in (${sql.raw(sqlStringList(WEBHOOK_PROVIDERS))})`,
