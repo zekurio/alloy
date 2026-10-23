@@ -1,5 +1,3 @@
-/* eslint-disable no-console */
-
 import { spawnSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import { createReadStream, createWriteStream } from "node:fs"
