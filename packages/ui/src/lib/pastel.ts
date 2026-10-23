@@ -1,4 +1,4 @@
-import { stableHue } from "./stable-hash"
+import { stableHue } from "@alloy/contracts"
 
 export function pastelAvatarColors(seed: string | number) {
   const hue = stableHue(seed || "user")

@@ -55,9 +55,7 @@ function FeedbackButton({
       data-feedback-state={state}
       aria-live="polite"
       variant={
-        (state === "success" || state === "error") &&
-        variant !== "ghost" &&
-        variant !== "link"
+        (state === "success" || state === "error") && variant !== "ghost"
           ? "outline"
           : variant
       }

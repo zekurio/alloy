@@ -66,12 +66,7 @@ export function HexColorInput({
         onChange={(event) => updateDraft(event.target.value)}
         onBlur={commitDraft}
       />
-      <ColorPicker
-        value={swatch}
-        allowAlpha={false}
-        label={label}
-        onValueChange={updateDraft}
-      />
+      <ColorPicker value={swatch} label={label} onValueChange={updateDraft} />
       {children}
     </div>
   )
