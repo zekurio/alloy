@@ -1,7 +1,7 @@
-import {
-  type AuthErrorCode,
-  isStringValue,
-  type SessionData,
+import type {
+  AuthErrorCode,
+  ContractJsonInput,
+  SessionData,
 } from "@alloy/contracts"
 import { useSyncExternalStore } from "react"
 
@@ -15,7 +15,6 @@ import {
 import { createApiClient } from "./client"
 import { errorFrom, toError } from "./error"
 import { readJsonOrThrow } from "./http"
-import type { ApiJsonInput } from "./json-value"
 
 export {
   DISPLAY_NAME_MAX_LENGTH,
@@ -56,30 +55,52 @@ type RequestFn = <T>(
 export type { AuthError, AuthResult, RequestFn, SessionStore }
 export type { AuthRedirect }
 
+type SessionResult = { data: SessionData | null }
+
 function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
   let state: StoreState = { data: null, isPending: true, error: null }
+  // Every refetch and set() takes the next generation. Only the newest one
+  // writes state, so a slow refetch cannot overwrite a later sign-in.
+  let generation = 0
+  let latestRefetch: Promise<SessionResult> | null = null
   const listeners = new Set<() => void>()
 
   function emit() {
     for (const listener of listeners) listener()
   }
 
-  async function refetch(
-    _options?: ApiJsonInput,
-  ): Promise<{ data: SessionData | null }> {
-    state = { ...state, isPending: true, error: null }
-    emit()
+  /** What an overtaken refetch resolves to: the newer refetch, or set()'s data. */
+  function newerResult(): Promise<SessionResult> {
+    return latestRefetch ?? Promise.resolve({ data: state.data })
+  }
+
+  async function load(startedAt: number): Promise<SessionResult> {
+    let data: SessionData | null
     try {
-      const data = await fetchSession()
-      state = { data, isPending: false, error: null }
-      emit()
-      return { data }
+      data = await fetchSession()
     } catch (cause) {
+      if (startedAt !== generation) return newerResult()
+      latestRefetch = null
       const error = toError(cause, "Could not load session")
       state = { ...state, isPending: false, error }
       emit()
       throw error
     }
+    if (startedAt !== generation) return newerResult()
+    latestRefetch = null
+    state = { data, isPending: false, error: null }
+    emit()
+    return { data }
+  }
+
+  // Callers may still pass better-auth's refetch options; they are ignored.
+  function refetch(_options?: ContractJsonInput): Promise<SessionResult> {
+    generation += 1
+    const request = load(generation)
+    latestRefetch = request
+    state = { ...state, isPending: true, error: null }
+    emit()
+    return request
   }
 
   const initial = refetch().catch(() => ({ data: null }))
@@ -92,6 +113,8 @@ function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
       return () => listeners.delete(listener)
     },
     set(data: SessionData | null) {
+      generation += 1
+      latestRefetch = null
       state = { data, isPending: false, error: null }
       emit()
     },
@@ -106,12 +129,9 @@ function defaultAuthRedirect(url: string): void {
   window.location.assign(url)
 }
 
-export function createAuth(input: string | CreateAuthOptions) {
-  const baseURL = isStringValue(input) ? input : input.baseURL
-  const redirect = isStringValue(input)
-    ? defaultAuthRedirect
-    : (input.redirect ?? defaultAuthRedirect)
-  const client = createApiClient(baseURL)
+export function createAuth(options: CreateAuthOptions) {
+  const redirect = options.redirect ?? defaultAuthRedirect
+  const client = createApiClient(options.baseURL)
 
   async function request<T>(
     path: string,

@@ -25,7 +25,6 @@ export type RpcClient = ReturnType<typeof hc<AppType>>
 export interface ApiContext {
   baseURL: string
   publicURL: string
-  client: ApiClient
   rpc: RpcClient
   request(path: string, options?: ApiRequestOptions): Promise<Response>
 }
@@ -90,12 +89,10 @@ function createRpcClient(baseURL: string, init: RequestInit = {}): RpcClient {
 
 export function createApiContext(options: CreateApiOptions): ApiContext {
   const init = options.init ?? {}
-  const client = createApiClient(options.baseURL, init)
   return {
     baseURL: options.baseURL,
     publicURL: options.publicURL ?? options.baseURL,
-    client,
     rpc: createRpcClient(options.baseURL, init),
-    request: client.request,
+    request: createApiClient(options.baseURL, init).request,
   }
 }

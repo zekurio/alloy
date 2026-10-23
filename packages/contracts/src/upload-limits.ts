@@ -5,7 +5,11 @@ import { t } from "./schema"
 export const UPLOAD_MAX_BYTES = 1024 * 1024 * 1024
 export const UPLOAD_MAX_PIXELS = 256_000_000
 
-function limitSchema(max: number) {
+/**
+ * A positive safe integer up to `max`. Checked before decoding because the
+ * decoder converts numeric strings, which an untrusted boundary must reject.
+ */
+export function positiveSafeIntegerSchema(max = Number.MAX_SAFE_INTEGER) {
   return t
     .unknown()
     .refine(
@@ -14,7 +18,9 @@ function limitSchema(max: number) {
         Number.isSafeInteger(value) &&
         value > 0 &&
         value <= max,
-      `must be a positive integer no greater than ${max}`,
+      max === Number.MAX_SAFE_INTEGER
+        ? "must be a positive safe integer"
+        : `must be a positive integer no greater than ${max}`,
     )
     .transform((value) => {
       // SAFETY: The refinement accepts only positive safe integer numbers.
@@ -22,11 +28,12 @@ function limitSchema(max: number) {
     })
 }
 
-const BytesSchema = limitSchema(UPLOAD_MAX_BYTES)
+const BytesSchema = positiveSafeIntegerSchema(UPLOAD_MAX_BYTES)
 
 export const UploadLimitsSchema = t.object({
   screenshotMaxBytes: BytesSchema.$default(50 * 1024 * 1024),
-  screenshotMaxPixels: limitSchema(UPLOAD_MAX_PIXELS).$default(64_000_000),
+  screenshotMaxPixels:
+    positiveSafeIntegerSchema(UPLOAD_MAX_PIXELS).$default(64_000_000),
   avatarMaxBytes: BytesSchema.$default(5 * 1024 * 1024),
   bannerMaxBytes: BytesSchema.$default(10 * 1024 * 1024),
   gameAssetMaxBytes: BytesSchema.$default(10 * 1024 * 1024),

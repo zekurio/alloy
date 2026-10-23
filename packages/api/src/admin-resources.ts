@@ -17,7 +17,6 @@ import type { ApiContext } from "./client"
 import {
   validateAdminGameRow,
   validateAdminGameRows,
-  validateAdminReEncodeResponse,
   validateAdminUsersResponse,
   validateAdminUserStorageRow,
   validateAdminWebhookRow,
@@ -25,19 +24,13 @@ import {
   validateAdminWebhookTestResult,
   validateSteamGridDBArtworkResponse,
 } from "./contract-validators"
+import { blobAsFile } from "./form-file"
 import { readJsonOrThrow } from "./http"
 import { readDeletedJson, readSuccessJson } from "./mutations"
 
 export type AdminCreateUserInput = {
   username: string
   role?: "user" | "admin"
-}
-
-export async function reEncodeAllClips(
-  context: ApiContext,
-): Promise<{ enqueued: number; hasMore: boolean }> {
-  const res = await context.rpc.api.admin.clips["re-encode"].$post()
-  return readJsonOrThrow(res, validateAdminReEncodeResponse)
 }
 
 type AdminGameCreateForm = {
@@ -55,174 +48,118 @@ type AdminUsersQuery = {
   search?: string
 }
 
-export async function fetchUsers(
-  context: ApiContext,
-  options: { cursor?: string; limit?: number; search?: string } = {},
-): Promise<AdminUsersResponse> {
-  const query: AdminUsersQuery = {}
-  if (options.cursor) query.cursor = options.cursor
-  if (options.limit) query.limit = String(options.limit)
-  if (options.search) query.search = options.search
-  const res = await context.rpc.api.admin.users.$get({
-    query,
-  })
-  return readJsonOrThrow(res, validateAdminUsersResponse)
-}
+export function createAdminResourcesApi(context: ApiContext) {
+  const admin = context.rpc.api.admin
 
-export async function createUser(
-  context: ApiContext,
-  input: AdminCreateUserInput,
-): Promise<AdminUserStorageRow> {
-  const res = await context.rpc.api.admin.users.$post({ json: input })
-  return readJsonOrThrow(res, validateAdminUserStorageRow)
-}
-
-export async function updateUser(
-  context: ApiContext,
-  userId: string,
-  input: AdminUpdateUserInput,
-): Promise<AdminUserStorageRow> {
-  const res = await context.rpc.api.admin.users[":id"].$patch({
-    param: { id: userId },
-    json: input,
-  })
-  return readJsonOrThrow(res, validateAdminUserStorageRow)
-}
-
-export async function deleteUser(
-  context: ApiContext,
-  userId: string,
-): Promise<void> {
-  const res = await context.rpc.api.admin.users[":id"].$delete({
-    param: { id: userId },
-  })
-  await readSuccessJson(res)
-}
-
-export async function fetchGames(context: ApiContext): Promise<AdminGameRow[]> {
-  const res = await context.rpc.api.admin.games.$get()
-  return readJsonOrThrow(res, validateAdminGameRows)
-}
-
-export async function createGame(
-  context: ApiContext,
-  input: AdminCreateGameInput,
-): Promise<AdminGameRow> {
-  const form: AdminGameCreateForm = { name: input.name }
-  if (input.releaseDate) form.releaseDate = input.releaseDate
-  if (input.assets?.hero) form.hero = input.assets.hero
-  if (input.assets?.grid) form.grid = input.assets.grid
-  if (input.assets?.logo) form.logo = input.assets.logo
-  if (input.assets?.icon) form.icon = input.assets.icon
-  const res = await context.rpc.api.admin.games.$post({
-    form,
-  })
-  return readJsonOrThrow(res, validateAdminGameRow)
-}
-
-export async function updateGame(
-  context: ApiContext,
-  gameId: string,
-  input: AdminUpdateGameInput,
-): Promise<AdminGameRow> {
-  const res = await context.rpc.api.admin.games[":id"].$patch({
-    param: { id: gameId },
-    json: input,
-  })
-  return readJsonOrThrow(res, validateAdminGameRow)
-}
-
-export async function deleteGame(
-  context: ApiContext,
-  gameId: string,
-): Promise<void> {
-  const res = await context.rpc.api.admin.games[":id"].$delete({
-    param: { id: gameId },
-  })
-  await readDeletedJson(res)
-}
-
-export async function fetchGameArtwork(
-  context: ApiContext,
-  gameId: string,
-  role: GameAssetRole,
-): Promise<SteamGridDBArtworkResponse> {
-  const res = await context.rpc.api.admin.games[":id"].artwork.$get({
-    param: { id: gameId },
-    query: { role },
-  })
-  return readJsonOrThrow(res, validateSteamGridDBArtworkResponse)
-}
-
-export async function uploadGameAsset(
-  context: ApiContext,
-  gameId: string,
-  role: GameAssetRole,
-  blob: Blob,
-): Promise<AdminGameRow> {
-  const file =
-    blob instanceof File ? blob : new File([blob], role, { type: blob.type })
-  const res = await context.rpc.api.admin.games[":id"].assets[":role"].$post({
-    param: { id: gameId, role },
-    form: { file },
-  })
-  return readJsonOrThrow(res, validateAdminGameRow)
-}
-
-export async function deleteGameAsset(
-  context: ApiContext,
-  gameId: string,
-  role: GameAssetRole,
-): Promise<AdminGameRow> {
-  const res = await context.rpc.api.admin.games[":id"].assets[":role"].$delete({
-    param: { id: gameId, role },
-  })
-  return readJsonOrThrow(res, validateAdminGameRow)
-}
-
-export async function fetchWebhooks(
-  context: ApiContext,
-): Promise<AdminWebhookRow[]> {
-  const res = await context.rpc.api.admin.webhooks.$get()
-  return readJsonOrThrow(res, validateAdminWebhookRows)
-}
-
-export async function createWebhook(
-  context: ApiContext,
-  input: AdminWebhookInput,
-): Promise<AdminWebhookRow> {
-  const res = await context.rpc.api.admin.webhooks.$post({ json: input })
-  return readJsonOrThrow(res, validateAdminWebhookRow)
-}
-
-export async function updateWebhook(
-  context: ApiContext,
-  webhookId: string,
-  input: AdminWebhookPatch,
-): Promise<AdminWebhookRow> {
-  const res = await context.rpc.api.admin.webhooks[":id"].$patch({
-    param: { id: webhookId },
-    json: input,
-  })
-  return readJsonOrThrow(res, validateAdminWebhookRow)
-}
-
-export async function deleteWebhook(
-  context: ApiContext,
-  webhookId: string,
-): Promise<void> {
-  const res = await context.rpc.api.admin.webhooks[":id"].$delete({
-    param: { id: webhookId },
-  })
-  await readDeletedJson(res)
-}
-
-export async function testWebhook(
-  context: ApiContext,
-  webhookId: string,
-): Promise<AdminWebhookTestResult> {
-  const res = await context.rpc.api.admin.webhooks[":id"].test.$post({
-    param: { id: webhookId },
-  })
-  return readJsonOrThrow(res, validateAdminWebhookTestResult)
+  return {
+    async fetchUsers(
+      options: { cursor?: string; limit?: number; search?: string } = {},
+    ): Promise<AdminUsersResponse> {
+      const query: AdminUsersQuery = {}
+      if (options.cursor) query.cursor = options.cursor
+      if (options.limit) query.limit = String(options.limit)
+      if (options.search) query.search = options.search
+      const res = await admin.users.$get({ query })
+      return readJsonOrThrow(res, validateAdminUsersResponse)
+    },
+    async createUser(
+      input: AdminCreateUserInput,
+    ): Promise<AdminUserStorageRow> {
+      const res = await admin.users.$post({ json: input })
+      return readJsonOrThrow(res, validateAdminUserStorageRow)
+    },
+    async updateUser(
+      userId: string,
+      input: AdminUpdateUserInput,
+    ): Promise<AdminUserStorageRow> {
+      const res = await admin.users[":id"].$patch({
+        param: { id: userId },
+        json: input,
+      })
+      return readJsonOrThrow(res, validateAdminUserStorageRow)
+    },
+    async deleteUser(userId: string): Promise<void> {
+      const res = await admin.users[":id"].$delete({ param: { id: userId } })
+      await readSuccessJson(res)
+    },
+    async fetchGames(): Promise<AdminGameRow[]> {
+      const res = await admin.games.$get()
+      return readJsonOrThrow(res, validateAdminGameRows)
+    },
+    async createGame(input: AdminCreateGameInput): Promise<AdminGameRow> {
+      const form: AdminGameCreateForm = { name: input.name }
+      if (input.releaseDate) form.releaseDate = input.releaseDate
+      if (input.assets?.hero) form.hero = input.assets.hero
+      if (input.assets?.grid) form.grid = input.assets.grid
+      if (input.assets?.logo) form.logo = input.assets.logo
+      if (input.assets?.icon) form.icon = input.assets.icon
+      const res = await admin.games.$post({ form })
+      return readJsonOrThrow(res, validateAdminGameRow)
+    },
+    async fetchGameArtwork(
+      gameId: string,
+      role: GameAssetRole,
+    ): Promise<SteamGridDBArtworkResponse> {
+      const res = await admin.games[":id"].artwork.$get({
+        param: { id: gameId },
+        query: { role },
+      })
+      return readJsonOrThrow(res, validateSteamGridDBArtworkResponse)
+    },
+    async updateGame(
+      gameId: string,
+      input: AdminUpdateGameInput,
+    ): Promise<AdminGameRow> {
+      const res = await admin.games[":id"].$patch({
+        param: { id: gameId },
+        json: input,
+      })
+      return readJsonOrThrow(res, validateAdminGameRow)
+    },
+    async deleteGame(gameId: string): Promise<void> {
+      const res = await admin.games[":id"].$delete({ param: { id: gameId } })
+      await readDeletedJson(res)
+    },
+    async uploadGameAsset(
+      gameId: string,
+      role: GameAssetRole,
+      blob: Blob,
+    ): Promise<AdminGameRow> {
+      const res = await admin.games[":id"].assets[":role"].$post({
+        param: { id: gameId, role },
+        form: { file: blobAsFile(blob, role) },
+      })
+      return readJsonOrThrow(res, validateAdminGameRow)
+    },
+    async fetchWebhooks(): Promise<AdminWebhookRow[]> {
+      const res = await admin.webhooks.$get()
+      return readJsonOrThrow(res, validateAdminWebhookRows)
+    },
+    async createWebhook(input: AdminWebhookInput): Promise<AdminWebhookRow> {
+      const res = await admin.webhooks.$post({ json: input })
+      return readJsonOrThrow(res, validateAdminWebhookRow)
+    },
+    async updateWebhook(
+      webhookId: string,
+      input: AdminWebhookPatch,
+    ): Promise<AdminWebhookRow> {
+      const res = await admin.webhooks[":id"].$patch({
+        param: { id: webhookId },
+        json: input,
+      })
+      return readJsonOrThrow(res, validateAdminWebhookRow)
+    },
+    async deleteWebhook(webhookId: string): Promise<void> {
+      const res = await admin.webhooks[":id"].$delete({
+        param: { id: webhookId },
+      })
+      await readDeletedJson(res)
+    },
+    async testWebhook(webhookId: string): Promise<AdminWebhookTestResult> {
+      const res = await admin.webhooks[":id"].test.$post({
+        param: { id: webhookId },
+      })
+      return readJsonOrThrow(res, validateAdminWebhookTestResult)
+    },
+  }
 }

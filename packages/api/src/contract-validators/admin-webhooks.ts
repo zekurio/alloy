@@ -4,22 +4,23 @@ import {
   AdminWebhookRowsSchema,
   type AdminWebhookTestResult,
   AdminWebhookTestResultSchema,
+  type ContractJsonInput,
 } from "@alloy/contracts"
 
-import type { ApiJsonInput } from "../json-value"
-
-export function validateAdminWebhookRow(value: ApiJsonInput): AdminWebhookRow {
+export function validateAdminWebhookRow(
+  value: ContractJsonInput,
+): AdminWebhookRow {
   return AdminWebhookRowSchema.parse(value)
 }
 
 export function validateAdminWebhookRows(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): AdminWebhookRow[] {
   return AdminWebhookRowsSchema.parse(value)
 }
 
 export function validateAdminWebhookTestResult(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): AdminWebhookTestResult {
   return AdminWebhookTestResultSchema.parse(value)
 }

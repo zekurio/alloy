@@ -16,10 +16,11 @@ import {
   CLIP_PRIVACY,
   type ClipPage,
   type ClipRow,
+  type ContractJsonInput,
+  type ContractJsonValue,
   MEDIA_KINDS,
 } from "@alloy/contracts"
 
-import type { ApiJsonInput, ApiJsonValue } from "../json-value"
 import { validateGameRow } from "./games-media"
 import { validateUserSummary } from "./people"
 import {
@@ -30,7 +31,7 @@ import {
 const CLIP_PRIVACY_SET: ReadonlySet<string> = new Set(CLIP_PRIVACY)
 const MEDIA_KIND_SET: ReadonlySet<string> = new Set(MEDIA_KINDS)
 function assertNoStorageKey(
-  value: Record<string, ApiJsonValue>,
+  value: Record<string, ContractJsonValue>,
   label: string,
 ) {
   if ("storageKey" in value) {
@@ -38,7 +39,7 @@ function assertNoStorageKey(
   }
 }
 
-export function validateClipRow(value: ApiJsonInput): ClipRow {
+export function validateClipRow(value: ContractJsonInput): ClipRow {
   const row = objectRecord(value, "clip")
   validateEnumString(
     row.mediaKind,
@@ -56,7 +57,7 @@ export function validateClipRow(value: ApiJsonInput): ClipRow {
   return value as ClipRow
 }
 
-function validateClipIdentityFields(row: Record<string, ApiJsonValue>) {
+function validateClipIdentityFields(row: Record<string, ContractJsonValue>) {
   for (const key of ["id", "authorId", "title", "authorUsername"] as const) {
     validateRequiredString(
       row[key],
@@ -69,7 +70,7 @@ function validateClipIdentityFields(row: Record<string, ApiJsonValue>) {
   )
 }
 
-function validateClipMetadataFields(row: Record<string, ApiJsonValue>) {
+function validateClipMetadataFields(row: Record<string, ContractJsonValue>) {
   for (const key of [
     "description",
     "game",
@@ -99,7 +100,7 @@ function validateClipMetadataFields(row: Record<string, ApiJsonValue>) {
   )
 }
 
-function validateClipCounters(row: Record<string, ApiJsonValue>) {
+function validateClipCounters(row: Record<string, ContractJsonValue>) {
   for (const key of [
     "sourceSizeBytes",
     "sourceDurationMs",
@@ -124,7 +125,7 @@ function validateClipCounters(row: Record<string, ApiJsonValue>) {
   )
 }
 
-function validateClipTimestamps(row: Record<string, ApiJsonValue>) {
+function validateClipTimestamps(row: Record<string, ContractJsonValue>) {
   validateIsoDateString(
     row.createdAt,
     "Invalid clip response: createdAt must be a date string",
@@ -159,7 +160,7 @@ function validateClipTimestamps(row: Record<string, ApiJsonValue>) {
   )
 }
 
-function validateClipRelationships(row: Record<string, ApiJsonValue>) {
+function validateClipRelationships(row: Record<string, ContractJsonValue>) {
   if (row.gameRef !== null) {
     validateGameRow(row.gameRef, "clip game")
   }
@@ -206,11 +207,11 @@ function validateClipRelationships(row: Record<string, ApiJsonValue>) {
   )
 }
 
-export function validateClipRows(value: ApiJsonInput): ClipRow[] {
+export function validateClipRows(value: ContractJsonInput): ClipRow[] {
   return validateArray(value, "Invalid clips response").map(validateClipRow)
 }
 
-export function validateClipPage(value: ApiJsonInput): ClipPage {
+export function validateClipPage(value: ContractJsonInput): ClipPage {
   const page = objectRecord(value, "clips")
   validateArray(
     page.items,

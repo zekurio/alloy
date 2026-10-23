@@ -1,5 +1,6 @@
 import type {
   ClipPage,
+  ContractJsonInput,
   TagClipsParams,
   TagGamesResponse,
 } from "@alloy/contracts"
@@ -7,44 +8,16 @@ import type {
 import type { ApiContext } from "./client"
 import { validateClipPage, validateGameListRows } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
-import type { ApiJsonInput } from "./json-value"
 import { queryParams } from "./paths"
 import {
   objectRecord,
   validateNonNegativeInteger,
-  validateString,
+  validateStringArray,
 } from "./runtime-validation"
 
 export type { TagClipsParams, TagGamesResponse } from "@alloy/contracts"
 
-async function fetchTagClipPage(
-  context: ApiContext,
-  tag: string,
-  params: TagClipsParams = {},
-): Promise<ClipPage> {
-  const res = await context.rpc.api.tags[":tag"].clips.$get({
-    param: { tag },
-    query: queryParams({
-      sort: params.sort,
-      gameId: params.gameId,
-      limit: params.limit,
-      cursor: params.cursor,
-    }),
-  })
-  return readJsonOrThrow(res, validateClipPage)
-}
-
-async function fetchTagGames(
-  context: ApiContext,
-  tag: string,
-): Promise<TagGamesResponse> {
-  const res = await context.rpc.api.tags[":tag"].games.$get({
-    param: { tag },
-  })
-  return readJsonOrThrow(res, validateTagGamesResponse)
-}
-
-function validateTagGamesResponse(value: ApiJsonInput): TagGamesResponse {
+function validateTagGamesResponse(value: ContractJsonInput): TagGamesResponse {
   const payload = objectRecord(value, "tag games")
   const clipCount = payload.clipCount
   validateNonNegativeInteger(
@@ -57,32 +30,39 @@ function validateTagGamesResponse(value: ApiJsonInput): TagGamesResponse {
   }
 }
 
-function validateTagSuggestions(value: ApiJsonInput): string[] {
-  const tags = objectRecord(value, "tag search").tags
-  if (!Array.isArray(tags)) {
-    throw new Error("Invalid tag search response: tags must be an array")
-  }
-  return tags.map((tag) => {
-    validateString(tag, "Invalid tag search response: tag must be a string")
-    return tag
-  })
-}
-
-async function searchTags(
-  context: ApiContext,
-  query: string,
-): Promise<string[]> {
-  const res = await context.rpc.api.tags.$get({ query: { q: query } })
-  return readJsonOrThrow(res, validateTagSuggestions)
+function validateTagSuggestions(value: ContractJsonInput): string[] {
+  return validateStringArray(
+    objectRecord(value, "tag search").tags,
+    "Invalid tag search response: tags must be an array of strings",
+  )
 }
 
 export function createTagsApi(context: ApiContext) {
+  const tags = context.rpc.api.tags
+
   return {
-    fetchClipPage: (tag: string, params: TagClipsParams = {}) =>
-      fetchTagClipPage(context, tag, params),
-    fetchGames: async (tag: string) =>
-      (await fetchTagGames(context, tag)).games,
-    fetchSummary: (tag: string) => fetchTagGames(context, tag),
-    search: (query: string) => searchTags(context, query),
+    async fetchClipPage(
+      tag: string,
+      params: TagClipsParams = {},
+    ): Promise<ClipPage> {
+      const res = await tags[":tag"].clips.$get({
+        param: { tag },
+        query: queryParams({
+          sort: params.sort,
+          gameId: params.gameId,
+          limit: params.limit,
+          cursor: params.cursor,
+        }),
+      })
+      return readJsonOrThrow(res, validateClipPage)
+    },
+    async fetchSummary(tag: string): Promise<TagGamesResponse> {
+      const res = await tags[":tag"].games.$get({ param: { tag } })
+      return readJsonOrThrow(res, validateTagGamesResponse)
+    },
+    async search(query: string, signal?: AbortSignal): Promise<string[]> {
+      const res = await tags.$get({ query: { q: query } }, { init: { signal } })
+      return readJsonOrThrow(res, validateTagSuggestions)
+    },
   }
 }

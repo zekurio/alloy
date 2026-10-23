@@ -4,6 +4,7 @@ import type {
   AdminUserStorageRow,
   OAuthProviderConfig,
   RuntimeConfig,
+  UserRole,
   UserStatus,
 } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
@@ -75,7 +76,7 @@ interface AdminUserBaseRow {
   id: string
   username: string
   image: string | null
-  role: string | null
+  role: UserRole
   status: UserStatus
   disabledAt: Date | null
   adminSuspendedAt: Date | null

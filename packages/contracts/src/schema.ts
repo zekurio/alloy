@@ -166,9 +166,6 @@ function schema<SchemaType extends TSchema>(
       if (property === "uuid") {
         return () => schema(withStringValidation(target, { format: "uuid" }))
       }
-      if (property === "email") {
-        return () => schema(withStringValidation(target, { format: "email" }))
-      }
       if (property === "datetime") {
         return () =>
           schema(withStringValidation(target, { format: "date-time" }))
@@ -341,14 +338,6 @@ export const t = {
         parse(valueSchema, preprocess(value)),
       ),
     ),
-  prettifyError: (error: SchemaError) =>
-    error.issues
-      .map((issue) =>
-        issue.path.length > 0
-          ? `${issue.path.map(String).join(".")}: ${issue.message}`
-          : issue.message,
-      )
-      .join("\n"),
   record: <Value extends TSchema>(_key: TSchema, value: Value) =>
     schema(Type.Record(Type.String(), value)),
   string: () => schema(Type.String()),

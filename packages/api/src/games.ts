@@ -32,98 +32,65 @@ export type {
   SteamGridDBSearchResult,
 } from "@alloy/contracts"
 
-async function searchGames(
-  context: ApiContext,
-  query: string,
-): Promise<SteamGridDBSearchResult[]> {
-  const res = await context.rpc.api.games.search.$get({
-    query: { q: query },
-  })
-  return readJsonOrThrow(res, validateSteamGridDBSearchResults)
-}
-
-async function resolveGame(
-  context: ApiContext,
-  steamgriddbId: number,
-): Promise<GameRow> {
-  const res = await context.rpc.api.games.resolve.$post({
-    json: { steamgriddbId },
-  })
-  return readJsonOrThrow(res, validateGameRow)
-}
-
-async function localSearchGames(
-  context: ApiContext,
-  query: string,
-): Promise<GameRow[]> {
-  const res = await context.rpc.api.games["local-search"].$get({
-    query: { q: query },
-  })
-  return readJsonOrThrow(res, validateGameRows)
-}
-
-async function lookupGamesByName(
-  context: ApiContext,
-  names: string[],
-): Promise<GameNameLookupResponse> {
-  const res = await context.rpc.api.games.lookup.$post({
-    json: { names },
-  })
-  return readJsonOrThrow(res, validateGameNameLookupResponse)
-}
-
-async function fetchAllGames(
-  context: ApiContext,
-  params: { limit?: number; offset?: number; media?: MediaFilter } = {},
-): Promise<GameListRow[]> {
-  const res = await context.rpc.api.games.$get({
-    query: queryParams(params),
-  })
-  return readJsonOrThrow(res, validateGameListRows)
-}
-
-async function fetchGameById(
-  context: ApiContext,
-  gameId: number | string,
-  media: MediaFilter = "video",
-): Promise<GameDetail> {
-  const res = await context.rpc.api.games[":slug"].$get({
-    query: { media },
-    param: { slug: String(gameId) },
-  })
-  return readJsonOrThrow(res, validateGameDetail)
-}
-
-async function fetchGameCreators(
-  context: ApiContext,
-  gameId: number | string,
-  limit?: number,
-  media: MediaFilter = "video",
-): Promise<GameCreatorsResponse> {
-  const res = await context.rpc.api.games[":slug"].creators.$get({
-    param: { slug: String(gameId) },
-    query: queryParams({ limit, media }),
-  })
-  return readJsonOrThrow(res, validateGameCreatorsResponse)
-}
-
 export function createGamesApi(context: ApiContext) {
+  const games = context.rpc.api.games
+
+  /** `/api/games/:slug` takes a slug or a SteamGridDB id. */
+  async function fetchById(
+    gameId: number | string,
+    media: MediaFilter = "video",
+  ): Promise<GameDetail> {
+    const res = await games[":slug"].$get({
+      query: { media },
+      param: { slug: String(gameId) },
+    })
+    return readJsonOrThrow(res, validateGameDetail)
+  }
+
   return {
-    search: (query: string) => searchGames(context, query),
-    localSearch: (query: string) => localSearchGames(context, query),
-    resolve: (steamgriddbId: number) => resolveGame(context, steamgriddbId),
-    lookupByNames: (names: string[]) => lookupGamesByName(context, names),
-    fetchAll: (
+    async search(
+      query: string,
+      signal?: AbortSignal,
+    ): Promise<SteamGridDBSearchResult[]> {
+      const res = await games.search.$get(
+        { query: { q: query } },
+        { init: { signal } },
+      )
+      return readJsonOrThrow(res, validateSteamGridDBSearchResults)
+    },
+    async localSearch(query: string, signal?: AbortSignal): Promise<GameRow[]> {
+      const res = await games["local-search"].$get(
+        { query: { q: query } },
+        { init: { signal } },
+      )
+      return readJsonOrThrow(res, validateGameRows)
+    },
+    async resolve(steamgriddbId: number): Promise<GameRow> {
+      const res = await games.resolve.$post({ json: { steamgriddbId } })
+      return readJsonOrThrow(res, validateGameRow)
+    },
+    async lookupByNames(names: string[]): Promise<GameNameLookupResponse> {
+      const res = await games.lookup.$post({ json: { names } })
+      return readJsonOrThrow(res, validateGameNameLookupResponse)
+    },
+    async fetchAll(
       params: { limit?: number; offset?: number; media?: MediaFilter } = {},
-    ) => fetchAllGames(context, params),
-    fetchById: (gameId: number | string, media?: MediaFilter) =>
-      fetchGameById(context, gameId, media),
-    fetchBySlug: (slug: string, media?: MediaFilter) =>
-      fetchGameById(context, slug, media),
-    fetchCreators: (
+    ): Promise<GameListRow[]> {
+      const res = await games.$get({ query: queryParams(params) })
+      return readJsonOrThrow(res, validateGameListRows)
+    },
+    fetchById,
+    fetchBySlug: fetchById,
+    async fetchCreators(
       gameId: number | string,
       limit?: number,
-      media?: MediaFilter,
-    ) => fetchGameCreators(context, gameId, limit, media),
+      media: MediaFilter = "video",
+    ): Promise<GameCreatorsResponse> {
+      const res = await games[":slug"].creators.$get({
+        param: { slug: String(gameId) },
+        query: queryParams({ limit, media }),
+      })
+      return readJsonOrThrow(res, validateGameCreatorsResponse)
+    },
   }
 }

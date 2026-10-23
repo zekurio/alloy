@@ -9,17 +9,17 @@ import {
   validateRequiredString,
 } from "@alloy/api/runtime-validation"
 import {
+  type ContractJsonInput,
   type FeedChipGame,
   type FeedChipsResponse,
   type FeedPage,
   type SearchResults,
 } from "@alloy/contracts"
 
-import type { ApiJsonInput } from "../json-value"
 import { validateClipRow } from "./clips"
 import { validateGameListRow } from "./games-media"
 import { validateUserListRow } from "./people"
-export function validateFeedPage(value: ApiJsonInput): FeedPage {
+export function validateFeedPage(value: ContractJsonInput): FeedPage {
   const page = objectRecord(value, "feed")
   validateArray(
     page.items,
@@ -33,7 +33,7 @@ export function validateFeedPage(value: ApiJsonInput): FeedPage {
   return value as FeedPage
 }
 
-function validateFeedChipGame(value: ApiJsonInput): FeedChipGame {
+function validateFeedChipGame(value: ContractJsonInput): FeedChipGame {
   const row = objectRecord(value, "feed chip game")
   validateRequiredString(row.id, "Invalid feed chips response: id is required")
   validateNullablePositiveInteger(
@@ -65,7 +65,7 @@ function validateFeedChipGame(value: ApiJsonInput): FeedChipGame {
 }
 
 export function validateFeedChipsResponse(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): FeedChipsResponse {
   const response = objectRecord(value, "feed chips")
   validateArray(
@@ -76,7 +76,7 @@ export function validateFeedChipsResponse(
   return value as FeedChipsResponse
 }
 
-export function validateSearchResults(value: ApiJsonInput): SearchResults {
+export function validateSearchResults(value: ContractJsonInput): SearchResults {
   const results = objectRecord(value, "search")
   validateArray(
     results.clips,

@@ -57,9 +57,10 @@ export type UnwrapProperties<Fields extends TProperties> = {
   [Key in keyof Fields]: UnwrapSchema<Fields[Key]>
 }
 
+// Fields replace existing properties of the same name, as the runtime spread does.
 type ExtendedObject<SchemaType extends TSchema, Fields extends TProperties> =
   SchemaType extends TObject<infer Existing>
-    ? TObject<Existing & UnwrapProperties<Fields>>
+    ? TObject<Omit<Existing, keyof Fields> & UnwrapProperties<Fields>>
     : TObject<UnwrapProperties<Fields>>
 
 type SchemaMethods<SchemaType extends TSchema> = {
@@ -93,7 +94,6 @@ type SchemaMethods<SchemaType extends TSchema> = {
   regex(pattern: RegExp, message?: string): Schema<SchemaType>
   url(): Schema<SchemaType>
   uuid(): Schema<SchemaType>
-  email(): Schema<SchemaType>
   datetime(options?: { offset?: boolean }): Schema<SchemaType>
   strict(): Schema<SchemaType>
   extend<Fields extends TProperties>(

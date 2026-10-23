@@ -1,7 +1,10 @@
-import type { ContractJsonInput } from "./json-value"
 import { isFiniteNumberValue, isStringValue } from "./object"
 import { t } from "./schema"
-import { DEFAULT_UPLOAD_LIMITS, UploadLimitsSchema } from "./upload-limits"
+import {
+  DEFAULT_UPLOAD_LIMITS,
+  positiveSafeIntegerSchema,
+  UploadLimitsSchema,
+} from "./upload-limits"
 
 /** Stable discriminator for the public server-info document. */
 export const SERVER_INFO_SCHEMA = "alloy.server-info" as const
@@ -39,17 +42,7 @@ export const DESKTOP_HTTP_CAPABILITIES = Object.freeze({
   }),
 } as const)
 
-const PositiveSafeIntegerSchema = t
-  .unknown()
-  .refine(
-    (value) =>
-      isFiniteNumberValue(value) && Number.isSafeInteger(value) && value > 0,
-    "must be a positive safe integer",
-  )
-  .transform((value) => {
-    // SAFETY: The preceding refinement accepts only finite number primitives.
-    return value as number
-  })
+const PositiveSafeIntegerSchema = positiveSafeIntegerSchema()
 
 const KnownCapabilityVersionSchema = t
   .unknown()
@@ -113,8 +106,3 @@ export const ServerInfoSchema = t.looseObject({
 })
 
 export type ServerInfo = t.infer<typeof ServerInfoSchema>
-
-/** Parse a server-info response at an untrusted HTTP boundary. */
-export function parseServerInfo(value: ContractJsonInput): ServerInfo {
-  return ServerInfoSchema.parse(value)
-}

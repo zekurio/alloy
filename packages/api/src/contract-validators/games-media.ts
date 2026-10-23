@@ -1,7 +1,6 @@
 import {
   objectRecord,
   validateArray,
-  validateBatchProgress,
   validateBoolean,
   validateEnumString,
   validateNonNegativeInteger,
@@ -18,18 +17,18 @@ import {
 } from "@alloy/api/runtime-validation"
 import {
   type AdminGameRow,
+  type ContractJsonInput,
   GAME_NAME_LOOKUP_REASONS,
   GAME_SOURCE,
   type GameDetail,
   type GameListRow,
   type GameNameLookupResponse,
   type GameRow,
-  type SteamGridDBAsset,
   type SteamGridDBArtworkResponse,
+  type SteamGridDBAsset,
   type SteamGridDBSearchResult,
 } from "@alloy/contracts"
 
-import type { ApiJsonInput } from "../json-value"
 import { validateNullableBlurHash } from "./shared"
 
 const GAME_SOURCE_SET: ReadonlySet<string> = new Set(GAME_SOURCE)
@@ -38,7 +37,10 @@ const GAME_NAME_LOOKUP_REASON_SET: ReadonlySet<string> = new Set(
 )
 const GAME_IMAGE_KEYS = ["heroUrl", "gridUrl", "logoUrl", "iconUrl"] as const
 
-export function validateGameRow(value: ApiJsonInput, label = "game"): GameRow {
+export function validateGameRow(
+  value: ContractJsonInput,
+  label = "game",
+): GameRow {
   const row = objectRecord(value, label)
   validateRequiredString(row.id, `Invalid ${label} response: id is required`)
   for (const key of ["name", "slug"] as const) {
@@ -74,7 +76,7 @@ export function validateGameRow(value: ApiJsonInput, label = "game"): GameRow {
 }
 
 export function validateGameListRow(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   label = "game",
 ): GameListRow {
   const row = objectRecord(value, label)
@@ -87,34 +89,36 @@ export function validateGameListRow(
   return value as GameListRow
 }
 
-export function validateGameListRows(value: ApiJsonInput): GameListRow[] {
+export function validateGameListRows(value: ContractJsonInput): GameListRow[] {
   return validateArray(value, "Invalid games response").map((item) =>
     validateGameListRow(item),
   )
 }
 
-export function validateGameRows(value: ApiJsonInput): GameRow[] {
+export function validateGameRows(value: ContractJsonInput): GameRow[] {
   return validateArray(value, "Invalid games response").map((item) =>
     validateGameRow(item),
   )
 }
 
-export function validateAdminGameRow(value: ApiJsonInput): AdminGameRow {
+export function validateAdminGameRow(value: ContractJsonInput): AdminGameRow {
   return validateGameListRow(value, "admin game")
 }
 
-export function validateAdminGameRows(value: ApiJsonInput): AdminGameRow[] {
+export function validateAdminGameRows(
+  value: ContractJsonInput,
+): AdminGameRow[] {
   return validateArray(value, "Invalid admin games response").map(
     validateAdminGameRow,
   )
 }
 
-export function validateGameDetail(value: ApiJsonInput): GameDetail {
+export function validateGameDetail(value: ContractJsonInput): GameDetail {
   return validateGameListRow(value, "game detail")
 }
 
 export function validateGameNameLookupResponse(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): GameNameLookupResponse {
   const response = objectRecord(value, "game name lookup")
   const results = validateArray(
@@ -150,7 +154,7 @@ export function validateGameNameLookupResponse(
 }
 
 function validateSteamGridDBSearchResult(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): SteamGridDBSearchResult {
   const row = objectRecord(value, "game search")
   validatePositiveInteger(
@@ -193,21 +197,14 @@ function validateSteamGridDBSearchResult(
 }
 
 export function validateSteamGridDBSearchResults(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): SteamGridDBSearchResult[] {
   return validateArray(value, "Invalid game search response").map(
     validateSteamGridDBSearchResult,
   )
 }
 
-export function validateAdminReEncodeResponse(value: ApiJsonInput): {
-  enqueued: number
-  hasMore: boolean
-} {
-  return validateBatchProgress(value, "re-encode", "enqueued")
-}
-
-function validateSteamGridDBAsset(value: ApiJsonInput): SteamGridDBAsset {
+function validateSteamGridDBAsset(value: ContractJsonInput): SteamGridDBAsset {
   const asset = objectRecord(value, "game artwork")
   validatePositiveInteger(
     asset.id,
@@ -258,7 +255,7 @@ function validateSteamGridDBAsset(value: ApiJsonInput): SteamGridDBAsset {
 }
 
 export function validateSteamGridDBArtworkResponse(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): SteamGridDBArtworkResponse {
   const response = objectRecord(value, "game artwork")
   const assets = validateArray(

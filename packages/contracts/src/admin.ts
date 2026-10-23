@@ -1,10 +1,12 @@
 import {
   AdminOAuthProviderSchema,
   AuthConfigLocksSchema,
+  NonEmptyStringSchema,
   OAuthProviderConfigSchema,
+  UrlStringSchema,
 } from "./admin-auth"
 import { t } from "./schema"
-import type { UserStatus } from "./shared"
+import type { UserRole, UserStatus } from "./shared"
 import { DEFAULT_UPLOAD_LIMITS, UploadLimitsSchema } from "./upload-limits"
 
 export {
@@ -34,13 +36,8 @@ export type {
   UsernameClaim,
 } from "./admin-auth"
 
-const NonEmptyStringSchema = t
-  .string()
-  .refine((value) => value.trim().length > 0, "must be a non-empty string")
-
 const PositiveIntegerSchema = t.number().int().positive()
 const NullablePositiveIntegerSchema = PositiveIntegerSchema.nullable()
-const UrlStringSchema = t.string().url()
 
 export const AdminLimitsConfigSchema = t.looseObject({
   defaultStorageQuotaBytes: NullablePositiveIntegerSchema,
@@ -48,8 +45,6 @@ export const AdminLimitsConfigSchema = t.looseObject({
 })
 
 export type AdminLimitsConfig = t.infer<typeof AdminLimitsConfigSchema>
-
-export type LimitsConfig = AdminLimitsConfig
 
 export const StorageConfigSchema = t.looseObject({
   /**
@@ -83,8 +78,6 @@ export const LoginSplashConfigSchema = t.looseObject({
   blurPx: t.number().nonnegative().max(LOGIN_SPLASH_MAX_BLUR_PX),
   darkenOpacity: t.number().nonnegative().max(LOGIN_SPLASH_MAX_DARKEN_OPACITY),
 })
-
-export type LoginSplashConfig = t.infer<typeof LoginSplashConfigSchema>
 
 export interface PublicLoginSplashConfig {
   enabled: boolean
@@ -257,7 +250,7 @@ export interface AdminUserStorageRow {
   id: string
   username: string
   image: string | null
-  role: string | null
+  role: UserRole
   status: UserStatus
   disabledAt: string | null
   adminSuspendedAt?: string | null
@@ -309,21 +302,8 @@ export type RuntimeConfig = t.infer<typeof RuntimeConfigSchema>
  * Admin runtime config response. Built from {@link RuntimeConfig} plus
  * secret-presence flags — it carries no secret values.
  */
-export const AdminRuntimeConfigSchema = t.looseObject({
-  runtimeConfigVersion: PositiveIntegerSchema.refine(
-    (value) => value === RUNTIME_CONFIG_VERSION,
-    `runtimeConfigVersion must be ${RUNTIME_CONFIG_VERSION}`,
-  ),
-  openRegistrations: t.boolean(),
-  setupComplete: t.boolean(),
-  passkeyEnabled: t.boolean(),
-  requireAuthToBrowse: t.boolean(),
+export const AdminRuntimeConfigSchema = RuntimeConfigSchema.extend({
   oauthProviders: t.array(AdminOAuthProviderSchema),
-  limits: AdminLimitsConfigSchema,
-  uploadLimits: UploadLimitsSchema.$default(DEFAULT_UPLOAD_LIMITS),
-  storage: StorageConfigSchema,
-  appearance: AppearanceConfigSchema,
-  transcoding: TranscodingConfigSchema,
   authLocks: AuthConfigLocksSchema,
   authBaseURL: UrlStringSchema,
 })

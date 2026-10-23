@@ -26,8 +26,6 @@ type UploadState = {
   [key: string]: UploadStateValue
 }
 
-export { UPLOAD_TICKET_ROLE }
-
 export const UPLOAD_TICKET_TARGET = ["clip"] as const
 export type UploadTicketTarget = (typeof UPLOAD_TICKET_TARGET)[number]
 

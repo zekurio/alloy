@@ -1,51 +1,5 @@
-import type {
-  AdminAuthConfigPatch,
-  AdminCreateGameInput,
-  AdminOAuthProviderInput,
-  AdminUpdateGameInput,
-  AdminUpdateUserInput,
-  AdminWebhookInput,
-  AdminWebhookPatch,
-  GameAssetRole,
-  UploadLimits,
-} from "@alloy/contracts"
-
-import type {
-  AppearanceConfigPatch,
-  RuntimeConfigPatch,
-  TranscodingConfigPatch,
-} from "./admin-config"
-import {
-  fetchRuntimeConfig,
-  fetchTranscodingCapabilities,
-  updateAppearanceConfig,
-  updateAuthConfig,
-  updateOAuthProviders,
-  updateRuntimeConfig,
-  updateTranscodingConfig,
-  updateUploadLimits,
-  uploadOAuthProviderIcon,
-} from "./admin-config"
-import type { AdminCreateUserInput } from "./admin-resources"
-import {
-  createGame,
-  createUser,
-  createWebhook,
-  deleteGame,
-  deleteGameAsset,
-  deleteUser,
-  deleteWebhook,
-  fetchGameArtwork,
-  fetchGames,
-  fetchUsers,
-  fetchWebhooks,
-  reEncodeAllClips,
-  testWebhook,
-  updateGame,
-  updateUser,
-  updateWebhook,
-  uploadGameAsset,
-} from "./admin-resources"
+import { createAdminConfigApi } from "./admin-config"
+import { createAdminResourcesApi } from "./admin-resources"
 import type { ApiContext } from "./client"
 export {
   OAUTH_AVATAR_CLAIM_DEFAULT,
@@ -96,49 +50,7 @@ export {
 
 export function createAdminApi(context: ApiContext) {
   return {
-    updateUploadLimits: (limits: UploadLimits) =>
-      updateUploadLimits(context, limits),
-    fetchRuntimeConfig: () => fetchRuntimeConfig(context),
-    updateRuntimeConfig: (input: RuntimeConfigPatch) =>
-      updateRuntimeConfig(context, input),
-    updateAppearanceConfig: (patch: AppearanceConfigPatch) =>
-      updateAppearanceConfig(context, patch),
-    updateTranscodingConfig: (patch: TranscodingConfigPatch) =>
-      updateTranscodingConfig(context, patch),
-    updateAuthConfig: (patch: AdminAuthConfigPatch) =>
-      updateAuthConfig(context, patch),
-    updateOAuthProviders: (providers: AdminOAuthProviderInput[]) =>
-      updateOAuthProviders(context, providers),
-    uploadOAuthProviderIcon: (providerId: string, blob: Blob) =>
-      uploadOAuthProviderIcon(context, providerId, blob),
-    fetchTranscodingCapabilities: (options?: { refresh?: boolean }) =>
-      fetchTranscodingCapabilities(context, options),
-    reEncodeAllClips: () => reEncodeAllClips(context),
-    fetchUsers: (options?: {
-      cursor?: string
-      limit?: number
-      search?: string
-    }) => fetchUsers(context, options),
-    createUser: (input: AdminCreateUserInput) => createUser(context, input),
-    updateUser: (userId: string, input: AdminUpdateUserInput) =>
-      updateUser(context, userId, input),
-    deleteUser: (userId: string) => deleteUser(context, userId),
-    fetchGames: () => fetchGames(context),
-    createGame: (input: AdminCreateGameInput) => createGame(context, input),
-    fetchGameArtwork: (gameId: string, role: GameAssetRole) =>
-      fetchGameArtwork(context, gameId, role),
-    updateGame: (gameId: string, input: AdminUpdateGameInput) =>
-      updateGame(context, gameId, input),
-    deleteGame: (gameId: string) => deleteGame(context, gameId),
-    uploadGameAsset: (gameId: string, role: GameAssetRole, blob: Blob) =>
-      uploadGameAsset(context, gameId, role, blob),
-    deleteGameAsset: (gameId: string, role: GameAssetRole) =>
-      deleteGameAsset(context, gameId, role),
-    fetchWebhooks: () => fetchWebhooks(context),
-    createWebhook: (input: AdminWebhookInput) => createWebhook(context, input),
-    updateWebhook: (webhookId: string, input: AdminWebhookPatch) =>
-      updateWebhook(context, webhookId, input),
-    deleteWebhook: (webhookId: string) => deleteWebhook(context, webhookId),
-    testWebhook: (webhookId: string) => testWebhook(context, webhookId),
+    ...createAdminConfigApi(context),
+    ...createAdminResourcesApi(context),
   }
 }

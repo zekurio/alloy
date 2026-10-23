@@ -6,22 +6,22 @@ import {
   validateIsoDateString,
   validateNonNegativeInteger,
   validateNullableDateString,
-  validateNullableEnumString,
   validateNullablePositiveInteger,
   validateNullableString,
   validateOptionalAuthProviderIconString,
   validateRequiredString,
 } from "@alloy/api/runtime-validation"
 import {
-  type AdminUsersResponse,
   type AdminUserStorageRow,
+  type AdminUsersResponse,
+  type ContractJsonInput,
   type LoginBackdropsResponse,
   type ProfileCounts,
-  type PublicDesktopAuthConfig,
   type ProfileGameRow,
   type ProfileViewer,
   type PublicAuthConfig,
   type PublicAuthProvider,
+  type PublicDesktopAuthConfig,
   type PublicLoginSplashConfig,
   type PublicUser,
   type UserProfile,
@@ -29,7 +29,6 @@ import {
   type UserStorageUsage,
 } from "@alloy/contracts"
 
-import type { ApiJsonInput } from "../json-value"
 import { validateGameListRow } from "./games-media"
 import {
   USER_ROLE_SET,
@@ -42,7 +41,9 @@ const PUBLIC_AUTH_BOOLEAN_FIELDS = [
   "passkeyEnabled",
   "requireAuthToBrowse",
 ] as const
-function validatePublicAuthProvider(value: ApiJsonInput): PublicAuthProvider {
+function validatePublicAuthProvider(
+  value: ContractJsonInput,
+): PublicAuthProvider {
   const provider = objectRecord(value, "auth provider")
   for (const key of ["providerId", "displayName"] as const) {
     validateRequiredString(
@@ -60,7 +61,7 @@ function validatePublicAuthProvider(value: ApiJsonInput): PublicAuthProvider {
 }
 
 function validatePublicDesktopAuthConfig(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): PublicDesktopAuthConfig {
   const desktopAuth = objectRecord(value, "auth config desktopAuth")
   validateNonNegativeInteger(
@@ -72,7 +73,7 @@ function validatePublicDesktopAuthConfig(
 }
 
 function validatePublicLoginSplashConfig(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): PublicLoginSplashConfig {
   const splash = objectRecord(value, "login splash")
   validateBoolean(
@@ -85,7 +86,7 @@ function validatePublicLoginSplashConfig(
 }
 
 export function validateLoginBackdropsResponse(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): LoginBackdropsResponse {
   const response = objectRecord(value, "login backdrops response")
   validateArray(
@@ -107,7 +108,7 @@ export function validateLoginBackdropsResponse(
 }
 
 export function validatePublicAuthConfig(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): PublicAuthConfig {
   const config = objectRecord(value, "auth config")
   for (const key of ["adminAccountRequired", "setupRequired"] as const) {
@@ -133,7 +134,7 @@ export function validatePublicAuthConfig(
 }
 
 export function validateAdminUserStorageRow(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): AdminUserStorageRow {
   const row = objectRecord(value, "admin user")
   for (const key of ["id", "username"] as const) {
@@ -150,7 +151,7 @@ export function validateAdminUserStorageRow(
     row.image,
     "Invalid admin user response: image must be string or null",
   )
-  validateNullableEnumString(
+  validateEnumString(
     row.role,
     USER_ROLE_SET,
     "Invalid admin user response: role is invalid",
@@ -187,7 +188,7 @@ export function validateAdminUserStorageRow(
 }
 
 export function validateAdminUsersResponse(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): AdminUsersResponse {
   const response = objectRecord(value, "admin users")
   validateArray(
@@ -206,7 +207,7 @@ export function validateAdminUsersResponse(
   return value as AdminUsersResponse
 }
 
-export function validatePublicUser(value: ApiJsonInput): PublicUser {
+export function validatePublicUser(value: ContractJsonInput): PublicUser {
   const row = objectRecord(value, "user")
   for (const key of ["id", "username"] as const) {
     validateRequiredString(
@@ -232,7 +233,7 @@ export function validatePublicUser(value: ApiJsonInput): PublicUser {
   return value as PublicUser
 }
 
-function validateProfileCounts(value: ApiJsonInput): ProfileCounts {
+function validateProfileCounts(value: ContractJsonInput): ProfileCounts {
   const counts = objectRecord(value, "profile counts")
   validateNonNegativeInteger(
     counts.clips,
@@ -250,7 +251,7 @@ function validateProfileCounts(value: ApiJsonInput): ProfileCounts {
   return value as ProfileCounts
 }
 
-function validateProfileViewer(value: ApiJsonInput): ProfileViewer {
+function validateProfileViewer(value: ContractJsonInput): ProfileViewer {
   const viewer = objectRecord(value, "profile viewer")
   for (const key of ["isSelf", "isBlocked", "isBlockedBy"] as const) {
     validateBoolean(
@@ -262,7 +263,7 @@ function validateProfileViewer(value: ApiJsonInput): ProfileViewer {
   return value as ProfileViewer
 }
 
-export function validateUserProfile(value: ApiJsonInput): UserProfile {
+export function validateUserProfile(value: ContractJsonInput): UserProfile {
   const profile = objectRecord(value, "user profile")
   validatePublicUser(profile.user)
   validateProfileCounts(profile.counts)
@@ -271,7 +272,7 @@ export function validateUserProfile(value: ApiJsonInput): UserProfile {
 }
 
 export function validateUserProfileViewer(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): UserProfileViewer {
   const response = objectRecord(value, "profile viewer")
   if (response.viewer !== null) validateProfileViewer(response.viewer)
@@ -280,7 +281,7 @@ export function validateUserProfileViewer(
   return value as UserProfileViewer
 }
 
-function validateProfileGameRow(value: ApiJsonInput): ProfileGameRow {
+function validateProfileGameRow(value: ContractJsonInput): ProfileGameRow {
   const row = objectRecord(value, "profile game")
   validateGameListRow(row, "profile game")
   validateIsoDateString(
@@ -291,14 +292,16 @@ function validateProfileGameRow(value: ApiJsonInput): ProfileGameRow {
   return value as ProfileGameRow
 }
 
-export function validateProfileGameRows(value: ApiJsonInput): ProfileGameRow[] {
+export function validateProfileGameRows(
+  value: ContractJsonInput,
+): ProfileGameRow[] {
   return validateArray(value, "Invalid profile games response").map(
     validateProfileGameRow,
   )
 }
 
 export function validateUserStorageUsage(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): UserStorageUsage {
   const usage = objectRecord(value, "storage usage")
   validateNonNegativeInteger(

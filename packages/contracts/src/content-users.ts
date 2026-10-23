@@ -18,18 +18,6 @@ export interface UserSummary {
   image: string | null
 }
 
-/**
- * The one place that decides what to render for a user: their display name
- * when set, otherwise the handle. Never store the fallback — a user who later
- * renames should not be stuck showing a stale copy.
- */
-export function userDisplayLabel(user: {
-  username: string
-  displayName?: string | null
-}): string {
-  return user.displayName?.trim() || user.username
-}
-
 export const USER_ASSET_PATH_PREFIX = "/api/assets/users/"
 
 /** Query param appended to post-auth redirects to open the profile-setup prompt. */

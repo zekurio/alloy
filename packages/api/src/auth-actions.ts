@@ -1,5 +1,6 @@
 import type {
   AuthSessionSummary,
+  ContractJsonValue,
   LinkedAccount,
   Passkey,
   SessionData,
@@ -23,7 +24,6 @@ import {
   validateUserUpdateResponse,
 } from "./auth-validators"
 import { errorFrom } from "./error"
-import type { ApiJsonValue } from "./json-value"
 type WebAuthnBrowser = typeof import("@simplewebauthn/browser")
 
 function loadWebAuthnBrowser(): Promise<WebAuthnBrowser> {
@@ -144,7 +144,7 @@ async function completeRegistrationChallenge<T>(
     verifyPath: string
     method: "POST"
     body?: unknown
-    extraVerifyBody?: Record<string, ApiJsonValue>
+    extraVerifyBody?: Record<string, ContractJsonValue>
     validateResult: JsonValidator<T>
   },
 ): Promise<T> {

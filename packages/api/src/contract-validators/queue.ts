@@ -14,19 +14,19 @@ import {
   validateUrlString,
 } from "@alloy/api/runtime-validation"
 import type {
+  ContractJsonInput,
   InitiateClipResponse,
   QueueClip,
   QueueEvent,
   UploadTicket,
 } from "@alloy/contracts"
 
-import type { ApiJsonInput } from "../json-value"
 import {
   CLIP_STATUS_SET,
   validateEncodeFields,
   validateNullableBlurHash,
 } from "./shared"
-function validateQueueClip(value: ApiJsonInput): QueueClip {
+function validateQueueClip(value: ContractJsonInput): QueueClip {
   const row = objectRecord(value, "queue clip")
   validateRequiredString(row.id, "Invalid queue response: id is required")
   validateRequiredString(row.title, "Invalid queue response: title is required")
@@ -72,11 +72,11 @@ function validateQueueClip(value: ApiJsonInput): QueueClip {
   return value as QueueClip
 }
 
-export function validateQueueClips(value: ApiJsonInput): QueueClip[] {
+export function validateQueueClips(value: ContractJsonInput): QueueClip[] {
   return validateArray(value, "Invalid queue response").map(validateQueueClip)
 }
 
-export function validateQueueEvent(value: ApiJsonInput): QueueEvent {
+export function validateQueueEvent(value: ContractJsonInput): QueueEvent {
   const event = objectRecord(value, "queue event")
   switch (event.type) {
     case "upsert":
@@ -109,7 +109,7 @@ export function validateQueueEvent(value: ApiJsonInput): QueueEvent {
 }
 
 export function validateInitiateClipResponse(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
 ): InitiateClipResponse {
   const response = objectRecord(value, "initiate clip")
   validateRequiredString(
@@ -121,7 +121,7 @@ export function validateInitiateClipResponse(
   return value as InitiateClipResponse
 }
 
-export function validateUploadTicket(value: ApiJsonInput): UploadTicket {
+export function validateUploadTicket(value: ContractJsonInput): UploadTicket {
   const ticket = objectRecord(value, "upload ticket")
   validateUrlString(
     ticket.uploadUrl,
@@ -156,16 +156,16 @@ export function validateUploadTicket(value: ApiJsonInput): UploadTicket {
 }
 
 export function validateBooleanFlag<T extends string>(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   key: T,
 ): Record<T, boolean>
 export function validateBooleanFlag<T extends string, V extends boolean>(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   key: T,
   expected: V,
 ): Record<T, V>
 export function validateBooleanFlag<T extends string>(
-  value: ApiJsonInput,
+  value: ContractJsonInput,
   key: T,
   expected?: boolean,
 ): Record<T, boolean> {
@@ -184,16 +184,16 @@ export function validateBooleanFlag<T extends string>(
 
 export function booleanFlagResponseValidator<T extends string>(
   key: T,
-): (value: ApiJsonInput) => Record<T, boolean>
+): (value: ContractJsonInput) => Record<T, boolean>
 export function booleanFlagResponseValidator<
   T extends string,
   V extends boolean,
->(key: T, expected: V): (value: ApiJsonInput) => Record<T, V>
+>(key: T, expected: V): (value: ContractJsonInput) => Record<T, V>
 export function booleanFlagResponseValidator<T extends string>(
   key: T,
   expected?: boolean,
-): (value: ApiJsonInput) => Record<T, boolean> {
-  return (value: ApiJsonInput) =>
+): (value: ContractJsonInput) => Record<T, boolean> {
+  return (value: ContractJsonInput) =>
     expected === undefined
       ? validateBooleanFlag(value, key)
       : validateBooleanFlag(value, key, expected)

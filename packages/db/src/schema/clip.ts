@@ -26,8 +26,6 @@ import { user } from "./auth"
 import { game } from "./game"
 import { sqlStringList } from "./internal"
 
-export { CLIP_PRIVACY, CLIP_STATUS }
-
 export const clip = pgTable(
   "clip",
   {

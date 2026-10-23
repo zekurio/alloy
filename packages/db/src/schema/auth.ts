@@ -35,8 +35,6 @@ export type AuthChallengePayload = {
   [key: string]: AuthChallengeValue
 }
 
-export { USER_ROLES, USER_STATUSES }
-
 export const user = pgTable(
   "user",
   {

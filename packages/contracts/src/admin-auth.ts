@@ -69,13 +69,13 @@ export type OAuthTokenAuthMethod = (typeof OAUTH_TOKEN_AUTH_METHODS)[number]
  * secrets live in the server-only secret store, never in this struct, so no
  * config read path can serialize them by accident.
  */
-const NonEmptyStringSchema = t
+export const NonEmptyStringSchema = t
   .string()
   .refine((value) => value.trim().length > 0, "must be a non-empty string")
 
-const OptionalUrlStringSchema = t.string().url().optional()
+export const UrlStringSchema = t.string().url()
 
-const UrlStringSchema = t.string().url()
+const OptionalUrlStringSchema = UrlStringSchema.optional()
 
 // Absolute source URL or an Alloy-managed icon path. The admin ingestion
 // boundary later restricts new source URLs to public http(s) images.

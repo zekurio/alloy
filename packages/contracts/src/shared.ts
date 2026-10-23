@@ -1,4 +1,3 @@
-import { DEFAULT_UPLOAD_LIMITS } from "./upload-limits"
 // Scalar and vocabulary declarations the desktop contracts need as well live
 // in @alloy/primitives; re-exported here so this package keeps one surface.
 export {
@@ -9,10 +8,6 @@ export {
 
 export const CLIP_STATUS = ["pending", "processing", "ready", "failed"] as const
 export type ClipStatus = (typeof CLIP_STATUS)[number]
-
-/** What a recording is. Alloy currently publishes short replay/highlight clips. */
-export const RECORDING_KIND = ["clip"] as const
-export type RecordingKind = (typeof RECORDING_KIND)[number]
 
 export const UPLOAD_TICKET_ROLE = ["video"] as const
 export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]
@@ -62,10 +57,6 @@ export const MEDIA_KINDS = ["video", "image"] as const
 export type MediaKind = (typeof MEDIA_KINDS)[number]
 export const MEDIA_FILTERS = ["all", ...MEDIA_KINDS] as const
 export type MediaFilter = (typeof MEDIA_FILTERS)[number]
-/** @deprecated Use the selected server's uploadLimits. */
-export const SCREENSHOT_MAX_BYTES = DEFAULT_UPLOAD_LIMITS.screenshotMaxBytes
-/** @deprecated Use the selected server's uploadLimits. */
-export const SCREENSHOT_MAX_PIXELS = DEFAULT_UPLOAD_LIMITS.screenshotMaxPixels
 
 export type UploadTicketStrategy =
   | { type: "single" }
