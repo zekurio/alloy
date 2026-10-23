@@ -7,6 +7,8 @@ import {
 import { Input } from "@alloy/ui/components/input"
 import type { ReactNode } from "react"
 
+import { fieldErrorState } from "@/components/routes/field-error-state"
+
 type ProfileFieldController = {
   name: string
   state: {
@@ -29,7 +31,6 @@ export function ProfileTextField({
   label,
   onChangeValue,
   submissionAttempts,
-  type,
 }: {
   autoComplete: string
   description?: ReactNode
@@ -38,10 +39,11 @@ export function ProfileTextField({
   label: string
   onChangeValue?: (value: string) => string
   submissionAttempts: number
-  type: "text"
 }) {
-  const showError = field.state.meta.isTouched || submissionAttempts > 0
-  const invalid = showError && !field.state.meta.isValid
+  const { errors, invalid } = fieldErrorState(
+    field.state.meta,
+    submissionAttempts,
+  )
   const hintId = description ? `${field.name}-hint` : undefined
 
   return (
@@ -51,7 +53,7 @@ export function ProfileTextField({
       </FieldLabel>
       <Input
         id={field.name}
-        type={type}
+        type="text"
         autoComplete={autoComplete}
         data-1p-ignore="true"
         autoCapitalize="none"
@@ -71,10 +73,7 @@ export function ProfileTextField({
           {description}
         </FieldDescription>
       ) : null}
-      <FieldError
-        id={`${field.name}-error`}
-        errors={showError ? field.state.meta.errors : undefined}
-      />
+      <FieldError id={`${field.name}-error`} errors={errors} />
     </Field>
   )
 }

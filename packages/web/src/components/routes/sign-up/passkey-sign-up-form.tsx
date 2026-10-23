@@ -1,14 +1,17 @@
 import { message, t } from "@alloy/i18n"
+import { Button } from "@alloy/ui/components/button"
+import { Field, FieldError, FieldLabel } from "@alloy/ui/components/field"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@alloy/ui/components/input-group"
 import { useForm } from "@tanstack/react-form"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { ArrowRightIcon, KeyRoundIcon, UserIcon } from "lucide-react"
 import { useCallback } from "react"
-import type { ComponentProps, ReactNode } from "react"
 
-import {
-  AuthSubmitButton,
-  FormInputField,
-} from "@/components/routes/auth/auth-form-fields"
+import { fieldErrorState } from "@/components/routes/field-error-state"
 import { authClient } from "@/lib/auth-client"
 import {
   completeAuthSessionFlow,
@@ -19,22 +22,6 @@ import { invalidateAuthConfig } from "@/lib/session-suspense"
 
 type PasskeySignUpFormState = {
   username: string
-}
-
-type FieldMetaState = {
-  errors: Array<unknown>
-  isTouched: boolean
-  isValid: boolean
-}
-
-type StringFieldController = {
-  handleBlur: () => void
-  handleChange: (value: string) => void
-  name: string
-  state: {
-    meta: FieldMetaState
-    value: string
-  }
 }
 
 type PasskeySignUpFormProps = {
@@ -79,108 +66,6 @@ function usePasskeySignUpSubmit({ redirectTo = "/" }: PasskeySignUpFormProps) {
   )
 }
 
-function getFieldValidationState(
-  meta: FieldMetaState,
-  submissionAttempts: number,
-) {
-  const showError = meta.isTouched || submissionAttempts > 0
-  return {
-    errors: showError ? meta.errors : undefined,
-    invalid: showError && !meta.isValid,
-  }
-}
-
-function PasskeyAccountField({
-  autoCapitalize,
-  autoComplete,
-  autoCorrect,
-  description,
-  disabled,
-  errors,
-  field,
-  icon,
-  invalid,
-  label,
-  onChange,
-  placeholder,
-  spellCheck,
-  type,
-}: {
-  autoCapitalize?: ComponentProps<typeof FormInputField>["autoCapitalize"]
-  autoComplete?: ComponentProps<typeof FormInputField>["autoComplete"]
-  autoCorrect?: ComponentProps<typeof FormInputField>["autoCorrect"]
-  description?: ReactNode
-  disabled: boolean
-  errors?: Array<unknown>
-  field: StringFieldController
-  icon: ReactNode
-  invalid: boolean
-  label: string
-  onChange?: (value: string) => void
-  placeholder: string
-  spellCheck?: boolean
-  type?: ComponentProps<typeof FormInputField>["type"]
-}) {
-  return (
-    <FormInputField
-      id={field.name}
-      label={label}
-      icon={icon}
-      type={type}
-      autoCapitalize={autoCapitalize}
-      autoComplete={autoComplete}
-      autoCorrect={autoCorrect}
-      spellCheck={spellCheck}
-      placeholder={placeholder}
-      value={field.state.value}
-      onBlur={field.handleBlur}
-      onChange={onChange ?? field.handleChange}
-      invalid={invalid}
-      errors={errors}
-      description={description}
-      disabled={disabled}
-      required
-    />
-  )
-}
-
-function UsernameField(props: {
-  disabled: boolean
-  field: StringFieldController
-  submissionAttempts: number
-}) {
-  const { errors, invalid } = getFieldValidationState(
-    props.field.state.meta,
-    props.submissionAttempts,
-  )
-
-  return (
-    <PasskeyAccountField
-      label={t("Username")}
-      icon={<UserIcon />}
-      autoCapitalize="none"
-      autoComplete="username"
-      autoCorrect="off"
-      spellCheck={false}
-      placeholder={"alloy"}
-      field={props.field}
-      invalid={invalid}
-      errors={errors}
-      disabled={props.disabled}
-    />
-  )
-}
-
-function SubmitButton() {
-  return (
-    <>
-      <KeyRoundIcon className="size-4" />
-      {t("Create account with passkey")}
-      <ArrowRightIcon />
-    </>
-  )
-}
-
 export function PasskeySignUpForm(props: PasskeySignUpFormProps) {
   const submit = usePasskeySignUpSubmit(props)
   const form = useForm({
@@ -209,28 +94,66 @@ export function PasskeySignUpForm(props: PasskeySignUpFormProps) {
           onChange: ({ value }) => validateUsername(value),
         }}
       >
-        {(field) => (
-          <UsernameField
-            disabled={isSubmitting}
-            field={field}
-            submissionAttempts={submissionAttempts}
-          />
-        )}
+        {(field) => {
+          const { errors, invalid } = fieldErrorState(
+            field.state.meta,
+            submissionAttempts,
+          )
+          return (
+            <Field>
+              <FieldLabel htmlFor={field.name} required>
+                {t("Username")}
+              </FieldLabel>
+              <InputGroup>
+                <InputGroupAddon>
+                  <UserIcon />
+                </InputGroupAddon>
+                <InputGroupInput
+                  id={field.name}
+                  type="text"
+                  autoCapitalize="none"
+                  autoComplete="username"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="alloy"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={invalid ? `${field.name}-error` : undefined}
+                  aria-required
+                  disabled={isSubmitting}
+                />
+              </InputGroup>
+              <FieldError id={`${field.name}-error`} errors={errors} />
+            </Field>
+          )
+        }}
       </form.Field>
 
       <form.Subscribe
         selector={(state) => [state.canSubmit, state.isSubmitting] as const}
       >
         {([canSubmit, isSubmitting]) => (
-          <AuthSubmitButton
-            canSubmit={canSubmit}
-            isSubmitting={isSubmitting}
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            className="w-full"
+            disabled={!canSubmit}
             onFocus={authClient.passkey.preload}
             onPointerEnter={authClient.passkey.preload}
-            pendingLabel={t("Waiting for authenticator…")}
           >
-            <SubmitButton />
-          </AuthSubmitButton>
+            {isSubmitting ? (
+              t("Waiting for authenticator…")
+            ) : (
+              <>
+                <KeyRoundIcon className="size-4" />
+                {t("Create account with passkey")}
+                <ArrowRightIcon />
+              </>
+            )}
+          </Button>
         )}
       </form.Subscribe>
     </form>
