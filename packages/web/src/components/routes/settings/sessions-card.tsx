@@ -2,20 +2,18 @@ import type { AuthSessionSummary } from "@alloy/api/auth"
 import { t } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
-import { Callout } from "@alloy/ui/components/callout"
 import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
 import { List, ListItem } from "@alloy/ui/components/list"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  CircleAlertIcon,
   GlobeIcon,
   LogOutIcon,
   MonitorIcon,
-  RefreshCcwIcon,
   SmartphoneIcon,
 } from "lucide-react"
 import { useState } from "react"
 
+import { LoadErrorCallout } from "@/components/routes/load-error"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { authClient } from "@/lib/auth-client"
 import { authKeys, sessionsQueryOptions } from "@/lib/auth-query-keys"
@@ -114,22 +112,13 @@ export function SessionsCard() {
           )}
         </>
       ) : (
-        <Callout tone="destructive">
-          <CircleAlertIcon />
-          <div className="flex flex-1 items-center justify-between gap-3">
-            <span>
-              {errorMessage(sessionsQuery.error, t("Couldn't load sessions"))}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void sessionsQuery.refetch()}
-            >
-              <RefreshCcwIcon />
-              {t("Try again")}
-            </Button>
-          </div>
-        </Callout>
+        <LoadErrorCallout
+          message={errorMessage(
+            sessionsQuery.error,
+            t("Couldn't load sessions"),
+          )}
+          onRetry={() => void sessionsQuery.refetch()}
+        />
       )}
       <ConfirmActionDialog
         open={sessionToRevoke !== null}
