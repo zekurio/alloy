@@ -131,9 +131,6 @@ function buildRenditionArgs(options: {
   const threads = transcodeSettings().threads
   const softwareEncoder = options.config.hardwareAcceleration === "none"
   return [
-    "-v",
-    "error",
-    "-y",
     ...buildEncoderGlobalArgs(options.config),
     ...(options.trim ? ["-ss", String(options.trim.startMs / 1000)] : []),
     "-i",

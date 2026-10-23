@@ -28,7 +28,6 @@ export async function resolveWaveformAudio(options: {
   const outputPath = join(options.workDir, "waveform.m4a")
   await runFfmpeg({
     args: [
-      "-y",
       "-i",
       options.sourcePath,
       "-map",

@@ -179,9 +179,6 @@ async function extractFrame(
     timeoutMs: EXTRACT_TIMEOUT_MS,
     signal,
     args: [
-      "-v",
-      "error",
-      "-y",
       "-ss",
       seekSec.toFixed(3),
       "-i",
