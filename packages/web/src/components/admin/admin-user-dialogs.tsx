@@ -1,15 +1,12 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Field, FieldError, FieldLabel } from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
-  ResponsiveDialogClose,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
-  ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
@@ -31,9 +28,9 @@ import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { formatQuotaGiB, parseQuotaGiB } from "@/lib/storage-format"
 
+import { AdminDialogFooter } from "./admin-dialog-footer"
 import {
-  adminUserEditableFields,
-  adminUserFieldsEqual,
+  adminUserFieldChanges,
   type AdminUserEditableFields,
   type AdminUserRow,
 } from "./admin-user-data"
@@ -52,25 +49,21 @@ export function EditUserDialog({
   onOpenChange: (open: boolean) => void
   onUpdate: (user: AdminUserRow, next: AdminUserEditableFields) => Promise<void>
 }) {
-  const setOpen = onOpenChange
   const [quotaGiB, setQuotaGiB] = useState("")
   const [role, setRole] = useState<"admin" | "user">("user")
-  const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const saving = busy || submitting
-  const parsedQuota = useMemo(() => {
+  const quota = useMemo(() => {
     try {
-      return { ok: true as const, value: parseQuotaGiB(quotaGiB) }
-    } catch {
-      return { ok: false as const }
+      return { bytes: parseQuotaGiB(quotaGiB), error: null }
+    } catch (cause) {
+      return { bytes: null, error: errorMessage(cause, t("Invalid quota")) }
     }
   }, [quotaGiB])
-  const currentFields = adminUserEditableFields(user)
-  const nextFields = parsedQuota.ok
-    ? { role, storageQuotaBytes: parsedQuota.value }
-    : null
+  const nextFields =
+    quota.error === null ? { role, storageQuotaBytes: quota.bytes } : null
+  // An invalid quota keeps Save enabled so submitting can say what is wrong.
   const dirty = nextFields
-    ? !adminUserFieldsEqual(currentFields, nextFields)
+    ? adminUserFieldChanges(user, nextFields) !== null
     : true
 
   useEffect(() => {
@@ -82,34 +75,24 @@ export function EditUserDialog({
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (saving) return
-    setSubmitError(null)
-    if (nextFields && !dirty) {
-      setOpen(false)
+    if (busy) return
+    setSubmitError(quota.error)
+    if (!nextFields) return
+    if (!dirty) {
+      onOpenChange(false)
       return
     }
 
-    let storageQuotaBytes: number | null
     try {
-      storageQuotaBytes = parseQuotaGiB(quotaGiB)
-    } catch (cause) {
-      setSubmitError(errorMessage(cause, t("Invalid quota")))
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      await onUpdate(user, { role, storageQuotaBytes })
-      setOpen(false)
+      await onUpdate(user, nextFields)
+      onOpenChange(false)
     } catch (cause) {
       setSubmitError(errorMessage(cause, t("Couldn't update user")))
-    } finally {
-      setSubmitting(false)
     }
   }
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={setOpen}>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent variant="secondary">
         <form onSubmit={onSubmit}>
           <ResponsiveDialogHeader>
@@ -121,24 +104,12 @@ export function EditUserDialog({
             </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
           <ResponsiveDialogBody className="flex flex-col gap-4">
-            <Field>
-              <FieldLabel htmlFor={`role-${user.id}`}>{t("Role")}</FieldLabel>
-              <Select
-                value={role}
-                onValueChange={(value) => {
-                  if (value === "admin" || value === "user") setRole(value)
-                }}
-                disabled={saving}
-              >
-                <SelectTrigger id={`role-${user.id}`}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">{t("User")}</SelectItem>
-                  <SelectItem value="admin">{t("Admin")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
+            <RoleField
+              id={`role-${user.id}`}
+              value={role}
+              disabled={busy}
+              onValueChange={setRole}
+            />
             <FieldError>{submitError}</FieldError>
             <Field>
               <FieldLabel htmlFor={`quota-${user.id}`}>
@@ -151,37 +122,20 @@ export function EditUserDialog({
                 step={1}
                 value={quotaGiB}
                 placeholder={t("Unlimited")}
-                disabled={saving}
+                disabled={busy}
                 onChange={(event) => setQuotaGiB(event.target.value)}
               />
             </Field>
           </ResponsiveDialogBody>
-          <ResponsiveDialogFooter>
-            <ResponsiveDialogClose
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={saving}
-                />
-              }
-            >
-              {t("Cancel")}
-            </ResponsiveDialogClose>
-            <FeedbackButton
-              type="submit"
-              variant="primary"
-              size="sm"
-              state={saving ? "pending" : submitError ? "error" : "idle"}
-              pendingLabel={t("Saving…")}
-              errorLabel={t("Try again")}
-              disabled={saving || !dirty}
-            >
-              <SaveIcon />
-              {t("Save")}
-            </FeedbackButton>
-          </ResponsiveDialogFooter>
+          <AdminDialogFooter
+            pending={busy}
+            failed={Boolean(submitError)}
+            disabled={!dirty}
+            pendingLabel={t("Saving…")}
+          >
+            <SaveIcon />
+            {t("Save")}
+          </AdminDialogFooter>
         </form>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
@@ -250,53 +204,56 @@ export function CreateUserDialog() {
               />
             </Field>
             <FieldError>{submitError}</FieldError>
-            <Field>
-              <FieldLabel htmlFor="create-user-role">{t("Role")}</FieldLabel>
-              <Select
-                value={role}
-                onValueChange={(value) => {
-                  if (value === "admin" || value === "user") setRole(value)
-                }}
-                disabled={isPending}
-              >
-                <SelectTrigger id="create-user-role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">{t("User")}</SelectItem>
-                  <SelectItem value="admin">{t("Admin")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-          </ResponsiveDialogBody>
-          <ResponsiveDialogFooter>
-            <ResponsiveDialogClose
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={isPending}
-                />
-              }
-            >
-              {t("Cancel")}
-            </ResponsiveDialogClose>
-            <FeedbackButton
-              type="submit"
-              variant="primary"
-              size="sm"
-              state={isPending ? "pending" : submitError ? "error" : "idle"}
-              pendingLabel={t("Creating…")}
-              errorLabel={t("Try again")}
+            <RoleField
+              id="create-user-role"
+              value={role}
               disabled={isPending}
-            >
-              <UserPlusIcon />
-              {t("Create")}
-            </FeedbackButton>
-          </ResponsiveDialogFooter>
+              onValueChange={setRole}
+            />
+          </ResponsiveDialogBody>
+          <AdminDialogFooter
+            pending={isPending}
+            failed={Boolean(submitError)}
+            pendingLabel={t("Creating…")}
+          >
+            <UserPlusIcon />
+            {t("Create")}
+          </AdminDialogFooter>
         </form>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
+  )
+}
+
+function RoleField({
+  id,
+  value,
+  disabled,
+  onValueChange,
+}: {
+  id: string
+  value: "admin" | "user"
+  disabled: boolean
+  onValueChange: (role: "admin" | "user") => void
+}) {
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{t("Role")}</FieldLabel>
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          if (next === "admin" || next === "user") onValueChange(next)
+        }}
+        disabled={disabled}
+      >
+        <SelectTrigger id={id}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="user">{t("User")}</SelectItem>
+          <SelectItem value="admin">{t("Admin")}</SelectItem>
+        </SelectContent>
+      </Select>
+    </Field>
   )
 }
