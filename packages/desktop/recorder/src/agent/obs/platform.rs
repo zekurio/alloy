@@ -43,16 +43,15 @@ pub(in crate::agent) fn platform_audio_devices(
     windows_audio_devices()
 }
 
-pub(in crate::agent) fn platform_gpus() -> Vec<String> {
-    let gpus = platform_gpu_labels();
-    if gpus.is_empty() {
-        vec!["adapter:0".to_string()]
-    } else {
-        gpus.into_iter()
-            .enumerate()
-            .map(|(index, label)| format!("adapter:{index}:{label}"))
-            .collect()
-    }
+/// GPU choices as `adapter:{index}:{name}`, or `None` when Windows reported
+/// no video controller.
+pub(in crate::agent) fn platform_gpus() -> Option<Vec<String>> {
+    let gpus: Vec<_> = platform_gpu_labels()
+        .into_iter()
+        .enumerate()
+        .map(|(index, label)| format!("adapter:{index}:{label}"))
+        .collect();
+    (!gpus.is_empty()).then_some(gpus)
 }
 
 fn platform_gpu_labels() -> Vec<String> {

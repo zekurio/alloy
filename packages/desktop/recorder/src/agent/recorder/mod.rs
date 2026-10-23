@@ -89,6 +89,8 @@ pub(super) struct Recorder {
     codec_caps_failed_probe: Option<(CodecCapsKey, Instant)>,
     cached_gpus: Vec<String>,
     cached_gpus_at: Option<Instant>,
+    /// False while `cached_gpus` holds the fallback because no lookup succeeded.
+    cached_gpus_listed: bool,
     cached_audio_devices: Vec<RecordingAudioDevice>,
     cached_audio_devices_at: Option<Instant>,
     cached_audio_applications: Vec<RecordingAudioApplicationSelection>,
