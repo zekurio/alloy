@@ -1,38 +1,29 @@
-import { t } from "@alloy/contracts/schema"
-import { authChallenge } from "@alloy/db/auth-schema"
-import { db } from "@alloy/server/db/index"
 import { randomBase64Url, sha256Base64Url } from "@alloy/server/runtime/crypto"
-import { and, eq, gt } from "drizzle-orm"
 
-import { insertAuthChallengeAndWake } from "./challenge-expiry"
+import { consumeAuthChallenge, insertAuthChallenge } from "./challenges"
 
 /**
  * One-time codes for the desktop browser-login handshake (RFC 8252 loopback).
- * Reuses the `auth_challenge` table — same shape as OAuth state and WebAuthn
- * challenges: short-lived, single-use, swept by `expires_at`. The desktop app
- * exchanges a code for a fresh session because the desktop webview can't run
- * WebAuthn, so login happens in the user's real browser and hands the session
- * back here.
+ * The desktop app exchanges a code for a fresh session because the desktop
+ * webview can't run WebAuthn, so login happens in the user's real browser and
+ * hands the session back here.
  */
 const DESKTOP_LINK_PURPOSE = "desktop-link"
 const DESKTOP_LINK_TTL_MS = 2 * 60 * 1000
-const DesktopLinkPayloadSchema = t.object({ userId: t.string() })
 
 export async function createDesktopLinkCode(
   userId: string,
   codeChallenge: string,
 ): Promise<string> {
   const code = randomBase64Url(32)
-  await insertAuthChallengeAndWake(() =>
-    db.insert(authChallenge).values({
-      user_id: userId,
-      purpose: DESKTOP_LINK_PURPOSE,
-      identifier: code,
-      challenge: codeChallenge,
-      payload: { userId },
-      expires_at: new Date(Date.now() + DESKTOP_LINK_TTL_MS),
-    }),
-  )
+  await insertAuthChallenge({
+    purpose: DESKTOP_LINK_PURPOSE,
+    identifier: code,
+    challenge: codeChallenge,
+    payload: {},
+    userId,
+    ttlMs: DESKTOP_LINK_TTL_MS,
+  })
   return code
 }
 
@@ -40,19 +31,10 @@ export async function consumeDesktopLinkCode(
   code: string,
   codeVerifier: string,
 ): Promise<string | null> {
-  const codeChallenge = await sha256Base64Url(codeVerifier)
-  const [row] = await db
-    .delete(authChallenge)
-    .where(
-      and(
-        eq(authChallenge.purpose, DESKTOP_LINK_PURPOSE),
-        eq(authChallenge.identifier, code),
-        eq(authChallenge.challenge, codeChallenge),
-        gt(authChallenge.expires_at, new Date()),
-      ),
-    )
-    .returning()
-  if (!row) return null
-  const parsed = DesktopLinkPayloadSchema.safeParse(row.payload)
-  return parsed.success ? parsed.data.userId : null
+  const challenge = await consumeAuthChallenge({
+    purpose: DESKTOP_LINK_PURPOSE,
+    identifier: code,
+    challenge: await sha256Base64Url(codeVerifier),
+  })
+  return challenge?.user_id ?? null
 }

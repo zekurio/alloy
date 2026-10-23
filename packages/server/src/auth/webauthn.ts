@@ -2,7 +2,6 @@ import { Buffer } from "node:buffer"
 
 import { t } from "@alloy/contracts/schema"
 import {
-  authChallenge,
   type AuthChallengePayload,
   type User,
   type UserPasskey,
@@ -20,9 +19,9 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server"
-import { and, eq, gt } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
-import { insertAuthChallengeAndWake } from "./challenge-expiry"
+import { consumeAuthChallenge, insertAuthChallenge } from "./challenges"
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
 import {
   webAuthnChallengeContext,
@@ -41,7 +40,6 @@ const RegistrationPayloadSchema = t.object({
   userId: t.string().optional(),
   username: t.string().optional(),
 })
-const ExistingAccountUserIdSchema = t.string().uuid()
 
 type RegistrationPayload = {
   setupFirstAdmin?: boolean
@@ -68,51 +66,15 @@ function transports(row: UserPasskey): string[] | undefined {
     : undefined
 }
 
-async function createChallenge(input: {
-  purpose: string
-  identifier: string
-  challenge: string
-  payload: AuthChallengePayload
-  ttlMs: number
-}): Promise<{ id: string }> {
-  const parsedUserId = ExistingAccountUserIdSchema.safeParse(
-    input.payload.userId,
-  )
-  const [challenge] = await insertAuthChallengeAndWake(() =>
-    db
-      .insert(authChallenge)
-      .values({
-        user_id: parsedUserId.success ? parsedUserId.data : null,
-        purpose: input.purpose,
-        identifier: input.identifier,
-        challenge: input.challenge,
-        payload: input.payload,
-        expires_at: new Date(Date.now() + input.ttlMs),
-      })
-      .returning({ id: authChallenge.id }),
-  )
-  if (!challenge) throw new Error("Could not create passkey challenge.")
-  return challenge
-}
-
 async function consumeChallenge(input: {
   challengeId: string
   purpose: string
   expiredMessage: string
 }) {
-  const [challenge] = await db
-    .delete(authChallenge)
-    .where(
-      and(
-        eq(authChallenge.id, input.challengeId),
-        eq(authChallenge.purpose, input.purpose),
-        gt(authChallenge.expires_at, new Date()),
-      ),
-    )
-    .returning({
-      challenge: authChallenge.challenge,
-      payload: authChallenge.payload,
-    })
+  const challenge = await consumeAuthChallenge({
+    purpose: input.purpose,
+    id: input.challengeId,
+  })
   if (!challenge) throw new Error(input.expiredMessage)
   return challenge
 }
@@ -145,14 +107,17 @@ export async function beginPasskeyRegistration(input: {
       userVerification: "required",
     },
   })
-  const challenge = await createChallenge({
+  const challengeId = await insertAuthChallenge({
     purpose: "passkey-registration",
     identifier: input.identifier,
     challenge: options.challenge,
     payload: challengePayload(input.payload, context),
+    // Ties a challenge for an existing account to it, so account deletion
+    // removes it. Sign-up has no account yet.
+    userId: input.payload.userId ?? null,
     ttlMs: REGISTRATION_TTL_MS,
   })
-  return { challengeId: challenge.id, options }
+  return { challengeId, options }
 }
 
 export async function verifyPasskeyRegistration(input: {
@@ -193,14 +158,15 @@ export async function beginPasskeyAuthentication(
     rpID: context.rpId,
     userVerification: "required",
   })
-  const challenge = await createChallenge({
+  const challengeId = await insertAuthChallenge({
     purpose: "passkey-authentication",
     identifier: "discoverable",
     challenge: options.challenge,
     payload: challengePayload({}, context),
+    userId: null,
     ttlMs: AUTHENTICATION_TTL_MS,
   })
-  return { challengeId: challenge.id, options }
+  return { challengeId, options }
 }
 
 export async function verifyPasskeyAuthentication(input: {

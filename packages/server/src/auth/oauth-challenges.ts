@@ -1,7 +1,6 @@
-import { authChallenge } from "@alloy/db/auth-schema"
-import { db } from "@alloy/server/db/index"
 import { constantTimeEqual } from "@alloy/server/runtime/crypto"
-import { and, eq, gt } from "drizzle-orm"
+
+import { consumeAuthChallenge } from "./challenges"
 
 export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
 export const OAUTH_PURPOSE = "oauth-state"
@@ -9,17 +8,11 @@ export const OAUTH_PURPOSE = "oauth-state"
 const textEncoder = new TextEncoder()
 
 export async function consumeOAuthChallenge(state: string) {
-  const [challenge] = await db
-    .delete(authChallenge)
-    .where(
-      and(
-        eq(authChallenge.purpose, OAUTH_PURPOSE),
-        eq(authChallenge.identifier, state),
-        eq(authChallenge.challenge, state),
-        gt(authChallenge.expires_at, new Date()),
-      ),
-    )
-    .returning()
+  const challenge = await consumeAuthChallenge({
+    purpose: OAUTH_PURPOSE,
+    identifier: state,
+    challenge: state,
+  })
   if (!challenge) throw new Error("OAuth sign-in expired. Try again.")
   return challenge
 }

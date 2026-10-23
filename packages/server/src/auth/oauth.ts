@@ -1,7 +1,5 @@
 import { t } from "@alloy/contracts/schema"
-import { authChallenge } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
-import { db } from "@alloy/server/db/index"
 import type { Context } from "hono"
 import {
   authorizationCodeGrant,
@@ -13,7 +11,7 @@ import {
 } from "openid-client"
 
 import { completeAuthenticatedSignIn } from "./account-sign-in"
-import { insertAuthChallengeAndWake } from "./challenge-expiry"
+import { insertAuthChallenge } from "./challenges"
 import { clearOAuthStateCookie, readOAuthStateCookie } from "./cookies"
 import { linkAccountToUser, resolveSignInUser } from "./oauth-accounts"
 import {
@@ -102,20 +100,14 @@ async function startOAuthFlow(input: {
     userId: input.userId,
   }
 
-  const [challenge] = await insertAuthChallengeAndWake(() =>
-    db
-      .insert(authChallenge)
-      .values({
-        user_id: input.mode === "link" ? (input.userId ?? null) : null,
-        purpose: OAUTH_PURPOSE,
-        identifier: state,
-        challenge: state,
-        payload,
-        expires_at: new Date(Date.now() + OAUTH_STATE_TTL_MS),
-      })
-      .returning({ id: authChallenge.id }),
-  )
-  if (!challenge) throw new Error("Could not start OAuth flow.")
+  await insertAuthChallenge({
+    purpose: OAUTH_PURPOSE,
+    identifier: state,
+    challenge: state,
+    payload,
+    userId: input.mode === "link" ? (input.userId ?? null) : null,
+    ttlMs: OAUTH_STATE_TTL_MS,
+  })
 
   return { browserNonce, url: url.toString() }
 }
