@@ -101,16 +101,16 @@ export function ScreenshotEditor({
           ? t("Square")
           : option
   const [cropping, setCropping] = useState(false)
+  const history = useScreenshotHistory(initialValue, onChange)
+  const { edit: value, aspectRatio } = history.snapshot
+  const drag = useRef<CropDrag | null>(null)
   const view = useImageZoom(() => {
     drag.current = null
     history.commit()
   })
-  const history = useScreenshotHistory(initialValue, onChange)
-  const { edit: value, aspectRatio } = history.snapshot
   const canvas = useRef<HTMLCanvasElement>(null)
   const [image, setImage] = useState<ImageBitmap | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const drag = useRef<CropDrag | null>(null)
   useEffect(() => {
     let cancelled = false
     let bitmap: ImageBitmap | null = null

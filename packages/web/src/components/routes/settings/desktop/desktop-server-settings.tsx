@@ -28,21 +28,115 @@ import {
   SettingsSections,
   SettingsSubsection,
 } from "@/components/routes/settings/settings-panel"
+import { errorMessage } from "@/lib/error-message"
 
 import { DesktopAutostartSettings } from "./desktop-autostart-settings"
 import { DesktopLogSettings } from "./desktop-log-settings"
 import { alloyDesktop, type DesktopSavedServer } from "./desktop-native"
 import { DesktopUpdateSettings } from "./desktop-update-settings"
 
-type Phase = "idle" | "loading" | "connecting"
-
 type ServerApi = NonNullable<ReturnType<typeof alloyDesktop>>["servers"]
+
+type SavedServers = ReturnType<typeof useSavedServers>
 
 export function DesktopAppPanel() {
   const desktop = alloyDesktop()
   const serverApi = desktop?.servers
+  const saved = useSavedServers(serverApi)
+
+  if (!serverApi) return null
+  if (saved.loading) return <LoadingState variant="panel" />
+
+  return (
+    <SettingsSections>
+      <SettingsSubsection
+        id="servers"
+        title={t("Servers")}
+        description={t(
+          "Add, switch between, or forget connected Alloy servers.",
+        )}
+      >
+        <ServerSettings serverApi={serverApi} saved={saved} />
+      </SettingsSubsection>
+      <SettingsSubsection
+        id="startup"
+        title={t("Startup & updates")}
+        description={t("Control launch behavior and desktop app updates.")}
+      >
+        <SettingRows>
+          <DesktopAutostartSettings />
+          <DesktopUpdateSettings />
+        </SettingRows>
+      </SettingsSubsection>
+      {desktop?.openLogsFolder ? (
+        <SettingsSubsection id="diagnostics" title={t("Diagnostics")}>
+          <SettingRows>
+            <DesktopLogSettings />
+          </SettingRows>
+        </SettingsSubsection>
+      ) : null}
+    </SettingsSections>
+  )
+}
+
+/** The host's saved servers and the current one, re-read on demand. */
+function useSavedServers(serverApi: ServerApi | undefined) {
+  const [servers, setServers] = useState<DesktopSavedServer[]>([])
+  const [currentServerUrl, setCurrentServerUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadNonce, setReloadNonce] = useState(0)
+  useEffect(() => {
+    const api = serverApi
+    if (!api) return
+    let cancelled = false
+
+    const load = async () => {
+      setLoadError(null)
+      setLoading(true)
+      try {
+        const [savedServers, currentServer] = await Promise.all([
+          api.list(),
+          api.current(),
+        ])
+        if (cancelled) return
+        setServers(savedServers)
+        setCurrentServerUrl(currentServer)
+      } catch (cause) {
+        if (!cancelled) {
+          setLoadError(errorMessage(cause, t("Couldn't load servers.")))
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [serverApi, reloadNonce])
+
+  return {
+    servers,
+    setServers,
+    currentServerUrl,
+    loading,
+    loadError,
+    reload: () => setReloadNonce((nonce) => nonce + 1),
+  }
+}
+
+function ServerSettings({
+  serverApi,
+  saved,
+}: {
+  serverApi: ServerApi
+  saved: SavedServers
+}) {
+  const { servers, setServers, currentServerUrl, loadError, reload } = saved
   const [url, setUrl] = useState("")
-  const [phase, setPhase] = useState<Phase>("loading")
   const [connectingServerUrl, setConnectingServerUrl] = useState<string | null>(
     null,
   )
@@ -51,16 +145,11 @@ export function DesktopAppPanel() {
   const [serverToForget, setServerToForget] = useState<string | null>(null)
   const [forgetting, setForgetting] = useState(false)
   const [forgetError, setForgetError] = useState<string | null>(null)
-
-  const { servers, setServers, currentServerUrl, loadError, reload } =
-    useSavedServers(serverApi, setPhase)
-
-  if (!serverApi) return null
-  const activeServerApi = serverApi
+  const busy = connectingServerUrl !== null
 
   async function connectTo(serverUrl: string, confirmed = false) {
     const nextUrl = serverUrl.trim()
-    if (!nextUrl || connectingServerUrl !== null) return
+    if (!nextUrl || busy) return
     if (
       !confirmed &&
       currentServerUrl !== null &&
@@ -72,20 +161,16 @@ export function DesktopAppPanel() {
     setError(null)
     setServerToConnect(null)
 
-    flushSync(() => {
-      setConnectingServerUrl(nextUrl)
-      setPhase("connecting")
-    })
+    flushSync(() => setConnectingServerUrl(nextUrl))
     try {
       // On success the host replaces this window with the new server's
       // window, so there is nothing left to update here.
-      await activeServerApi.switchTo(nextUrl)
+      await serverApi.switchTo(nextUrl)
       setUrl("")
     } catch (cause) {
-      setError(errorText(cause, t("Couldn't connect to server.")))
+      setError(errorMessage(cause, t("Couldn't connect to server.")))
     } finally {
       setConnectingServerUrl(null)
-      setPhase("idle")
     }
   }
 
@@ -95,24 +180,20 @@ export function DesktopAppPanel() {
   }
 
   async function forgetServer(serverUrl: string) {
-    if (phase === "connecting" || forgetting) return
+    if (busy || forgetting) return
     setForgetError(null)
     setForgetting(true)
     try {
-      const nextServers = await activeServerApi.forget(serverUrl)
-      setServers(nextServers)
+      setServers(await serverApi.forget(serverUrl))
       setServerToForget(null)
     } catch (cause) {
-      setForgetError(errorText(cause, t("Couldn't forget server.")))
+      setForgetError(errorMessage(cause, t("Couldn't forget server.")))
     } finally {
       setForgetting(false)
     }
   }
 
-  const busy = connectingServerUrl !== null
-  if (phase === "loading") return <LoadingState variant="panel" />
-
-  const serverSettings = (
+  return (
     <div className="flex flex-col gap-4">
       {error ? (
         <Callout tone="destructive" className="text-xs">
@@ -204,85 +285,6 @@ export function DesktopAppPanel() {
       />
     </div>
   )
-
-  return (
-    <SettingsSections>
-      <SettingsSubsection
-        id="servers"
-        title={t("Servers")}
-        description={t(
-          "Add, switch between, or forget connected Alloy servers.",
-        )}
-      >
-        {serverSettings}
-      </SettingsSubsection>
-      <SettingsSubsection
-        id="startup"
-        title={t("Startup & updates")}
-        description={t("Control launch behavior and desktop app updates.")}
-      >
-        <SettingRows>
-          <DesktopAutostartSettings />
-          <DesktopUpdateSettings />
-        </SettingRows>
-      </SettingsSubsection>
-      {alloyDesktop()?.openLogsFolder ? (
-        <SettingsSubsection id="diagnostics" title={t("Diagnostics")}>
-          <SettingRows>
-            <DesktopLogSettings />
-          </SettingRows>
-        </SettingsSubsection>
-      ) : null}
-    </SettingsSections>
-  )
-}
-
-function useSavedServers(
-  serverApi: ServerApi | undefined,
-  setPhase: (value: Phase) => void,
-) {
-  const [servers, setServers] = useState<DesktopSavedServer[]>([])
-  const [currentServerUrl, setCurrentServerUrl] = useState<string | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [reloadNonce, setReloadNonce] = useState(0)
-  useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      if (!serverApi) return
-      setLoadError(null)
-      setPhase("loading")
-      try {
-        const [savedServers, currentServer] = await Promise.all([
-          serverApi.list(),
-          serverApi.current(),
-        ])
-        if (cancelled) return
-        setServers(savedServers)
-        setCurrentServerUrl(currentServer)
-      } catch (cause) {
-        if (!cancelled) {
-          setLoadError(errorText(cause, t("Couldn't load servers.")))
-        }
-      } finally {
-        if (!cancelled) setPhase("idle")
-      }
-    }
-
-    void load()
-
-    return () => {
-      cancelled = true
-    }
-  }, [serverApi, setPhase, reloadNonce])
-
-  return {
-    servers,
-    setServers,
-    currentServerUrl,
-    loadError,
-    reload: () => setReloadNonce((nonce) => nonce + 1),
-  }
 }
 
 function ServerConnectForm({
@@ -493,8 +495,4 @@ function savedCompatibility(server: DesktopSavedServer): boolean {
     server.httpContract === DESKTOP_HTTP_CONTRACT_1 &&
     server.bridgeContract === TAURI_DESKTOP_BRIDGE_CONTRACT_1
   )
-}
-
-function errorText(cause: unknown, fallback: string): string {
-  return cause instanceof Error ? cause.message : fallback
 }
