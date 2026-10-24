@@ -47,6 +47,8 @@ use self::{
     video_config::EffectiveQuality,
 };
 
+pub(in crate::agent) use crate::agent::quality::target_bitrate_kbps;
+
 pub(in crate::agent) unsafe fn load_symbol<T: Copy>(
     library: &Library,
     name: &[u8],
@@ -249,23 +251,6 @@ pub(in crate::agent) unsafe fn configure_video_encoder(
     obs.set_int(data, c"keyint_sec", 2);
     obs.set_bool(data, c"psycho_aq", true);
     Ok(())
-}
-
-pub(in crate::agent) fn target_bitrate_kbps(quality: &EffectiveQuality) -> u32 {
-    if let Some(kbps) = quality.bitrate.custom_kbps() {
-        return kbps;
-    }
-
-    match (quality.height, quality.fps) {
-        (height, fps) if height >= 2160 && fps >= 60 => 55_000,
-        (height, _) if height >= 2160 => 40_000,
-        (height, fps) if height >= 1440 && fps >= 60 => 30_000,
-        (height, _) if height >= 1440 => 22_000,
-        (height, fps) if height >= 1080 && fps >= 60 => 18_000,
-        (height, _) if height >= 1080 => 12_000,
-        (_, fps) if fps >= 60 => 8_000,
-        _ => 5_000,
-    }
 }
 
 pub(in crate::agent) fn estimated_replay_buffer_mb(

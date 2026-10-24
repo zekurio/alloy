@@ -1,8 +1,9 @@
 # Alloy desktop
 
-The Windows desktop app loads an Alloy server's web UI through Tauri.
-`src-tauri/` contains the native host; `recorder/` contains the separate OBS
-recorder process, `alloy-agent`.
+The desktop app loads an Alloy server's web UI through Tauri on Windows and
+Linux. `src-tauri/` contains the native host; `recorder/` contains the separate
+recorder process, `alloy-agent`. It records with OBS on Windows and with
+gpu-screen-recorder on Linux.
 
 Desktop capture records the selected display while game detection continues.
 Saved clips and screenshots use the detected game's metadata and folder, or
@@ -16,17 +17,31 @@ its game identity for replays saved during the post-close grace period.
 The host imports `recorder/src/{types,protocol,settings,names}.rs`. Keep these
 platform-neutral and keep the JSON wire types in `types.rs`.
 
-The Windows-only process lives under `recorder/src/agent/`:
+The agent process lives under `recorder/src/agent/`:
 
-- `runtime.rs` dispatches requests and publishes status snapshots.
+- `runtime.rs` dispatches requests and publishes status snapshots. The
+  platform's recorder owns its state; the runtime calls its configure, status,
+  tick, save, and shutdown methods.
+- `game_matching.rs` matches processes against the Discord catalog and the
+  allow and deny lists. `quality.rs` resolves resolution, frame rate, and
+  bitrate.
+- `events.rs` writes protocol events; `time.rs` holds shared timestamp helpers.
+
+On Windows:
+
 - `recorder/` owns capture state, output lifetime, replay files, and screenshots.
-  Its state is private; the runtime calls its configure, status, tick, save, and
-  shutdown methods.
 - `obs/` loads libobs and configures sources and encoders. FFI declarations live
   in `obs/bindings.rs`; it does not depend on recorder state.
-- `platform/` handles Windows discovery, game matching, COM, audio metering, and
-  hotkeys. It does not depend on the recorder or libobs.
-- `events.rs` writes protocol events; `time.rs` holds shared timestamp helpers.
+- `platform/` handles Windows discovery, COM, audio metering, and hotkeys. It
+  does not depend on the recorder or libobs.
+
+On Linux, `linux/`:
+
+- `gsr.rs` runs gpu-screen-recorder: discovery, the replay process and its IPC
+  socket, and screenshots.
+- `games.rs` detects games from `/proc`.
+- `recorder.rs` owns capture state and moves saved replays into the capture
+  folder.
 
 Use Rust modules and explicit imports, not textual `include!` files or a shared
 import prelude. Keep implementation types private to their owning module unless
@@ -86,6 +101,46 @@ Enter the server origin serving both the web UI and `/api/*`. HTTP is allowed
 only on loopback; other servers require HTTPS. Restart Tauri after changing the
 bundled connection screen.
 
+## Linux
+
+Linux support targets Wayland and ships as a Nix package first. The agent
+records with [gpu-screen-recorder](https://git.dec05eba.com/gpu-screen-recorder/about/)
+6.1 or newer, which captures a monitor through KMS, so no screen-sharing
+dialog appears. It has no window capture: game mode records the selected
+monitor while an allowed game runs. KMS capture needs gpu-screen-recorder's
+`gsr-kms-server` helper with `cap_sys_admin`; without it, every replay start
+asks for authentication through polkit. On NixOS, the flake's desktop module
+installs the app and the helper:
+
+```nix
+{
+  imports = [ alloy.nixosModules.desktop ];
+  programs.alloy-desktop.enable = true;
+}
+```
+
+Wayland gives applications no global key hook. The host binds the clip and
+screenshot shortcuts through the GlobalShortcuts portal, which KDE Plasma,
+GNOME 48+, and Hyprland provide. The hotkeys from the settings are only
+suggestions; the desktop environment owns the binding, and the user changes
+it in the system settings. Without the portal, bind
+`alloy-desktop --action clip` and `alloy-desktop --action screenshot` in the
+compositor. The desktop entry offers both as actions too.
+
+Other differences from Windows:
+
+- Game detection reads `/proc`: native games by executable, and Proton or
+  Wine games by their Windows executable. Wayland does not report window
+  focus, so a running allowed game counts as focused.
+- gpu-screen-recorder mixes the selected audio into one track. It has no
+  level meters or per-source volume.
+- The package manager installs updates. Unbundled builds turn off the in-app
+  updater and autostart.
+
+To run from source, install Rust, WebKitGTK 4.1, GTK 3, libsoup 3, ALSA,
+gpu-screen-recorder, and FFmpeg, then run `pnpm install` and `pnpm tauri:dev`.
+Build the package with `nix build .#alloy-desktop`.
+
 ## Build and check
 
 ```sh
@@ -96,7 +151,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 pnpm --filter @alloy/desktop test:native
 ```
 
-Builds bundle the recorder, OBS, and FFmpeg. `test:native` runs the host's
+Windows builds bundle the recorder, OBS, and FFmpeg. `test:native` runs the host's
 integration tests. Unit tests have been removed; E2E testing is not configured yet.
 A successful build does not validate recording or playback. For affected flows,
 check on Windows:
@@ -123,11 +178,21 @@ Never log or screenshot token values.
 
 ## Storage and logs
 
+On Windows:
+
 - `%APPDATA%\dev.zekurio.alloy`: settings, saved servers, and capture manifest.
 - `%LOCALAPPDATA%\dev.zekurio.alloy`: WebView2 profiles, caches, temporary media,
   and `logs\alloy-desktop.log`.
 - `%USERPROFILE%\Videos\Alloy`: default recordings folder.
 - `%TEMP%\Alloy\replay`: default replay buffer.
+
+On Linux:
+
+- `~/.local/share/dev.zekurio.alloy`: settings, saved servers, capture
+  manifest, WebView profiles, and `logs/alloy-desktop.log`.
+- `~/.cache/dev.zekurio.alloy`: caches, temporary media, and the default replay
+  buffer in `replay/`.
+- `~/Videos/Alloy`: default recordings folder.
 
 Open the host log through Settings > Desktop > App > Diagnostics > Open logs folder.
 It includes recorder stderr, not browser console or server logs. Review before sharing.

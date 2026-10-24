@@ -14,6 +14,7 @@ shell = [
   "dep:tauri-plugin-updater",
   "dep:tauri-plugin-autostart",
   "dep:tauri-plugin-single-instance",
+  "dep:ashpd",
 ]
 custom-protocol = ["tauri/custom-protocol"]
 
@@ -63,6 +64,13 @@ tokio-util = { version = "0.7", features = ["io", "rt"] }
 trash = "5"
 url = { workspace = true }
 uuid = { version = "1", features = ["v4"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { version = "0.13", optional = true, default-features = false, features = [
+  "tokio",
+  "global_shortcuts",
+  "open_uri",
+] }
 
 [target.'cfg(windows)'.dependencies]
 # Keep these aligned with Wry: native_cookies passes COM types across that boundary.

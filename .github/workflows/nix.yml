@@ -1,16 +1,18 @@
 name: nix
 
 # Runs only when packaging-relevant inputs change. `nix/package.nix` builds the
-# server and web from `packages/**` and the root `public/` directory, and the
-# turbo build in checks does not run the Nix derivation, so those inputs are
-# listed here. The desktop packages are not part of that derivation.
+# server and web from `packages/**` and the root `public/` directory, and
+# `nix/desktop.nix` builds the desktop app from the same tree and the Cargo
+# workspace. The turbo build in checks does not run either derivation, so
+# those inputs are listed here.
 on:
   pull_request:
     paths:
       - "nix/**"
       - "packages/**"
-      - "!packages/desktop/**"
       - "public/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
       - "flake.nix"
       - "flake.lock"
       - "package.json"
@@ -56,3 +58,7 @@ jobs:
 
       - name: check nix flake
         run: nix flake check --print-build-logs
+
+      # Not a flake check, so that `nix flake check` stays quick for server work.
+      - name: build desktop package
+        run: nix build .#alloy-desktop --print-build-logs

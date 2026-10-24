@@ -21,22 +21,30 @@ const archiveName = `ffmpeg-${version}-essentials_build.zip`
 const checksum =
   "db580001caa24ac104c8cb856cd113a87b0a443f7bdf47d8c12b1d740584a2ec"
 
-if (process.platform !== "win32") {
-  console.log("Windows recorder and FFmpeg staging skipped on this platform.")
+if (process.platform !== "win32" && process.platform !== "linux") {
+  console.log("Recorder and FFmpeg staging skipped on this platform.")
   process.exit(0)
 }
 
+const windows = process.platform === "win32"
 const release = process.argv.includes("--release")
 const recorder = spawnSync(
   process.execPath,
   [
     resolve(packageDir, "scripts/build-agent.mjs"),
-    ...(release ? ["--release", "--require-obs-runtime"] : []),
+    ...(release ? ["--release"] : []),
+    ...(release && windows ? ["--require-obs-runtime"] : []),
   ],
   { stdio: "inherit" },
 )
 if (recorder.error) throw recorder.error
 if (recorder.status !== 0) process.exit(recorder.status ?? 1)
+
+// Linux uses the system's FFmpeg; packages put it on the app's PATH.
+if (!windows) {
+  await mkdir(resourcesDir, { recursive: true })
+  process.exit(0)
+}
 
 const marker = join(resourcesDir, ".build-checksum")
 const staged = await Promise.all([

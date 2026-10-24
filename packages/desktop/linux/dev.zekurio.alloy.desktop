@@ -1,0 +1,22 @@
+[Desktop Entry]
+Type=Application
+Name=Alloy
+GenericName=Game Clip Recorder
+Comment=Record, clip and share gameplay
+Exec=alloy-desktop
+Icon=dev.zekurio.alloy
+Terminal=false
+Categories=AudioVideo;Video;Recorder;
+Keywords=clip;replay;record;screenshot;game;
+StartupWMClass=dev.zekurio.alloy
+StartupNotify=true
+SingleMainWindow=true
+Actions=clip;screenshot;
+
+[Desktop Action clip]
+Name=Save Clip
+Exec=alloy-desktop --action clip
+
+[Desktop Action screenshot]
+Name=Take Screenshot
+Exec=alloy-desktop --action screenshot

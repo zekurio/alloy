@@ -5,6 +5,8 @@ mod native_cookies;
 mod preferences;
 mod runtime;
 mod services;
+#[cfg(target_os = "linux")]
+mod shortcuts;
 mod window_state;
 
 use std::{
@@ -27,7 +29,7 @@ use host::{
     require_remote_window, restore_remote, send_cancel,
 };
 use preferences::{DesktopSavedServer, MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH};
-use runtime::{DesktopRuntime, arg, to_value};
+use runtime::{CaptureAction, DesktopRuntime, arg, to_value};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use services::{DesktopServices, RestartError};
@@ -1085,6 +1087,21 @@ fn launched_at_login() -> bool {
     std::env::args().any(|argument| argument == "--autostart")
 }
 
+/// `--action clip` or `--action screenshot`, which a desktop shortcut or a
+/// script sends to the running app to save a capture without a window.
+fn requested_action(argv: &[String]) -> Option<CaptureAction> {
+    let mut arguments = argv.iter().skip(1);
+    while let Some(argument) = arguments.next() {
+        let value = match argument.strip_prefix("--action") {
+            Some("") => arguments.next().map(String::as_str),
+            Some(value) => value.strip_prefix('='),
+            None => continue,
+        };
+        return value.and_then(CaptureAction::parse);
+    }
+    None
+}
+
 fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
     let app = app.clone();
     let host = Arc::clone(host);
@@ -1173,9 +1190,19 @@ fn main() {
     let host = Arc::new(Host::default());
     let setup_host = Arc::clone(&host);
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            if let Some(host) = app.try_state::<Arc<Host>>() {
-                let _ = show_active(app, host.inner());
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            let Some(host) = app.try_state::<Arc<Host>>() else {
+                return;
+            };
+            match requested_action(&argv) {
+                Some(action) => {
+                    if let Ok(runtime) = host.runtime() {
+                        runtime.trigger(action);
+                    }
+                }
+                None => {
+                    let _ = show_active(app, host.inner());
+                }
             }
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -1227,6 +1254,8 @@ fn main() {
                 .runtime
                 .set(runtime.clone())
                 .map_err(|_| std::io::Error::other("Desktop runtime was initialized twice."))?;
+            #[cfg(target_os = "linux")]
+            shortcuts::spawn(app.config().identifier.clone(), runtime.clone());
             tauri::async_runtime::spawn(async move {
                 runtime.start().await;
             });

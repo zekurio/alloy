@@ -11,15 +11,22 @@ use std::{
 use serde::Serialize;
 use serde_json::json;
 
+#[cfg(target_os = "linux")]
+use crate::agent::linux::{
+    list_displays, list_game_processes, stop_audio_level_events, subscribe_audio_level_events,
+    Recorder,
+};
+#[cfg(windows)]
+use crate::agent::{
+    platform::{
+        hotkeys, list_displays, list_game_processes, stop_audio_level_events,
+        subscribe_audio_level_events,
+    },
+    recorder::Recorder,
+};
 use crate::{
     agent::{
-        notification_sounds::play_notification_sound,
-        platform::{
-            hotkeys, list_displays, list_game_processes, stop_audio_level_events,
-            subscribe_audio_level_events,
-        },
-        recorder::Recorder,
-        time::timestamp_millis,
+        notification_sounds::play_notification_sound, time::timestamp_millis,
         watchdog::RecorderProgress,
     },
     protocol::{RECORDER_PROTOCOL_VERSION, SIDE_CAR_NAME},
@@ -76,24 +83,41 @@ fn write_response(response: Response) {
     }
 }
 
+#[cfg(windows)]
+const CAPABILITIES: &[&str] = &[
+    "screenshots",
+    "game-capture",
+    "audio-devices",
+    "audio-applications",
+    "game-processes",
+    "display-capture",
+    "displays",
+    "replay-buffer",
+    "notification-sounds",
+    "audio-levels",
+    "telemetry",
+];
+
+/// gpu-screen-recorder captures whole monitors, has no level meters and
+/// reports no frame statistics.
+#[cfg(target_os = "linux")]
+const CAPABILITIES: &[&str] = &[
+    "screenshots",
+    "audio-devices",
+    "audio-applications",
+    "game-processes",
+    "display-capture",
+    "displays",
+    "replay-buffer",
+    "notification-sounds",
+];
+
 fn sidecar_version() -> SidecarVersion {
     SidecarVersion {
         name: SIDE_CAR_NAME,
         version: env!("CARGO_PKG_VERSION"),
         protocol_version: RECORDER_PROTOCOL_VERSION,
-        capabilities: &[
-            "screenshots",
-            "game-capture",
-            "audio-devices",
-            "audio-applications",
-            "game-processes",
-            "display-capture",
-            "displays",
-            "replay-buffer",
-            "notification-sounds",
-            "audio-levels",
-            "telemetry",
-        ],
+        capabilities: CAPABILITIES,
     }
 }
 
@@ -137,6 +161,23 @@ fn handle_io_request(request: &Request, status: &Mutex<RecordingStatus>) -> Opti
         ),
         _ => None,
     }
+}
+
+#[cfg(windows)]
+fn terminate_stalled_process() {
+    // DLL shutdown handlers can wait on the blocked OBS thread too.
+    // SAFETY: This is our own process. The desktop host owns its restart.
+    unsafe {
+        use windows_sys::Win32::System::Threading::{GetCurrentProcess, TerminateProcess};
+        TerminateProcess(GetCurrentProcess(), 1);
+    }
+}
+
+/// gpu-screen-recorder dies with the agent (it is started with a parent-death
+/// signal), so a plain exit leaves nothing behind.
+#[cfg(target_os = "linux")]
+fn terminate_stalled_process() {
+    std::process::exit(1);
 }
 
 fn snapshot_status(status: &Mutex<RecordingStatus>) -> RecordingStatus {
@@ -274,13 +315,15 @@ fn request_expired(request: &Request, now_unix_ms: u128) -> bool {
             .is_some_and(|deadline| now_unix_ms >= u128::from(deadline))
 }
 
-/// Runs the agent: hotkey hook, watchdog, stdin request loop.
+/// Runs the agent: hotkey hook (Windows), watchdog, stdin request loop.
 pub fn run() {
+    #[cfg(windows)]
     hotkeys::start();
     let (tx, rx) = mpsc::channel::<Request>();
     let status = Arc::new(Mutex::new(Recorder::default().status()));
-    // Allow normal configure and output shutdown work to finish. If OBS blocks
-    // beyond this deadline, exit so the desktop host can start a fresh recorder.
+    // Allow normal configure and output shutdown work to finish. If capture
+    // blocks beyond this deadline, exit so the desktop host can start a fresh
+    // recorder.
     let progress = Arc::new(RecorderProgress::new(
         Instant::now(),
         Duration::from_secs(90),
@@ -292,12 +335,7 @@ pub fn run() {
             eprintln!(
                 "[{SIDE_CAR_NAME}] recorder made no progress for 90 seconds; exiting for recovery"
             );
-            // DLL shutdown handlers can wait on the blocked OBS thread too.
-            // SAFETY: This is our own process. The desktop host owns its restart.
-            unsafe {
-                use windows_sys::Win32::System::Threading::{GetCurrentProcess, TerminateProcess};
-                TerminateProcess(GetCurrentProcess(), 1);
-            }
+            terminate_stalled_process();
         }
     });
 

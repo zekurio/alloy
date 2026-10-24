@@ -4,19 +4,25 @@
 
 <hr />
 
-The open-source, self-hosted alternative to Medal.tv. A Windows app records
-gameplay clips locally and publishes them to your own server. The web app
+The open-source, self-hosted alternative to Medal.tv. A desktop app for
+Windows and Linux records gameplay clips locally and publishes them to your own
+server. The web app
 handles playback, profiles, recommendations, search, and admin.
 
 Alloy is early and under active development. Expect sharp edges.
 
 ### Desktop app
 
-Windows x64 only. Download the latest installer from
+On Windows x64, download the latest installer from
 [GitHub Releases](https://github.com/zekurio/alloy/releases/latest) and point
 it at your Alloy server. The app keeps its settings in
 `%APPDATA%\dev.zekurio.alloy`, its caches and log in
 `%LOCALAPPDATA%\dev.zekurio.alloy`, and recordings in `Videos\Alloy`.
+
+On Linux (Wayland, x86_64), install it from the flake: NixOS users import
+`alloy.nixosModules.desktop` and set `programs.alloy-desktop.enable = true;`.
+Recording uses gpu-screen-recorder. See
+[`packages/desktop`](packages/desktop/README.md#linux) for the details.
 
 ### Server
 
@@ -111,7 +117,7 @@ pnpm dev
 
 Without Nix: install Node 24 and pnpm 11, provide a PostgreSQL database, copy
 `.env.example` to `.env`, then run `pnpm install && pnpm dev`. `pnpm dev:all`
-also starts the desktop shell, which builds only on Windows; see
+also starts the desktop shell, which builds on Windows and Linux; see
 [`packages/desktop`](packages/desktop/README.md) for its setup.
 
 ```bash

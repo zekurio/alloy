@@ -15,21 +15,31 @@ import {
 } from "./obs-runtime.mjs"
 
 const manifestPath = join(workspaceDir, "Cargo.toml")
-const binaryName = "alloy-agent.exe"
 const requireObsRuntime =
   process.argv.includes("--require-obs-runtime") ||
   process.env.ALLOY_REQUIRE_OBS_RUNTIME === "1"
 const release = process.argv.includes("--release")
 const targetTriple = process.env.CARGO_BUILD_TARGET
+// Windows records with OBS, which is staged beside the agent. Linux records
+// with gpu-screen-recorder from the system.
+const windows = targetTriple
+  ? targetTriple.includes("windows")
+  : process.platform === "win32"
+const linux = targetTriple
+  ? targetTriple.includes("linux")
+  : process.platform === "linux"
+const binaryName = windows ? "alloy-agent.exe" : "alloy-agent"
 
-if (process.platform !== "win32" && !requireObsRuntime && !targetTriple) {
-  console.warn("Skipping alloy-agent build: the native agent is Windows-only.")
+if (!windows && !linux) {
+  console.warn(
+    "Skipping alloy-agent build: the native agent supports Windows and Linux.",
+  )
   ensureResourceDir(agentResourcesDir)
   ensureResourceDir(obsResourcesDir)
   process.exit(0)
 }
 
-const obsRuntimeSource = resolveObsRuntimeSource()
+const obsRuntimeSource = windows ? resolveObsRuntimeSource() : null
 
 const cargoArgs = [
   "build",
@@ -68,9 +78,13 @@ if (!existsSync(builtBinary)) {
 ensureResourceDir(agentResourcesDir)
 copyFileIfChanged(builtBinary, join(agentResourcesDir, binaryName))
 
-stageObsRuntime(obsRuntimeSource)
-stageObsHelpers()
-pruneObsRuntime()
+if (windows) {
+  stageObsRuntime(obsRuntimeSource)
+  stageObsHelpers()
+  pruneObsRuntime()
+} else {
+  ensureResourceDir(obsResourcesDir)
+}
 
 function resolveObsRuntimeSource() {
   const runtimeDir = process.env.ALLOY_OBS_RUNTIME_DIR

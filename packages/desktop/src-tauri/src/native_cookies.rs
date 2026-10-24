@@ -2,9 +2,12 @@
 //! converts through cookie::Cookie, whose domain() strips the leading dot.
 //! Recreating that cookie for deletion can target the host-only server cookie
 //! instead of the domain-scoped bootstrap cookie.
+//!
+//! WebKitGTK has no such cookie: wry hands libsoup the injected cookie's
+//! domain without a dot, which libsoup stores host-only, like the server's
+//! own copy. Its cookies go through wry.
 
 use alloy_desktop::login::InjectedCookie;
-#[cfg(windows)]
 use alloy_desktop::login::{LEGACY_ACCESS_COOKIE, LEGACY_REFRESH_COOKIE, SESSION_COOKIE};
 use tauri::WebviewWindow;
 use url::Url;
@@ -123,11 +126,33 @@ pub async fn remove(
     }
 }
 
+/// Same contract as the WebView2 version. Every cookie here is host-only, so
+/// the injected cookie is its own replacement and a handoff deletes nothing.
 #[cfg(not(windows))]
 pub async fn remove(
-    _window: &WebviewWindow,
-    _origin: &Url,
-    _injected: Option<InjectedCookie>,
+    window: &WebviewWindow,
+    origin: &Url,
+    injected: Option<InjectedCookie>,
 ) -> Result<bool, String> {
-    Err("Native session cookies require Windows WebView2.".into())
+    let host = origin.host_str().ok_or("The server URL has no host.")?;
+    let cookies = window
+        .cookies()
+        .map_err(|_| "Could not access the native session cookie store.")?;
+    let session_cookies = cookies.into_iter().filter(|cookie| {
+        cookie.domain() == Some(host)
+            && [SESSION_COOKIE, LEGACY_ACCESS_COOKIE, LEGACY_REFRESH_COOKIE]
+                .contains(&cookie.name())
+    });
+    if let Some(injected) = injected {
+        return Ok(session_cookies.into_iter().any(|cookie| {
+            let path = cookie.path().unwrap_or("/");
+            injected.has_replacement(cookie.name(), cookie.value(), host, path, host)
+        }));
+    }
+    for cookie in session_cookies {
+        window
+            .delete_cookie(cookie)
+            .map_err(|_| "Could not clear the native session cookies.")?;
+    }
+    Ok(true)
 }

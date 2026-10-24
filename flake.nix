@@ -28,6 +28,7 @@
       let
         pkgs = import nixpkgs { inherit system; };
         alloy = pkgs.callPackage ./nix/package.nix { };
+        alloy-desktop = pkgs.callPackage ./nix/desktop.nix { inherit (alloy) pnpmDeps; };
         dockerImageConfig = {
           Cmd = [ "${pkgs.lib.getExe alloy}" ];
           ExposedPorts."2552/tcp" = { };
@@ -44,7 +45,7 @@
         # is the packaging/CI/NixOS entrypoint only.
         packages = {
           default = alloy;
-          inherit alloy dockerImage;
+          inherit alloy alloy-desktop dockerImage;
         };
 
         checks = {
@@ -62,5 +63,6 @@
     )
     // {
       nixosModules.default = import ./nix/module.nix { inherit self; };
+      nixosModules.desktop = import ./nix/desktop-module.nix { inherit self; };
     };
 }

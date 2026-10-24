@@ -273,9 +273,11 @@ fn session_cookie(
 /// The computer name shown in the account's session list. The server tidies
 /// it up and ignores it if it is unusable.
 fn device_name() -> Option<String> {
-    std::env::var("COMPUTERNAME")
-        .ok()
-        .map(|name| name.trim().to_owned())
+    #[cfg(windows)]
+    let name = std::env::var("COMPUTERNAME").ok();
+    #[cfg(not(windows))]
+    let name = std::fs::read_to_string("/proc/sys/kernel/hostname").ok();
+    name.map(|name| name.trim().to_owned())
         .filter(|name| !name.is_empty())
 }
 

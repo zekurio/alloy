@@ -1,7 +1,8 @@
 # Alloy
 
 Alloy is a self-hosted Medal.tv alternative: a React web app, Hono server,
-and Tauri desktop app with a Windows-only Rust OBS recorder.
+and Tauri desktop app with a Rust recorder that drives OBS on Windows and
+gpu-screen-recorder on Linux.
 
 Use package READMEs for subsystem-specific setup and conventions.
 Refactor when it simplifies the requested change; preserve compatibility
@@ -18,7 +19,7 @@ Leave unrelated working-tree changes alone.
 - `packages/env`: env parsing and `.env` loading. `packages/logging`: logger.
   `packages/i18n`: English-keyed message catalogs.
 - `packages/desktop`: Tauri host (`src-tauri`), renderer, and the Rust
-  `recorder` (OBS sidecar).
+  `recorder` sidecar.
 - `scripts`: release tooling. `tools/oxlint`: custom lint rules. `nix`: package
   and NixOS module. `.github/gardener`: PR/issue upkeep bot.
 
@@ -29,21 +30,22 @@ Leave unrelated working-tree changes alone.
 - Run `pnpm verify` before completing code changes. Unit tests have been
   removed; E2E testing is planned but not configured yet. Validate affected
   workflows manually until E2E coverage is available.
-- For Rust changes, run these checks from the repo root. Both desktop crates
-  require Windows to build and run Clippy:
+- For Rust changes, run these checks from the repo root on each platform
+  whose code changed. The desktop crates build on Windows and Linux:
   `cargo fmt --all --check` and
   `cargo clippy --workspace --all-targets --locked -- -D warnings`.
 - For schema changes, generate migrations with a descriptive snake_case name,
   e.g. `pnpm db:generate --name session_tokens`, never Drizzle's random
   default. Never edit a migration's SQL after it merges; add a new one instead.
-- For Nix changes, run `nix flake check`. Build `.#alloy` only when needed.
+- For Nix changes, run `nix flake check`. Build `.#alloy` or
+  `.#alloy-desktop` only when needed.
 
 ## Boundaries
 
 - Keep shared web/server contracts in `packages/contracts`, native contracts in
   `packages/desktop-contracts`, and shared scalars in `packages/primitives`.
   Validate runtime inputs; use plain TypeScript types otherwise.
-- Keep OBS in the recorder process. Define sidecar wire types once in
+- Keep OBS and gpu-screen-recorder in the recorder process. Define sidecar wire types once in
   `packages/desktop/recorder/src/types.rs` and import them in the host.
 - Native commands must validate inputs and the calling window's selected origin.
   Separate local connection permissions from remote window permissions, and ignore

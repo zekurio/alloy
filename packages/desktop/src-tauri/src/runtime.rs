@@ -23,6 +23,23 @@ use url::Url;
 
 use crate::host::{Host, require_remote_window};
 
+#[derive(Clone, Copy, Debug)]
+pub enum CaptureAction {
+    Clip,
+    Screenshot,
+}
+
+impl CaptureAction {
+    /// The value of `--action`, which also names the global shortcut.
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "clip" => Some(Self::Clip),
+            "screenshot" => Some(Self::Screenshot),
+            _ => None,
+        }
+    }
+}
+
 pub struct LibraryRuntime {
     pub library: CaptureLibrary,
     pub files: CaptureHttpServer,
@@ -55,9 +72,22 @@ impl DesktopRuntime {
         // Settings, the saved-server list and the library manifest live in the
         // roaming app data folder. Regenerable data (thumbnails, import staging,
         // export renders, recorder scratch, detection caches) lives in the
-        // local one so it never syncs with a roaming profile.
+        // local one so it never syncs with a roaming profile. On Linux, where
+        // both resolve to the XDG data folder, it lives in the cache folder.
         let data = app.path().app_data_dir().map_err(error)?;
-        let cache = app.path().app_local_data_dir().map_err(error)?;
+        let cache = if cfg!(windows) {
+            app.path().app_local_data_dir()
+        } else {
+            app.path().app_cache_dir()
+        }
+        .map_err(error)?;
+        // The replay buffer's disk segments. Linux keeps them out of `/tmp`,
+        // which is often in memory.
+        let replay_scratch = if cfg!(windows) {
+            app.path().temp_dir().map_err(error)?.join("Alloy/replay")
+        } else {
+            cache.join("replay")
+        };
         let output = app.path().video_dir().map_err(error)?.join("Alloy");
         let resources = app.path().resource_dir().map_err(error)?;
         let package = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
@@ -71,16 +101,21 @@ impl DesktopRuntime {
         };
         let executable = std::env::var_os("ALLOY_RECORDER_PATH")
             .map(PathBuf::from)
-            .unwrap_or_else(|| native_root.join("agent/alloy-agent.exe"));
-        let obs = std::env::var_os("ALLOY_OBS_RUNTIME_DIR")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| native_root.join("obs-runtime"));
+            .unwrap_or_else(|| {
+                native_root.join(format!("agent/alloy-agent{}", std::env::consts::EXE_SUFFIX))
+            });
+        // Linux records with gpu-screen-recorder instead of OBS.
+        let obs = cfg!(windows).then(|| {
+            std::env::var_os("ALLOY_OBS_RUNTIME_DIR")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| native_root.join("obs-runtime"))
+        });
         let recorder = RecorderHost::new(
             RecorderHostOptions::new(executable, &data)
                 .cache_dir(&cache)
                 .output_folder(&output)
-                .replay_scratch_folder(app.path().temp_dir().map_err(error)?.join("Alloy/replay"))
-                .obs_runtime_dir(Some(obs)),
+                .replay_scratch_folder(replay_scratch)
+                .obs_runtime_dir(obs),
         )
         .map_err(error)?;
         let default_output = output.clone();
@@ -93,7 +128,18 @@ impl DesktopRuntime {
         let media_tool = |name: &str| {
             std::env::var_os(format!("ALLOY_{}", name.to_uppercase()))
                 .map(PathBuf::from)
-                .unwrap_or_else(|| native_root.join("ffmpeg").join(format!("{name}.exe")))
+                .unwrap_or_else(|| {
+                    let bundled = native_root
+                        .join("ffmpeg")
+                        .join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+                    // Linux builds use the system's media tools unless the
+                    // package ships its own.
+                    if cfg!(windows) || bundled.is_file() {
+                        bundled
+                    } else {
+                        PathBuf::from(name)
+                    }
+                })
         };
         let mut config = CaptureLibraryConfig::new(
             output,
@@ -185,6 +231,30 @@ impl DesktopRuntime {
         }
     }
 
+    /// Saves a clip or a screenshot for a hotkey, a global shortcut or a
+    /// command-line action.
+    pub fn trigger(self: &Arc<Self>, action: CaptureAction) {
+        let runtime = Arc::clone(self);
+        tauri::async_runtime::spawn(async move {
+            let result = match action {
+                CaptureAction::Screenshot => runtime.recorder.save_screenshot().await,
+                CaptureAction::Clip => {
+                    let settings = runtime.recorder.get_settings().await;
+                    runtime
+                        .recorder
+                        .save_replay_clip(SaveReplayClipRequest {
+                            requested_at_unix_ms: unix_ms(),
+                            duration_seconds: settings.replay_buffer_seconds,
+                        })
+                        .await
+                }
+            };
+            if let Err(cause) = result {
+                runtime.report_error(cause.to_string()).await;
+            }
+        });
+    }
+
     fn start_events(self: &Arc<Self>) {
         let mut events = self.recorder.subscribe_events();
         let weak = Arc::downgrade(self);
@@ -197,26 +267,8 @@ impl DesktopRuntime {
                 };
                 let Some(runtime) = weak.upgrade() else { break };
                 match event {
-                    RecordingEvent::ClipHotkey | RecordingEvent::ScreenshotHotkey => {
-                        let screenshot = matches!(event, RecordingEvent::ScreenshotHotkey);
-                        tauri::async_runtime::spawn(async move {
-                            let result = if screenshot {
-                                runtime.recorder.save_screenshot().await
-                            } else {
-                                let settings = runtime.recorder.get_settings().await;
-                                runtime
-                                    .recorder
-                                    .save_replay_clip(SaveReplayClipRequest {
-                                        requested_at_unix_ms: unix_ms(),
-                                        duration_seconds: settings.replay_buffer_seconds,
-                                    })
-                                    .await
-                            };
-                            if let Err(cause) = result {
-                                runtime.report_error(cause.to_string()).await;
-                            }
-                        });
-                    }
+                    RecordingEvent::ClipHotkey => runtime.trigger(CaptureAction::Clip),
+                    RecordingEvent::ScreenshotHotkey => runtime.trigger(CaptureAction::Screenshot),
                     RecordingEvent::CaptureReady { capture, .. } => {
                         tauri::async_runtime::spawn(async move {
                             if let Err(cause) = runtime.finalize(capture, POSTER_WAIT).await {
@@ -610,7 +662,7 @@ impl DesktopRuntime {
                     .off_worker(move |library| library.reveal_path(&id))
                     .await
                     .map_err(error)?;
-                reveal(&path)?;
+                reveal(&path).await?;
                 Ok(Value::Null)
             }
             "recording.importLibraryFiles" => {
@@ -843,10 +895,23 @@ fn infer_capture_output_folder(filename: &Path, kind: RecordingCaptureKind) -> O
     })
 }
 
-fn reveal(path: &Path) -> Result<(), String> {
+#[cfg(windows)]
+async fn reveal(path: &Path) -> Result<(), String> {
     std::process::Command::new("explorer.exe")
         .arg(format!("/select,{}", path.display()))
         .spawn()
+        .map_err(error)?;
+    Ok(())
+}
+
+/// Opens the containing folder with the file selected, through the OpenURI
+/// portal so the user's file manager handles it.
+#[cfg(target_os = "linux")]
+async fn reveal(path: &Path) -> Result<(), String> {
+    let file = std::fs::File::open(path).map_err(error)?;
+    ashpd::desktop::open_uri::OpenDirectoryRequest::default()
+        .send(&file)
+        .await
         .map_err(error)?;
     Ok(())
 }

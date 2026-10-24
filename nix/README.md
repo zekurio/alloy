@@ -1,13 +1,16 @@
 # Nix packaging
 
-`flake.nix` exposes the Linux server package, container image, and NixOS
-module. The development shell lives separately in `devenv.nix`.
+`flake.nix` exposes the Linux server package, container image, desktop app,
+and NixOS modules. The development shell lives separately in `devenv.nix`.
 
 ## Files
 
 - `package.nix` fetches the workspace dependencies, builds the server and web
   app, and packages the server's runtime dependency closure. It uses Node 24
   for builds and the slim Node 24 package at runtime.
+- `desktop.nix` builds the desktop app and its recorder agent from the Cargo
+  workspace, with the renderer built from the server package's dependency
+  store. The wrapper puts gpu-screen-recorder and FFmpeg on PATH.
 - `pnpm.nix` reads the exact pnpm version from `package.json` and overrides
   the explicit `pnpm_11` builder. Both packaging and the development shell
   import it. Do not replace this builder with the moving `pkgs.pnpm` alias.
@@ -15,6 +18,9 @@ module. The development shell lives separately in `devenv.nix`.
   source, including nested workspace outputs.
 - `module.nix` defines `services.alloy-server`, including PostgreSQL,
   storage, credentials, and systemd hardening.
+- `desktop-module.nix` defines `programs.alloy-desktop`. It installs the app
+  and enables `programs.gpu-screen-recorder` with the app's recorder package,
+  so the setcap KMS helper matches the recorder.
 - `module-security-test.nix` checks production-mode and HTTPS enforcement,
   including environment overrides.
 - `dev-dotenv.sh` and `dev-postgres.sh` back the devenv shell hook. The first
@@ -54,6 +60,7 @@ build.
 pnpm verify
 nix flake check
 nix build .#alloy
+nix build .#alloy-desktop
 devenv test
 ```
 
