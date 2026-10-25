@@ -5,6 +5,7 @@ export const AUTH_PATHS = {
   signOut: "/api/auth/sign-out",
   reactivate: "/api/auth/reactivate",
   user: "/api/auth/user",
+  userTheme: "/api/auth/user/theme",
   accounts: "/api/auth/accounts",
   accountsUnlink: "/api/auth/accounts/unlink",
   oauthLink: "/api/auth/oauth/link",

@@ -1,4 +1,5 @@
 import type { IsoDateString, UserRole, UserStatus } from "./shared"
+import type { SyncedThemePreferences } from "./theme"
 
 export const AUTH_ERROR_CODES = {
   accountReactivationRequired: "account_reactivation_required",
@@ -77,6 +78,8 @@ export interface AuthUser {
   disabledAt: IsoDateString | null
   storageQuotaBytes: number | null
   clipAnnouncementsEnabled: boolean
+  /** Null until a device with theme sync on saves one. */
+  themePreferences: SyncedThemePreferences | null
   createdAt: IsoDateString
   updatedAt: IsoDateString
 }

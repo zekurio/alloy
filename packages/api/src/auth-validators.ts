@@ -8,6 +8,7 @@ import {
   type LinkedAccount,
   type Passkey,
   type SessionData,
+  SyncedThemePreferencesSchema,
 } from "@alloy/contracts"
 import type {
   PublicKeyCredentialCreationOptionsJSON,
@@ -86,6 +87,14 @@ export function validateAuthUser(value: ContractJsonInput): AuthUser {
     user.clipAnnouncementsEnabled,
     "Invalid auth user response: clipAnnouncementsEnabled must be boolean",
   )
+  if (
+    user.themePreferences !== null &&
+    !SyncedThemePreferencesSchema.safeParse(user.themePreferences).success
+  ) {
+    throw new Error(
+      "Invalid auth user response: themePreferences must be theme preferences or null",
+    )
+  }
   validateIsoDateString(
     user.createdAt,
     "Invalid auth user response: createdAt must be a date string",

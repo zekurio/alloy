@@ -4,6 +4,7 @@ import type {
   LinkedAccount,
   Passkey,
   SessionData,
+  SyncedThemePreferences,
 } from "@alloy/contracts"
 import type { RegistrationResponseJSON } from "@simplewebauthn/browser"
 
@@ -260,6 +261,19 @@ function createUserActions(request: RequestFn, store: SessionStore) {
       // The response carries the saved user, so apply it to the session
       // directly. Refetching here could fail after the write landed and
       // reject a save that succeeded.
+      const current = store.getSnapshot().data
+      if (update.data && current)
+        store.set({ ...current, user: update.data.user })
+      return update
+    },
+    /** Saves the theme the user's devices share, like {@link updateUser}. */
+    updateThemePreferences: async (preferences: SyncedThemePreferences) => {
+      const update = await result(
+        AUTH_PATHS.userTheme,
+        { method: "PUT", body: JSON.stringify(preferences) },
+        "Could not save theme",
+        validateUserUpdateResponse,
+      )
       const current = store.getSnapshot().data
       if (update.data && current)
         store.set({ ...current, user: update.data.user })

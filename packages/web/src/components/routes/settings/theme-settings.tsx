@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
+import { Switch } from "@alloy/ui/components/switch"
 import {
   Tooltip,
   TooltipContent,
@@ -20,6 +21,7 @@ import {
   selectThemeFamily,
   selectThemeVariant,
   setThemeAccent,
+  setThemeSync,
   themeVariantColors,
   type ThemeState,
 } from "@alloy/ui/lib/theme"
@@ -243,6 +245,17 @@ function BaseThemeSection({ theme }: { theme: ThemeState }) {
               {t("Reset")}
             </Button>
           </HexColorInput>
+        </SettingRow>
+        <SettingRow
+          title={t("Sync across devices")}
+          description={t(
+            "Use the same theme and accent everywhere you sign in. Custom themes stay on the device they were made on.",
+          )}
+        >
+          <Switch
+            checked={preferences.sync}
+            onCheckedChange={(checked) => setThemeSync(checked)}
+          />
         </SettingRow>
       </SettingRows>
     </SettingsSubsection>

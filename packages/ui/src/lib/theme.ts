@@ -1,3 +1,4 @@
+import type { SyncedThemePreferences } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import {
   normalizeThemeColor,
@@ -37,7 +38,9 @@ import {
 /**
  * The live theme: stored preferences and custom themes, the server's accent,
  * and the OS appearance, resolved into one `<style>` element. Components read
- * it through {@link getThemeState} and {@link subscribeTheme}.
+ * it through {@link getThemeState} and {@link subscribeTheme}; account sync
+ * listens to {@link subscribeThemeEdits} and answers with
+ * {@link applySyncedThemePreferences}.
  */
 
 export interface ThemeState {
@@ -71,6 +74,7 @@ let preview: { appearance: ThemeAppearance; colors: ThemeColors } | null = null
 let initialized = false
 let state = buildState()
 const listeners = new Set<() => void>()
+const editListeners = new Set<(synced: SyncedThemePreferences) => void>()
 
 export function getThemeState(): ThemeState {
   return state
@@ -79,6 +83,52 @@ export function getThemeState(): ThemeState {
 export function subscribeTheme(listener: () => void): () => void {
   listeners.add(listener)
   return () => listeners.delete(listener)
+}
+
+/**
+ * Called with the synced part of the preferences after each change made on
+ * this device while sync is on. Changes that arrive from the account or from
+ * other tabs don't fire it, so nothing echoes back.
+ */
+export function subscribeThemeEdits(
+  listener: (synced: SyncedThemePreferences) => void,
+): () => void {
+  editListeners.add(listener)
+  return () => editListeners.delete(listener)
+}
+
+export function syncedThemePreferences(
+  current: ThemePreferences,
+): SyncedThemePreferences {
+  return {
+    mode: current.mode,
+    light: current.light,
+    dark: current.dark,
+    accent: current.accent,
+  }
+}
+
+/** Adopts the account's theme, unless this device opted out of syncing. */
+export function applySyncedThemePreferences(
+  synced: SyncedThemePreferences,
+): void {
+  if (!preferences.sync) return
+  const current = syncedThemePreferences(preferences)
+  if (
+    current.mode === synced.mode &&
+    current.light === synced.light &&
+    current.dark === synced.dark &&
+    current.accent === synced.accent
+  ) {
+    return
+  }
+  preferences = writeThemePreferences({ ...preferences, ...synced })
+  refresh()
+}
+
+/** Turning sync on shares this device's current theme with the account. */
+export function setThemeSync(enabled: boolean): void {
+  savePreferences({ ...preferences, sync: enabled })
 }
 
 /**
@@ -243,6 +293,9 @@ export function themeVariantColors(
 function savePreferences(next: ThemePreferences): void {
   preferences = writeThemePreferences(next)
   refresh()
+  if (!preferences.sync) return
+  const synced = syncedThemePreferences(preferences)
+  for (const listener of editListeners) listener(synced)
 }
 
 function withVariant(

@@ -1,8 +1,10 @@
 import {
   isObjectRecord,
   isStringValue,
+  THEME_MODES,
   type ContractJsonInput,
   type ContractJsonValue,
+  type SyncedThemePreferences,
 } from "@alloy/contracts"
 import { createLocalStorageDriver } from "@alloy/ui/lib/local-storage"
 import {
@@ -14,16 +16,14 @@ import { DEFAULT_THEME_VARIANT_IDS } from "@alloy/ui/lib/theme-presets"
 /** Keep in sync with the pre-paint script in packages/web/index.html. */
 export const THEME_STORAGE_KEY = "alloy.theme"
 
-export const THEME_MODES = ["system", "light", "dark"] as const
-export type ThemeMode = (typeof THEME_MODES)[number]
-
-export interface ThemePreferences {
-  mode: ThemeMode
-  /** Variant ids shown in each appearance; unknown ids fall back to Alloy. */
-  light: string
-  dark: string
-  /** Personal accent for the Alloy base themes; null follows the server. */
-  accent: string | null
+/**
+ * The synced choice (mode, a variant id per appearance where unknown ids fall
+ * back to Alloy, and the base themes' personal accent where null follows the
+ * server), plus whether this device shares it with the account.
+ */
+export interface ThemePreferences extends SyncedThemePreferences {
+  /** Device-local: never sent to the account. */
+  sync: boolean
 }
 
 export const DEFAULT_THEME_PREFERENCES: ThemePreferences = {
@@ -31,6 +31,7 @@ export const DEFAULT_THEME_PREFERENCES: ThemePreferences = {
   light: DEFAULT_THEME_VARIANT_IDS.light,
   dark: DEFAULT_THEME_VARIANT_IDS.dark,
   accent: null,
+  sync: true,
 }
 
 /**
@@ -61,8 +62,9 @@ export function normalizeThemePreferences(
   const mode =
     THEME_MODES.find((candidate) => candidate === value.mode) ??
     DEFAULT_THEME_PREFERENCES.mode
+  const sync = value.sync !== false
   if (!isStringValue(value.light) && isStringValue(value.palette)) {
-    return { mode, ...migrateLegacyPreferences(value) }
+    return { mode, sync, ...migrateLegacyPreferences(value) }
   }
 
   return {
@@ -76,6 +78,7 @@ export function normalizeThemePreferences(
     accent: isStringValue(value.accent)
       ? normalizeThemeColor(value.accent)
       : null,
+    sync,
   }
 }
 
@@ -100,7 +103,7 @@ export function writeThemePreferences(
 
 function migrateLegacyPreferences(
   value: Record<string, ContractJsonValue>,
-): Omit<ThemePreferences, "mode"> {
+): Omit<ThemePreferences, "mode" | "sync"> {
   const palette =
     LEGACY_PALETTES.find((entry) => entry.palette === value.palette) ??
     DEFAULT_THEME_VARIANT_IDS

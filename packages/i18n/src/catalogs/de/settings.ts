@@ -117,6 +117,7 @@ export const SETTINGS_MESSAGES = {
   "Sunken surface": "Vertiefte Fläche",
   Surface: "Fläche",
   Surfaces: "Flächen",
+  "Sync across devices": "Geräteübergreifend synchronisieren",
   "Sync with system": "Mit System synchronisieren",
   "Syncing uses {light} in light mode and {dark} in dark mode. Pick a swatch under Themes to change either one.":
     "Beim Synchronisieren wird im hellen Modus {light} und im dunklen Modus {dark} verwendet. Wähle unter Themes ein Farbfeld, um eins davon zu ändern.",
@@ -148,6 +149,8 @@ export const SETTINGS_MESSAGES = {
   'Unknown theme color "{key}".': "Unbekannte Theme-Farbe „{key}“.",
   "Unsupported theme file version.":
     "Diese Version der Theme-Datei wird nicht unterstützt.",
+  "Use the same theme and accent everywhere you sign in. Custom themes stay on the device they were made on.":
+    "Nutze überall, wo du angemeldet bist, dasselbe Theme und denselben Akzent. Eigene Themes bleiben auf dem Gerät, auf dem sie erstellt wurden.",
   "Use {theme} for light and dark mode":
     "{theme} für hellen und dunklen Modus verwenden",
   "Used in dark mode": "Im dunklen Modus verwendet",

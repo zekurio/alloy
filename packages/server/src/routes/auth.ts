@@ -1,6 +1,7 @@
 import {
   AUTH_ERROR_CODES,
   DISPLAY_NAME_MAX_LENGTH,
+  SyncedThemePreferencesSchema,
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
 } from "@alloy/contracts"
@@ -17,6 +18,7 @@ import {
 import {
   reactivateSelfDisabledIdentity,
   updateUserIdentity,
+  updateUserThemePreferences,
 } from "@alloy/server/auth/identity"
 import {
   publicAuthUserRow,
@@ -158,6 +160,22 @@ export const authRoute = new Hono()
         return c.json({ user: publicAuthUserRow(updated) })
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not update user.")
+      }
+    },
+  )
+  .put(
+    "/user/theme",
+    requireSession,
+    tbValidator("json", SyncedThemePreferencesSchema),
+    async (c) => {
+      try {
+        const updated = await updateUserThemePreferences(
+          c.var.viewerId,
+          c.req.valid("json"),
+        )
+        return c.json({ user: publicAuthUserRow(updated) })
+      } catch (cause) {
+        return badRequestFromCause(c, cause, "Could not save theme.")
       }
     },
   )
