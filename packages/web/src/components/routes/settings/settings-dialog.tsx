@@ -575,7 +575,9 @@ function SettingsSearchField({
         onChange={(event) => onChange(event.currentTarget.value)}
         placeholder={t("Search settings")}
         aria-label={t("Search settings")}
-        className="[&::-webkit-search-cancel-button]:appearance-none"
+        // WebKit ignores `appearance: none` on the native clear button and
+        // draws it over the field, so hide the element as well.
+        className="[&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:appearance-none"
       />
     </InputGroup>
   )
