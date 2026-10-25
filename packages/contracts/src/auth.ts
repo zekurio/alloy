@@ -9,6 +9,15 @@ export type AuthErrorCode =
   (typeof AUTH_ERROR_CODES)[keyof typeof AUTH_ERROR_CODES]
 
 /**
+ * Login page query keys set by an OAuth sign-in whose username claim matched
+ * an existing user: the provider to link once signed in, and that username.
+ */
+export const OAUTH_LINK_QUERY_KEYS = {
+  provider: "link",
+  username: "link_username",
+} as const
+
+/**
  * How a session was created: a browser sign-in, or the desktop app's code
  * exchange. Set by the endpoint that creates the session, never derived from
  * the client's User-Agent.

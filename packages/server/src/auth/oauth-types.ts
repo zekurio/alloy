@@ -7,6 +7,8 @@ export type OAuthChallengePayload = {
   browserNonce: string
   callbackURL: string
   codeVerifier?: string
+  /** Sign-in only: skip the username match and create a new account. */
+  createAccount?: boolean
   mode: OAuthMode
   providerId: string
   userId?: string

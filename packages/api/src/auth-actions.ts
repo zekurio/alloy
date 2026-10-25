@@ -198,7 +198,12 @@ function createPasskeyActions(
       passkey: () => passkeySignIn(request, store),
       reactivate: () => completeAccountReactivation(request, store),
       preloadPasskey: preloadWebAuthnBrowser,
-      oauth2: (input: { providerId: string; callbackURL?: string }) =>
+      oauth2: (input: {
+        providerId: string
+        callbackURL?: string
+        /** Create a new account even if the username claim matches one. */
+        createAccount?: boolean
+      }) =>
         startOAuthRedirect(
           request,
           redirect,
@@ -356,7 +361,7 @@ async function startOAuthRedirect(
   request: RequestFn,
   redirect: AuthRedirect,
   path: string,
-  input: { providerId: string; callbackURL?: string },
+  input: { providerId: string; callbackURL?: string; createAccount?: boolean },
   fallback: string,
 ): AuthResult<never> {
   try {

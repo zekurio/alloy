@@ -26,6 +26,7 @@ import {
   callbackURLWithWelcome,
   loginURLWithAccountReactivation,
   loginURLWithOAuthError,
+  loginURLWithOAuthLink,
   normalizeCallbackURL,
   oauthClient,
   oauthErrorLogDetail,
@@ -41,6 +42,7 @@ const OAuthChallengePayloadSchema = t.object({
   browserNonce: t.string(),
   callbackURL: t.string(),
   codeVerifier: t.string().optional(),
+  createAccount: t.boolean().optional(),
   mode: t.enum(["sign-in", "link"]),
   providerId: t.string(),
   userId: t.string().optional(),
@@ -51,6 +53,7 @@ export { fallbackOAuthErrorRedirect } from "./oauth-client"
 export async function startOAuthSignIn(input: {
   providerId: string
   callbackURL?: string | null
+  createAccount?: boolean
 }): Promise<{ browserNonce: string; url: string }> {
   return startOAuthFlow({ ...input, mode: "sign-in" })
 }
@@ -66,6 +69,7 @@ export async function startOAuthLink(input: {
 async function startOAuthFlow(input: {
   providerId: string
   callbackURL?: string | null
+  createAccount?: boolean
   mode: OAuthMode
   userId?: string
 }): Promise<{ browserNonce: string; url: string }> {
@@ -95,6 +99,7 @@ async function startOAuthFlow(input: {
     browserNonce,
     callbackURL,
     codeVerifier,
+    createAccount: input.createAccount,
     mode: input.mode,
     providerId: provider.providerId,
     userId: input.userId,
@@ -160,14 +165,32 @@ export async function finishOAuthCallback(
         tokens: storedTokens(tokens),
         userId: session.user.id,
       })
+      logger.info(
+        `linked ${provider.providerId} account to user ${session.user.id}`,
+      )
       return { redirectTo: payload.callbackURL }
     }
 
-    const { userId, created } = await resolveSignInUser({
+    const resolved = await resolveSignInUser({
       profile,
       provider,
       tokens: storedTokens(tokens),
+      createAccount: payload.createAccount === true,
     })
+    if (resolved.kind === "link-required") {
+      logger.info(
+        `${provider.providerId} sign-in matched the username of user ${resolved.userId}; asking to link`,
+      )
+      return {
+        redirectTo: loginURLWithOAuthLink(
+          payload.callbackURL,
+          provider.providerId,
+          resolved.username,
+        ),
+      }
+    }
+    const { kind, userId } = resolved
+    logger.info(`${provider.providerId} sign-in ${kind} user ${userId}`)
     const signIn = await completeAuthenticatedSignIn(c, userId)
     if (signIn.kind === "reactivation-required") {
       return {
@@ -183,9 +206,10 @@ export async function finishOAuthCallback(
       }
     }
     return {
-      redirectTo: created
-        ? callbackURLWithWelcome(payload.callbackURL, provider.providerId)
-        : payload.callbackURL,
+      redirectTo:
+        kind === "created"
+          ? callbackURLWithWelcome(payload.callbackURL, provider.providerId)
+          : payload.callbackURL,
     }
   } catch (cause) {
     logger.warn(

@@ -12,15 +12,22 @@ import {
 import { syncOAuthAvatar } from "./oauth-avatar"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"
-import { generateUniqueUsername } from "./username"
+import { findUserByUsernameHint, generateUniqueUsername } from "./username"
 
 const logger = createLogger("oauth")
+
+export type SignInResolution =
+  | { kind: "matched" | "created"; userId: string }
+  /** The username claim names a local user, who has to sign in and link. */
+  | { kind: "link-required"; userId: string; username: string }
 
 export async function resolveSignInUser(input: {
   profile: OAuthProfile
   provider: OAuthProviderConfig
   tokens: StoredTokens
-}): Promise<{ userId: string; created: boolean }> {
+  /** The user chose a new account over linking the one their claim matches. */
+  createAccount: boolean
+}): Promise<SignInResolution> {
   const existingAccount = await findLinkedAccount(
     input.provider.providerId,
     input.profile.providerAccountId,
@@ -28,7 +35,21 @@ export async function resolveSignInUser(input: {
   if (existingAccount) {
     await updateLinkedAccount(existingAccount.id, input.profile, input.tokens)
     await syncOAuthUserRole(existingAccount.user_id, input.profile)
-    return { userId: existingAccount.user_id, created: false }
+    return { kind: "matched", userId: existingAccount.user_id }
+  }
+
+  // Linking on the claim alone would hand the local account to whoever
+  // controls that claim at the provider, so the user proves they own it by
+  // signing in first.
+  if (!input.createAccount) {
+    const match = await findUserByUsernameHint(input.profile.usernameHint)
+    if (match) {
+      return {
+        kind: "link-required",
+        userId: match.id,
+        username: match.username,
+      }
+    }
   }
 
   if (!configStore.get("openRegistrations")) {
@@ -74,7 +95,7 @@ export async function resolveSignInUser(input: {
 
   await syncOAuthUserRole(userId, input.profile)
   await syncOAuthAvatar(userId, input.profile)
-  return { userId, created: true }
+  return { kind: "created", userId }
 }
 
 export async function linkAccountToUser(input: {

@@ -35,9 +35,13 @@ const OAuthStartBody = t.object({
   callbackURL: optionalNullableTrimmedString(),
 })
 
+const OAuthSignInBody = OAuthStartBody.extend({
+  createAccount: t.boolean().optional(),
+})
+
 async function startOAuthResponse(
   c: Context,
-  input: t.infer<typeof OAuthStartBody> & { userId?: string },
+  input: t.infer<typeof OAuthSignInBody> & { userId?: string },
   fallback: string,
 ) {
   try {
@@ -56,7 +60,7 @@ export const authOAuthRoute = new Hono()
     const rows = await listLinkedAccounts(c.var.viewerId)
     return c.json(rows.map(publicLinkedAccountRow))
   })
-  .post("/oauth/sign-in", tbValidator("json", OAuthStartBody), async (c) => {
+  .post("/oauth/sign-in", tbValidator("json", OAuthSignInBody), async (c) => {
     return startOAuthResponse(
       c,
       c.req.valid("json"),
