@@ -78,7 +78,8 @@
   // The window is frameless. Honor the web app's `app-region` CSS the way a
   // native title bar would: the nearest ancestor that sets drag or no-drag
   // wins, a press on a drag region moves the window, and a double click
-  // toggles maximize.
+  // toggles maximize. WebKit does not parse `-webkit-app-region`, so the web
+  // app mirrors it in the `--app-region` custom property, which inherits.
   function appRegion(target) {
     for (
       let node = target;
@@ -87,6 +88,7 @@
     ) {
       const style = getComputedStyle(node)
       const region =
+        style.getPropertyValue("--app-region").trim() ||
         style.getPropertyValue("app-region") ||
         style.getPropertyValue("-webkit-app-region")
       if (region === "drag" || region === "no-drag") return region

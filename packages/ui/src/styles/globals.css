@@ -941,6 +941,9 @@ html[data-theme-inspecting] *:not([data-theme-editor], [data-theme-editor] *) {
    browser. */
 .is-desktop-titlebar [data-slot="app-header"] {
   -webkit-app-region: drag;
+  /* WebKit (Linux) drops the unknown `-webkit-app-region`, so the desktop
+     bridge also reads this inherited custom property. Keep both in sync. */
+  --app-region: drag;
   /* Restated here so narrow desktop windows keep the desktop layout — this
      rule outranks the <48rem mobile override above. */
   grid-template-columns: var(--header-grid);
@@ -965,4 +968,5 @@ html[data-theme-inspecting] *:not([data-theme-editor], [data-theme-editor] *) {
     [data-slot="app-header-window-controls"]
   ) {
   -webkit-app-region: no-drag;
+  --app-region: no-drag;
 }
