@@ -14,6 +14,7 @@ import {
   conflict,
   success,
 } from "@alloy/server/runtime/http-response"
+import { rateLimiter } from "@alloy/server/runtime/rate-limit"
 import {
   deleteUserTheme,
   listUserThemes,
@@ -25,11 +26,22 @@ import { tbValidator } from "./validation"
 
 const UserThemeParam = t.object({ id: UserThemeIdSchema })
 
+/**
+ * Per user, since theme writes skip the auth routes' per-IP limit. Room for
+ * clicking through the picker or importing a full set of themes at once.
+ */
+const themeWriteRateLimit = rateLimiter<{ Variables: { viewerId: string } }>({
+  windowMs: 60_000,
+  max: 120,
+  key: (c) => c.var.viewerId,
+})
+
 /** The signed-in user's theme choice and their own color themes. */
 export const authThemeRoutes = new Hono()
   .put(
     "/user/theme",
     requireSession,
+    themeWriteRateLimit,
     tbValidator("json", SyncedThemePreferencesSchema),
     async (c) => {
       try {
@@ -49,6 +61,7 @@ export const authThemeRoutes = new Hono()
   .put(
     "/user/themes/:id",
     requireSession,
+    themeWriteRateLimit,
     tbValidator("param", UserThemeParam),
     tbValidator("json", UserThemeInputSchema),
     async (c) => {
@@ -70,6 +83,7 @@ export const authThemeRoutes = new Hono()
   .delete(
     "/user/themes/:id",
     requireSession,
+    themeWriteRateLimit,
     tbValidator("param", UserThemeParam),
     async (c) => {
       await deleteUserTheme(c.var.viewerId, c.req.valid("param").id)

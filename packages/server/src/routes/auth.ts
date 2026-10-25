@@ -89,8 +89,9 @@ const standardAuthRateLimit = rateLimiter({
     if (!MUTATING_METHODS.has(c.req.method)) return null
     const path = authSubpath(c)
     if (STRICT_AUTH_RATE_LIMIT_PATHS.has(path)) return null
-    // Theme saves follow clicks in the theme picker. They need a session and
-    // are cheap, so they don't spend the budget that guards signing in.
+    // Theme saves follow clicks in the theme picker, so they get their own
+    // per-user limit (see auth-theme-routes) rather than spending the budget
+    // that guards signing in.
     if (path.startsWith("/user/theme")) return null
     return requestIp(c)
   },
