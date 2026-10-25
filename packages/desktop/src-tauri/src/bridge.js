@@ -93,7 +93,22 @@
         style.getPropertyValue("-webkit-app-region")
       if (region === "drag" || region === "no-drag") return region
     }
-    return "none"
+    // Web builds from before `--app-region` only carry the Chromium
+    // property, which WebKit drops. Fall back to the layout those builds
+    // share with the current one: the app header drags except on its
+    // controls, mirroring the no-drag rules in globals.css.
+    if (
+      !(target instanceof Element) ||
+      !document.documentElement.classList.contains("is-desktop-titlebar") ||
+      !target.closest('[data-slot="app-header"]')
+    ) {
+      return "none"
+    }
+    return target.closest(
+      'button, a, input, select, textarea, [role="button"], [contenteditable], [data-slot="app-header-search"], [data-slot="app-header-window-controls"]',
+    )
+      ? "no-drag"
+      : "drag"
   }
   document.addEventListener("mousedown", (event) => {
     if (event.button !== 0 || appRegion(event.target) !== "drag") return
