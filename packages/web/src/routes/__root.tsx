@@ -6,6 +6,7 @@ import { OAuthErrorToast } from "@/components/auth/oauth-error-toast"
 import { redirectToSetupBeforeLoad } from "@/lib/auth-guards"
 import { alloyWindowChrome } from "@/lib/desktop"
 import { RuntimeConfigEvents } from "@/lib/runtime-config-events"
+import { ThemeAccountSync } from "@/lib/theme-account-sync"
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
@@ -39,6 +40,7 @@ function RootLayout() {
   return (
     <>
       <Outlet />
+      <ThemeAccountSync />
       <Suspense fallback={null}>
         <RuntimeConfigEvents />
         <OAuthErrorToast />

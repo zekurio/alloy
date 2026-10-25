@@ -189,8 +189,8 @@
   --space-11: 48px;
   --space-12: 64px;
 
-  /* Neutral scale — dark, pure-grey variant. Swap via [data-neutral] below.
-     The low end sits near black; steps 0-300 stay ~0.04-0.07 apart so
+  /* Neutral scale — dark, pure-grey. Themes replace it at runtime (see
+     lib/theme.ts). The low end sits near black; steps 0-300 stay ~0.04-0.07 apart so
      surfaces, inputs, and borders remain distinguishable at that depth. */
   --neutral-0: oklch(0.11 0 0);
   --neutral-50: oklch(0.15 0 0);
@@ -303,40 +303,6 @@
   --live-soft: color-mix(in srgb, var(--live) 12%, transparent);
 }
 
-/* Neutral tone variants — swap on :root[data-neutral="..."] ─────────────── */
-:root[data-neutral="cool"] {
-  --neutral-0: oklch(0.12 0.012 260);
-  --neutral-50: oklch(0.16 0.014 260);
-  --neutral-100: oklch(0.2 0.016 260);
-  --neutral-150: oklch(0.245 0.017 260);
-  --neutral-200: oklch(0.28 0.018 260);
-  --neutral-300: oklch(0.35 0.018 260);
-  --neutral-400: oklch(0.45 0.018 260);
-  --surface-sunken: oklch(0.08 0.012 260);
-}
-:root[data-neutral="warm"] {
-  --neutral-0: oklch(0.12 0.01 60);
-  --neutral-50: oklch(0.16 0.012 60);
-  --neutral-100: oklch(0.2 0.014 60);
-  --neutral-150: oklch(0.245 0.015 60);
-  --neutral-200: oklch(0.28 0.016 60);
-  --neutral-300: oklch(0.35 0.016 60);
-  --neutral-400: oklch(0.45 0.016 60);
-  --surface-sunken: oklch(0.08 0.01 60);
-}
-/* The pre-darkening default palette, kept as an opt-in for anyone who wants
-   the lighter surfaces back. */
-:root[data-neutral="elevated"] {
-  --neutral-0: oklch(0.19 0 0);
-  --neutral-50: oklch(0.23 0 0);
-  --neutral-100: oklch(0.27 0 0);
-  --neutral-150: oklch(0.31 0 0);
-  --neutral-200: oklch(0.35 0 0);
-  --neutral-300: oklch(0.41 0 0);
-  --neutral-400: oklch(0.5 0 0);
-  --surface-sunken: oklch(0.15 0 0);
-}
-
 /* Light theme — applied via the `.light` class on <html>. Most semantic tokens
    resolve `var(--neutral-*)` at use-time, so inverting the neutral scale here
    cascades automatically; only tokens hardcoded in :root need restating. */
@@ -384,6 +350,17 @@
   --accent-border: rgba(93, 79, 150, 0.4);
   --accent-glow: rgba(93, 79, 150, 0.28);
   --accent-dim: #b3a8cf;
+}
+
+/* The theme editor's inspector swaps tokens to find which one paints an
+   element; transitions would hide the swap from getComputedStyle. */
+html[data-theme-probe] *,
+html[data-theme-probe] *::before,
+html[data-theme-probe] *::after {
+  transition: none !important;
+}
+html[data-theme-inspecting] *:not([data-theme-editor], [data-theme-editor] *) {
+  cursor: crosshair !important;
 }
 
 @layer base {

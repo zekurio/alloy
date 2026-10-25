@@ -4,6 +4,8 @@ import type {
   LinkedAccount,
   Passkey,
   SessionData,
+  SyncedThemePreferences,
+  UserThemeInput,
 } from "@alloy/contracts"
 import type { RegistrationResponseJSON } from "@simplewebauthn/browser"
 
@@ -21,6 +23,8 @@ import {
   validateRevokeOtherSessionsResponse,
   validateSessionData,
   validateSuccessResponse,
+  validateUserThemeListResponse,
+  validateUserThemeResponse,
   validateUserUpdateResponse,
 } from "./auth-validators"
 import { errorFrom } from "./error"
@@ -265,6 +269,41 @@ function createUserActions(request: RequestFn, store: SessionStore) {
         store.set({ ...current, user: update.data.user })
       return update
     },
+    /** Saves the theme the user's devices share, like {@link updateUser}. */
+    updateThemePreferences: async (preferences: SyncedThemePreferences) => {
+      const update = await result(
+        AUTH_PATHS.userTheme,
+        { method: "PUT", body: JSON.stringify(preferences) },
+        "Could not save theme",
+        validateUserUpdateResponse,
+      )
+      const current = store.getSnapshot().data
+      if (update.data && current)
+        store.set({ ...current, user: update.data.user })
+      return update
+    },
+    listThemes: () =>
+      result(
+        AUTH_PATHS.userThemes,
+        {},
+        "Could not load themes",
+        validateUserThemeListResponse,
+      ),
+    /** Creates or replaces the theme; the id comes from the client. */
+    saveTheme: (id: string, theme: UserThemeInput) =>
+      result(
+        AUTH_PATHS.userThemeById(id),
+        { method: "PUT", body: JSON.stringify(theme) },
+        "Could not save theme",
+        validateUserThemeResponse,
+      ),
+    deleteTheme: (id: string) =>
+      result(
+        AUTH_PATHS.userThemeById(id),
+        { method: "DELETE" },
+        "Could not delete theme",
+        validateSuccessResponse,
+      ),
     deleteUser: () =>
       result(
         AUTH_PATHS.user,

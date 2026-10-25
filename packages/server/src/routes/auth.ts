@@ -48,6 +48,7 @@ import {
   MUTATING_METHODS,
 } from "./auth-route-helpers"
 import { authSessionRoutes } from "./auth-session-routes"
+import { authThemeRoutes } from "./auth-theme-routes"
 import { tbValidator } from "./validation"
 
 const UpdateUserBody = t.object({
@@ -86,7 +87,12 @@ const standardAuthRateLimit = rateLimiter({
   max: 30,
   key: (c) => {
     if (!MUTATING_METHODS.has(c.req.method)) return null
-    if (STRICT_AUTH_RATE_LIMIT_PATHS.has(authSubpath(c))) return null
+    const path = authSubpath(c)
+    if (STRICT_AUTH_RATE_LIMIT_PATHS.has(path)) return null
+    // Theme saves follow clicks in the theme picker, so they get their own
+    // per-user limit (see auth-theme-routes) rather than spending the budget
+    // that guards signing in.
+    if (path.startsWith("/user/theme")) return null
     return requestIp(c)
   },
 })
@@ -145,6 +151,7 @@ export const authRoute = new Hono()
   })
   .route("/", authPasskeyRoutes)
   .route("/", authSessionRoutes)
+  .route("/", authThemeRoutes)
   .patch(
     "/user",
     requireSession,

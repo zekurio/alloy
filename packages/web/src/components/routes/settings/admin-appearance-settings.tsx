@@ -6,6 +6,7 @@ import { Switch } from "@alloy/ui/components/switch"
 import { useEffect, useMemo, useState } from "react"
 
 import { LoginAppearancePreview } from "@/components/routes/admin-settings/login-appearance-preview"
+import { AdminAccentSettings } from "@/components/routes/settings/admin-accent-settings"
 import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
 import {
   SettingsSections,
@@ -78,6 +79,7 @@ export function AppearanceSettingsContent({
     <Section>
       <SectionContent className="py-0">
         <SettingsSections>
+          <AdminAccentSettings config={config} />
           <SettingsSubsection
             id="login-backdrop"
             title={t("Login backdrop")}

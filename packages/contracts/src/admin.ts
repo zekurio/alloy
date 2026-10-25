@@ -7,6 +7,7 @@ import {
 } from "./admin-auth"
 import { t } from "./schema"
 import type { UserRole, UserStatus } from "./shared"
+import { HexColorSchema } from "./theme"
 import { DEFAULT_UPLOAD_LIMITS, UploadLimitsSchema } from "./upload-limits"
 
 export {
@@ -100,11 +101,14 @@ export interface LoginBackdropsResponse {
 }
 
 /**
- * Login backdrop treatment. Structured and validated: admins tune the login
- * page through typed fields rather than raw CSS overrides.
+ * Server-wide appearance: the login backdrop treatment and the accent of the
+ * Alloy base themes. Structured and validated: admins tune these through
+ * typed fields rather than raw CSS overrides.
  */
 export const AppearanceConfigSchema = t.looseObject({
   loginSplash: LoginSplashConfigSchema,
+  /** Lowercase `#rrggbb`; null keeps Alloy's own lavender. */
+  accentColor: HexColorSchema.nullable().$default(null),
 })
 
 export type AppearanceConfig = t.infer<typeof AppearanceConfigSchema>
@@ -333,4 +337,6 @@ export interface PublicAuthConfig {
   desktopAuth: PublicDesktopAuthConfig
   providers: PublicAuthProvider[]
   loginSplash: PublicLoginSplashConfig
+  /** Accent for the Alloy base themes; null keeps Alloy's own. */
+  accentColor: string | null
 }

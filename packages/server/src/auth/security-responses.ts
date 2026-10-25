@@ -1,9 +1,10 @@
-import type {
-  AuthSessionSummary,
-  AuthUser,
-  LinkedAccount,
-  Passkey,
-  SessionData,
+import {
+  SyncedThemePreferencesSchema,
+  type AuthSessionSummary,
+  type AuthUser,
+  type LinkedAccount,
+  type Passkey,
+  type SessionData,
 } from "@alloy/contracts"
 import type { AuthSession, User } from "@alloy/db/auth-schema"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
@@ -46,9 +47,22 @@ export function publicAuthUserRow(row: User): AuthUser {
     disabledAt: nullableIsoDate(row.disabled_at),
     storageQuotaBytes: row.storage_quota_bytes,
     clipAnnouncementsEnabled: row.clip_announcements_enabled,
+    themePreferences: publicThemePreferences(row.theme_preferences),
     createdAt: isoDate(row.created_at),
     updatedAt: isoDate(row.updated_at),
   }
+}
+
+/**
+ * The stored theme as the client may read it. A row written before the theme
+ * id format tightened (or edited by hand) reads as "none saved" rather than
+ * breaking every session response.
+ */
+function publicThemePreferences(
+  value: User["theme_preferences"],
+): AuthUser["themePreferences"] {
+  const parsed = SyncedThemePreferencesSchema.safeParse(value)
+  return parsed.success ? parsed.data : null
 }
 
 function publicAuthSessionRow(row: AuthSession): SessionData["session"] {

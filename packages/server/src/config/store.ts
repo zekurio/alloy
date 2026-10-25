@@ -53,6 +53,7 @@ const DEFAULT_APPEARANCE: AppearanceConfig = AppearanceConfigSchema.parse({
     blurPx: 24,
     darkenOpacity: 0.8,
   },
+  accentColor: null,
 })
 const DEFAULT_TRANSCODING: TranscodingConfig = TranscodingConfigSchema.parse({})
 

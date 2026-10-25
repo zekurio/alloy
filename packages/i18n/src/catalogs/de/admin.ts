@@ -14,6 +14,7 @@ export const ADMIN_MESSAGES = {
     "Erlaube neuen Nutzern, Konten auf diesem Server zu erstellen.",
   "Allow users to sign in with this provider.":
     "Erlaube Nutzern, sich mit diesem Anbieter anzumelden.",
+  "Alloy's lavender is in use.": "Alloys Lavendel wird verwendet.",
   "Announce published clips to Discord or your own endpoint.":
     "Kündige veröffentlichte Clips auf Discord oder deinem eigenen Endpunkt an.",
   "Apple VideoToolbox": "Apple VideoToolbox",
@@ -30,6 +31,7 @@ export const ADMIN_MESSAGES = {
   "Ban user": "Nutzer sperren",
   "Ban {username}?": "{username} sperren?",
   Banned: "Gesperrt",
+  Branding: "Branding",
   "Button color": "Button-Farbe",
   "Button text color": "Button-Textfarbe",
   "Callback URL": "Callback-URL",
@@ -45,6 +47,8 @@ export const ADMIN_MESSAGES = {
   "Clip announcement queued": "Clip-Ankündigung eingereiht",
   Codec: "Codec",
   "Codec & encoding": "Codec & Kodierung",
+  "Colors buttons, links, and highlights in Alloy's own themes for everyone on this server. Members can still choose their own.":
+    "Färbt Schaltflächen, Links und Hervorhebungen in Alloys eigenen Themes für alle auf diesem Server. Mitglieder können weiterhin einen eigenen Akzent wählen.",
   "Configure external OIDC and OAuth sign-in providers.":
     "Konfiguriere externe OIDC- und OAuth-Anbieter für die Anmeldung.",
   "Copy callback URL": "Callback-URL kopieren",
@@ -170,7 +174,6 @@ export const ADMIN_MESSAGES = {
   "Login backdrop": "Login-Hintergrund",
   "Login backdrop disabled": "Login-Hintergrund deaktiviert",
   "Login backdrop enabled": "Login-Hintergrund aktiviert",
-  "Login page": "Anmeldeseite",
   "Login page preview": "Vorschau der Login-Seite",
   Logo: "Logo",
   "Lowercase letters, numbers, and hyphens only.":
@@ -252,6 +255,7 @@ export const ADMIN_MESSAGES = {
     "Sichere den Autorisierungsablauf mit Proof Key for Code Exchange ab.",
   "Send test": "Test senden",
   "Separate scopes with spaces.": "Trenne Scopes mit Leerzeichen.",
+  "Server accent": "Server-Akzent",
   "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.":
     "Zeig hinter dem Login-Formular eine schräge, scrollende Wand aus zufälligen Vorschaubildern öffentlicher Clips.",
   "Show the backdrop": "Hintergrund anzeigen",
@@ -267,6 +271,7 @@ export const ADMIN_MESSAGES = {
     "Stereo-AAC-Bitrate, die auf jede Qualitätsstufe angewendet wird.",
   Storage: "Speicher",
   "Storage quota (GiB)": "Speicherkontingent (GiB)",
+  "Suggested accents": "Vorgeschlagene Akzente",
   "Tag people": "Nutzer markieren",
   "Tagged in clip": "Im Clip getaggt",
   "Test delivered": "Test zugestellt",
@@ -274,13 +279,14 @@ export const ADMIN_MESSAGES = {
   "Test {title} sound": "{title}-Sound testen",
   "The game and its artwork will be removed. This can't be undone.":
     "Das Spiel und seine Bilder werden gelöscht. Das kann nicht rückgängig gemacht werden.",
-  "The generated login backdrop.": "Der generierte Login-Hintergrund.",
   "The generated wall of clip thumbnails behind the login form.":
     "Die generierte Wand aus Clip-Vorschaubildern hinter dem Anmeldeformular.",
   "The rolling window the clip hotkey saves.":
     "Das gleitende Zeitfenster, das der Clip-Hotkey speichert.",
   "The selected {backend} encoder isn't available for {codec} on this server.":
     "Der ausgewählte {backend}-Encoder ist für {codec} auf diesem Server nicht verfügbar.",
+  "The server's accent color and login backdrop.":
+    "Akzentfarbe und Login-Hintergrund des Servers.",
   "The {backend} encoder for {codec} failed its test on this server. Pick another backend or check the GPU drivers.":
     "Der {backend}-Encoder für {codec} hat seinen Test auf diesem Server nicht bestanden. Wähle ein anderes Backend oder prüfe die GPU-Treiber.",
   "This ffmpeg build has no {backend} encoder for {codec}. Pick another backend or install jellyfin-ffmpeg.":

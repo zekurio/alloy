@@ -48,6 +48,7 @@ function toPublicAuthConfig(
         iconUrl: publicOAuthProviderIconUrl(provider.iconUrl),
       })),
     loginSplash,
+    accentColor: config.appearance.accentColor,
   }
 }
 

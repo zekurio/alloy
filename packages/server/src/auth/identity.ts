@@ -1,4 +1,8 @@
-import type { UserRole, UserStatus } from "@alloy/contracts"
+import type {
+  SyncedThemePreferences,
+  UserRole,
+  UserStatus,
+} from "@alloy/contracts"
 import { type NewUser, type User, user } from "@alloy/db/auth-schema"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
@@ -266,6 +270,24 @@ export async function createRegistrationUserInTransaction(
     throw new Error("Sign-up is currently closed.")
   }
   return createUserIdentityWith(tx, { username, role: "user" })
+}
+
+/**
+ * Saves the theme shared by the user's devices. Leaves updated_at alone: it is
+ * the revision avatar and banner uploads compare, and theme edits arrive often
+ * enough (an accent picker drag) to make those uploads fail as stale.
+ */
+export async function updateUserThemePreferences(
+  userId: string,
+  preferences: SyncedThemePreferences,
+): Promise<User> {
+  const [updated] = await db
+    .update(user)
+    .set({ theme_preferences: preferences })
+    .where(eq(user.id, userId))
+    .returning()
+  if (!updated) throw new Error("User not found.")
+  return updated
 }
 
 export async function updateUserIdentity(

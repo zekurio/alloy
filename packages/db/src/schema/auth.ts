@@ -1,6 +1,7 @@
 import {
   AUTH_SESSION_CLIENT_KINDS,
   type AuthSessionClientKind,
+  type SyncedThemePreferences,
   USER_ROLES,
   USER_STATUSES,
   type UserRole,
@@ -53,6 +54,9 @@ export const user = pgTable(
     // Opt-out for instance webhooks. Positive polarity: false means this
     // author's clips are never announced.
     clip_announcements_enabled: boolean().notNull().default(true),
+    // Theme choice shared by the user's devices. Written without touching
+    // updated_at, which is the revision avatar and banner uploads compare.
+    theme_preferences: jsonb().$type<SyncedThemePreferences>(),
     created_at: timestamp().notNull().defaultNow(),
     updated_at: timestamp().notNull().defaultNow(),
   },
