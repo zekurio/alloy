@@ -128,6 +128,10 @@ export function validatePublicAuthConfig(
     "Invalid auth config response: providers must be an array",
   ).map(validatePublicAuthProvider)
   validatePublicLoginSplashConfig(config.loginSplash)
+  validateNullableString(
+    config.accentColor,
+    "Invalid auth config response: accentColor must be a string or null",
+  )
   validatePublicDesktopAuthConfig(config.desktopAuth)
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as PublicAuthConfig

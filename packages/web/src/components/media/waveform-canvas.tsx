@@ -134,7 +134,7 @@ function useThemeRevision(): number {
     })
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["class", "data-neutral"],
+      attributeFilter: ["class"],
     })
     observer.observe(document.head, {
       childList: true,

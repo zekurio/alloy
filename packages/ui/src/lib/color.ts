@@ -60,7 +60,10 @@ let sharedContext: CanvasRenderingContext2D | null | undefined
 function measurementContext(): CanvasRenderingContext2D | null {
   if (sharedContext !== undefined) return sharedContext
   if (!globalThis.document) return (sharedContext = null)
-  sharedContext = document.createElement("canvas").getContext("2d")
+  // Theme generation parses many colours in a row, each read back as a pixel.
+  sharedContext = document
+    .createElement("canvas")
+    .getContext("2d", { willReadFrequently: true })
   return sharedContext
 }
 

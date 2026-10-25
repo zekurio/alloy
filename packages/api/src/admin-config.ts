@@ -27,6 +27,8 @@ export type AppearanceConfigPatch = {
     blurPx?: number
     darkenOpacity?: number
   }
+  /** `#rrggbb`, or null to restore Alloy's own accent. */
+  accentColor?: string | null
 }
 
 export type TranscodingConfigPatch = {

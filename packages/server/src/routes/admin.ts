@@ -114,6 +114,13 @@ const AppearancePatch = t.object({
       darkenOpacity: t.number().min(0).max(1).optional(),
     })
     .optional(),
+  accentColor: t
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .transform((value) => value.toLowerCase())
+    .nullable()
+    .optional(),
 })
 
 export const adminRoute = new Hono()
@@ -270,6 +277,7 @@ export const adminRoute = new Hono()
     if (patch.loginSplash?.darkenOpacity !== undefined) {
       next.loginSplash.darkenOpacity = patch.loginSplash.darkenOpacity
     }
+    if (patch.accentColor !== undefined) next.accentColor = patch.accentColor
     await configStore.set("appearance", next)
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })

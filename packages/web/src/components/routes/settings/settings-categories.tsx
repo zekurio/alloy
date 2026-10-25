@@ -16,18 +16,12 @@ import {
 } from "@alloy/ui/components/select"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import {
-  getStoredTheme,
-  setStoredTheme,
-  THEMES,
-  type Theme,
-} from "@alloy/ui/lib/theme"
-import {
   DatabaseIcon,
   FilmIcon,
   Gamepad2Icon,
   LanguagesIcon,
   KeyRoundIcon,
-  LogInIcon,
+  PaintbrushIcon,
   type LucideIcon,
   PaletteIcon,
   ServerIcon,
@@ -60,10 +54,7 @@ import {
   type SettingsGroup,
   type SettingsSearchCategory,
 } from "@/components/routes/settings/settings-search"
-import {
-  ThemeSettings,
-  useStoredThemeSync,
-} from "@/components/routes/settings/theme-settings"
+import { ThemeSettings } from "@/components/routes/settings/theme-settings"
 import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
 
@@ -190,47 +181,9 @@ function AccountDataPanel() {
   )
 }
 
-const THEME_LABELS = {
-  system: t("System"),
-  light: t("Light"),
-  dark: t("Dark"),
-} satisfies Record<Theme, string>
-
 function AppearancePanel() {
-  const [theme, setTheme] = useState<Theme>(() => getStoredTheme())
-
-  useStoredThemeSync(() => setTheme(getStoredTheme()))
-
-  function changeTheme(value: string | null) {
-    if (value !== "system" && value !== "light" && value !== "dark") return
-    setTheme(value)
-    setStoredTheme(value)
-  }
-
   return (
     <SettingsSections>
-      <SettingsSubsection id="color-mode" title={t("Color mode")}>
-        <SettingRows>
-          <SettingRow
-            title={t("Appearance")}
-            description={t("Follow the system or keep Alloy light or dark.")}
-            htmlFor="color-mode-select"
-          >
-            <Select value={theme} onValueChange={changeTheme}>
-              <SelectTrigger id="color-mode-select" size="sm" className="w-40">
-                <SelectValue>{THEME_LABELS[theme]}</SelectValue>
-              </SelectTrigger>
-              <SelectContent align="end">
-                {THEMES.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {THEME_LABELS[option]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SettingRow>
-        </SettingRows>
-      </SettingsSubsection>
       <ThemeSettings />
     </SettingsSections>
   )
@@ -288,7 +241,7 @@ const CATEGORY_PANELS = {
   },
   "desktop-audio": { icon: Volume2Icon, Panel: DesktopAudioSettings },
   "desktop-app": { icon: ServerIcon, Panel: DesktopAppPanel },
-  appearance: { icon: LogInIcon, Panel: AdminAppearancePanel },
+  appearance: { icon: PaintbrushIcon, Panel: AdminAppearancePanel },
   authentication: { icon: KeyRoundIcon, Panel: AdminAuthPanel },
   "upload-limits": {
     icon: SlidersHorizontalIcon,

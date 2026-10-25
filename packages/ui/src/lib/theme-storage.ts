@@ -2,67 +2,81 @@ import {
   isObjectRecord,
   isStringValue,
   type ContractJsonInput,
+  type ContractJsonValue,
 } from "@alloy/contracts"
-import { formatCssColor, parseCssColor } from "@alloy/ui/lib/color"
 import { createLocalStorageDriver } from "@alloy/ui/lib/local-storage"
+import {
+  normalizeThemeColor,
+  type ThemeAppearance,
+} from "@alloy/ui/lib/theme-colors"
+import { DEFAULT_THEME_VARIANT_IDS } from "@alloy/ui/lib/theme-presets"
 
+/** Keep in sync with the pre-paint script in packages/web/index.html. */
 export const THEME_STORAGE_KEY = "alloy.theme"
 
-export const THEMES = ["system", "light", "dark"] as const
-export type Theme = (typeof THEMES)[number]
-const DEFAULT_THEME: Theme = "system"
+export const THEME_MODES = ["system", "light", "dark"] as const
+export type ThemeMode = (typeof THEME_MODES)[number]
 
-const THEME_PALETTE_IDS = [
-  "default",
-  "catppuccin",
-  "nord",
-  "one",
-  "rose-pine",
-  "gruvbox",
-] as const
-export type ThemePaletteId = (typeof THEME_PALETTE_IDS)[number]
-export const DEFAULT_THEME_PALETTE_ID: ThemePaletteId = "default"
-
-export type ThemeAppearance = "dark" | "light"
-type ThemeAccents = Partial<Record<ThemeAppearance, string>>
-/** Selected preset ids per appearance for the active palette. */
-export type ThemeVariants = Partial<Record<ThemeAppearance, string>>
-
-interface ThemePreferences {
-  mode: Theme
-  palette: ThemePaletteId
-  variants: ThemeVariants
-  accents: ThemeAccents
+export interface ThemePreferences {
+  mode: ThemeMode
+  /** Variant ids shown in each appearance; unknown ids fall back to Alloy. */
+  light: string
+  dark: string
+  /** Personal accent for the Alloy base themes; null follows the server. */
+  accent: string | null
 }
 
 export const DEFAULT_THEME_PREFERENCES: ThemePreferences = {
-  mode: DEFAULT_THEME,
-  palette: DEFAULT_THEME_PALETTE_ID,
-  variants: {},
-  accents: {},
+  mode: "system",
+  light: DEFAULT_THEME_VARIANT_IDS.light,
+  dark: DEFAULT_THEME_VARIANT_IDS.dark,
+  accent: null,
 }
+
+/**
+ * Default variants of the palettes the first theme picker stored as
+ * `{ palette, variants, accents }`, so existing choices carry over.
+ */
+const LEGACY_PALETTES = [
+  { palette: "default", ...DEFAULT_THEME_VARIANT_IDS },
+  {
+    palette: "catppuccin",
+    light: "catppuccin-latte",
+    dark: "catppuccin-frappe",
+  },
+  { palette: "nord", light: "nord-light", dark: "nord" },
+  { palette: "one", light: "one-light", dark: "one-dark" },
+  { palette: "rose-pine", light: "rose-pine-dawn", dark: "rose-pine" },
+  { palette: "gruvbox", light: "gruvbox-light", dark: "gruvbox-dark" },
+] as const satisfies readonly ({ palette: string } & Record<
+  ThemeAppearance,
+  string
+>)[]
 
 export function normalizeThemePreferences(
   value: ContractJsonInput,
 ): ThemePreferences {
-  if (!isObjectRecord(value)) {
-    return { ...DEFAULT_THEME_PREFERENCES, accents: {} }
+  if (!isObjectRecord(value)) return { ...DEFAULT_THEME_PREFERENCES }
+
+  const mode =
+    THEME_MODES.find((candidate) => candidate === value.mode) ??
+    DEFAULT_THEME_PREFERENCES.mode
+  if (!isStringValue(value.light) && isStringValue(value.palette)) {
+    return { mode, ...migrateLegacyPreferences(value) }
   }
 
   return {
-    mode: THEMES.find((candidate) => candidate === value.mode) ?? DEFAULT_THEME,
-    palette:
-      THEME_PALETTE_IDS.find((candidate) => candidate === value.palette) ??
-      DEFAULT_THEME_PALETTE_ID,
-    variants: normalizeThemeVariants(value.variants),
-    accents: normalizeThemeAccents(value.accents),
+    mode,
+    light: isStringValue(value.light)
+      ? value.light
+      : DEFAULT_THEME_PREFERENCES.light,
+    dark: isStringValue(value.dark)
+      ? value.dark
+      : DEFAULT_THEME_PREFERENCES.dark,
+    accent: isStringValue(value.accent)
+      ? normalizeThemeColor(value.accent)
+      : null,
   }
-}
-
-export function normalizeThemeAccent(value: string): string | null {
-  const color = parseCssColor(value)
-  if (!color) return null
-  return formatCssColor({ ...color, a: 1 })
 }
 
 const themeStorage = createLocalStorageDriver(
@@ -84,36 +98,26 @@ export function writeThemePreferences(
   return themeStorage.write(preferences)
 }
 
-function normalizeThemeVariants(value: ContractJsonInput): ThemeVariants {
-  if (!isObjectRecord(value)) return {}
+function migrateLegacyPreferences(
+  value: Record<string, ContractJsonValue>,
+): Omit<ThemePreferences, "mode"> {
+  const palette =
+    LEGACY_PALETTES.find((entry) => entry.palette === value.palette) ??
+    DEFAULT_THEME_VARIANT_IDS
+  const variants = isObjectRecord(value.variants) ? value.variants : {}
+  const accents = isObjectRecord(value.accents) ? value.accents : {}
+  // The old default preset id was shared by both appearances.
+  const variant = (appearance: ThemeAppearance) => {
+    const stored = variants[appearance]
+    return isStringValue(stored) && stored !== "default"
+      ? stored
+      : palette[appearance]
+  }
+  const accent = [accents.dark, accents.light].find(isStringValue)
 
-  // Preset ids resolve against the active palette at apply time; unknown ids
-  // fall back to the palette default, so any string is safe to keep here.
-  const dark = isStringValue(value.dark) ? value.dark : null
-  const light = isStringValue(value.light) ? value.light : null
-  return dark && light
-    ? { dark, light }
-    : dark
-      ? { dark }
-      : light
-        ? { light }
-        : {}
-}
-
-function normalizeThemeAccents(value: ContractJsonInput): ThemeAccents {
-  if (!isObjectRecord(value)) return {}
-
-  const dark = isStringValue(value.dark)
-    ? normalizeThemeAccent(value.dark)
-    : null
-  const light = isStringValue(value.light)
-    ? normalizeThemeAccent(value.light)
-    : null
-  return dark && light
-    ? { dark, light }
-    : dark
-      ? { dark }
-      : light
-        ? { light }
-        : {}
+  return {
+    light: variant("light"),
+    dark: variant("dark"),
+    accent: accent ? normalizeThemeColor(accent) : null,
+  }
 }
