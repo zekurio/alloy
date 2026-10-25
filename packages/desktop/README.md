@@ -119,11 +119,13 @@ installs the app and the helper:
 }
 ```
 
-The host registers the GTK application id `dev.zekurio.alloy`, so the
-compositor matches its windows to the desktop entry for the title bar and
-task bar icon, and the GlobalShortcuts portal lists the app under its name.
-GTK then refuses a second process with that id; the single-instance plugin
-forwards its arguments to the running app before that matters.
+The host sets both the GTK application id and the GLib program name to
+`dev.zekurio.alloy`. GTK 3 sends the program name as the Wayland app id,
+which KDE matches to the desktop entry for the title bar and task bar icon;
+GNOME reads the application id instead. The GlobalShortcuts portal lists the
+app under the same id. GTK refuses a second process with that application
+id; the single-instance plugin forwards its arguments to the running app
+before that matters.
 
 Wayland gives applications no global key hook. The host binds the clip and
 screenshot shortcuts through the GlobalShortcuts portal, which KDE Plasma,

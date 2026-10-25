@@ -58,6 +58,7 @@ dependencies = [
  "blurhash",
  "fs2",
  "futures-util",
+ "glib",
  "http",
  "log",
  "open",

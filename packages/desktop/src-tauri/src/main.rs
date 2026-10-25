@@ -1200,7 +1200,21 @@ fn handle_run_event(app: &AppHandle, event: RunEvent, host: &Arc<Host>) {
     // server window does. Quit from the tray menu ends the app.
 }
 
+/// GTK 3 sends the GLib program name, not the GTK application id, as the
+/// Wayland app id. KDE matches windows to the desktop entry by that id for
+/// the title bar and task bar icon, so set it to the identifier before Tauri
+/// initialises GTK. GNOME reads the application id, which `enableGTKAppId`
+/// in `tauri.conf.json` provides.
+#[cfg(target_os = "linux")]
+fn set_program_name(identifier: &str) {
+    glib::set_prgname(Some(identifier));
+    glib::set_application_name("Alloy");
+}
+
 fn main() {
+    let context = tauri::generate_context!();
+    #[cfg(target_os = "linux")]
+    set_program_name(&context.config().identifier);
     let host = Arc::new(Host::default());
     let setup_host = Arc::clone(&host);
     let app = tauri::Builder::default()
@@ -1298,7 +1312,7 @@ fn main() {
             spawn_restore_saved_server(app.handle(), &setup_host);
             Ok(())
         })
-        .build(tauri::generate_context!());
+        .build(context);
     let app = match app {
         Ok(app) => app,
         // Release builds have no console, so a panic here would look like
