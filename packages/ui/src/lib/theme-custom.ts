@@ -318,14 +318,13 @@ function stripAppearanceSuffix(name: string): string | null {
 
 /**
  * VS Code themes are JSONC: comments and trailing commas are allowed. Strings
- * are copied verbatim, so `//` inside a value survives.
+ * are copied verbatim, so `//` or `,]` inside a value survives.
  */
 function stripJsonComments(text: string): string {
   let output = ""
   let index = 0
   while (index < text.length) {
     const char = text[index]
-    const next = text[index + 1]
     if (char === '"') {
       let end = index + 1
       while (end < text.length && text[end] !== '"') {
@@ -333,17 +332,49 @@ function stripJsonComments(text: string): string {
       }
       output += text.slice(index, end + 1)
       index = end + 1
-    } else if (char === "/" && next === "/") {
-      while (index < text.length && text[index] !== "\n") index += 1
-    } else if (char === "/" && next === "*") {
-      const end = text.indexOf("*/", index + 2)
-      index = end === -1 ? text.length : end + 2
+      continue
+    }
+    const afterComment = skipJsonComment(text, index)
+    if (afterComment !== index) {
+      index = afterComment
+      continue
+    }
+    if (char === ",") {
+      // A trailing comma: the next token closes the object or array.
+      const closer = text[skipJsonSpace(text, index + 1)]
+      if (closer !== "}" && closer !== "]") output += char
     } else {
       output += char
-      index += 1
     }
+    index += 1
   }
-  return output.replace(/,(\s*[}\]])/g, "$1")
+  return output
+}
+
+/** Where the text continues after whitespace and comments from `index`. */
+function skipJsonSpace(text: string, index: number): number {
+  let next = index
+  while (next < text.length) {
+    const afterComment = skipJsonComment(text, next)
+    if (afterComment !== next) next = afterComment
+    else if (/\s/.test(text[next] ?? "")) next += 1
+    else break
+  }
+  return next
+}
+
+/** Where the text continues after a comment at `index`, or `index` itself. */
+function skipJsonComment(text: string, index: number): number {
+  if (text[index] !== "/") return index
+  if (text[index + 1] === "/") {
+    const end = text.indexOf("\n", index)
+    return end === -1 ? text.length : end
+  }
+  if (text[index + 1] === "*") {
+    const end = text.indexOf("*/", index + 2)
+    return end === -1 ? text.length : end + 2
+  }
+  return index
 }
 
 function normalizeCustomThemes(value: ContractJsonInput): CustomTheme[] {

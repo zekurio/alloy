@@ -64,6 +64,12 @@ const THEME_STYLE_ID = "alloy-theme"
  * packages/web/index.html injects so the first frame already has the theme.
  */
 const THEME_CSS_CACHE_KEY = "alloy.theme-css"
+/**
+ * The server's accent as of its last config. The config arrives after the
+ * first theme pass, which would otherwise paint (and cache) Alloy's lavender
+ * in the meantime.
+ */
+const SERVER_ACCENT_CACHE_KEY = "alloy.server-accent"
 const DARK_QUERY = "(prefers-color-scheme: dark)"
 const MatchMediaSchema = t.instanceof(Function)
 
@@ -141,6 +147,7 @@ export function initTheme(): void {
   initialized = true
   preferences = readThemePreferences()
   customThemes = readCustomThemes()
+  serverAccent = readServerAccentCache()
   systemAppearance = readSystemAppearance()
   refresh()
 
@@ -231,6 +238,7 @@ export function setServerThemeAccent(accent: string | null): void {
   const next = accent ? normalizeThemeColor(accent) : null
   if (next === serverAccent) return
   serverAccent = next
+  writeStorage(SERVER_ACCENT_CACHE_KEY, next)
   refresh()
 }
 
@@ -388,11 +396,24 @@ function themeCss(dark: ThemeColors, light: ThemeColors): string {
 }
 
 function writeCssCache(css: string | null): void {
+  writeStorage(THEME_CSS_CACHE_KEY, css)
+}
+
+function readServerAccentCache(): string | null {
   try {
-    if (css) localStorage.setItem(THEME_CSS_CACHE_KEY, css)
-    else localStorage.removeItem(THEME_CSS_CACHE_KEY)
+    const cached = localStorage.getItem(SERVER_ACCENT_CACHE_KEY)
+    return cached ? normalizeThemeColor(cached) : null
   } catch {
-    // Storage can be unavailable or full; the cache only saves a repaint.
+    return null
+  }
+}
+
+function writeStorage(key: string, value: string | null): void {
+  try {
+    if (value) localStorage.setItem(key, value)
+    else localStorage.removeItem(key)
+  } catch {
+    // Storage can be unavailable or full; these caches only save a repaint.
   }
 }
 
