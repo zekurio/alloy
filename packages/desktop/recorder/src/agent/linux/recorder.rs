@@ -15,6 +15,7 @@ use std::{
 use super::{
     games::{self, DetectedGame},
     gsr::{self, GsrInfo, Monitor, ReplayConfig, ReplayProcess},
+    CAPABILITIES,
 };
 use crate::agent::{
     events::emit_event,
@@ -252,6 +253,7 @@ impl Recorder {
                 .unwrap_or_default(),
             telemetry: None,
             message: self.last_error.clone(),
+            capabilities: CAPABILITIES.iter().map(ToString::to_string).collect(),
         }
     }
 

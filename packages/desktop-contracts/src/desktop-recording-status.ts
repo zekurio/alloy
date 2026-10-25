@@ -18,6 +18,31 @@ import type { RecordingGame } from "./desktop-recording-games"
 import type { RecordingLibraryDownload } from "./desktop-recording-library"
 
 /**
+ * What a recorder can do, as it reports in `RecordingStatus.capabilities`.
+ * The Windows recorder has all of them. The Linux one leaves out
+ * `game-capture` (it records a monitor while a game runs), `audio-volume`
+ * and `audio-levels` (sources mix into one track without gain or meters),
+ * `hotkeys` (the desktop owns the shortcuts) and `telemetry`.
+ */
+export const RECORDING_CAPABILITIES = [
+  "screenshots",
+  "game-capture",
+  "display-capture",
+  "displays",
+  "replay-buffer",
+  "game-processes",
+  "audio-devices",
+  "audio-applications",
+  "audio-volume",
+  "audio-levels",
+  "hotkeys",
+  "notification-sounds",
+  "telemetry",
+] as const
+
+export type RecordingCapability = (typeof RECORDING_CAPABILITIES)[number]
+
+/**
  * Live loudness sample for one audio source, emitted by the capture backend
  * while a meter UI holds an audio-levels subscription open.
  */
@@ -130,6 +155,12 @@ export interface RecordingStatus {
   availableAudioApplications: RecordingAudioApplicationSelection[]
   telemetry: RecordingTelemetry | null
   message: string | null
+  /**
+   * The recorder's `RecordingCapability` names. Empty until the agent has
+   * reported in, and absent on hosts from before it was reported; the UI
+   * treats both as the full set.
+   */
+  capabilities?: string[]
 }
 
 export type RecordingEvent =

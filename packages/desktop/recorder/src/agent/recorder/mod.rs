@@ -163,6 +163,25 @@ const REPLAY_START_RETRY_MIN: Duration = Duration::from_secs(2);
 const REPLAY_START_RETRY_MAX: Duration = Duration::from_secs(60);
 const TELEMETRY_EVENT_INTERVAL: Duration = Duration::from_secs(10);
 
+/// What this recorder can do, for the version handshake and the status. The
+/// web hides the controls for anything a recorder leaves out; the Linux list
+/// in `agent::linux` is the shorter one.
+pub(in crate::agent) const CAPABILITIES: &[&str] = &[
+    "screenshots",
+    "game-capture",
+    "audio-devices",
+    "audio-applications",
+    "audio-volume",
+    "game-processes",
+    "display-capture",
+    "displays",
+    "replay-buffer",
+    "notification-sounds",
+    "audio-levels",
+    "hotkeys",
+    "telemetry",
+];
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GameBoundaryReason {
     Closed,
@@ -344,6 +363,7 @@ impl Recorder {
             available_audio_applications: self.cached_audio_applications.clone(),
             telemetry,
             message: self.last_error.clone(),
+            capabilities: CAPABILITIES.iter().map(ToString::to_string).collect(),
         }
     }
 

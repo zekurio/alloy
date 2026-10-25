@@ -134,8 +134,17 @@ Other differences from Windows:
 - Game detection reads `/proc`: native games by executable, and Proton or
   Wine games by their Windows executable. Wayland does not report window
   focus, so a running allowed game counts as focused.
-- gpu-screen-recorder mixes the selected audio into one track. It has no
-  level meters or per-source volume.
+- Game mode records the selected monitor while an allowed game runs.
+  gpu-screen-recorder has no Wayland window capture outside the screencast
+  picker, which cannot be pointed at a detected game.
+- The selected audio sources are mixed into one track. gpu-screen-recorder has
+  no per-source gain, so the settings hide the volume sliders, and the agent
+  has no level meters yet, so none appear.
+- The hotkey fields are replaced by a note: the desktop owns the shortcuts. A
+  button that opens its shortcut settings needs the portal's
+  ConfigureShortcuts and is planned.
+- The agent reports what it can do in `capabilities`, and the web hides the
+  controls for what is missing.
 - The package manager installs updates. Unbundled builds turn off the in-app
   updater and autostart.
 

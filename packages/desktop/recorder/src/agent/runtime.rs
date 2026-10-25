@@ -14,7 +14,7 @@ use serde_json::json;
 #[cfg(target_os = "linux")]
 use crate::agent::linux::{
     list_displays, list_game_processes, stop_audio_level_events, subscribe_audio_level_events,
-    Recorder,
+    Recorder, CAPABILITIES,
 };
 #[cfg(windows)]
 use crate::agent::{
@@ -22,7 +22,7 @@ use crate::agent::{
         hotkeys, list_displays, list_game_processes, stop_audio_level_events,
         subscribe_audio_level_events,
     },
-    recorder::Recorder,
+    recorder::{Recorder, CAPABILITIES},
 };
 use crate::{
     agent::{
@@ -82,35 +82,6 @@ fn write_response(response: Response) {
         Err(error) => eprintln!("[{SIDE_CAR_NAME}] failed to serialize response: {error}"),
     }
 }
-
-#[cfg(windows)]
-const CAPABILITIES: &[&str] = &[
-    "screenshots",
-    "game-capture",
-    "audio-devices",
-    "audio-applications",
-    "game-processes",
-    "display-capture",
-    "displays",
-    "replay-buffer",
-    "notification-sounds",
-    "audio-levels",
-    "telemetry",
-];
-
-/// gpu-screen-recorder captures whole monitors, has no level meters and
-/// reports no frame statistics.
-#[cfg(target_os = "linux")]
-const CAPABILITIES: &[&str] = &[
-    "screenshots",
-    "audio-devices",
-    "audio-applications",
-    "game-processes",
-    "display-capture",
-    "displays",
-    "replay-buffer",
-    "notification-sounds",
-];
 
 fn sidecar_version() -> SidecarVersion {
     SidecarVersion {
