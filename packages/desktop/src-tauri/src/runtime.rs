@@ -38,6 +38,14 @@ impl CaptureAction {
             _ => None,
         }
     }
+
+    /// The inverse of [`Self::parse`].
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Clip => "clip",
+            Self::Screenshot => "screenshot",
+        }
+    }
 }
 
 pub struct LibraryRuntime {
@@ -914,6 +922,16 @@ async fn reveal(path: &Path) -> Result<(), String> {
         .await
         .map_err(error)?;
     Ok(())
+}
+
+/// The host builds on other platforms without a recorder; opening the folder
+/// is the nearest thing to selecting the file there.
+#[cfg(not(any(windows, target_os = "linux")))]
+async fn reveal(path: &Path) -> Result<(), String> {
+    let folder = path
+        .parent()
+        .ok_or("The capture has no containing folder.")?;
+    open::that_detached(folder).map_err(error)
 }
 
 fn unix_ms() -> u64 {

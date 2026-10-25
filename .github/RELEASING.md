@@ -7,9 +7,11 @@ named after the tag.
 Server distribution is handled by the Nix flake package and NixOS module. We do
 not attach server artifacts to GitHub Releases. The same Nix build is also
 published as a container image (see [Container Images](#container-images)).
+The Linux desktop app ships the same way, through `packages.alloy-desktop` and
+`nixosModules.desktop`; it has no release asset and no auto-update.
 
-GitHub Release assets are intentionally limited to the desktop app and
-auto-update files:
+GitHub Release assets are intentionally limited to the Windows desktop app and
+its auto-update files:
 
 - `Alloy-Desktop-...exe`
 - the installer `.sig`

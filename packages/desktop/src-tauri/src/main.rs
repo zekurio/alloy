@@ -1087,8 +1087,22 @@ fn launched_at_login() -> bool {
     std::env::args().any(|argument| argument == "--autostart")
 }
 
+/// The `--action` this process was started with. The running app would have
+/// received it through the single-instance callback, so the app was not
+/// running: there is no replay buffer to save yet, and the action is dropped.
+fn startup_action() -> Option<CaptureAction> {
+    requested_action(&std::env::args().collect::<Vec<_>>())
+}
+
+/// Whether this start opens no window. A login item and a shortcut that found
+/// the app closed both leave it in the tray, where the user opens it from.
+fn starts_in_tray() -> bool {
+    launched_at_login() || startup_action().is_some()
+}
+
 /// `--action clip` or `--action screenshot`, which a desktop shortcut or a
-/// script sends to the running app to save a capture without a window.
+/// script sends to the running app to save a capture without a window. If
+/// the app is not running, the command starts it in the tray instead.
 fn requested_action(argv: &[String]) -> Option<CaptureAction> {
     let mut arguments = argv.iter().skip(1);
     while let Some(argument) = arguments.next() {
@@ -1105,11 +1119,11 @@ fn requested_action(argv: &[String]) -> Option<CaptureAction> {
 fn spawn_restore_saved_server(app: &AppHandle, host: &Arc<Host>) {
     let app = app.clone();
     let host = Arc::clone(host);
-    let show = !launched_at_login();
+    let show = !starts_in_tray();
     tauri::async_runtime::spawn(async move {
         let _connecting = host.connecting.lock().await;
-        // A login-item start shows nothing: the tray opens the connect screen
-        // or the restored server window when the user asks for it.
+        // A tray start shows nothing: the tray opens the connect screen or
+        // the restored server window when the user asks for it.
         let fall_back_to_connect = |app: &AppHandle, host: &Arc<Host>| {
             if show {
                 let _ = show_connect(app, host);
@@ -1239,6 +1253,13 @@ fn main() {
             }
             let _ = setup_host.logs.set(logs.ok());
             log::info!("Alloy desktop {} started", app.package_info().version);
+            if let Some(action) = startup_action() {
+                log::warn!(
+                    "`--action {}` found Alloy closed, so nothing was saved: there is no \
+                     replay buffer yet. Alloy now runs in the tray for the next shortcut.",
+                    action.name()
+                );
+            }
             let state_dir = app.path().app_data_dir()?;
             let services = Arc::new(DesktopServices::new(app.handle().clone(), state_dir));
             setup_host
@@ -1263,8 +1284,8 @@ fn main() {
             // With a saved server the app restores its window directly and
             // only opens the connect screen if that fails. Otherwise the
             // connect screen is created now and shown once it has rendered.
-            // A login-item start opens no window at all.
-            if services.preferences.get_current_server().is_none() && !launched_at_login() {
+            // A tray start opens no window at all.
+            if services.preferences.get_current_server().is_none() && !starts_in_tray() {
                 show_connect(app.handle(), &setup_host).map_err(std::io::Error::other)?;
             }
             setup_tray(app.handle(), &setup_host).map_err(std::io::Error::other)?;

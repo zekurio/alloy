@@ -125,7 +125,9 @@ GNOME 48+, and Hyprland provide. The hotkeys from the settings are only
 suggestions; the desktop environment owns the binding, and the user changes
 it in the system settings. Without the portal, bind
 `alloy-desktop --action clip` and `alloy-desktop --action screenshot` in the
-compositor. The desktop entry offers both as actions too.
+compositor. The desktop entry offers both as actions too. Both reach the
+running app; if Alloy is closed, they start it in the tray and save nothing,
+since there is no replay buffer yet.
 
 Other differences from Windows:
 

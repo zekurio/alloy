@@ -25,13 +25,14 @@ use crate::agent::{
 };
 use crate::names::file_component;
 use crate::protocol::{CONTENT_TYPE_MP4, SIDE_CAR_NAME};
-use crate::settings::resolve_audio_device_selection;
+use crate::settings::{default_audio_device_selections, resolve_audio_device_selection};
 use crate::types::{
     ConfigureParams, RecordingActionResult, RecordingAudioApplicationSelection,
-    RecordingAudioDevice, RecordingAudioMode, RecordingBackendState, RecordingCapture,
-    RecordingCaptureKind, RecordingCaptureMode, RecordingCaptureSource, RecordingCodec,
-    RecordingEncoder, RecordingEvent, RecordingGame, RecordingMode, RecordingRunState,
-    RecordingSettings, RecordingStatus, SaveReplayClipParams, VideoDimensions,
+    RecordingAudioDevice, RecordingAudioDeviceKind, RecordingAudioDeviceSelection,
+    RecordingAudioMode, RecordingBackendState, RecordingCapture, RecordingCaptureKind,
+    RecordingCaptureMode, RecordingCaptureSource, RecordingCodec, RecordingEncoder, RecordingEvent,
+    RecordingGame, RecordingMode, RecordingRunState, RecordingSettings, RecordingStatus,
+    SaveReplayClipParams, VideoDimensions,
 };
 
 const HARDWARE_DISCOVERY_TTL: Duration = Duration::from_secs(60);
@@ -43,6 +44,8 @@ const GAME_DETECTION_INTERVAL: Duration = Duration::from_secs(2);
 /// up to the cap.
 const REPLAY_START_RETRY_MIN: Duration = Duration::from_secs(2);
 const REPLAY_START_RETRY_MAX: Duration = Duration::from_secs(60);
+/// Names a session's folder under the replay scratch root.
+const SESSION_FOLDER_PREFIX: &str = "session-";
 
 struct Discovered<T> {
     value: T,
@@ -141,6 +144,14 @@ impl Recorder {
         }
         if !settings.enabled {
             self.clear_active_game("detection stopped");
+        }
+        if let Some(root) = self.replay_scratch_folder.as_deref() {
+            remove_stale_scratch_folders(
+                root,
+                self.session
+                    .as_ref()
+                    .map(|session| session.scratch.as_path()),
+            );
         }
 
         if let Some(Err(error)) = self.info.as_ref().map(|info| &info.value) {
@@ -541,48 +552,74 @@ impl Recorder {
     }
 
     /// gpu-screen-recorder mixes `|`-joined sources into one track. It has no
-    /// per-source volume, so the volume sliders do not apply here.
+    /// per-source volume, so the volume sliders do not apply here. The
+    /// selection follows the Windows recorder: no configured devices means
+    /// the default output, and applications mode keeps the enabled
+    /// microphones for voice-over.
     fn audio_sources(&self, settings: &RecordingSettings) -> Option<String> {
+        let mut sources = Vec::new();
+        match settings.audio_mode {
+            RecordingAudioMode::Devices => {
+                sources.extend(self.audio_device_sources(settings, None));
+            }
+            RecordingAudioMode::Applications => {
+                for application in settings
+                    .audio_applications
+                    .iter()
+                    .filter(|application| application.enabled)
+                {
+                    // `|` separates sources, so a name holding one would
+                    // turn into a second, unintended source.
+                    if application.name.is_empty() || application.name.contains('|') {
+                        eprintln!(
+                            "[{SIDE_CAR_NAME}] skipping audio application with an unusable name {:?}",
+                            application.name
+                        );
+                        continue;
+                    }
+                    sources.push(format!("app:{}", application.name));
+                }
+                sources.extend(
+                    self.audio_device_sources(settings, Some(&RecordingAudioDeviceKind::Input)),
+                );
+            }
+        }
+        sources.sort_unstable();
+        sources.dedup();
+        (!sources.is_empty()).then(|| sources.join("|"))
+    }
+
+    /// The enabled devices of `kind` (or all kinds) as gpu-screen-recorder
+    /// sources, resolved against the current PipeWire devices. Unavailable
+    /// devices are left out rather than failing the start.
+    fn audio_device_sources(
+        &self,
+        settings: &RecordingSettings,
+        kind: Option<&RecordingAudioDeviceKind>,
+    ) -> Vec<String> {
         let available = self
             .audio_devices
             .as_ref()
             .map(|devices| devices.value.as_slice())
             .unwrap_or_default();
-        let mut sources = Vec::new();
-        match settings.audio_mode {
-            RecordingAudioMode::Devices => {
-                for device in settings
-                    .audio_devices
-                    .iter()
-                    .filter(|device| device.enabled)
-                {
-                    let device = resolve_audio_device_selection(device.clone(), available);
-                    if device.id != "default"
-                        && !available.iter().any(|available| {
-                            available.kind == device.kind && available.id == device.id
-                        })
-                    {
-                        eprintln!(
-                            "[{SIDE_CAR_NAME}] skipping unavailable audio device {}",
-                            device.label
-                        );
-                        continue;
-                    }
-                    sources.push(gsr::audio_device_source(&device));
+        selected_audio_devices(settings, kind)
+            .into_iter()
+            .map(|device| resolve_audio_device_selection(device, available))
+            .filter(|device| {
+                let known = device.id == "default"
+                    || available.iter().any(|available| {
+                        available.kind == device.kind && available.id == device.id
+                    });
+                if !known {
+                    eprintln!(
+                        "[{SIDE_CAR_NAME}] skipping unavailable audio device {}",
+                        device.label
+                    );
                 }
-            }
-            RecordingAudioMode::Applications => {
-                sources.extend(
-                    settings
-                        .audio_applications
-                        .iter()
-                        .filter(|application| application.enabled)
-                        .map(|application| format!("app:{}", application.name)),
-                );
-            }
-        }
-        sources.dedup();
-        (!sources.is_empty()).then(|| sources.join("|"))
+                known
+            })
+            .map(|device| gsr::audio_device_source(&device))
+            .collect()
     }
 
     fn refresh_discovery(&mut self) {
@@ -860,6 +897,24 @@ fn capture_source(settings: &RecordingSettings) -> RecordingCaptureSource {
     }
 }
 
+/// The enabled device selections of `kind`, or of every kind. Settings that
+/// never chose devices fall back to the defaults, like the Windows recorder,
+/// so a fresh install records the default output instead of silence.
+fn selected_audio_devices(
+    settings: &RecordingSettings,
+    kind: Option<&RecordingAudioDeviceKind>,
+) -> Vec<RecordingAudioDeviceSelection> {
+    let devices = if settings.audio_devices.is_empty() {
+        default_audio_device_selections()
+    } else {
+        settings.audio_devices.clone()
+    };
+    devices
+        .into_iter()
+        .filter(|device| device.enabled && kind.is_none_or(|kind| device.kind == *kind))
+        .collect()
+}
+
 /// Unix socket paths are limited to about 100 bytes, so the socket lives in
 /// the runtime directory when there is one.
 fn socket_path(scratch: &Path) -> PathBuf {
@@ -874,7 +929,7 @@ fn socket_path(scratch: &Path) -> PathBuf {
 /// A folder per session, so a save never picks up an earlier session's files
 /// and stopping deletes the folder whole.
 fn create_session_scratch_folder(root: &Path) -> Result<PathBuf, String> {
-    let folder = root.join(format!("session-{}", timestamp_file_slug()));
+    let folder = root.join(format!("{SESSION_FOLDER_PREFIX}{}", timestamp_file_slug()));
     fs::create_dir_all(&folder).map_err(|error| {
         format!(
             "Could not create replay scratch folder {}: {error}",
@@ -892,6 +947,30 @@ fn remove_scratch_folder(folder: &Path) {
             "[{SIDE_CAR_NAME}] could not remove replay scratch folder {}: {error}",
             folder.display()
         ),
+    }
+}
+
+/// Removes the session folders an earlier agent left behind. The watchdog
+/// exit, a host kill and a crash all skip `Drop`, and a disk-storage session
+/// can hold gigabytes of segments. `keep` is the running session's folder.
+fn remove_stale_scratch_folders(root: &Path, keep: Option<&Path>) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let session = entry
+            .file_name()
+            .to_str()
+            .is_some_and(|name| name.starts_with(SESSION_FOLDER_PREFIX));
+        if !session || keep == Some(path.as_path()) || !path.is_dir() {
+            continue;
+        }
+        eprintln!(
+            "[{SIDE_CAR_NAME}] removing leftover replay scratch folder {}",
+            path.display()
+        );
+        remove_scratch_folder(&path);
     }
 }
 

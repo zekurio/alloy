@@ -3,7 +3,8 @@
 //! shortcuts through the GlobalShortcuts portal. The hotkeys from the settings
 //! are only suggested: the desktop environment owns the binding, and the user
 //! changes it in the system settings. `alloy-desktop --action clip` and
-//! `--action screenshot` trigger the same actions where the portal is missing.
+//! `--action screenshot` trigger the same actions in the running app where the
+//! portal is missing; with the app closed, they start it in the tray.
 
 use std::sync::Arc;
 
