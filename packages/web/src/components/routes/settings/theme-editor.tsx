@@ -1,3 +1,4 @@
+import { messageFromUnknown, THEME_NAME_MAX_LENGTH } from "@alloy/contracts"
 import { message, t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Input } from "@alloy/ui/components/input"
@@ -6,7 +7,6 @@ import {
   endThemePreview,
   getThemeState,
   previewTheme,
-  saveCustomTheme,
   selectThemeFamily,
 } from "@alloy/ui/lib/theme"
 import {
@@ -20,10 +20,8 @@ import {
   type ThemeColorRole,
   type ThemeColors,
 } from "@alloy/ui/lib/theme-colors"
-import {
-  newCustomThemeId,
-  THEME_NAME_MAX_LENGTH,
-} from "@alloy/ui/lib/theme-custom"
+import { newCustomThemeId } from "@alloy/ui/lib/theme-custom"
+import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import {
   ChevronDownIcon,
@@ -40,6 +38,7 @@ import { createPortal } from "react-dom"
 
 import { HexColorInput } from "@/components/routes/settings/hex-color-input"
 import { useThemeInspector } from "@/components/routes/settings/theme-inspector"
+import { saveAccountTheme } from "@/lib/account-themes"
 
 export interface ThemeEditorSeed {
   /** Bumped per opening so the editor remounts with fresh state. */
@@ -156,6 +155,7 @@ export function ThemeEditor({
   const [inspecting, setInspecting] = useState(false)
   const [pickedRole, setPickedRole] = useState<ThemeColorRole | null>(null)
   const [inspectMiss, setInspectMiss] = useState(false)
+  const [saving, setSaving] = useState(false)
   const nameRef = useRef<HTMLInputElement>(null)
   const fieldRefs = useRef(new Map<ThemeColorRole, HTMLDivElement>())
   const colors = palettes[appearance]
@@ -235,7 +235,7 @@ export function ThemeEditor({
     setAppearance(remaining)
   }
 
-  function save() {
+  async function save() {
     const trimmed = name.trim()
     if (!trimmed) {
       setNameMissing(true)
@@ -243,16 +243,23 @@ export function ThemeEditor({
       nameRef.current?.focus()
       return
     }
-    const id = seed.themeId ?? newCustomThemeId()
-    saveCustomTheme({
-      id,
-      name: trimmed.slice(0, THEME_NAME_MAX_LENGTH),
-      light: palettes.light ? canonicalThemeColors(palettes.light) : null,
-      dark: palettes.dark ? canonicalThemeColors(palettes.dark) : null,
-      guided: !advanced,
-    })
-    if (!seed.themeId) selectThemeFamily(id)
-    onClose()
+    setSaving(true)
+    try {
+      const saved = await saveAccountTheme({
+        id: seed.themeId ?? newCustomThemeId(),
+        name: trimmed.slice(0, THEME_NAME_MAX_LENGTH),
+        light: palettes.light ? canonicalThemeColors(palettes.light) : null,
+        dark: palettes.dark ? canonicalThemeColors(palettes.dark) : null,
+        guided: !advanced,
+      })
+      if (!seed.themeId) selectThemeFamily(saved.id)
+      onClose()
+    } catch (cause) {
+      toast.error(t("Couldn't save theme"), {
+        description: messageFromUnknown(cause) ?? undefined,
+      })
+      setSaving(false)
+    }
   }
 
   const query = filter.trim().toLowerCase()
@@ -493,7 +500,13 @@ export function ThemeEditor({
               <Button type="button" variant="ghost" size="sm" onClick={onClose}>
                 {t("Cancel")}
               </Button>
-              <Button type="button" variant="primary" size="sm" onClick={save}>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                disabled={saving}
+                onClick={() => void save()}
+              >
                 {seed.themeId ? t("Save theme") : t("Create theme")}
               </Button>
             </footer>

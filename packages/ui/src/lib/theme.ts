@@ -39,8 +39,9 @@ import {
  * The live theme: stored preferences and custom themes, the server's accent,
  * and the OS appearance, resolved into one `<style>` element. Components read
  * it through {@link getThemeState} and {@link subscribeTheme}; account sync
- * listens to {@link subscribeThemeEdits} and answers with
- * {@link applySyncedThemePreferences}.
+ * listens to {@link subscribeThemeEdits}, answers with
+ * {@link applySyncedThemePreferences}, and hands over the account's custom
+ * themes through {@link setCustomThemes}.
  */
 
 export interface ThemeState {
@@ -230,6 +231,16 @@ export function setServerThemeAccent(accent: string | null): void {
   const next = accent ? normalizeThemeColor(accent) : null
   if (next === serverAccent) return
   serverAccent = next
+  refresh()
+}
+
+/**
+ * Takes the account's list of custom themes. Choices that point at a theme
+ * that's gone are kept and show Alloy until it's back.
+ */
+export function setCustomThemes(themes: readonly CustomTheme[]): void {
+  if (JSON.stringify(themes) === JSON.stringify(customThemes)) return
+  customThemes = writeCustomThemes(themes)
   refresh()
 }
 

@@ -7,6 +7,7 @@ import {
 } from "./admin-auth"
 import { t } from "./schema"
 import type { UserRole, UserStatus } from "./shared"
+import { HexColorSchema } from "./theme"
 import { DEFAULT_UPLOAD_LIMITS, UploadLimitsSchema } from "./upload-limits"
 
 export {
@@ -107,11 +108,7 @@ export interface LoginBackdropsResponse {
 export const AppearanceConfigSchema = t.looseObject({
   loginSplash: LoginSplashConfigSchema,
   /** Lowercase `#rrggbb`; null keeps Alloy's own lavender. */
-  accentColor: t
-    .string()
-    .regex(/^#[0-9a-f]{6}$/)
-    .nullable()
-    .$default(null),
+  accentColor: HexColorSchema.nullable().$default(null),
 })
 
 export type AppearanceConfig = t.infer<typeof AppearanceConfigSchema>

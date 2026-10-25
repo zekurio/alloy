@@ -6,6 +6,10 @@ export const AUTH_PATHS = {
   reactivate: "/api/auth/reactivate",
   user: "/api/auth/user",
   userTheme: "/api/auth/user/theme",
+  userThemes: "/api/auth/user/themes",
+  userThemeById(id: string): string {
+    return `/api/auth/user/themes/${encodedPathSegment(id)}`
+  },
   accounts: "/api/auth/accounts",
   accountsUnlink: "/api/auth/accounts/unlink",
   oauthLink: "/api/auth/oauth/link",

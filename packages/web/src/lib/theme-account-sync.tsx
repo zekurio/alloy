@@ -10,14 +10,15 @@ import {
 } from "@alloy/ui/lib/theme"
 import { useEffect } from "react"
 
+import { loadAccountThemes } from "./account-themes"
 import { authClient, useSession } from "./auth-client"
 import { clientLogger } from "./client-log"
 
 /** Coalesces bursts, such as dragging the accent picker, into one save. */
 const SAVE_DELAY_MS = 800
 /**
- * Another device's change arrives with the next session read; coming back to
- * the tab reads it again, at most this often.
+ * Another device's change arrives with the next session and theme list read;
+ * coming back to the tab reads them again, at most this often.
  */
 const REVALIDATE_INTERVAL_MS = 30_000
 
@@ -61,7 +62,8 @@ function saveOutstanding(): boolean {
 /**
  * Shares the theme between the signed-in user's devices: edits made here are
  * saved to the account, and the account's theme is adopted when the session
- * loads. Devices with sync off (see the Appearance settings) do neither.
+ * loads. Devices with sync off (see the Appearance settings) do neither, but
+ * still get the account's custom themes.
  */
 export function ThemeAccountSync() {
   const { data, refetch } = useSession()
@@ -72,6 +74,7 @@ export function ThemeAccountSync() {
 
   useEffect(() => {
     if (!userId) return
+    void loadAccountThemes()
     return subscribeThemeEdits(scheduleSave)
   }, [userId])
 
@@ -96,6 +99,7 @@ export function ThemeAccountSync() {
       if (Date.now() - lastRead < REVALIDATE_INTERVAL_MS) return
       lastRead = Date.now()
       void refetch().catch(() => {})
+      void loadAccountThemes()
     }
     document.addEventListener("visibilitychange", revalidate)
     return () => document.removeEventListener("visibilitychange", revalidate)

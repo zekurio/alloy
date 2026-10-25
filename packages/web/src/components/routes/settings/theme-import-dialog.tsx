@@ -11,11 +11,7 @@ import {
   ResponsiveDialogTitle,
 } from "@alloy/ui/components/responsive-dialog"
 import { Textarea } from "@alloy/ui/components/textarea"
-import {
-  getThemeState,
-  saveCustomTheme,
-  selectThemeFamily,
-} from "@alloy/ui/lib/theme"
+import { getThemeState, selectThemeFamily } from "@alloy/ui/lib/theme"
 import {
   importThemeSources,
   newCustomThemeId,
@@ -27,6 +23,9 @@ import { cn } from "@alloy/ui/lib/utils"
 import { CircleAlertIcon, FileUpIcon, PlusIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { DragEvent, FormEvent } from "react"
+
+import { saveAccountTheme } from "@/lib/account-themes"
+import { errorMessage } from "@/lib/error-message"
 
 const THEME_JSON_PLACEHOLDER = `{
   "version": 1,
@@ -50,6 +49,7 @@ export function ThemeImportDialog({
   const [text, setText] = useState("")
   const [errors, setErrors] = useState<string[]>([])
   const [dragging, setDragging] = useState(false)
+  const [adding, setAdding] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -59,23 +59,50 @@ export function ThemeImportDialog({
     setDragging(false)
   }, [open])
 
-  function add(sources: readonly ThemeSource[]): boolean {
+  async function add(sources: readonly ThemeSource[]): Promise<boolean> {
     const result = importThemeSources(sources)
-    setErrors(result.errors)
-    if (result.themes.length === 0) return false
+    if (result.themes.length === 0) {
+      setErrors(result.errors)
+      return false
+    }
 
+    setAdding(true)
+    const failures = [...result.errors]
     const names = getThemeState().customThemes.map((theme) => theme.name)
-    const ids = result.themes.map((draft) => {
-      const id = newCustomThemeId()
+    const added: string[] = []
+    for (const draft of result.themes) {
       const name = uniqueThemeName(draft.name, names)
-      names.push(name)
-      saveCustomTheme({ ...draft, id, name, guided: false })
-      return id
-    })
-    const [first] = ids
-    if (first) selectThemeFamily(first)
-    toast.success(tp(ids.length, "Added {count} theme", "Added {count} themes"))
-    if (result.errors.length === 0) onOpenChange(false)
+      try {
+        const saved = await saveAccountTheme({
+          ...draft,
+          id: newCustomThemeId(),
+          name,
+          guided: false,
+        })
+        names.push(saved.name)
+        added.push(saved.id)
+      } catch (cause) {
+        // The rest would most likely fail the same way, at the theme limit
+        // or while offline.
+        failures.push(
+          t("{file}: {error}", {
+            file: name,
+            error: errorMessage(cause, t("Couldn't save theme")),
+          }),
+        )
+        break
+      }
+    }
+    setAdding(false)
+    setErrors(failures)
+
+    const [first] = added
+    if (!first) return false
+    selectThemeFamily(first)
+    toast.success(
+      tp(added.length, "Added {count} theme", "Added {count} themes"),
+    )
+    if (failures.length === 0) onOpenChange(false)
     return true
   }
 
@@ -87,13 +114,13 @@ export function ThemeImportDialog({
         name: file.name,
       })),
     )
-    add(sources)
+    await add(sources)
   }
 
-  function addPasted(event: FormEvent<HTMLFormElement>) {
+  async function addPasted(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!text.trim()) return
-    if (add([{ text, name: null }])) setText("")
+    if (await add([{ text, name: null }])) setText("")
   }
 
   function drop(event: DragEvent<HTMLDivElement>) {
@@ -105,12 +132,12 @@ export function ThemeImportDialog({
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent variant="secondary" className="sm:max-w-xl">
-        <form onSubmit={addPasted}>
+        <form onSubmit={(event) => void addPasted(event)}>
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>{t("Add a theme")}</ResponsiveDialogTitle>
             <ResponsiveDialogDescription>
               {t(
-                "Import an Alloy theme file or a VS Code color theme. Themes stay in this browser.",
+                "Import Alloy theme files or VS Code color themes into your account.",
               )}
             </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
@@ -137,6 +164,7 @@ export function ThemeImportDialog({
                 type="button"
                 variant="secondary"
                 size="sm"
+                disabled={adding}
                 onClick={() => fileInput.current?.click()}
               >
                 <FileUpIcon />
@@ -197,7 +225,11 @@ export function ThemeImportDialog({
             >
               {t("Cancel")}
             </ResponsiveDialogClose>
-            <Button type="submit" variant="primary" disabled={!text.trim()}>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={!text.trim() || adding}
+            >
               <PlusIcon />
               {t("Add theme")}
             </Button>

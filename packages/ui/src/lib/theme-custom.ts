@@ -1,12 +1,18 @@
 import {
   isObjectRecord,
   isStringValue,
+  MAX_USER_THEMES,
+  THEME_NAME_MAX_LENGTH,
+  UserThemeIdSchema,
   type ContractJsonInput,
   type ContractJsonValue,
+  type UserTheme,
+  type UserThemeInput,
 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { createLocalStorageDriver } from "@alloy/ui/lib/local-storage"
 import {
+  canonicalThemeColors,
   completeThemeColors,
   defaultThemeBackground,
   opaqueThemeColor,
@@ -22,19 +28,18 @@ import type { ThemeFamily, ThemeVariant } from "@alloy/ui/lib/theme-presets"
 import { readVsCodeTheme } from "@alloy/ui/lib/theme-vscode"
 
 /**
- * User-made themes: stored per browser, exported and imported as small JSON
- * files. Every stored color is a canonical `#rrggbb`, which keeps the CSS
- * written from them free of anything but colors.
+ * User-made themes: saved to the account, and exported and imported as small
+ * JSON files. The browser keeps a copy of the account's list so the first
+ * frame and the settings page don't wait for the server. Every stored color is
+ * a canonical `#rrggbb`, which keeps the CSS written from them free of
+ * anything but colors.
  */
 
 export const CUSTOM_THEMES_STORAGE_KEY = "alloy.themes"
-export const THEME_NAME_MAX_LENGTH = 48
 const THEME_FILE_VERSION = 1
 const THEME_SOURCE_MAX_BYTES = 256 * 1024
-const MAX_CUSTOM_THEMES = 100
 
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/
-const CUSTOM_THEME_ID_RE = /^custom-[0-9a-f]{8,32}$/
 
 export interface ThemeDraft {
   name: string
@@ -84,6 +89,26 @@ export function writeCustomThemes(
   themes: readonly CustomTheme[],
 ): readonly CustomTheme[] {
   return customThemeStorage.write([...themes])
+}
+
+/** The account's copy of a theme, with any roles it predates derived. */
+export function customThemeFromAccount(theme: UserTheme): CustomTheme {
+  return {
+    id: theme.id,
+    name: theme.name,
+    light: theme.light ? completeThemeColors("light", theme.light) : null,
+    dark: theme.dark ? completeThemeColors("dark", theme.dark) : null,
+    guided: theme.guided,
+  }
+}
+
+export function accountThemeInput(theme: CustomTheme): UserThemeInput {
+  return {
+    name: theme.name,
+    light: theme.light ? canonicalThemeColors(theme.light) : null,
+    dark: theme.dark ? canonicalThemeColors(theme.dark) : null,
+    guided: theme.guided,
+  }
 }
 
 export function newCustomThemeId(): string {
@@ -324,7 +349,7 @@ function stripJsonComments(text: string): string {
 function normalizeCustomThemes(value: ContractJsonInput): CustomTheme[] {
   if (!Array.isArray(value)) return []
   const themes: CustomTheme[] = []
-  for (const entry of value.slice(0, MAX_CUSTOM_THEMES)) {
+  for (const entry of value.slice(0, MAX_USER_THEMES)) {
     const theme = normalizeCustomTheme(entry)
     if (theme && !themes.some((existing) => existing.id === theme.id)) {
       themes.push(theme)
@@ -336,7 +361,9 @@ function normalizeCustomThemes(value: ContractJsonInput): CustomTheme[] {
 function normalizeCustomTheme(value: ContractJsonInput): CustomTheme | null {
   if (!isObjectRecord(value)) return null
   const { id, name } = value
-  if (!isStringValue(id) || !CUSTOM_THEME_ID_RE.test(id)) return null
+  if (!isStringValue(id) || !UserThemeIdSchema.safeParse(id).success) {
+    return null
+  }
   if (!isStringValue(name) || !name.trim()) return null
 
   const light = normalizeStoredColors(value.light)

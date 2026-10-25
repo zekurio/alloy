@@ -9,6 +9,9 @@ import {
   type Passkey,
   type SessionData,
   SyncedThemePreferencesSchema,
+  type UserTheme,
+  UserThemeListResponseSchema,
+  UserThemeResponseSchema,
 } from "@alloy/contracts"
 import type {
   PublicKeyCredentialCreationOptionsJSON,
@@ -320,6 +323,18 @@ export function validateUserUpdateResponse(value: ContractJsonInput): {
   validateAuthUser(response.user)
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as { user: AuthUser }
+}
+
+export function validateUserThemeListResponse(value: ContractJsonInput): {
+  themes: UserTheme[]
+} {
+  return UserThemeListResponseSchema.parse(value)
+}
+
+export function validateUserThemeResponse(value: ContractJsonInput): {
+  theme: UserTheme
+} {
+  return UserThemeResponseSchema.parse(value)
 }
 
 export function validateSuccessResponse(value: ContractJsonInput): {

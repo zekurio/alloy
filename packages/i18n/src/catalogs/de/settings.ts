@@ -49,12 +49,14 @@ export const SETTINGS_MESSAGES = {
   Colors: "Farben",
   "Colors you leave out are derived from the background and accent.":
     "Fehlende Farben werden aus Hintergrund und Akzent abgeleitet.",
+  "Couldn't delete theme": "Theme konnte nicht gelöscht werden",
   "Couldn't load settings": "Einstellungen konnten nicht geladen werden",
   "Couldn't save": "Konnte nicht gespeichert werden",
   "Couldn't save appearance settings":
     "Erscheinungsbild-Einstellungen konnten nicht gespeichert werden",
   "Couldn't save changes": "Änderungen konnten nicht gespeichert werden",
   "Couldn't save preference": "Einstellung konnte nicht gespeichert werden",
+  "Couldn't save theme": "Theme konnte nicht gespeichert werden",
   "Create theme": "Theme erstellen",
   Danger: "Gefahr",
   Dark: "Dunkel",
@@ -82,8 +84,8 @@ export const SETTINGS_MESSAGES = {
     "Korrigiere die ungültigen Einstellungen vor dem Speichern.",
   General: "Allgemein",
   "Hex color value": "Hex-Farbwert",
-  "Import an Alloy theme file or a VS Code color theme. Themes stay in this browser.":
-    "Importiere eine Alloy-Theme-Datei oder ein VS-Code-Farbschema. Themes bleiben in diesem Browser.",
+  "Import Alloy theme files or VS Code color themes into your account.":
+    "Importiere Alloy-Theme-Dateien oder VS-Code-Farbschemata in dein Konto.",
   "Imported theme": "Importiertes Theme",
   Info: "Info",
   Inspect: "Untersuchen",
@@ -149,8 +151,8 @@ export const SETTINGS_MESSAGES = {
   'Unknown theme color "{key}".': "Unbekannte Theme-Farbe „{key}“.",
   "Unsupported theme file version.":
     "Diese Version der Theme-Datei wird nicht unterstützt.",
-  "Use the same theme and accent everywhere you sign in. Custom themes stay on the device they were made on.":
-    "Nutze überall, wo du angemeldet bist, dasselbe Theme und denselben Akzent. Eigene Themes bleiben auf dem Gerät, auf dem sie erstellt wurden.",
+  "Use the same theme and accent everywhere you sign in.":
+    "Nutze überall, wo du angemeldet bist, dasselbe Theme und denselben Akzent.",
   "Use {theme} for light and dark mode":
     "{theme} für hellen und dunklen Modus verwenden",
   "Used in dark mode": "Im dunklen Modus verwendet",
@@ -171,6 +173,6 @@ export const SETTINGS_MESSAGES = {
     "{saturation} % Sättigung, {brightness} % Helligkeit",
   "{theme} ({appearance})": "{theme} ({appearance})",
   "{theme} copy": "{theme} (Kopie)",
-  "{theme} will be removed from this browser. Modes that use it go back to Alloy.":
-    "{theme} wird aus diesem Browser entfernt. Modi, die es nutzen, wechseln zurück zu Alloy.",
+  "{theme} will be deleted from your account. Modes that use it go back to Alloy.":
+    "{theme} wird aus deinem Konto gelöscht. Modi, die es nutzen, wechseln zurück zu Alloy.",
 } satisfies TranslationCatalog

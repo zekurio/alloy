@@ -87,6 +87,7 @@ export const ERRORS_MESSAGES = {
   "Timed out while reading video metadata":
     "Zeitüberschreitung beim Lesen der Videometadaten",
   "Too many requests": "Zu viele Anfragen",
+  "You can save up to 50 themes.": "Du kannst bis zu 50 Themes speichern.",
   "{fallback}: {message}": "{fallback}: {message}",
   "{fileName}: {error}": "{fileName}: {error}",
 } satisfies TranslationCatalog

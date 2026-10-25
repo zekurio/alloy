@@ -4,6 +4,7 @@ export * from "./instance"
 export * from "./recording"
 export * from "./social"
 export * from "./storage-deletion"
+export * from "./theme"
 export * from "./webhook"
 
 import { clip, clipMention, clipRendition, clipTag, clipView } from "./clip"
@@ -12,6 +13,7 @@ import { instanceSetting } from "./instance"
 import { uploadTicket } from "./recording"
 import { block } from "./social"
 import { storageDeletion } from "./storage-deletion"
+import { userTheme } from "./theme"
 import { webhook, webhookDelivery } from "./webhook"
 
 /**
@@ -30,6 +32,7 @@ export const domainSchema = {
   instanceSetting,
   block,
   storageDeletion,
+  userTheme,
   webhook,
   webhookDelivery,
 } as const

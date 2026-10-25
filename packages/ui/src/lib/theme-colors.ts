@@ -1,3 +1,4 @@
+import type { ThemeColorRole } from "@alloy/contracts"
 import { formatCssColor, parseCssColor, type Rgba } from "@alloy/ui/lib/color"
 import {
   BLACK,
@@ -26,31 +27,8 @@ export const THEME_APPEARANCES = [
   "dark",
 ] as const satisfies readonly ThemeAppearance[]
 
-export const THEME_COLOR_ROLES = [
-  "background",
-  "surface",
-  "surfaceRaised",
-  "surfaceSunken",
-  "input",
-  "border",
-  "borderStrong",
-  "borderEmphasis",
-  "text",
-  "textMuted",
-  "textDim",
-  "textFaint",
-  "accent",
-  "accentForeground",
-  "accentHover",
-  "accentActive",
-  "accentDim",
-  "success",
-  "warning",
-  "danger",
-  "info",
-  "live",
-] as const satisfies readonly (keyof ThemeColors)[]
-export type ThemeColorRole = (typeof THEME_COLOR_ROLES)[number]
+// The role list is part of the theme contract the server validates.
+export { THEME_COLOR_ROLES, type ThemeColorRole } from "@alloy/contracts"
 
 /** A complete palette: one CSS color per role. */
 export interface ThemeColors {

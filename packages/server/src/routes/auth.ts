@@ -1,7 +1,6 @@
 import {
   AUTH_ERROR_CODES,
   DISPLAY_NAME_MAX_LENGTH,
-  SyncedThemePreferencesSchema,
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
 } from "@alloy/contracts"
@@ -18,7 +17,6 @@ import {
 import {
   reactivateSelfDisabledIdentity,
   updateUserIdentity,
-  updateUserThemePreferences,
 } from "@alloy/server/auth/identity"
 import {
   publicAuthUserRow,
@@ -50,6 +48,7 @@ import {
   MUTATING_METHODS,
 } from "./auth-route-helpers"
 import { authSessionRoutes } from "./auth-session-routes"
+import { authThemeRoutes } from "./auth-theme-routes"
 import { tbValidator } from "./validation"
 
 const UpdateUserBody = t.object({
@@ -88,7 +87,11 @@ const standardAuthRateLimit = rateLimiter({
   max: 30,
   key: (c) => {
     if (!MUTATING_METHODS.has(c.req.method)) return null
-    if (STRICT_AUTH_RATE_LIMIT_PATHS.has(authSubpath(c))) return null
+    const path = authSubpath(c)
+    if (STRICT_AUTH_RATE_LIMIT_PATHS.has(path)) return null
+    // Theme saves follow clicks in the theme picker. They need a session and
+    // are cheap, so they don't spend the budget that guards signing in.
+    if (path.startsWith("/user/theme")) return null
     return requestIp(c)
   },
 })
@@ -147,6 +150,7 @@ export const authRoute = new Hono()
   })
   .route("/", authPasskeyRoutes)
   .route("/", authSessionRoutes)
+  .route("/", authThemeRoutes)
   .patch(
     "/user",
     requireSession,
@@ -160,22 +164,6 @@ export const authRoute = new Hono()
         return c.json({ user: publicAuthUserRow(updated) })
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not update user.")
-      }
-    },
-  )
-  .put(
-    "/user/theme",
-    requireSession,
-    tbValidator("json", SyncedThemePreferencesSchema),
-    async (c) => {
-      try {
-        const updated = await updateUserThemePreferences(
-          c.var.viewerId,
-          c.req.valid("json"),
-        )
-        return c.json({ user: publicAuthUserRow(updated) })
-      } catch (cause) {
-        return badRequestFromCause(c, cause, "Could not save theme.")
       }
     },
   )

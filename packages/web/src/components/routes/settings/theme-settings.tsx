@@ -16,7 +16,6 @@ import {
   TooltipTrigger,
 } from "@alloy/ui/components/tooltip"
 import {
-  deleteCustomTheme,
   selectBaseTheme,
   selectThemeFamily,
   selectThemeVariant,
@@ -68,7 +67,9 @@ import { HexColorInput } from "@/components/routes/settings/hex-color-input"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import type { ThemeEditorSeed } from "@/components/routes/settings/theme-editor"
 import { ThemeImportDialog } from "@/components/routes/settings/theme-import-dialog"
+import { deleteAccountTheme } from "@/lib/account-themes"
 import { startBrowserDownload } from "@/lib/browser-download"
+import { errorMessage } from "@/lib/error-message"
 import { useThemeState } from "@/lib/theme-state"
 
 const ThemeEditor = lazy(() =>
@@ -89,6 +90,22 @@ export function ThemeSettings() {
   const [editor, setEditor] = useState<ThemeEditorSeed | null>(null)
   const [importing, setImporting] = useState(false)
   const [deleting, setDeleting] = useState<CustomTheme | null>(null)
+  const [deletePending, setDeletePending] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  async function confirmDelete() {
+    if (!deleting) return
+    setDeletePending(true)
+    setDeleteError(null)
+    try {
+      await deleteAccountTheme(deleting.id)
+      setDeleting(null)
+    } catch (cause) {
+      setDeleteError(errorMessage(cause, t("Couldn't delete theme")))
+    } finally {
+      setDeletePending(false)
+    }
+  }
 
   function openEditor(seed: Omit<ThemeEditorSeed, "session">) {
     sessionRef.current += 1
@@ -169,20 +186,20 @@ export function ThemeSettings() {
       <ConfirmDeleteDialog
         open={deleting !== null}
         onOpenChange={(next) => {
-          if (!next) setDeleting(null)
+          if (next) return
+          setDeleting(null)
+          setDeleteError(null)
         }}
         title={t("Delete theme?")}
         description={t(
-          "{theme} will be removed from this browser. Modes that use it go back to Alloy.",
+          "{theme} will be deleted from your account. Modes that use it go back to Alloy.",
           { theme: deleting?.name ?? "" },
         )}
         confirmLabel={t("Delete theme")}
         pendingLabel={t("Deleting…")}
-        pending={false}
-        onConfirm={() => {
-          if (deleting) deleteCustomTheme(deleting.id)
-          setDeleting(null)
-        }}
+        pending={deletePending}
+        error={deleteError}
+        onConfirm={() => void confirmDelete()}
       />
     </>
   )
@@ -249,7 +266,7 @@ function BaseThemeSection({ theme }: { theme: ThemeState }) {
         <SettingRow
           title={t("Sync across devices")}
           description={t(
-            "Use the same theme and accent everywhere you sign in. Custom themes stay on the device they were made on.",
+            "Use the same theme and accent everywhere you sign in.",
           )}
         >
           <Switch

@@ -1,5 +1,5 @@
 {
-  "id": "39aedd62-b6e8-4b09-b7a4-12127bb7eb96",
+  "id": "56080e2c-f195-47f4-abf7-fb31cf0659b6",
   "prevId": "183b8743-cb94-486b-aca9-5481c5a9980c",
   "version": "7",
   "dialect": "postgresql",
@@ -1754,6 +1754,90 @@
         "storage_deletion_source_id_check": {
           "name": "storage_deletion_source_id_check",
           "value": "\"storage_deletion\".\"source_id\" is null or char_length(btrim(\"storage_deletion\".\"source_id\")) between 1 and 500"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.user_theme": {
+      "name": "user_theme",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "light": {
+          "name": "light",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dark": {
+          "name": "dark",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "guided": {
+          "name": "guided",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_theme_user_id_user_id_fk": {
+          "name": "user_theme_user_id_user_id_fk",
+          "tableFrom": "user_theme",
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "user_theme_user_id_id_pk": {
+          "name": "user_theme_user_id_id_pk",
+          "columns": ["user_id", "id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "user_theme_appearance_check": {
+          "name": "user_theme_appearance_check",
+          "value": "\"user_theme\".\"light\" is not null or \"user_theme\".\"dark\" is not null"
         }
       },
       "isRLSEnabled": false
