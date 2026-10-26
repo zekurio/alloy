@@ -1,4 +1,8 @@
-import { THEME_MODES, type ThemeMode } from "@alloy/contracts"
+import {
+  THEME_MODES,
+  THEME_VARIANT_NAME_MAX_LENGTH,
+  type ThemeMode,
+} from "@alloy/contracts"
 import { t, tp } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
@@ -31,13 +35,14 @@ import {
   type ThemeColors,
 } from "@alloy/ui/lib/theme-colors"
 import {
+  newThemeVariantId,
   serializeThemeFile,
   uniqueThemeName,
   type CustomTheme,
+  type CustomThemeVariant,
 } from "@alloy/ui/lib/theme-custom"
 import {
   isAlloyThemeVariant,
-  themeFamilyDefault,
   type ThemeFamily,
   type ThemeVariant,
 } from "@alloy/ui/lib/theme-presets"
@@ -152,7 +157,11 @@ export function ThemeSettings() {
                 family={family}
                 theme={theme}
                 onDuplicate={() => openEditor(duplicateSeed(theme, family))}
-                onEdit={custom ? () => openEditor(editSeed(custom)) : null}
+                onEdit={
+                  custom
+                    ? () => openEditor(editSeed(theme, family, custom))
+                    : null
+                }
                 onExport={custom ? () => exportTheme(custom) : null}
                 onDelete={custom ? () => setDeleting(custom) : null}
               />
@@ -601,12 +610,10 @@ function variantName(variant: ThemeVariant): string {
 
 /**
  * The variant's name inside its theme's card: "Catppuccin Mocha" reads as
- * "Mocha", and a custom theme's variants by their appearance.
+ * "Mocha". Custom variants already have their own name or their appearance.
  */
 function variantShortName(family: ThemeFamily, variant: ThemeVariant): string {
-  if (family.custom) {
-    return variant.appearance === "light" ? t("Light") : t("Dark")
-  }
+  if (family.custom) return variant.label
   const name = variantName(variant)
   return name.startsWith(`${family.label} `)
     ? name.slice(family.label.length + 1)
@@ -615,10 +622,46 @@ function variantShortName(family: ThemeFamily, variant: ThemeVariant): string {
 
 function swatchLabel(family: ThemeFamily, variant: ThemeVariant): string {
   if (!family.custom) return variantName(variant)
-  return t("{theme} ({appearance})", {
-    theme: variant.label,
-    appearance: variant.appearance === "light" ? t("Light") : t("Dark"),
+  return t("{theme} ({variant})", {
+    theme: family.label,
+    variant: variant.label,
   })
+}
+
+/**
+ * A bundled variant's name in a copy of its theme, short as on the card.
+ * Names that only say light or dark, or repeat the theme's, are dropped so
+ * the copy shows the appearance in the reader's language instead.
+ */
+function copiedVariantName(
+  family: ThemeFamily,
+  variant: ThemeVariant,
+): string | null {
+  if (isAlloyThemeVariant(variant.id)) return null
+  const name = variantShortName(family, variant)
+  return name === family.label || /^(light|dark)$/i.test(name)
+    ? null
+    : name.slice(0, THEME_VARIANT_NAME_MAX_LENGTH)
+}
+
+/**
+ * The variant to open: the one on screen if it's among `sources`, else the
+ * first for the shown appearance. `variants` are copies of `sources`, in the
+ * same order.
+ */
+function openingVariant(
+  theme: ThemeState,
+  sources: readonly ThemeVariant[],
+  variants: readonly CustomThemeVariant[],
+): string {
+  const shown = sources.findIndex(
+    (variant) => variant.id === theme[theme.appearance].id,
+  )
+  const opened =
+    variants[shown] ??
+    variants.find((variant) => variant.appearance === theme.appearance) ??
+    variants[0]
+  return opened?.id ?? ""
 }
 
 /** A new theme starts from whatever is on screen in each appearance. */
@@ -626,44 +669,69 @@ function createSeed(theme: ThemeState): Omit<ThemeEditorSeed, "session"> {
   return {
     themeId: null,
     name: "",
-    light: canonicalThemeColors(themeVariantColors(theme, theme.light)),
-    dark: canonicalThemeColors(themeVariantColors(theme, theme.dark)),
+    variants: THEME_APPEARANCES.map((appearance) => ({
+      id: appearance,
+      name: null,
+      appearance,
+      colors: canonicalThemeColors(
+        themeVariantColors(theme, theme[appearance]),
+      ),
+    })),
+    selected: theme.appearance,
     guided: true,
   }
 }
 
-/** Copies the variants of `family` in use, or its defaults. */
+/** Copies every variant of `family`, with the colors it shows them in. */
 function duplicateSeed(
   theme: ThemeState,
   family: ThemeFamily,
 ): Omit<ThemeEditorSeed, "session"> {
-  const colorsFor = (appearance: ThemeAppearance) => {
-    const current = theme[appearance]
-    const variant = family.variants.includes(current)
-      ? current
-      : themeFamilyDefault(family, appearance)
-    return variant
-      ? canonicalThemeColors(themeVariantColors(theme, variant))
-      : null
-  }
+  const custom = family.custom
+    ? theme.customThemes.find((entry) => entry.id === family.id)
+    : undefined
+  const variants =
+    custom?.variants.map((variant) => ({ ...variant })) ??
+    copiedVariants(theme, family)
   return {
     themeId: null,
     name: uniqueThemeName(
       t("{theme} copy", { theme: family.label }),
-      theme.customThemes.map((custom) => custom.name),
+      theme.customThemes.map((entry) => entry.name),
     ),
-    light: colorsFor("light"),
-    dark: colorsFor("dark"),
-    guided: false,
+    variants,
+    selected: openingVariant(theme, family.variants, variants),
+    guided: custom?.guided ?? false,
   }
 }
 
-function editSeed(custom: CustomTheme): Omit<ThemeEditorSeed, "session"> {
+/** A bundled theme's variants as custom ones, colored as they show. */
+function copiedVariants(
+  theme: ThemeState,
+  family: ThemeFamily,
+): CustomThemeVariant[] {
+  const copied: CustomThemeVariant[] = []
+  for (const variant of family.variants) {
+    copied.push({
+      id: newThemeVariantId(copied),
+      name: copiedVariantName(family, variant),
+      appearance: variant.appearance,
+      colors: canonicalThemeColors(themeVariantColors(theme, variant)),
+    })
+  }
+  return copied
+}
+
+function editSeed(
+  theme: ThemeState,
+  family: ThemeFamily,
+  custom: CustomTheme,
+): Omit<ThemeEditorSeed, "session"> {
   return {
     themeId: custom.id,
     name: custom.name,
-    light: custom.light,
-    dark: custom.dark,
+    variants: custom.variants,
+    selected: openingVariant(theme, family.variants, custom.variants),
     guided: custom.guided,
   }
 }

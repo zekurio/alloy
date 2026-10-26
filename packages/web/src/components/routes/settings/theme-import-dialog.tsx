@@ -28,10 +28,14 @@ import { saveAccountTheme } from "@/lib/account-themes"
 import { errorMessage } from "@/lib/error-message"
 
 const THEME_JSON_PLACEHOLDER = `{
-  "version": 1,
+  "version": 2,
   "name": "Aurora",
-  "dark": { "background": "#10131a", "accent": "#7dd3fc" },
-  "light": { "background": "#f7f8fb", "accent": "#0369a1" }
+  "variants": [
+    { "appearance": "light",
+      "colors": { "background": "#f7f8fb", "accent": "#0369a1" } },
+    { "name": "Midnight", "appearance": "dark",
+      "colors": { "background": "#10131a", "accent": "#7dd3fc" } }
+  ]
 }`
 
 /**
@@ -195,7 +199,7 @@ export function ThemeImportDialog({
                 value={text}
                 spellCheck={false}
                 placeholder={THEME_JSON_PLACEHOLDER}
-                className="min-h-40 font-mono text-xs"
+                className="min-h-48 font-mono text-xs"
                 onChange={(event) => setText(event.target.value)}
               />
               <p className="text-foreground-dim text-xs">

@@ -1,11 +1,21 @@
-import { messageFromUnknown, THEME_NAME_MAX_LENGTH } from "@alloy/contracts"
+import {
+  MAX_THEME_VARIANTS,
+  messageFromUnknown,
+  THEME_NAME_MAX_LENGTH,
+  THEME_VARIANT_NAME_MAX_LENGTH,
+} from "@alloy/contracts"
 import { message, t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@alloy/ui/components/dropdown-menu"
 import { Input } from "@alloy/ui/components/input"
 import { Switch } from "@alloy/ui/components/switch"
 import {
   endThemePreview,
-  getThemeState,
   previewTheme,
   selectThemeFamily,
 } from "@alloy/ui/lib/theme"
@@ -14,23 +24,29 @@ import {
   defaultThemeBackground,
   generateThemeColors,
   normalizeThemeColor,
-  THEME_APPEARANCES,
   withDerivedAccentFamily,
   type ThemeAppearance,
   type ThemeColorRole,
   type ThemeColors,
 } from "@alloy/ui/lib/theme-colors"
-import { newCustomThemeId } from "@alloy/ui/lib/theme-custom"
+import {
+  customVariantLabel,
+  newCustomThemeId,
+  newThemeVariantId,
+  type CustomThemeVariant,
+} from "@alloy/ui/lib/theme-custom"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import {
   ChevronDownIcon,
   ChevronUpIcon,
+  CopyIcon,
   CrosshairIcon,
   MoonIcon,
   PaletteIcon,
   PlusIcon,
   SunIcon,
+  Trash2Icon,
   XIcon,
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
@@ -46,26 +62,18 @@ export interface ThemeEditorSeed {
   /** The custom theme being edited; null creates a new one. */
   themeId: string | null
   name: string
-  light: ThemeColors | null
-  dark: ThemeColors | null
+  /** At least one. */
+  variants: CustomThemeVariant[]
+  /** The id of the variant to open. */
+  selected: string
   /** Open in the two-color mode rather than with every role. */
   guided: boolean
-}
-
-interface Palettes {
-  light: ThemeColors | null
-  dark: ThemeColors | null
 }
 
 /** What the two-color mode shows; the palette is generated from these. */
 interface GuidedSeed {
   background: string
   accent: string
-}
-
-interface GuidedSeeds {
-  light: GuidedSeed
-  dark: GuidedSeed
 }
 
 const ROLE_LABELS = {
@@ -127,9 +135,10 @@ const ROLE_GROUPS: readonly {
 
 /**
  * Floating theme editor. Every change previews live on the page in the
- * appearance being edited; nothing is stored until Save. The guided mode asks
- * for a background and an accent and derives the rest, Advanced exposes every
- * role, and Inspect picks a role by clicking whatever it paints.
+ * appearance of the variant being edited; nothing is stored until Save. The
+ * guided mode asks for a background and an accent and derives the rest,
+ * Advanced exposes every role, and Inspect picks a role by clicking whatever
+ * it paints.
  */
 export function ThemeEditor({
   seed,
@@ -140,15 +149,9 @@ export function ThemeEditor({
 }) {
   const [name, setName] = useState(seed.name)
   const [nameMissing, setNameMissing] = useState(false)
-  const [palettes, setPalettes] = useState<Palettes>({
-    light: seed.light,
-    dark: seed.dark,
-  })
-  const [seeds, setSeeds] = useState<GuidedSeeds>(() => guidedSeeds(palettes))
-  const [appearance, setAppearance] = useState<ThemeAppearance>(() => {
-    const shown = getThemeState().appearance
-    return seed[shown] ? shown : seed.light ? "light" : "dark"
-  })
+  const [variants, setVariants] = useState(seed.variants)
+  const [selectedId, setSelectedId] = useState(seed.selected)
+  const [seeds, setSeeds] = useState(() => guidedSeeds(seed.variants))
   const [advanced, setAdvanced] = useState(!seed.guided)
   const [filter, setFilter] = useState("")
   const [collapsed, setCollapsed] = useState(false)
@@ -158,11 +161,14 @@ export function ThemeEditor({
   const [saving, setSaving] = useState(false)
   const nameRef = useRef<HTMLInputElement>(null)
   const fieldRefs = useRef(new Map<ThemeColorRole, HTMLDivElement>())
-  const colors = palettes[appearance]
+  // Removing a variant always leaves at least one.
+  const selected =
+    variants.find((variant) => variant.id === selectedId) ?? variants[0]
+  const { appearance, colors } = selected
+  const full = variants.length >= MAX_THEME_VARIANTS
 
   useEffect(() => {
-    if (colors) previewTheme(appearance, colors)
-    else endThemePreview()
+    previewTheme(appearance, colors)
   }, [appearance, colors])
   useEffect(() => endThemePreview, [])
 
@@ -185,54 +191,100 @@ export function ThemeEditor({
     () => setInspecting(false),
   )
 
-  function updatePalette(next: ThemeColors) {
-    setPalettes((current) => ({ ...current, [appearance]: next }))
-  }
-
-  function updateGuided(field: "background" | "accent", value: string) {
-    const nextSeed = { ...seeds[appearance], [field]: value }
-    setSeeds((current) => ({ ...current, [appearance]: nextSeed }))
-    updatePalette(
-      generateThemeColors(appearance, nextSeed.background, nextSeed.accent),
+  function updateSelected(change: Partial<CustomThemeVariant>) {
+    setVariants((current) =>
+      current.map((variant) =>
+        variant.id === selected.id ? { ...variant, ...change } : variant,
+      ),
     )
   }
 
+  function updateGuided(field: "background" | "accent", value: string) {
+    const nextSeed = {
+      ...(seeds[selected.id] ?? guidedSeed(colors)),
+      [field]: value,
+    }
+    setSeeds((current) => ({ ...current, [selected.id]: nextSeed }))
+    updateSelected({
+      colors: generateThemeColors(
+        appearance,
+        nextSeed.background,
+        nextSeed.accent,
+      ),
+    })
+  }
+
   function updateRole(role: ThemeColorRole, value: string) {
-    if (!colors) return
     const next = { ...colors, [role]: value }
     // The accent's hover, pressed, and text colors follow it; they can be
     // tuned again afterwards.
-    updatePalette(role === "accent" ? withDerivedAccentFamily(next) : next)
+    updateSelected({
+      colors: role === "accent" ? withDerivedAccentFamily(next) : next,
+    })
   }
 
   function toggleAdvanced(next: boolean) {
     setAdvanced(next)
-    // Guided fields pick up from wherever the hand edits left the palette.
-    if (!next) setSeeds(guidedSeeds(palettes))
+    // Guided fields pick up from wherever the hand edits left the palettes.
+    if (!next) setSeeds(guidedSeeds(variants))
   }
 
-  function addAppearance() {
-    const other = palettes[appearance === "light" ? "dark" : "light"]
-    const generated = generateThemeColors(
-      appearance,
-      defaultThemeBackground(appearance),
-      other?.accent ?? seeds[appearance].accent,
-    )
-    setPalettes((current) => ({ ...current, [appearance]: generated }))
+  function insertVariant(variant: CustomThemeVariant, index: number) {
+    setVariants((current) => current.toSpliced(index, 0, variant))
     setSeeds((current) => ({
       ...current,
-      [appearance]: {
-        background: generated.background,
-        accent: generated.accent,
-      },
+      [variant.id]: guidedSeed(variant.colors),
     }))
+    setSelectedId(variant.id)
   }
 
-  function removeAppearance() {
-    const remaining = appearance === "light" ? "dark" : "light"
-    if (!palettes[remaining]) return
-    setPalettes((current) => ({ ...current, [appearance]: null }))
-    setAppearance(remaining)
+  /**
+   * A fresh palette on the appearance's default background, keeping the
+   * selected variant's accent. It joins the theme's other variants for that
+   * appearance, light ones first.
+   */
+  function addVariant(target: ThemeAppearance) {
+    const last = variants.findLastIndex(
+      (variant) => variant.appearance === target,
+    )
+    insertVariant(
+      {
+        id: newThemeVariantId(variants),
+        name: null,
+        appearance: target,
+        colors: generateThemeColors(
+          target,
+          defaultThemeBackground(target),
+          colors.accent,
+        ),
+      },
+      last >= 0 ? last + 1 : target === "light" ? 0 : variants.length,
+    )
+  }
+
+  function duplicateVariant() {
+    const copiedName = selected.name?.trim()
+    insertVariant(
+      {
+        ...selected,
+        id: newThemeVariantId(variants),
+        name: copiedName
+          ? t("{theme} copy", { theme: copiedName }).slice(
+              0,
+              THEME_VARIANT_NAME_MAX_LENGTH,
+            )
+          : null,
+      },
+      variants.indexOf(selected) + 1,
+    )
+  }
+
+  function removeVariant() {
+    if (variants.length < 2) return
+    const index = variants.indexOf(selected)
+    const remaining = variants.filter((variant) => variant !== selected)
+    setVariants(remaining)
+    setSelectedId(remaining[Math.min(index, remaining.length - 1)]?.id ?? "")
   }
 
   async function save() {
@@ -248,8 +300,15 @@ export function ThemeEditor({
       const saved = await saveAccountTheme({
         id: seed.themeId ?? newCustomThemeId(),
         name: trimmed.slice(0, THEME_NAME_MAX_LENGTH),
-        light: palettes.light ? canonicalThemeColors(palettes.light) : null,
-        dark: palettes.dark ? canonicalThemeColors(palettes.dark) : null,
+        variants: variants.map((variant) => ({
+          ...variant,
+          name:
+            variant.name
+              ?.trim()
+              .slice(0, THEME_VARIANT_NAME_MAX_LENGTH)
+              .trim() || null,
+          colors: canonicalThemeColors(variant.colors),
+        })),
         guided: !advanced,
       })
       if (!seed.themeId) selectThemeFamily(saved.id)
@@ -306,7 +365,6 @@ export function ThemeEditor({
             variant={inspecting ? "accent-outline" : "ghost"}
             size="sm"
             aria-pressed={inspecting}
-            disabled={!colors}
             onClick={() => {
               setInspectMiss(false)
               setInspecting((current) => !current)
@@ -362,139 +420,178 @@ export function ThemeEditor({
                     setNameMissing(false)
                   }}
                 />
-                <span className="text-sm font-medium">{t("Appearance")}</span>
+                <span
+                  id="theme-editor-variants"
+                  className="self-start pt-1 text-sm font-medium"
+                >
+                  {t("Variants")}
+                </span>
                 <div
                   role="group"
-                  aria-label={t("Appearance")}
-                  className="bg-surface-sunken border-border flex w-fit gap-1 rounded-lg border p-0.5"
+                  aria-labelledby="theme-editor-variants"
+                  className="flex min-w-0 flex-wrap items-center gap-1"
                 >
-                  {THEME_APPEARANCES.map((option) => (
+                  {variants.map((variant) => (
                     <button
-                      key={option}
+                      key={variant.id}
                       type="button"
-                      aria-pressed={appearance === option}
-                      onClick={() => setAppearance(option)}
+                      aria-pressed={variant === selected}
+                      onClick={() => setSelectedId(variant.id)}
                       className={cn(
-                        "focus-visible:ring-ring flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium outline-none focus-visible:ring-2",
-                        appearance === option
-                          ? "bg-surface-raised text-foreground shadow-sm"
-                          : "text-foreground-dim hover:text-foreground",
+                        "focus-visible:ring-ring flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-md border px-2 text-xs font-medium outline-none focus-visible:ring-2",
+                        variant === selected
+                          ? "border-accent-border bg-accent-soft text-foreground"
+                          : "border-border text-foreground-dim hover:border-border-strong hover:text-foreground",
                       )}
                     >
-                      {option === "light" ? (
-                        <SunIcon className="size-3.5" />
+                      {variant.appearance === "light" ? (
+                        <SunIcon aria-hidden className="size-3.5 shrink-0" />
                       ) : (
-                        <MoonIcon className="size-3.5" />
+                        <MoonIcon aria-hidden className="size-3.5 shrink-0" />
                       )}
-                      {option === "light" ? t("Light") : t("Dark")}
+                      <span className="truncate">
+                        {customVariantLabel(variants, variant)}
+                      </span>
                     </button>
                   ))}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={t("Add variant")}
+                          disabled={full}
+                        >
+                          <PlusIcon className="size-4" />
+                        </Button>
+                      }
+                    />
+                    <DropdownMenuContent align="start" sideOffset={6}>
+                      <DropdownMenuItem onClick={() => addVariant("light")}>
+                        <SunIcon /> {t("Light variant")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => addVariant("dark")}>
+                        <MoonIcon /> {t("Dark variant")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
+                <label
+                  htmlFor="theme-editor-variant-name"
+                  className="text-sm font-medium"
+                >
+                  {t("Variant name")}
+                </label>
+                <Input
+                  id="theme-editor-variant-name"
+                  value={selected.name ?? ""}
+                  maxLength={THEME_VARIANT_NAME_MAX_LENGTH}
+                  placeholder={customVariantLabel(variants, {
+                    ...selected,
+                    name: null,
+                  })}
+                  onChange={(event) =>
+                    updateSelected({ name: event.target.value })
+                  }
+                />
               </div>
 
-              {colors ? (
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex-1 text-sm font-medium">
-                      {t("Colors")}
-                    </span>
-                    {advanced ? (
-                      <Input
-                        value={filter}
-                        placeholder={t("Filter colors")}
-                        aria-label={t("Filter colors")}
-                        className="h-7 w-32 text-xs sm:h-7"
-                        onChange={(event) => setFilter(event.target.value)}
-                      />
-                    ) : null}
-                    <label className="flex items-center gap-2 text-xs font-medium">
-                      {t("Advanced")}
-                      <Switch
-                        size="sm"
-                        checked={advanced}
-                        onCheckedChange={toggleAdvanced}
-                      />
-                    </label>
-                  </div>
-
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex-1 text-sm font-medium">
+                    {t("Colors")}
+                  </span>
                   {advanced ? (
-                    groups.map((group) => (
-                      <div key={group.label} className="flex flex-col gap-1">
-                        <h3 className="text-foreground-faint px-1.5 text-xs font-medium">
-                          {t(group.label)}
-                        </h3>
-                        {group.roles.map((role) => (
-                          <ColorField
-                            key={role}
-                            id={`theme-color-${role}`}
-                            label={t(ROLE_LABELS[role])}
-                            value={colors[role]}
-                            highlighted={pickedRole === role}
-                            fieldRef={(element) => {
-                              if (element) fieldRefs.current.set(role, element)
-                              else fieldRefs.current.delete(role)
-                            }}
-                            onChange={(value) => updateRole(role, value)}
-                          />
-                        ))}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex flex-col gap-1">
-                      <p className="text-foreground-dim px-1.5 pb-1 text-xs">
-                        {t("Pick two colors; Alloy derives the rest.")}
-                      </p>
-                      <ColorField
-                        id="theme-guided-background"
-                        label={t("Background")}
-                        value={seeds[appearance].background}
-                        highlighted={false}
-                        onChange={(value) => updateGuided("background", value)}
-                      />
-                      <ColorField
-                        id="theme-guided-accent"
-                        label={t("Accent")}
-                        value={seeds[appearance].accent}
-                        highlighted={false}
-                        onChange={(value) => updateGuided("accent", value)}
-                      />
-                    </div>
-                  )}
+                    <Input
+                      value={filter}
+                      placeholder={t("Filter colors")}
+                      aria-label={t("Filter colors")}
+                      className="h-7 w-32 text-xs sm:h-7"
+                      onChange={(event) => setFilter(event.target.value)}
+                    />
+                  ) : null}
+                  <label className="flex items-center gap-2 text-xs font-medium">
+                    {t("Advanced")}
+                    <Switch
+                      size="sm"
+                      checked={advanced}
+                      onCheckedChange={toggleAdvanced}
+                    />
+                  </label>
+                </div>
 
-                  {palettes.light && palettes.dark ? (
+                {advanced ? (
+                  groups.map((group) => (
+                    <div key={group.label} className="flex flex-col gap-1">
+                      <h3 className="text-foreground-faint px-1.5 text-xs font-medium">
+                        {t(group.label)}
+                      </h3>
+                      {group.roles.map((role) => (
+                        <ColorField
+                          key={role}
+                          id={`theme-color-${role}`}
+                          label={t(ROLE_LABELS[role])}
+                          value={colors[role]}
+                          highlighted={pickedRole === role}
+                          fieldRef={(element) => {
+                            if (element) fieldRefs.current.set(role, element)
+                            else fieldRefs.current.delete(role)
+                          }}
+                          onChange={(value) => updateRole(role, value)}
+                        />
+                      ))}
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-foreground-dim px-1.5 pb-1 text-xs">
+                      {t("Pick two colors; Alloy derives the rest.")}
+                    </p>
+                    <ColorField
+                      id="theme-guided-background"
+                      label={t("Background")}
+                      value={
+                        (seeds[selected.id] ?? guidedSeed(colors)).background
+                      }
+                      highlighted={false}
+                      onChange={(value) => updateGuided("background", value)}
+                    />
+                    <ColorField
+                      id="theme-guided-accent"
+                      label={t("Accent")}
+                      value={(seeds[selected.id] ?? guidedSeed(colors)).accent}
+                      highlighted={false}
+                      onChange={(value) => updateGuided("accent", value)}
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={full}
+                    onClick={duplicateVariant}
+                  >
+                    <CopyIcon />
+                    {t("Duplicate variant")}
+                  </Button>
+                  {variants.length > 1 ? (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="self-start"
-                      onClick={removeAppearance}
+                      onClick={removeVariant}
                     >
-                      {appearance === "light"
-                        ? t("Remove light version")
-                        : t("Remove dark version")}
+                      <Trash2Icon />
+                      {t("Remove variant")}
                     </Button>
                   ) : null}
                 </div>
-              ) : (
-                <div className="border-border flex flex-col items-start gap-2 rounded-lg border border-dashed p-3">
-                  <p className="text-foreground-dim text-xs">
-                    {appearance === "light"
-                      ? t("This theme has no light version yet.")
-                      : t("This theme has no dark version yet.")}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={addAppearance}
-                  >
-                    <PlusIcon />
-                    {appearance === "light"
-                      ? t("Add light version")
-                      : t("Add dark version")}
-                  </Button>
-                </div>
-              )}
+              </div>
             </div>
             <footer className="border-border flex items-center justify-end gap-2 border-t px-3.5 py-2.5">
               <Button type="button" variant="ghost" size="sm" onClick={onClose}>
@@ -575,16 +672,14 @@ function ColorField({
   )
 }
 
-function guidedSeeds(palettes: Palettes): GuidedSeeds {
-  const seedFor = (appearance: ThemeAppearance): GuidedSeed => {
-    const colors =
-      palettes[appearance] ??
-      generateThemeColors(
-        appearance,
-        defaultThemeBackground(appearance),
-        palettes[appearance === "light" ? "dark" : "light"]?.accent ?? "",
-      )
-    return { background: colors.background, accent: colors.accent }
-  }
-  return { light: seedFor("light"), dark: seedFor("dark") }
+function guidedSeed(colors: ThemeColors): GuidedSeed {
+  return { background: colors.background, accent: colors.accent }
+}
+
+function guidedSeeds(
+  variants: readonly CustomThemeVariant[],
+): Record<string, GuidedSeed> {
+  return Object.fromEntries(
+    variants.map((variant) => [variant.id, guidedSeed(variant.colors)]),
+  )
 }

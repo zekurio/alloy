@@ -1,9 +1,12 @@
 import {
   isObjectRecord,
   isStringValue,
+  MAX_THEME_VARIANTS,
   MAX_USER_THEMES,
   THEME_NAME_MAX_LENGTH,
+  THEME_VARIANT_NAME_MAX_LENGTH,
   UserThemeIdSchema,
+  UserThemeVariantIdSchema,
   type ContractJsonInput,
   type ContractJsonValue,
   type UserTheme,
@@ -36,15 +39,26 @@ import { readVsCodeTheme } from "@alloy/ui/lib/theme-vscode"
  */
 
 export const CUSTOM_THEMES_STORAGE_KEY = "alloy.themes"
-const THEME_FILE_VERSION = 1
+const THEME_FILE_VERSION = 2
+/** One `light` and one `dark` palette instead of a list of variants. */
+const LEGACY_THEME_FILE_VERSION = 1
 const THEME_SOURCE_MAX_BYTES = 256 * 1024
 
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/
 
+export interface CustomThemeVariant {
+  /** Unique within its theme; the theme choice stores `<theme id>:<id>`. */
+  id: string
+  /** Null names it by its appearance, such as "Dark" or "Dark 2". */
+  name: string | null
+  appearance: ThemeAppearance
+  colors: ThemeColors
+}
+
 export interface ThemeDraft {
   name: string
-  light: ThemeColors | null
-  dark: ThemeColors | null
+  /** At least one, in the order the theme's card shows them. */
+  variants: CustomThemeVariant[]
 }
 
 export interface CustomTheme extends ThemeDraft {
@@ -63,8 +77,13 @@ export interface ThemeSource {
 interface ThemeFile {
   version: typeof THEME_FILE_VERSION
   name: string
-  light?: ThemeColors
-  dark?: ThemeColors
+  variants: ThemeFileVariant[]
+}
+
+interface ThemeFileVariant {
+  name?: string
+  appearance: ThemeAppearance
+  colors: ThemeColors
 }
 
 export interface ThemeImport {
@@ -96,8 +115,12 @@ export function customThemeFromAccount(theme: UserTheme): CustomTheme {
   return {
     id: theme.id,
     name: theme.name,
-    light: theme.light ? completeThemeColors("light", theme.light) : null,
-    dark: theme.dark ? completeThemeColors("dark", theme.dark) : null,
+    variants: theme.variants.map((variant) => ({
+      id: variant.id,
+      name: variant.name,
+      appearance: variant.appearance,
+      colors: completeThemeColors(variant.appearance, variant.colors),
+    })),
     guided: theme.guided,
   }
 }
@@ -105,51 +128,83 @@ export function customThemeFromAccount(theme: UserTheme): CustomTheme {
 export function accountThemeInput(theme: CustomTheme): UserThemeInput {
   return {
     name: theme.name,
-    light: theme.light ? canonicalThemeColors(theme.light) : null,
-    dark: theme.dark ? canonicalThemeColors(theme.dark) : null,
+    variants: theme.variants.map((variant) => ({
+      id: variant.id,
+      name: variant.name,
+      appearance: variant.appearance,
+      colors: canonicalThemeColors(variant.colors),
+    })),
     guided: theme.guided,
   }
 }
 
 export function newCustomThemeId(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(6))
-  return `custom-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`
+  return `custom-${randomHex(6)}`
 }
 
-function customThemeVariantId(
-  themeId: string,
-  appearance: ThemeAppearance,
+/** A variant id that none of `taken` has yet. */
+export function newThemeVariantId(
+  taken: readonly CustomThemeVariant[] = [],
 ): string {
-  return `${themeId}:${appearance}`
+  for (;;) {
+    const id = randomHex(4)
+    if (!taken.some((variant) => variant.id === id)) return id
+  }
+}
+
+/**
+ * The variant's name, or its appearance when it has none. Unnamed variants
+ * of the same appearance are numbered from the second on: "Dark", "Dark 2".
+ */
+export function customVariantLabel(
+  variants: readonly CustomThemeVariant[],
+  variant: CustomThemeVariant,
+): string {
+  const name = variant.name?.trim()
+  if (name) return name
+  const appearance = variant.appearance === "light" ? t("Light") : t("Dark")
+  const number =
+    variants
+      .filter(
+        (candidate) =>
+          !candidate.name?.trim() &&
+          candidate.appearance === variant.appearance,
+      )
+      .findIndex((candidate) => candidate.id === variant.id) + 1
+  return number > 1
+    ? t("{appearance} {number}", { appearance, number })
+    : appearance
 }
 
 export function customThemeFamily(theme: CustomTheme): ThemeFamily {
-  const variants = THEME_APPEARANCES.flatMap((appearance): ThemeVariant[] => {
-    const colors = theme[appearance]
-    return colors
-      ? [
-          {
-            id: customThemeVariantId(theme.id, appearance),
-            label: theme.name,
-            appearance,
-            colors,
-          },
-        ]
-      : []
-  })
   return {
     id: theme.id,
     label: theme.name,
-    variants,
+    variants: theme.variants.map((variant): ThemeVariant => ({
+      id: `${theme.id}:${variant.id}`,
+      label: customVariantLabel(theme.variants, variant),
+      appearance: variant.appearance,
+      colors: variant.colors,
+    })),
     custom: true,
   }
 }
 
 export function serializeThemeFile(theme: ThemeDraft): string {
-  const file: ThemeFile = { version: THEME_FILE_VERSION, name: theme.name }
-  if (theme.light) file.light = theme.light
-  if (theme.dark) file.dark = theme.dark
+  const file: ThemeFile = {
+    version: THEME_FILE_VERSION,
+    name: theme.name,
+    variants: theme.variants.map(themeFileVariant),
+  }
   return `${JSON.stringify(file, null, 2)}\n`
+}
+
+/** Unnamed variants leave the name out, so it reads first when present. */
+function themeFileVariant(variant: CustomThemeVariant): ThemeFileVariant {
+  const { appearance, colors } = variant
+  return variant.name
+    ? { name: variant.name, appearance, colors }
+    : { appearance, colors }
 }
 
 /**
@@ -212,8 +267,14 @@ function parseThemeSource(source: ThemeSource): ThemeDraft | string {
     if (isStringValue(theme)) return theme
     return {
       name: (theme.name ?? fallbackName).slice(0, THEME_NAME_MAX_LENGTH),
-      light: theme.appearance === "light" ? theme.colors : null,
-      dark: theme.appearance === "dark" ? theme.colors : null,
+      variants: [
+        {
+          id: newThemeVariantId(),
+          name: null,
+          appearance: theme.appearance,
+          colors: theme.colors,
+        },
+      ],
     }
   }
   return t("Expected an Alloy or VS Code theme.")
@@ -222,7 +283,10 @@ function parseThemeSource(source: ThemeSource): ThemeDraft | string {
 function parseAlloyThemeFile(
   json: Record<string, ContractJsonValue>,
 ): ThemeDraft | string {
-  if (json.version !== THEME_FILE_VERSION) {
+  if (
+    json.version !== THEME_FILE_VERSION &&
+    json.version !== LEGACY_THEME_FILE_VERSION
+  ) {
     return t("Unsupported theme file version.")
   }
   const name = isStringValue(json.name) ? json.name.trim() : ""
@@ -232,18 +296,62 @@ function parseAlloyThemeFile(
     })
   }
 
-  const draft: ThemeDraft = { name, light: null, dark: null }
+  const variants =
+    json.version === LEGACY_THEME_FILE_VERSION
+      ? parseLegacyThemeVariants(json)
+      : parseThemeVariants(json.variants)
+  if (isStringValue(variants)) return variants
+  if (variants.length === 0) return t("A theme needs light or dark colors.")
+  if (variants.length > MAX_THEME_VARIANTS) {
+    return t("A theme can have at most {max} variants.", {
+      max: MAX_THEME_VARIANTS,
+    })
+  }
+  return { name, variants }
+}
+
+function parseThemeVariants(
+  value: ContractJsonValue | undefined,
+): CustomThemeVariant[] | string {
+  if (!Array.isArray(value)) return t("Expected a list of variants.")
+  const variants: CustomThemeVariant[] = []
+  for (const entry of value) {
+    if (!isObjectRecord(entry)) return t("Expected a list of variants.")
+    const appearance = THEME_APPEARANCES.find(
+      (candidate) => candidate === entry.appearance,
+    )
+    if (!appearance)
+      return t('A variant\'s appearance must be "light" or "dark".')
+    const colors = parseThemeColors(appearance, entry.colors ?? {})
+    if (isStringValue(colors)) return colors
+    variants.push({
+      id: newThemeVariantId(variants),
+      name: variantName(entry.name),
+      appearance,
+      colors,
+    })
+  }
+  return variants
+}
+
+function parseLegacyThemeVariants(
+  json: Record<string, ContractJsonValue>,
+): CustomThemeVariant[] | string {
+  const variants: CustomThemeVariant[] = []
   for (const appearance of THEME_APPEARANCES) {
     const value = json[appearance]
     if (value === undefined) continue
     const colors = parseThemeColors(appearance, value)
     if (isStringValue(colors)) return colors
-    draft[appearance] = colors
+    variants.push({ id: appearance, name: null, appearance, colors })
   }
-  if (!draft.light && !draft.dark) {
-    return t("A theme needs light or dark colors.")
-  }
-  return draft
+  return variants
+}
+
+/** A trimmed name that fits, or null for one that's missing or blank. */
+function variantName(value: ContractJsonValue | undefined): string | null {
+  if (!isStringValue(value)) return null
+  return value.trim().slice(0, THEME_VARIANT_NAME_MAX_LENGTH).trim() || null
 }
 
 function parseThemeColors(
@@ -280,23 +388,32 @@ function parseThemeColors(
 function pairThemeDrafts(drafts: readonly ThemeDraft[]): ThemeDraft[] {
   const paired: ThemeDraft[] = []
   for (const draft of drafts) {
-    const appearance = singleAppearance(draft)
-    const baseName = appearance ? stripAppearanceSuffix(draft.name) : null
+    const variant = singleVariant(draft)
+    const baseName = variant ? stripAppearanceSuffix(draft.name) : null
     const partner =
-      appearance && baseName
+      variant && baseName
         ? paired.find((candidate) => {
-            const candidateAppearance = singleAppearance(candidate)
+            const candidateVariant = singleVariant(candidate)
             return (
-              candidateAppearance !== null &&
-              candidateAppearance !== appearance &&
+              candidateVariant !== null &&
+              candidateVariant.appearance !== variant.appearance &&
               stripAppearanceSuffix(candidate.name)?.toLowerCase() ===
                 baseName.toLowerCase()
             )
           })
         : undefined
-    if (appearance && baseName && partner) {
+    if (variant && baseName && partner) {
+      const added = partner.variants.some(
+        (candidate) => candidate.id === variant.id,
+      )
+        ? { ...variant, id: newThemeVariantId(partner.variants) }
+        : variant
+      // Light first, as the bundled themes list theirs.
+      const variants = [...partner.variants, added]
       partner.name = baseName
-      partner[appearance] = draft[appearance]
+      partner.variants = THEME_APPEARANCES.flatMap((appearance) =>
+        variants.filter((candidate) => candidate.appearance === appearance),
+      )
     } else {
       paired.push({ ...draft })
     }
@@ -304,10 +421,9 @@ function pairThemeDrafts(drafts: readonly ThemeDraft[]): ThemeDraft[] {
   return paired
 }
 
-function singleAppearance(draft: ThemeDraft): ThemeAppearance | null {
-  if (draft.light && !draft.dark) return "light"
-  if (draft.dark && !draft.light) return "dark"
-  return null
+function singleVariant(draft: ThemeDraft): CustomThemeVariant | null {
+  const [variant, ...rest] = draft.variants
+  return variant && rest.length === 0 ? variant : null
 }
 
 function stripAppearanceSuffix(name: string): string | null {
@@ -396,16 +512,47 @@ function normalizeCustomTheme(value: ContractJsonInput): CustomTheme | null {
   }
   if (!isStringValue(name) || !name.trim()) return null
 
-  const light = normalizeStoredColors(value.light)
-  const dark = normalizeStoredColors(value.dark)
-  if (!light && !dark) return null
+  const variants = Array.isArray(value.variants)
+    ? normalizeStoredVariants(value.variants)
+    : // Cached before themes had variants.
+      THEME_APPEARANCES.flatMap((appearance): CustomThemeVariant[] => {
+        const colors = normalizeStoredColors(value[appearance])
+        return colors
+          ? [{ id: appearance, name: null, appearance, colors }]
+          : []
+      })
+  if (variants.length === 0) return null
   return {
     id,
     name: name.trim().slice(0, THEME_NAME_MAX_LENGTH),
-    light,
-    dark,
+    variants,
     guided: value.guided === true,
   }
+}
+
+function normalizeStoredVariants(
+  value: readonly ContractJsonValue[],
+): CustomThemeVariant[] {
+  const variants: CustomThemeVariant[] = []
+  for (const entry of value.slice(0, MAX_THEME_VARIANTS)) {
+    if (!isObjectRecord(entry)) continue
+    const { id } = entry
+    const appearance = THEME_APPEARANCES.find(
+      (candidate) => candidate === entry.appearance,
+    )
+    const colors = normalizeStoredColors(entry.colors)
+    if (
+      !isStringValue(id) ||
+      !UserThemeVariantIdSchema.safeParse(id).success ||
+      variants.some((existing) => existing.id === id) ||
+      !appearance ||
+      !colors
+    ) {
+      continue
+    }
+    variants.push({ id, name: variantName(entry.name), appearance, colors })
+  }
+  return variants
 }
 
 function normalizeStoredColors(value: ContractJsonValue): ThemeColors | null {
@@ -416,4 +563,10 @@ function normalizeStoredColors(value: ContractJsonValue): ThemeColors | null {
   }
   if (!THEME_COLOR_ROLES.every(stored)) return null
   return themeColorsFrom((role) => stored(role) ?? "")
+}
+
+function randomHex(bytes: number): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("")
 }

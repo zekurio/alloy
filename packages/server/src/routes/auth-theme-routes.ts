@@ -9,7 +9,6 @@ import { updateUserThemePreferences } from "@alloy/server/auth/identity"
 import { publicAuthUserRow } from "@alloy/server/auth/security-responses"
 import { requireSession } from "@alloy/server/auth/session"
 import {
-  badRequest,
   badRequestFromCause,
   conflict,
   success,
@@ -65,14 +64,10 @@ export const authThemeRoutes = new Hono()
     tbValidator("param", UserThemeParam),
     tbValidator("json", UserThemeInputSchema),
     async (c) => {
-      const input = c.req.valid("json")
-      if (!input.light && !input.dark) {
-        return badRequest(c, "A theme needs light or dark colors.")
-      }
       const theme = await saveUserTheme(
         c.var.viewerId,
         c.req.valid("param").id,
-        input,
+        c.req.valid("json"),
       )
       if (!theme) {
         return conflict(c, `You can save up to ${MAX_USER_THEMES} themes.`)
