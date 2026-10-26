@@ -1,4 +1,4 @@
-import type { UserThemeColors } from "@alloy/contracts"
+import type { UserThemeVariant } from "@alloy/contracts"
 import { sql } from "drizzle-orm"
 import {
   boolean,
@@ -14,7 +14,8 @@ import {
 import { user } from "./auth"
 
 // A user's own color themes. The client makes the ids, so they're only
-// unique per user; the theme choice in user.theme_preferences refers to them.
+// unique per user; the theme choice in user.theme_preferences refers to them
+// as `<theme id>:<variant id>`.
 export const userTheme = pgTable(
   "user_theme",
   {
@@ -23,8 +24,7 @@ export const userTheme = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     id: text().notNull(),
     name: text().notNull(),
-    light: jsonb().$type<UserThemeColors>(),
-    dark: jsonb().$type<UserThemeColors>(),
+    variants: jsonb().$type<UserThemeVariant[]>().notNull(),
     guided: boolean().notNull().default(false),
     created_at: timestamp().notNull().defaultNow(),
     updated_at: timestamp().notNull().defaultNow(),
@@ -32,8 +32,8 @@ export const userTheme = pgTable(
   (t) => [
     primaryKey({ columns: [t.user_id, t.id] }),
     check(
-      "user_theme_appearance_check",
-      sql`${t.light} is not null or ${t.dark} is not null`,
+      "user_theme_variants_check",
+      sql`jsonb_typeof(${t.variants}) = 'array' and jsonb_array_length(${t.variants}) > 0`,
     ),
   ],
 )

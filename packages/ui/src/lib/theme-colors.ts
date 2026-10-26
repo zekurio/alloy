@@ -1,4 +1,4 @@
-import type { ThemeColorRole } from "@alloy/contracts"
+import type { ThemeAppearance, ThemeColorRole } from "@alloy/contracts"
 import { formatCssColor, parseCssColor, type Rgba } from "@alloy/ui/lib/color"
 import {
   BLACK,
@@ -21,14 +21,14 @@ import {
  * translucent accent fills, status tints, unused ramp steps) is derived.
  */
 
-export type ThemeAppearance = "dark" | "light"
-export const THEME_APPEARANCES = [
-  "light",
-  "dark",
-] as const satisfies readonly ThemeAppearance[]
-
-// The role list is part of the theme contract the server validates.
-export { THEME_COLOR_ROLES, type ThemeColorRole } from "@alloy/contracts"
+// The appearances and the role list are part of the theme contract the server
+// validates.
+export {
+  THEME_APPEARANCES,
+  THEME_COLOR_ROLES,
+  type ThemeAppearance,
+  type ThemeColorRole,
+} from "@alloy/contracts"
 
 /** A complete palette: one CSS color per role. */
 export interface ThemeColors {

@@ -32,8 +32,7 @@ export async function saveUserTheme(
 ): Promise<UserTheme | null> {
   const values = {
     name: input.name,
-    light: input.light,
-    dark: input.dark,
+    variants: input.variants,
     guided: input.guided,
   }
   const mine = and(eq(userTheme.user_id, userId), eq(userTheme.id, id))
@@ -78,8 +77,7 @@ function publicUserTheme(row: UserThemeRow): UserTheme | null {
   const parsed = UserThemeSchema.safeParse({
     id: row.id,
     name: row.name,
-    light: row.light,
-    dark: row.dark,
+    variants: row.variants,
     guided: row.guided,
   })
   return parsed.success ? parsed.data : null

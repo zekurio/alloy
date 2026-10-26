@@ -230,7 +230,11 @@ export function setCustomThemes(themes: readonly CustomTheme[]): void {
   refresh()
 }
 
-/** Adds the theme, or replaces the stored one with the same id. */
+/**
+ * Adds the theme, or replaces the stored one with the same id. An appearance
+ * that used a variant the edit removed moves to the theme's first variant
+ * for it, or back to Alloy.
+ */
 export function saveCustomTheme(theme: CustomTheme): void {
   const exists = customThemes.some((candidate) => candidate.id === theme.id)
   customThemes = writeCustomThemes(
@@ -240,7 +244,25 @@ export function saveCustomTheme(theme: CustomTheme): void {
         )
       : [...customThemes, theme],
   )
-  refresh()
+
+  const family = customThemeFamily(theme)
+  const next = { ...preferences }
+  let moved = false
+  for (const appearance of THEME_APPEARANCES) {
+    const chosen = next[appearance]
+    if (
+      !chosen.startsWith(`${theme.id}:`) ||
+      findVariant([family], chosen, appearance)
+    ) {
+      continue
+    }
+    next[appearance] =
+      themeFamilyDefault(family, appearance)?.id ??
+      DEFAULT_THEME_VARIANT_IDS[appearance]
+    moved = true
+  }
+  if (moved) savePreferences(next)
+  else refresh()
 }
 
 /** Removes a custom theme; appearances that used it fall back to Alloy. */

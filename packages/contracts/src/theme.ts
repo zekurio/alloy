@@ -3,6 +3,9 @@ import { t } from "./schema"
 export const THEME_MODES = ["system", "light", "dark"] as const
 export type ThemeMode = (typeof THEME_MODES)[number]
 
+export const THEME_APPEARANCES = ["light", "dark"] as const
+export type ThemeAppearance = (typeof THEME_APPEARANCES)[number]
+
 /** Lowercase `#rrggbb`, the only form themes store colors in. */
 export const HexColorSchema = t.string().regex(/^#[0-9a-f]{6}$/)
 
@@ -37,7 +40,10 @@ export type SyncedThemePreferences = t.infer<
 >
 
 export const THEME_NAME_MAX_LENGTH = 48
+export const THEME_VARIANT_NAME_MAX_LENGTH = 32
 export const MAX_USER_THEMES = 50
+/** Room for a light variant and several dark ones, as Catppuccin has. */
+export const MAX_THEME_VARIANTS = 8
 
 /**
  * Made by the client, so saving is an idempotent PUT and the synced theme
@@ -106,11 +112,36 @@ export const THEME_COLOR_ROLES = [
 ] as const satisfies readonly (keyof UserThemeColors)[]
 export type ThemeColorRole = (typeof THEME_COLOR_ROLES)[number]
 
-/** A custom theme as saved: at least one of light and dark is set. */
+/**
+ * Made by the client and unique within its theme. The synced theme choice
+ * points at a variant as `<theme id>:<variant id>`. Themes saved before
+ * variants existed have `light` and `dark`.
+ */
+export const UserThemeVariantIdSchema = t.string().regex(/^[a-z0-9]{1,16}$/)
+
+/** One palette of a custom theme, made for light or dark mode. */
+export const UserThemeVariantSchema = t.object({
+  id: UserThemeVariantIdSchema,
+  /** Null names it by its appearance, such as "Dark" or "Dark 2". */
+  name: t.string().trim().min(1).max(THEME_VARIANT_NAME_MAX_LENGTH).nullable(),
+  appearance: t.enum(THEME_APPEARANCES),
+  colors: UserThemeColorsSchema,
+})
+
+export type UserThemeVariant = t.infer<typeof UserThemeVariantSchema>
+
+/** A custom theme as saved: one or more variants, in the order they show. */
 export const UserThemeInputSchema = t.object({
   name: t.string().trim().min(1).max(THEME_NAME_MAX_LENGTH),
-  light: UserThemeColorsSchema.nullable(),
-  dark: UserThemeColorsSchema.nullable(),
+  variants: t
+    .array(UserThemeVariantSchema)
+    .min(1)
+    .max(MAX_THEME_VARIANTS)
+    .refine(
+      (variants) =>
+        new Set(variants.map((variant) => variant.id)).size === variants.length,
+      "variant ids must be unique",
+    ),
   /** Saved from the guided editor, which only asks for background and accent. */
   guided: t.boolean(),
 })

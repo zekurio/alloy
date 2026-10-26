@@ -2,18 +2,21 @@ import type { TranslationCatalog } from "../catalog"
 
 export const SETTINGS_MESSAGES = {
   '"{value}" isn\'t a color.': "„{value}“ ist keine Farbe.",
+  "A theme can have at most {max} variants.":
+    "Ein Theme kann höchstens {max} Varianten haben.",
   "A theme needs a name of 1 to {max} characters.":
     "Ein Theme braucht einen Namen mit 1 bis {max} Zeichen.",
   "A theme needs light or dark colors.":
     "Ein Theme braucht helle oder dunkle Farben.",
+  'A variant\'s appearance must be "light" or "dark".':
+    "Die „appearance“ einer Variante muss „light“ oder „dark“ sein.",
   Accent: "Akzent",
   "Accent color": "Akzentfarbe",
   "Accent hover": "Akzent beim Überfahren",
   "Accent pressed": "Akzent gedrückt",
   "Add a theme": "Theme hinzufügen",
-  "Add dark version": "Dunkle Version hinzufügen",
-  "Add light version": "Helle Version hinzufügen",
   "Add theme": "Theme hinzufügen",
+  "Add variant": "Variante hinzufügen",
   "Added {count} theme": "{count} Theme hinzugefügt",
   "Added {count} themes": "{count} Themes hinzugefügt",
   "Announce my clips": "Meine Clips ankündigen",
@@ -58,6 +61,7 @@ export const SETTINGS_MESSAGES = {
   Danger: "Gefahr",
   Dark: "Dunkel",
   "Dark mode accent": "Akzent im dunklen Modus",
+  "Dark variant": "Dunkle Variante",
   "Delete theme": "Theme löschen",
   "Delete theme?": "Theme löschen?",
   "Dim accent": "Gedämpfter Akzent",
@@ -65,10 +69,12 @@ export const SETTINGS_MESSAGES = {
   "Drop Alloy or VS Code .json files here.":
     "Ziehe Alloy- oder VS-Code-.json-Dateien hierher.",
   Duplicate: "Duplizieren",
+  "Duplicate variant": "Variante duplizieren",
   "Duplicate {theme}": "{theme} duplizieren",
   "Edit theme": "Theme bearbeiten",
   "Emphasis border": "Betonter Rahmen",
   Expand: "Ausklappen",
+  "Expected a list of variants.": "Erwartet wurde eine Liste von Varianten.",
   "Expected a theme object.": "Erwartet wurde ein Theme-Objekt.",
   "Expected an Alloy or VS Code theme.":
     "Erwartet wurde ein Alloy- oder VS-Code-Theme.",
@@ -94,6 +100,7 @@ export const SETTINGS_MESSAGES = {
     "Erlaube diesem Server, deine öffentlichen Clips an seine konfigurierten Webhooks zu senden.",
   Light: "Hell",
   "Light mode accent": "Akzent im hellen Modus",
+  "Light variant": "Helle Variante",
   Live: "Live",
   "Muted text": "Gedämpfter Text",
   "No settings found.": "Keine Einstellungen gefunden.",
@@ -104,8 +111,7 @@ export const SETTINGS_MESSAGES = {
     "Wähle zwei Farben, Alloy leitet den Rest ab.",
   Preferences: "Einstellungen",
   "Raised surface": "Erhöhte Fläche",
-  "Remove dark version": "Dunkle Version entfernen",
-  "Remove light version": "Helle Version entfernen",
+  "Remove variant": "Variante entfernen",
   "Save theme": "Theme speichern",
   "Search settings": "Einstellungen durchsuchen",
   Settings: "Einstellungen",
@@ -133,10 +139,6 @@ export const SETTINGS_MESSAGES = {
   "This VS Code theme doesn't set an editor background.":
     "Dieses VS-Code-Theme legt keinen Editor-Hintergrund fest.",
   "This isn't valid JSON.": "Das ist kein gültiges JSON.",
-  "This theme has no dark version yet.":
-    "Dieses Theme hat noch keine dunkle Version.",
-  "This theme has no light version yet.":
-    "Dieses Theme hat noch keine helle Version.",
   'Unknown theme color "{key}".': "Unbekannte Theme-Farbe „{key}“.",
   "Unsupported theme file version.":
     "Diese Version der Theme-Datei wird nicht unterstützt.",
@@ -146,11 +148,14 @@ export const SETTINGS_MESSAGES = {
     "{theme} für hellen und dunklen Modus verwenden",
   "Used in dark mode": "Im dunklen Modus verwendet",
   "Used in light mode": "Im hellen Modus verwendet",
+  "Variant name": "Variantenname",
+  Variants: "Varianten",
   Warning: "Warnung",
   "You have unsaved changes.": "Du hast ungespeicherte Änderungen.",
   "You have unsaved settings — save or discard them first.":
     "Du hast ungespeicherte Einstellungen – speicher oder verwirf sie zuerst.",
   "e.g. Aurora": "z. B. Aurora",
+  "{appearance} {number}": "{appearance} {number}",
   "{count} variant": "{count} Variante",
   "{count} variants": "{count} Varianten",
   "{file}: {error}": "{file}: {error}",
@@ -161,7 +166,7 @@ export const SETTINGS_MESSAGES = {
   "{label} saturation and brightness": "Sättigung und Helligkeit für {label}",
   "{saturation}% saturation, {brightness}% brightness":
     "{saturation} % Sättigung, {brightness} % Helligkeit",
-  "{theme} ({appearance})": "{theme} ({appearance})",
+  "{theme} ({variant})": "{theme} ({variant})",
   "{theme} copy": "{theme} (Kopie)",
   "{theme} will be deleted from your account. Modes that use it go back to Alloy.":
     "{theme} wird aus deinem Konto gelöscht. Modi, die es nutzen, wechseln zurück zu Alloy.",
