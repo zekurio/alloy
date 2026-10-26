@@ -34,8 +34,9 @@ pnpm dev
 ```
 
 `pnpm dev` pushes the Drizzle schema and starts the API server plus the Vite
-web app. `pnpm dev:all` also starts the Tauri desktop shell. The recorder
-sidecar (`packages/desktop/recorder`) is Rust and only builds on Windows.
+web app. `pnpm dev:all` also starts the Electron desktop shell, which builds
+its Rust addon first, so it needs a Rust toolchain. The recorder sidecar
+(`packages/desktop/recorder`) only records on Windows for now.
 
 Never use npm, yarn, or Bun in this repo.
 
@@ -74,7 +75,7 @@ validation in the PR. Native integration tests and the Nix security test remain.
 3. CI runs formatting, lint, typecheck, and a server/web build. Changes that
    touch Nix files, the lockfile, or the root manifests also run a Nix flake
    check, and devenv changes build the development shell. Desktop changes
-   additionally build the Tauri host, the recorder, and the Windows installer.
+   additionally check the Rust crates and build the Windows installer.
 
 Releases are tagged from `dev` by maintainers; see
 [RELEASING.md](RELEASING.md) for the release process.

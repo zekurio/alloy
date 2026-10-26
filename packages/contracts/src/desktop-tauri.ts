@@ -19,8 +19,9 @@ export type DesktopTauriConnectResult = t.infer<
 >
 
 /**
- * Tauri rejects native commands with a user-facing error message. Only strings
- * qualify; `t.string()` alone would coerce `null` or a number into one.
+ * The desktop host rejects native commands with a user-facing error message.
+ * Only strings qualify; `t.string()` alone would coerce `null` or a number
+ * into one.
  */
 export const DesktopTauriErrorSchema = t.preprocess(
   (value) => (isStringValue(value) ? value : undefined),

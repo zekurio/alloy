@@ -99,7 +99,10 @@ export const ServerInfoSchema = t.looseObject({
   /** Informational application SemVer. Compatibility never uses this value. */
   version: InformationalVersionSchema,
   httpContracts: t.array(PositiveSafeIntegerSchema),
-  /** Tauri shell contracts understood by the server-hosted web app. */
+  /**
+   * Desktop bridge contracts (`window.alloyTauriDesktop`) understood by the
+   * server-hosted web app. The names date from the Tauri host.
+   */
   desktopTauriBridgeContracts: t.array(PositiveSafeIntegerSchema),
   capabilities: DesktopHttpCapabilitiesSchema,
   uploadLimits: UploadLimitsSchema.$default(DEFAULT_UPLOAD_LIMITS),

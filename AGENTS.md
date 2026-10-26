@@ -1,7 +1,8 @@
 # Alloy
 
 Alloy is a self-hosted Medal.tv alternative: a React web app, Hono server,
-and Tauri desktop app with a Windows-only Rust OBS recorder.
+and Electron desktop app whose native work is in Rust, with a Windows-only
+Rust OBS recorder.
 
 Use package READMEs for subsystem-specific setup and conventions.
 Refactor when it simplifies the requested change; preserve compatibility
@@ -17,8 +18,9 @@ Leave unrelated working-tree changes alone.
   under `@alloy/contracts/desktop`. `packages/primitives`: shared scalars.
 - `packages/env`: env parsing and `.env` loading. `packages/logging`: logger.
   `packages/i18n`: English-keyed message catalogs.
-- `packages/desktop`: Tauri host (`src-tauri`), renderer, and the Rust
-  `recorder` (OBS sidecar).
+- `packages/desktop`: Electron shell (`src/main`, `src/preload`, and the
+  connect screen in `src/connect`), the Rust `host` library and the napi-rs
+  `native` addon that loads it, and the Rust `recorder` (OBS sidecar).
 - `scripts`: release tooling. `tools/oxlint`: custom lint rules. `nix`: package
   and NixOS module. `.github/gardener`: PR/issue upkeep bot.
 
@@ -29,10 +31,11 @@ Leave unrelated working-tree changes alone.
 - Run `pnpm verify` before completing code changes. Unit tests have been
   removed; E2E testing is planned but not configured yet. Validate affected
   workflows manually until E2E coverage is available.
-- For Rust changes, run these checks from the repo root. Both desktop crates
-  require Windows to build and run Clippy:
+- For Rust changes, run these checks from the repo root:
   `cargo fmt --all --check` and
   `cargo clippy --workspace --all-targets --locked -- -D warnings`.
+  The crates build on Linux and Windows; only Windows records and builds the
+  installer.
 - For schema changes, generate migrations with a descriptive snake_case name,
   e.g. `pnpm db:generate --name session_tokens`, never Drizzle's random
   default. Never edit a migration's SQL after it merges; add a new one instead.
@@ -48,9 +51,12 @@ Leave unrelated working-tree changes alone.
 - Keep OBS in the recorder process. Define sidecar wire types once in
   `packages/desktop/recorder/src/types.rs` and import them in the host.
 - Native commands must validate inputs and the calling window's selected origin.
+  Keep the bridge `window.alloyTauriDesktop` and its contract IDs as they are:
+  the server-hosted web app reads them, and it works with older desktop builds.
   Separate local connection permissions from remote window permissions, and ignore
   unsupported native bridge contracts in browsers.
-- Use same-origin requests with HttpOnly cookies in the WebView, not an API proxy.
+- Use same-origin requests with HttpOnly cookies in the server window, not an
+  API proxy.
   Derive native download targets from the selected server and a validated clip ID,
   never a renderer-supplied origin.
 - Match desktop/server compatibility IDs exactly through `/api/server-info`.

@@ -131,8 +131,8 @@ pub fn logged<E: std::error::Error>(message: &'static str) -> impl FnOnce(E) -> 
     }
 }
 
-/// An error followed by its sources. reqwest and Tauri keep the underlying
-/// TLS, DNS, or WebView failure in the source chain, not in their own text.
+/// An error followed by its sources. reqwest keeps the underlying TLS or DNS
+/// failure in the source chain, not in its own text.
 pub fn describe(error: &dyn std::error::Error) -> String {
     let mut text = error.to_string();
     let mut source = error.source();

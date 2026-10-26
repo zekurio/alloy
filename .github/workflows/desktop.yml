@@ -13,11 +13,11 @@ on:
       - "packages/desktop/**"
       - "Cargo.toml"
       - "Cargo.lock"
-      # `tests/connection.rs` embeds this fixture; the installer ships the logo.
-      - "packages/contracts/fixtures/**"
+      # The installer ships the logo.
       - "public/logo.png"
-      # The installer bundles the shell, which these packages build into.
-      - "packages/desktop-contracts/**"
+      # The installer bundles the shell, which these packages build into;
+      # `tests/connection.rs` also embeds a contracts fixture.
+      - "packages/contracts/**"
       - "packages/i18n/**"
       - "packages/primitives/**"
       - "packages/ui/**"
