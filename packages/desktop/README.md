@@ -106,8 +106,11 @@ only on loopback; other servers require HTTPS.
 
 ### Linux
 
-The shell runs on Linux for development; Linux recording and packages come
-later, so the recorder reports itself missing. devenv provides Rust,
+The shell runs on Linux for development; Linux recording (through OBS, as on
+Windows) and packages come later, so until then the recorder reports itself
+missing. The host hands the agent `resources/obs-runtime`, or
+`ALLOY_OBS_RUNTIME_DIR` when set; without libobs there, the agent uses the
+system's OBS. devenv provides Rust,
 `pkg-config`, and ALSA for the addon. The Electron binary npm downloads does
 not run on NixOS, so devenv sets `ELECTRON_EXEC_PATH` to nixpkgs' Electron,
 which can trail the pinned version by a few releases. Media tools come from

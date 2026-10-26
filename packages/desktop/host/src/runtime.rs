@@ -109,18 +109,17 @@ impl DesktopRuntime {
             .unwrap_or_else(|| {
                 native_root.join(format!("agent/alloy-agent{}", std::env::consts::EXE_SUFFIX))
             });
-        // Only the Windows recorder runs on OBS.
-        let obs = cfg!(windows).then(|| {
-            std::env::var_os("ALLOY_OBS_RUNTIME_DIR")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| native_root.join("obs-runtime"))
-        });
+        // The recorder loads libobs from this folder. On Linux it falls back
+        // to the system's OBS when the folder holds none.
+        let obs = std::env::var_os("ALLOY_OBS_RUNTIME_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| native_root.join("obs-runtime"));
         let recorder = RecorderHost::new(
             RecorderHostOptions::new(executable, &data)
                 .cache_dir(&cache)
                 .output_folder(&output)
                 .replay_scratch_folder(replay_scratch_dir)
-                .obs_runtime_dir(obs),
+                .obs_runtime_dir(Some(obs)),
         )
         .map_err(error)?;
         let default_output = output.clone();
