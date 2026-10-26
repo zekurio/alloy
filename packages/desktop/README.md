@@ -31,21 +31,84 @@ its game identity for replays saved during the post-close grace period.
 The host imports `recorder/src/{types,protocol,settings,names}.rs`. Keep these
 platform-neutral and keep the JSON wire types in `types.rs`.
 
-The Windows-only process lives under `recorder/src/agent/`:
+The agent process lives under `recorder/src/agent/`:
 
 - `runtime.rs` dispatches requests and publishes status snapshots.
-- `recorder/` owns capture state, output lifetime, replay files, and screenshots.
-  Its state is private; the runtime calls its configure, status, tick, save, and
-  shutdown methods.
-- `obs/` loads libobs and configures sources and encoders. FFI declarations live
-  in `obs/bindings.rs`; it does not depend on recorder state.
-- `platform/` handles Windows discovery, game matching, COM, audio metering, and
-  hotkeys. It does not depend on the recorder or libobs.
-- `events.rs` writes protocol events; `time.rs` holds shared timestamp helpers.
+- `recorder/` owns capture state, output lifetime, replay files, and
+  screenshots. Its state is private; the runtime calls its configure, status,
+  tick, save, and shutdown methods.
+- `obs/` loads libobs and configures sources and encoders. FFI declarations
+  live in `obs/bindings.rs`; `obs/platform/` holds each platform's source ids,
+  module list, and runtime layout. It does not depend on recorder state.
+- `platform/` discovers games, displays, GPUs, and audio, meters audio levels,
+  and hooks hotkeys: Win32, WASAPI, and COM on Windows, `/proc`, sysfs, and
+  PulseAudio in `platform/linux/`. It does not depend on the recorder or
+  libobs.
+- `game_matching.rs` matches processes against the Discord catalog and the
+  allow and deny lists. `quality.rs` resolves resolution, frame rate, and
+  bitrate.
+- `events.rs` owns the protocol output; `time.rs` holds shared timestamp
+  helpers.
 
 Use Rust modules and explicit imports, not textual `include!` files or a shared
 import prelude. Keep implementation types private to their owning module unless
 a caller needs them.
+
+### Linux recorder
+
+The agent loads libobs from `ALLOY_OBS_RUNTIME_DIR`, an installed prefix with
+`lib/libobs.so.0`, `lib/obs-plugins`, and `share/obs`, or from the system. It
+opens only the modules it needs, from that prefix, `OBS_PLUGINS_PATH`, the
+system, or `~/.config/obs-studio/plugins`. `nix build .#alloy-obs-runtime`
+builds a matching prefix with every plugin below and libpulse.
+
+- Game capture uses
+  [obs-vkcapture](https://github.com/nowrep/obs-vkcapture), which captures
+  Vulkan and OpenGL games directly on Wayland and X11. A game only connects
+  when its Vulkan loader finds the layer and `OBS_VKCAPTURE=1` is set in its
+  environment; OpenGL games need the `obs-gamecapture` wrapper. The source
+  matches the name the layer reports: the Wine program's `comm` (its
+  executable, cut to 15 bytes) for Proton games, the executable's file name
+  for native ones. A game that sends no frames within two minutes falls back
+  to display capture. Only one process can host obs-vkcapture at a time, so
+  OBS Studio with the plugin and Alloy exclude each other.
+- Display capture on Wayland goes through the screen-sharing portal (OBS's
+  `linux-pipewire`). The dialog asks once; the portal's restore token is kept
+  in the agent state folder, so later sessions reopen the chosen screen. The
+  agent runs a GLib main loop for the portal's D-Bus replies, and stops the
+  buffer if no picture arrives within two minutes. On X11 it captures a RandR
+  monitor with OBS's `linux-capture`, listed through `xrandr`.
+- Audio devices come from PulseAudio (or PipeWire's PulseAudio server) through
+  OBS's `linux-pulseaudio`, keyed by source name: a sink's monitor for an
+  output. Application audio uses
+  [obs-pipewire-audio-capture](https://github.com/dimtpap/obs-pipewire-audio-capture),
+  matched by binary or, for Wine, by the application name Wine reports. The
+  agent lists devices and applications and meters their levels through
+  libpulse.
+- GPUs are DRM render nodes; the selected one is the VAAPI device. OBS's
+  NVENC and QSV encoders work as on Windows.
+- `ffmpeg_muxer` and `replay_buffer` start OBS's `obs-ffmpeg-mux` from the
+  agent's folder, so it has to be installed beside `alloy-agent`;
+  `build-agent.mjs` links it. Protocol output goes to a private copy of
+  stdout, since the helper prints to the stdout it inherits.
+- The agent registers no hotkeys, since Wayland gives applications no global
+  key hook. It leaves `hotkeys` out of `capabilities`, and the web hides the
+  hotkey fields. Binding the shortcuts through the GlobalShortcuts portal is
+  left to the shell, which does not do it yet.
+
+The agent, libobs, and the graphics drivers must share one glibc. On NixOS,
+build them from the same nixpkgs as the system. Games need obs-vkcapture's
+layer, 32-bit too for 32-bit games, and the variable:
+
+```nix
+{
+  hardware.graphics.extraPackages = [ pkgs.obs-studio-plugins.obs-vkcapture ];
+  hardware.graphics.extraPackages32 = [
+    pkgs.pkgsi686Linux.obs-studio-plugins.obs-vkcapture
+  ];
+  environment.sessionVariables.OBS_VKCAPTURE = "1";
+}
+```
 
 ## Capture library media work
 
@@ -82,9 +145,10 @@ starts its tools through `work.rs`, never through its own `Command`:
 
 ## Run
 
-Requires Node 24, the pinned pnpm version, and Rust. Recording and the
-installer also need Windows with the C++ build tools. Start a compatible Alloy
-server, then run from the repository root:
+Requires Node 24, the pinned pnpm version, and Rust. The installer also needs
+Windows with the C++ build tools; recording works on Windows and on Linux (see
+[Linux](#linux)). Start a compatible Alloy server, then run from the
+repository root:
 
 ```sh
 pnpm install
@@ -92,7 +156,7 @@ pnpm desktop:obs:install --version 32.1.2   # Windows only
 pnpm desktop:dev
 ```
 
-`desktop:dev` stages the recorder and FFmpeg on Windows, builds the addon,
+`desktop:dev` builds the recorder, stages FFmpeg on Windows, builds the addon,
 downloads Electron if needed, and starts the shell with the connect screen
 served by Vite. Changes to the main process or preloads restart the app.
 
@@ -107,18 +171,17 @@ only on loopback; other servers require HTTPS.
 
 ### Linux
 
-The shell runs on Linux for development; Linux recording (through OBS, as on
-Windows) and packages come later, so until then the recorder reports itself
-missing. The host hands the agent `resources/obs-runtime`, or
+The shell runs and records on Linux for development; packages come later. See
+[Linux recorder](#linux-recorder) for the OBS runtime and the plugins games
+need. The host hands the agent `resources/obs-runtime`, or
 `ALLOY_OBS_RUNTIME_DIR` when set; without libobs there, the agent uses the
-system's OBS. devenv provides Rust,
-`pkg-config`, and ALSA for the addon. The Electron binary npm downloads does
-not run on NixOS, so devenv sets `ELECTRON_EXEC_PATH` to nixpkgs' Electron,
-which can trail the pinned version by a few releases. Media tools come from
-`PATH` unless `ALLOY_FFMPEG` and `ALLOY_FFPROBE` point elsewhere. Folders follow
-XDG: data in `~/.local/share/dev.zekurio.alloy`, caches in
-`~/.cache/dev.zekurio.alloy`, the browser profile in
-`~/.config/dev.zekurio.alloy`.
+system's OBS. devenv provides Rust, `pkg-config`, and ALSA for the addon. The
+Electron binary npm downloads does not run on NixOS, so devenv sets
+`ELECTRON_EXEC_PATH` to nixpkgs' Electron, which can trail the pinned version
+by a few releases. Media tools come from `PATH` unless `ALLOY_FFMPEG` and
+`ALLOY_FFPROBE` point elsewhere. Folders follow XDG: data in
+`~/.local/share/dev.zekurio.alloy`, caches in `~/.cache/dev.zekurio.alloy`,
+the browser profile in `~/.config/dev.zekurio.alloy`.
 
 ## Build and check
 

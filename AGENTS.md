@@ -1,8 +1,8 @@
 # Alloy
 
 Alloy is a self-hosted Medal.tv alternative: a React web app, Hono server,
-and Electron desktop app whose native work is in Rust, with a Windows-only
-Rust OBS recorder.
+and Electron desktop app whose native work is in Rust, with a Rust OBS
+recorder for Windows and Linux.
 
 Use package READMEs for subsystem-specific setup and conventions.
 Refactor when it simplifies the requested change; preserve compatibility
@@ -35,7 +35,7 @@ Leave unrelated working-tree changes alone.
 - For Rust changes, run these checks from the repo root:
   `cargo fmt --all --check` and
   `cargo clippy --workspace --all-targets --locked -- -D warnings`.
-  The crates build on Linux and Windows; only Windows records and builds the
+  The crates build and record on Linux and Windows; only Windows builds the
   installer.
 - For schema changes, generate migrations with a descriptive snake_case name,
   e.g. `pnpm db:generate --name session_tokens`, never Drizzle's random
