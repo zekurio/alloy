@@ -11,12 +11,24 @@ export function attachLogSink(addon: NativeAddon): void {
   sink = addon
 }
 
+/** An error's message followed by its causes, as the native log writes them. */
+function describe(error: Error): string {
+  let text = error.message
+  let cause = error.cause
+  while (cause instanceof Error) {
+    text += `: ${cause.message}`
+    cause = cause.cause
+  }
+  return text
+}
+
 function write(
   level: LogLevel,
   message: string,
   values: readonly Error[],
 ): void {
-  const line = values.length > 0 ? format(message, ...values) : message
+  const line =
+    values.length > 0 ? format(message, ...values.map(describe)) : message
   if (sink) sink.log(level, line)
   else process.stderr.write(`${level.toUpperCase()} ${line}\n`)
 }

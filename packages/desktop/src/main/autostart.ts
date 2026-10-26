@@ -1,8 +1,6 @@
 import type { DesktopAutostartState } from "@alloy/contracts/desktop-autostart"
 import { app } from "electron"
 
-import { log } from "./log"
-
 /**
  * The login item passes this, and such a start stays in the tray with no
  * window. The NSIS installer writes the same command.
@@ -10,7 +8,7 @@ import { log } from "./log"
 export const AUTOSTART_ARGUMENT = "--autostart"
 /**
  * The registry value under `HKCU\...\CurrentVersion\Run`. The Tauri host
- * registered the same name, so an existing choice carries over, and the
+ * registered the same name, so an existing choice carries over; the
  * installer points it at the new executable.
  */
 const LOGIN_ITEM_NAME = "Alloy"
@@ -24,9 +22,10 @@ function supported(): boolean {
   return app.isPackaged && process.platform === "win32"
 }
 
+/** Electron lists the Run entries that start this executable. */
 function loginItem() {
   return app
-    .getLoginItemSettings({ args: [AUTOSTART_ARGUMENT] })
+    .getLoginItemSettings()
     .launchItems.find(
       (item) => item.name.toLowerCase() === LOGIN_ITEM_NAME.toLowerCase(),
     )
@@ -58,21 +57,4 @@ export function setAutostartEnabled(enabled: boolean): DesktopAutostartState {
     throw new Error("Couldn't update the startup setting.")
   }
   return state
-}
-
-/**
- * Points an enabled login item at this executable when it names another
- * one, for example the Tauri build this install replaced.
- */
-export function repairAutostart(): void {
-  if (!supported()) return
-  const item = loginItem()
-  if (
-    !item?.enabled ||
-    item.path.toLowerCase() === process.execPath.toLowerCase()
-  ) {
-    return
-  }
-  log.info("Pointing the login item at the current executable.")
-  setAutostartEnabled(true)
 }

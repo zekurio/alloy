@@ -3,7 +3,7 @@ import { app, dialog, Menu } from "electron"
 import { z } from "zod"
 
 import { RECORDING_EVENT_CHANNEL, UPDATES_EVENT_CHANNEL } from "../shared/ipc"
-import { launchedAtLogin, repairAutostart } from "./autostart"
+import { launchedAtLogin } from "./autostart"
 import { restoreSavedServer } from "./connection"
 import { Host } from "./host"
 import { registerIpc } from "./ipc"
@@ -128,7 +128,6 @@ async function start(
   if (!host.preferences.currentServer() && !startsInTray) showConnect(host)
   createTray(host, () => requestQuit(host))
   updates.startBackgroundChecks()
-  repairAutostart()
   void restoreSavedServer(host, !startsInTray)
 }
 

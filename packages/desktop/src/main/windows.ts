@@ -368,7 +368,7 @@ export function createRemoteWindow(
     window.hide()
   })
   window.on("closed", () => {
-    if (!host.clearRemote(generation)) return
+    if (!host.clearRemote(generation) || host.quitting) return
     const runtime = host.runtime
     void (runtime ? runtime.selectServer(null) : Promise.resolve())
       .catch(() => undefined)
