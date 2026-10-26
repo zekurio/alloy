@@ -6,7 +6,7 @@ import {
   type RecordingCodec,
   type RecordingSettings,
   type RecordingStatus,
-} from "@alloy/desktop-contracts"
+} from "@alloy/contracts/desktop"
 import { t } from "@alloy/i18n"
 import { Field, FieldLabel } from "@alloy/ui/components/field"
 

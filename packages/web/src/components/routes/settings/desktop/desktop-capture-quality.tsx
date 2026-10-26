@@ -1,7 +1,7 @@
 import {
   RECORDING_BUFFER_STORAGE,
   type RecordingSettings,
-} from "@alloy/desktop-contracts"
+} from "@alloy/contracts/desktop"
 import { t } from "@alloy/i18n"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Slider } from "@alloy/ui/components/slider"

@@ -1,5 +1,4 @@
 import { TAURI_DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
-import { z } from "zod"
 
 import type {
   AlloyDesktopRecordingApi,
@@ -7,27 +6,35 @@ import type {
 } from "./desktop-api"
 import type { AlloyDesktopAutostartApi } from "./desktop-autostart"
 import type { AlloyDesktopUpdatesApi } from "./desktop-update"
+import { isStringValue } from "./object"
+import { t } from "./schema"
 
 /** Returned by the local connection screen and the in-app server switch. */
-export const DesktopTauriConnectResultSchema = z.object({
-  serverUrl: z.url(),
+export const DesktopTauriConnectResultSchema = t.object({
+  serverUrl: t.url(),
 })
 
-export type DesktopTauriConnectResult = z.infer<
+export type DesktopTauriConnectResult = t.infer<
   typeof DesktopTauriConnectResultSchema
 >
 
-/** Tauri rejects native commands with a user-facing error message. */
-export const DesktopTauriErrorSchema = z.string().trim().min(1)
+/**
+ * Tauri rejects native commands with a user-facing error message. Only strings
+ * qualify; `t.string()` alone would coerce `null` or a number into one.
+ */
+export const DesktopTauriErrorSchema = t.preprocess(
+  (value) => (isStringValue(value) ? value : undefined),
+  t.string().trim().min(1),
+)
 
-export const DesktopTauriSavedServersSchema = z
+export const DesktopTauriSavedServersSchema = t
   .array(
-    z.object({
-      serverUrl: z.url(),
-      lastConnectedAt: z.iso.datetime({ offset: true }),
-      serverVersion: z.string().trim().min(1).optional(),
-      httpContract: z.number().int().positive(),
-      bridgeContract: z.number().int().positive(),
+    t.object({
+      serverUrl: t.url(),
+      lastConnectedAt: t.iso.datetime({ offset: true }),
+      serverVersion: t.string().trim().min(1).optional(),
+      httpContract: t.number().int().positive(),
+      bridgeContract: t.number().int().positive(),
     }),
   )
   .max(8)

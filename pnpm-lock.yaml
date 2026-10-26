@@ -107,9 +107,9 @@ importers:
 
   packages/desktop:
     dependencies:
-      '@alloy/desktop-contracts':
+      '@alloy/contracts':
         specifier: workspace:*
-        version: link:../desktop-contracts
+        version: link:../contracts
       '@alloy/i18n':
         specifier: workspace:*
         version: link:../i18n
@@ -144,15 +144,6 @@ importers:
       '@vitejs/plugin-react':
         specifier: 6.1.2
         version: 6.1.2(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15))
-
-  packages/desktop-contracts:
-    dependencies:
-      '@alloy/primitives':
-        specifier: workspace:*
-        version: link:../primitives
-      zod:
-        specifier: 4.6.7
-        version: 4.6.7
 
   packages/env:
     dependencies:
@@ -285,9 +276,6 @@ importers:
       '@alloy/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@alloy/desktop-contracts':
-        specifier: workspace:*
-        version: link:../desktop-contracts
       '@alloy/env':
         specifier: workspace:*
         version: link:../env

@@ -1,5 +1,5 @@
 import type { ClipRow } from "@alloy/api"
-import type { RecordingLibraryItem } from "@alloy/desktop-contracts"
+import type { RecordingLibraryItem } from "@alloy/contracts/desktop"
 
 /**
  * Slack between a recorded range and a probed duration. Exports are exact

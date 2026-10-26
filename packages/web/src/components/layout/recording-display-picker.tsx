@@ -1,4 +1,4 @@
-import type { RecordingDisplay } from "@alloy/desktop-contracts"
+import type { RecordingDisplay } from "@alloy/contracts/desktop"
 import { t } from "@alloy/i18n"
 import {
   Dialog,

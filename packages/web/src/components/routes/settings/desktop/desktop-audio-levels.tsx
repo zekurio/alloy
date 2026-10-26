@@ -1,7 +1,7 @@
 import type {
   RecordingAudioApplicationSelection,
   RecordingAudioLevel,
-} from "@alloy/desktop-contracts"
+} from "@alloy/contracts/desktop"
 import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
