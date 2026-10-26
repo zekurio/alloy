@@ -332,8 +332,9 @@ export function generateThemeColors(
 
 /**
  * Replaces a theme's accent with `seed`, adjusted for contrast against that
- * theme's background. Used for the server and personal accent on the Alloy
- * base themes, whose single accent has to work on every base.
+ * theme's background. Used for the personal and server accents, which are set
+ * per appearance rather than per theme, so Dark's accent also lands on Dim
+ * and Black, and a personal one on every bundled palette.
  */
 export function withThemeAccent(
   colors: ThemeColors,

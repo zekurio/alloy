@@ -21,12 +21,12 @@ import {
   selectThemeVariant,
   setThemeAccent,
   setThemeSync,
+  themeAccentOverride,
   themeVariantColors,
   type ThemeState,
 } from "@alloy/ui/lib/theme"
 import {
   canonicalThemeColors,
-  defaultThemeAccent,
   normalizeThemeColor,
   THEME_APPEARANCES,
   type ThemeAppearance,
@@ -40,6 +40,7 @@ import {
 import {
   BASE_THEME_VARIANTS,
   isBaseThemeVariant,
+  isBuiltinThemeVariant,
   themeFamilyDefault,
   type ThemeFamily,
   type ThemeVariant,
@@ -80,7 +81,7 @@ const ThemeEditor = lazy(() =>
 
 /**
  * The Appearance panel's theme sections: a row of monochrome base themes that
- * follow the server's accent, then every bundled and custom theme as a card
+ * follow the server's accents, then every bundled and custom theme as a card
  * whose circles pick light and dark separately.
  */
 export function ThemeSettings() {
@@ -205,8 +206,6 @@ export function ThemeSettings() {
 
 function BaseThemeSection({ theme }: { theme: ThemeState }) {
   const { preferences } = theme
-  const accent =
-    preferences.accent ?? theme.serverAccent ?? defaultThemeAccent("dark")
 
   return (
     <SettingsSubsection
@@ -218,38 +217,9 @@ function BaseThemeSection({ theme }: { theme: ThemeState }) {
     >
       <BaseThemePicker theme={theme} />
       <SettingRows>
-        <SettingRow
-          title={t("Accent color")}
-          description={
-            theme.serverAccent
-              ? t(
-                  "The Alloy themes use this server's accent unless you choose your own.",
-                )
-              : t("The Alloy themes use lavender unless you choose your own.")
-          }
-          htmlFor="theme-accent"
-          stack
-        >
-          <HexColorInput
-            id="theme-accent"
-            value={accent}
-            label={t("Accent color")}
-            className="text-xs"
-            commit={normalizeThemeColor}
-            onChange={(color) => setThemeAccent(color)}
-          >
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={!preferences.accent}
-              onClick={() => setThemeAccent(null)}
-            >
-              <RotateCcwIcon />
-              {t("Reset")}
-            </Button>
-          </HexColorInput>
-        </SettingRow>
+        {THEME_APPEARANCES.map((appearance) => (
+          <AccentRow key={appearance} theme={theme} appearance={appearance} />
+        ))}
         <SettingRow
           title={t("Sync across devices")}
           description={t(
@@ -263,6 +233,55 @@ function BaseThemeSection({ theme }: { theme: ThemeState }) {
         </SettingRow>
       </SettingRows>
     </SettingsSubsection>
+  )
+}
+
+/**
+ * The personal accent of one appearance. Unset, it shows the accent that
+ * appearance's theme paints with now.
+ */
+function AccentRow({
+  theme,
+  appearance,
+}: {
+  theme: ThemeState
+  appearance: ThemeAppearance
+}) {
+  const id = `theme-accent-${appearance}`
+  const label =
+    appearance === "light" ? t("Light mode accent") : t("Dark mode accent")
+  const personal = theme.preferences.accents[appearance]
+  const variant = theme[appearance]
+  const note = !isBuiltinThemeVariant(variant.id)
+    ? t("Custom themes keep their own accent.")
+    : !personal && themeAccentOverride(theme, variant)
+      ? t(
+          "The Alloy themes use this server's accent unless you choose your own.",
+        )
+      : undefined
+
+  return (
+    <SettingRow title={label} description={note} htmlFor={id} stack>
+      <HexColorInput
+        id={id}
+        value={personal ?? themeVariantColors(theme, variant).accent}
+        label={label}
+        className="text-xs"
+        commit={normalizeThemeColor}
+        onChange={(color) => setThemeAccent(appearance, color)}
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!personal}
+          onClick={() => setThemeAccent(appearance, null)}
+        >
+          <RotateCcwIcon />
+          {t("Reset")}
+        </Button>
+      </HexColorInput>
+    </SettingRow>
   )
 }
 

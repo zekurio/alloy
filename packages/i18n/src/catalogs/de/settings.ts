@@ -58,8 +58,11 @@ export const SETTINGS_MESSAGES = {
   "Couldn't save preference": "Einstellung konnte nicht gespeichert werden",
   "Couldn't save theme": "Theme konnte nicht gespeichert werden",
   "Create theme": "Theme erstellen",
+  "Custom themes keep their own accent.":
+    "Eigene Themes behalten ihren eigenen Akzent.",
   Danger: "Gefahr",
   Dark: "Dunkel",
+  "Dark mode accent": "Akzent im dunklen Modus",
   "Delete theme": "Theme löschen",
   "Delete theme?": "Theme löschen?",
   Dim: "Gedimmt",
@@ -96,6 +99,7 @@ export const SETTINGS_MESSAGES = {
   "Let this server post your public clips to the webhooks it has configured.":
     "Erlaube diesem Server, deine öffentlichen Clips an seine konfigurierten Webhooks zu senden.",
   Light: "Hell",
+  "Light mode accent": "Akzent im hellen Modus",
   Live: "Live",
   "Muted text": "Gedämpfter Text",
   "No settings found.": "Keine Einstellungen gefunden.",
@@ -125,8 +129,6 @@ export const SETTINGS_MESSAGES = {
   "Text on accent": "Text auf Akzent",
   "That element doesn't use a theme color.":
     "Dieses Element nutzt keine Theme-Farbe.",
-  "The Alloy themes use lavender unless you choose your own.":
-    "Die Alloy-Themes nutzen Lavendel, sofern du keinen eigenen Akzent wählst.",
   "The Alloy themes use this server's accent unless you choose your own.":
     "Die Alloy-Themes nutzen den Akzent dieses Servers, sofern du keinen eigenen wählst.",
   Theme: "Theme",

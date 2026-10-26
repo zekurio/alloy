@@ -141,7 +141,6 @@ export function customThemeFamily(theme: CustomTheme): ThemeFamily {
     id: theme.id,
     label: theme.name,
     variants,
-    followsAccent: false,
     custom: true,
   }
 }

@@ -15,7 +15,6 @@ import {
   type AdminUserStorageRow,
   type AdminUsersResponse,
   type ContractJsonInput,
-  HexColorSchema,
   type LoginBackdropsResponse,
   type ProfileCounts,
   type ProfileGameRow,
@@ -25,6 +24,7 @@ import {
   type PublicDesktopAuthConfig,
   type PublicLoginSplashConfig,
   type PublicUser,
+  ThemeAccentsSchema,
   type UserProfile,
   type UserProfileViewer,
   type UserStorageUsage,
@@ -129,12 +129,9 @@ export function validatePublicAuthConfig(
     "Invalid auth config response: providers must be an array",
   ).map(validatePublicAuthProvider)
   validatePublicLoginSplashConfig(config.loginSplash)
-  if (
-    config.accentColor !== null &&
-    !HexColorSchema.safeParse(config.accentColor).success
-  ) {
+  if (!ThemeAccentsSchema.safeParse(config.accentColors).success) {
     throw new Error(
-      "Invalid auth config response: accentColor must be a #rrggbb color or null",
+      "Invalid auth config response: accentColors must be a #rrggbb color or null per appearance",
     )
   }
   validatePublicDesktopAuthConfig(config.desktopAuth)

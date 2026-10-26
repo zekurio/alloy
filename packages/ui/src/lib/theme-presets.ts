@@ -22,8 +22,6 @@ export interface ThemeFamily {
   label: string
   /** The first variant of each appearance is the one a whole-theme pick uses. */
   variants: readonly ThemeVariant[]
-  /** Takes the server's (or the user's) accent instead of its own. */
-  followsAccent: boolean
   /** Made or imported by the user rather than bundled. */
   custom: boolean
 }
@@ -72,6 +70,11 @@ export function isBaseThemeVariant(id: string): boolean {
   return BASE_THEME_VARIANTS.some((variant) => variant.id === id)
 }
 
+/** Bundled with Alloy, as opposed to made or imported by the user. */
+export function isBuiltinThemeVariant(id: string): boolean {
+  return PRESET_VARIANTS.some((variant) => variant.id === id)
+}
+
 /** The variant a whole-theme pick assigns to `appearance`, if it has one. */
 export function themeFamilyDefault(
   family: ThemeFamily,
@@ -89,7 +92,6 @@ function builtinTheme(
     id,
     label,
     variants: variantIds.map(presetVariant),
-    followsAccent: id === ALLOY_THEME_ID,
     custom: false,
   }
 }

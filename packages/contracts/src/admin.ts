@@ -7,7 +7,7 @@ import {
 } from "./admin-auth"
 import { t } from "./schema"
 import type { UserRole, UserStatus } from "./shared"
-import { HexColorSchema } from "./theme"
+import { ThemeAccentsSchema, type ThemeAccents } from "./theme"
 import { DEFAULT_UPLOAD_LIMITS, UploadLimitsSchema } from "./upload-limits"
 
 export {
@@ -107,8 +107,8 @@ export interface LoginBackdropsResponse {
  */
 export const AppearanceConfigSchema = t.looseObject({
   loginSplash: LoginSplashConfigSchema,
-  /** Lowercase `#rrggbb`; null keeps Alloy's own lavender. */
-  accentColor: HexColorSchema.nullable().$default(null),
+  /** Lowercase `#rrggbb` per appearance; null keeps Alloy's own lavender. */
+  accentColors: ThemeAccentsSchema.$default({ light: null, dark: null }),
 })
 
 export type AppearanceConfig = t.infer<typeof AppearanceConfigSchema>
@@ -337,6 +337,6 @@ export interface PublicAuthConfig {
   desktopAuth: PublicDesktopAuthConfig
   providers: PublicAuthProvider[]
   loginSplash: PublicLoginSplashConfig
-  /** Accent for the Alloy base themes; null keeps Alloy's own. */
-  accentColor: string | null
+  /** Accents for the Alloy base themes; null keeps Alloy's own. */
+  accentColors: ThemeAccents
 }

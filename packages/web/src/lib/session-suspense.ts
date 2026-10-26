@@ -1,5 +1,5 @@
 import type { PublicAuthConfig } from "@alloy/api"
-import { setServerThemeAccent } from "@alloy/ui/lib/theme"
+import { setServerThemeAccents } from "@alloy/ui/lib/theme"
 import { useRouterState } from "@tanstack/react-router"
 import { use } from "react"
 
@@ -139,10 +139,10 @@ export function loadAuthConfig(): Promise<PublicAuthConfig> {
           configPromiseCache = null
           throw err
         })
-    // The server's theme accent ships with this config, so every load (boot,
-    // and the reload after an admin edits it) keeps the page's accent current.
+    // The server's theme accents ship with this config, so every load (boot,
+    // and the reload after an admin edits them) keeps the page's accent current.
     configPromiseCache = load.then((config) => {
-      setServerThemeAccent(config.accentColor)
+      setServerThemeAccents(config.accentColors)
       return config
     })
   }
