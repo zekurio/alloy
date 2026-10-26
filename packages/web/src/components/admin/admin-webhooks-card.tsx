@@ -40,9 +40,11 @@ export function AdminWebhooksCard() {
   return (
     <div className="flex flex-col gap-4">
       <SettingsIntro action={<CreateWebhookDialog />}>
-        {t(
-          "Every public clip is announced once per webhook. Authors can opt out in their preferences.",
-        )}
+        <p>
+          {t(
+            "Every public clip is announced once per webhook. Authors can opt out in their preferences.",
+          )}
+        </p>
       </SettingsIntro>
 
       {!webhooks ? (

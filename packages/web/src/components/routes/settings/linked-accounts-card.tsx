@@ -356,7 +356,7 @@ function LinkRow(props: {
       </div>
       <FeedbackButton
         type="button"
-        variant="outline"
+        variant="secondary"
         size="sm"
         className="shrink-0"
         disabled={props.busy}
@@ -394,7 +394,7 @@ function AccountRow(props: AccountRowProps) {
       </div>
       <FeedbackButton
         type="button"
-        variant="outline"
+        variant="secondary"
         size="sm"
         className="shrink-0"
         disabled={props.busy || !props.canUnlink}

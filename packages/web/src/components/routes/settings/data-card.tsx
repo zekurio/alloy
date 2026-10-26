@@ -40,7 +40,7 @@ function DownloadClipsRow() {
     >
       <FeedbackButton
         type="button"
-        variant="outline"
+        variant="secondary"
         size="sm"
         state={failed ? "error" : "idle"}
         errorLabel={t("Try again")}

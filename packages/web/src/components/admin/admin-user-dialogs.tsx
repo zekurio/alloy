@@ -180,7 +180,7 @@ export function CreateUserDialog() {
     <ResponsiveDialog open={open} onOpenChange={setOpen}>
       <ResponsiveDialogTrigger
         render={
-          <Button variant="primary" size="icon" aria-label={t("Add user")}>
+          <Button variant="secondary" size="icon" aria-label={t("Add user")}>
             <UserPlusIcon />
           </Button>
         }
