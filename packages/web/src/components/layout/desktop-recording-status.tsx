@@ -2,7 +2,7 @@ import type {
   RecordingDisplay,
   RecordingSettings,
   RecordingStatus,
-} from "@alloy/desktop-contracts"
+} from "@alloy/contracts/desktop"
 import { t } from "@alloy/i18n"
 import {
   AppSidebarItem,

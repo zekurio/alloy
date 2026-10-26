@@ -13,8 +13,8 @@ Leave unrelated working-tree changes alone.
 - `packages/web`: React web app (Vite). `packages/ui`: shared components.
 - `packages/server`: Hono API server, media pipeline, storage, queues.
 - `packages/db`: Drizzle schema and migrations. `packages/api`: typed web API client.
-- `packages/contracts`: web/server contracts. `packages/desktop-contracts`:
-  native bridge contracts. `packages/primitives`: shared scalars.
+- `packages/contracts`: web/server contracts, plus native bridge contracts
+  under `@alloy/contracts/desktop`. `packages/primitives`: shared scalars.
 - `packages/env`: env parsing and `.env` loading. `packages/logging`: logger.
   `packages/i18n`: English-keyed message catalogs.
 - `packages/desktop`: Tauri host (`src-tauri`), renderer, and the Rust
@@ -40,8 +40,10 @@ Leave unrelated working-tree changes alone.
 
 ## Boundaries
 
-- Keep shared web/server contracts in `packages/contracts`, native contracts in
-  `packages/desktop-contracts`, and shared scalars in `packages/primitives`.
+- Keep shared web/server contracts in `packages/contracts` and shared scalars
+  in `packages/primitives`. Native bridge contracts live in the `desktop-*`
+  modules of `packages/contracts`, exported through `@alloy/contracts/desktop`
+  rather than the root entry point; the server does not import them.
   Validate runtime inputs; use plain TypeScript types otherwise.
 - Keep OBS in the recorder process. Define sidecar wire types once in
   `packages/desktop/recorder/src/types.rs` and import them in the host.

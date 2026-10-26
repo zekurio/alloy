@@ -1,7 +1,7 @@
 import type {
   RecordingSettings,
   RecordingStatus,
-} from "@alloy/desktop-contracts"
+} from "@alloy/contracts/desktop"
 import { t } from "@alloy/i18n"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"

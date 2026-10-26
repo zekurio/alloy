@@ -1,4 +1,4 @@
-import type { DesktopUpdateState } from "@alloy/desktop-contracts"
+import type { DesktopUpdateState } from "@alloy/contracts/desktop"
 import { useSyncExternalStore } from "react"
 
 import { alloyDesktop } from "@/lib/desktop"

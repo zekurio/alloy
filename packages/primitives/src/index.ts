@@ -1,8 +1,6 @@
 /**
- * Declarations both contract surfaces depend on: the web/server contracts and
- * the desktop bridge contracts. Living here is what keeps
- * `@alloy/desktop-contracts` independent of `@alloy/contracts` and the other
- * way around, so this package stays dependency-free.
+ * Dependency-free declarations shared by the web/server contracts and the
+ * desktop bridge contracts in `@alloy/contracts`.
  */
 
 export type IsoDateString = string

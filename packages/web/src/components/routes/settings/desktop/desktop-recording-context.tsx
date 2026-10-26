@@ -6,7 +6,7 @@ import type {
   RecordingSettings,
   RecordingStatus,
   RecordingStorageInfo,
-} from "@alloy/desktop-contracts"
+} from "@alloy/contracts/desktop"
 import { t } from "@alloy/i18n"
 import { Callout } from "@alloy/ui/components/callout"
 import { CircleAlertIcon } from "lucide-react"

@@ -2,7 +2,7 @@ import type {
   RecordingAudioDevice,
   RecordingAudioDeviceSelection,
   RecordingSettings,
-} from "@alloy/desktop-contracts"
+} from "@alloy/contracts/desktop"
 
 export interface RecordingAudioDeviceView extends RecordingAudioDeviceSelection {
   available: boolean

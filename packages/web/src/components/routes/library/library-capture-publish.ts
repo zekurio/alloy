@@ -7,7 +7,7 @@ import type {
 import {
   contentTypeForFile,
   type RecordingLibraryExport,
-} from "@alloy/desktop-contracts"
+} from "@alloy/contracts/desktop"
 import { t } from "@alloy/i18n"
 
 import type { ScreenshotEdit } from "@/components/media/screenshot-edit"

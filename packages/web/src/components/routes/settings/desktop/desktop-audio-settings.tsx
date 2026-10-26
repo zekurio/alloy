@@ -4,7 +4,7 @@ import {
   type RecordingAudioApplicationSelection,
   type RecordingAudioDeviceKind,
   type RecordingSettings,
-} from "@alloy/desktop-contracts"
+} from "@alloy/contracts/desktop"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Checkbox } from "@alloy/ui/components/checkbox"
