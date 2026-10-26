@@ -68,6 +68,14 @@ function OAuthLinkSignIn({
   const { ready: passkeyReady, supported: passkeySupported } =
     usePasskeySupport()
   const displayName = provider.displayName
+  // Signing in with the provider being linked would only match the claim
+  // again and nest another link redirect.
+  const signInConfig = {
+    ...config,
+    providers: config.providers.filter(
+      (candidate) => candidate.providerId !== provider.providerId,
+    ),
+  }
 
   async function onCreateAccount() {
     if (pending) return
@@ -97,7 +105,7 @@ function OAuthLinkSignIn({
   return (
     <>
       <LoginForm
-        config={config}
+        config={signInConfig}
         passkeyReady={passkeyReady}
         passkeySupported={passkeySupported}
         redirectTo={returnTo}

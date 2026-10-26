@@ -138,10 +138,16 @@ export async function findUserByUsernameHint(
   if (slug.length >= MIN_LEN) candidates.add(slug)
   if (candidates.size === 0) return null
 
-  const [row] = await db
+  // `a.b` and its slug `a-b` can both be taken by different users. The exact
+  // name wins so the prompt names the same account on every attempt.
+  const rows = await db
     .select({ id: user.id, username: user.username })
     .from(user)
     .where(inArray(sql`lower(${user.username})`, [...candidates]))
-    .limit(1)
-  return row ?? null
+    .limit(candidates.size)
+  return (
+    rows.find((row) => row.username.toLowerCase() === trimmed) ??
+    rows[0] ??
+    null
+  )
 }
