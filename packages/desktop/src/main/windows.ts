@@ -352,6 +352,8 @@ export function createRemoteWindow(
   // until the server answers again.
   let retryDelay = RELOAD_RETRY_MIN_MS
   let retryTimer: ReturnType<typeof setTimeout> | null = null
+  // Electron reports a failed load as finished too, right after the failure.
+  let loadFailed = false
   const retryLoad = (url: string) => {
     if (retryTimer) clearTimeout(retryTimer)
     retryTimer = setTimeout(() => {
@@ -360,9 +362,12 @@ export function createRemoteWindow(
     }, retryDelay)
     retryDelay = Math.min(retryDelay * 2, RELOAD_RETRY_MAX_MS)
   }
+  window.webContents.on("did-start-navigation", (event) => {
+    if (event.isMainFrame && !event.isSameDocument) loadFailed = false
+  })
   window.webContents.on("did-finish-load", () => {
     if (!isSameOrigin(window.webContents.getURL(), origin)) return
-    retryDelay = RELOAD_RETRY_MIN_MS
+    if (!loadFailed) retryDelay = RELOAD_RETRY_MIN_MS
     if (done) return
     done = true
     resolveLoaded()
@@ -375,6 +380,7 @@ export function createRemoteWindow(
         return
       }
       log.warn(`The server window could not load its page (${errorCode}).`)
+      loadFailed = true
       retryLoad(url)
     },
   )
