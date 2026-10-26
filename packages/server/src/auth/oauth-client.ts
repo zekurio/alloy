@@ -1,5 +1,6 @@
 import {
   OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD,
+  OAUTH_LINK_QUERY_KEY,
   type OAuthProviderConfig,
   WELCOME_QUERY_KEY,
 } from "@alloy/contracts"
@@ -229,9 +230,28 @@ export function callbackURLWithWelcome(
 }
 
 export function loginURLWithAccountReactivation(callbackURL: string): string {
+  return loginURLReturningTo(callbackURL, { reactivate: "true" })
+}
+
+/** Send the user to sign in and link the provider from there. */
+export function loginURLWithOAuthLink(
+  callbackURL: string,
+  providerId: string,
+): string {
+  return loginURLReturningTo(callbackURL, {
+    [OAUTH_LINK_QUERY_KEY]: providerId,
+  })
+}
+
+function loginURLReturningTo(
+  callbackURL: string,
+  params: Record<string, string>,
+): string {
   const callback = new URL(callbackURL)
   const login = new URL("/login", callback.origin)
-  login.searchParams.set("reactivate", "true")
+  for (const [key, value] of Object.entries(params)) {
+    login.searchParams.set(key, value)
+  }
 
   const redirect = `${callback.pathname}${callback.search}`
   if (redirect !== "/") login.searchParams.set("redirect", redirect)

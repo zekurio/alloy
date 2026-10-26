@@ -1,11 +1,12 @@
 import type { PublicAuthConfig } from "@alloy/api"
+import type { OAuthSignInAccount } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import { Link } from "@tanstack/react-router"
 import { LogInIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 
 import { SignInReactivationPrompt } from "@/components/account/reactivate-account-prompt"
 import { authClient } from "@/lib/auth-client"
@@ -36,12 +37,20 @@ export function LoginForm({
   passkeySupported,
   redirectTo,
   onReactivationRequired,
+  oauthAccount,
+  notice,
+  footer,
 }: {
   config: PublicAuthConfig
   passkeyReady?: boolean
   passkeySupported: boolean
   redirectTo?: string
   onReactivationRequired?: () => void
+  oauthAccount?: OAuthSignInAccount
+  /** Shown between the heading and the sign-in methods. */
+  notice?: ReactNode
+  /** Replaces the sign-up prompt below the sign-in methods. */
+  footer?: ReactNode
 }) {
   const { providers, openRegistrations, passkeyEnabled } = config
   const showPasskeySignIn = passkeyReady && passkeyEnabled && passkeySupported
@@ -56,6 +65,8 @@ export function LoginForm({
         </h2>
       </div>
 
+      {notice}
+
       <div className="flex flex-col gap-3">
         {showPasskeySignIn ? (
           <PasskeySignIn
@@ -68,6 +79,7 @@ export function LoginForm({
             key={provider.providerId}
             provider={provider}
             redirectTo={redirectTo}
+            account={oauthAccount}
           />
         ))}
       </div>
@@ -80,7 +92,9 @@ export function LoginForm({
         </p>
       ) : null}
 
-      {canSignUp ? (
+      {footer !== undefined ? (
+        footer
+      ) : canSignUp ? (
         <p className="text-foreground-muted mt-6 text-center text-sm">
           {t("Don't have an account?")}{" "}
           <Link

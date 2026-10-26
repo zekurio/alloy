@@ -21,6 +21,8 @@ export const ACCOUNT_MESSAGES = {
   "Add passkey": "Passkey hinzufügen",
   "Alloy Desktop": "Alloy Desktop",
   "Already have an account?": "Hast du schon ein Konto?",
+  "An account with your {provider} username already exists. Sign in to it to link your {provider} account.":
+    "Ein Konto mit deinem {provider}-Benutzernamen existiert bereits. Melde dich dort an, um dein {provider}-Konto zu verknüpfen.",
   "Auth attempt cancelled.": "Authentifizierungsversuch abgebrochen.",
   Avatar: "Profilbild",
   "Avatar imported from your sign-in provider":
@@ -59,6 +61,7 @@ export const ACCOUNT_MESSAGES = {
   "Couldn't sign out session": "Sitzung konnte nicht abgemeldet werden",
   "Couldn't start link flow": "Verknüpfung konnte nicht gestartet werden",
   "Couldn't unlink": "Verknüpfung konnte nicht aufgehoben werden",
+  "Create a new account": "Neues Konto erstellen",
   "Create account with passkey": "Konto mit Passkey erstellen",
   "Create one": "Konto erstellen",
   "Create your account": "Konto erstellen",
@@ -96,6 +99,7 @@ export const ACCOUNT_MESSAGES = {
   "Last active {time}": "Zuletzt aktiv {time}",
   "Link another enabled sign-in method before removing this one":
     "Verknüpfe eine andere aktive Anmeldemethode, bevor du diese entfernst",
+  "Link {provider}": "{provider} verknüpfen",
   "Linked accounts": "Verknüpfte Konten",
   "Make your profile and clips visible again.":
     "Mach dein Profil und deine Clips wieder sichtbar.",
@@ -106,6 +110,8 @@ export const ACCOUNT_MESSAGES = {
     "Noch keine Passkeys. Füge einen hinzu, um dich schneller und ohne Passwort anzumelden.",
   "No users found": "Keine Nutzer gefunden",
   "Not linked": "Nicht verknüpft",
+  "Not now": "Nicht jetzt",
+  "Not your account?": "Nicht dein Konto?",
   "Open account menu for {name}": "Kontomenü für {name} öffnen",
   "Open library": "Bibliothek öffnen",
   "Open security settings": "Sicherheitseinstellungen öffnen",
@@ -171,6 +177,8 @@ export const ACCOUNT_MESSAGES = {
   "Sign-ups are disabled": "Registrierungen sind deaktiviert",
   "Signed in as {username}. Continue only if you opened the Alloy desktop app.":
     "Angemeldet als {username}. Fahre nur fort, wenn du die Alloy-Desktop-App geöffnet hast.",
+  "Signed in as {username}. Link your {provider} account to sign in with it next time.":
+    "Angemeldet als {username}. Verknüpfe dein {provider}-Konto, um dich beim nächsten Mal damit anzumelden.",
   "Signed in {date}": "Angemeldet am {date}",
   "Signed out": "Abgemeldet",
   "Signing out…": "Wird abgemeldet…",

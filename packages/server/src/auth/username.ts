@@ -7,7 +7,7 @@ import {
 } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { db } from "@alloy/server/db/index"
-import { eq, sql } from "drizzle-orm"
+import { and, eq, inArray, isNull, sql } from "drizzle-orm"
 
 const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
 // Newlines and other control characters would break the single-line label in
@@ -121,4 +121,38 @@ async function isUsernameAvailable(candidate: string): Promise<boolean> {
     .where(eq(sql`lower(${user.username})`, candidate.toLowerCase()))
     .limit(1)
   return rows.length === 0
+}
+
+/**
+ * The local user whose username matches an OAuth username claim, as given or
+ * as {@link generateUniqueUsername} would slugify it. Sign-in asks that user
+ * to link instead of creating a suffixed duplicate next to them. Banned users
+ * can't sign in to link, so they never match.
+ */
+export async function findUserIdByUsernameHint(
+  hint: string | null,
+): Promise<string | null> {
+  const candidates = new Set<string>()
+  const trimmed = hint?.trim().toLowerCase()
+  if (trimmed) candidates.add(trimmed)
+  const slug = hint ? slugifyUsername(hint) : ""
+  if (slug.length >= MIN_LEN) candidates.add(slug)
+  if (candidates.size === 0) return null
+
+  // `a.b` and its slug `a-b` can both be taken by different users. The exact
+  // name wins so every attempt points at the same account.
+  const rows = await db
+    .select({ id: user.id, username: user.username })
+    .from(user)
+    .where(
+      and(
+        inArray(sql`lower(${user.username})`, [...candidates]),
+        isNull(user.admin_suspended_at),
+      ),
+    )
+    .limit(candidates.size)
+  const row =
+    rows.find((candidate) => candidate.username.toLowerCase() === trimmed) ??
+    rows[0]
+  return row?.id ?? null
 }

@@ -1,4 +1,5 @@
 import type { PublicAuthProvider } from "@alloy/api"
+import type { OAuthSignInAccount } from "@alloy/contracts"
 import { message, t } from "@alloy/i18n"
 import { useState } from "react"
 
@@ -10,9 +11,14 @@ type OAuthSignInProps = {
   provider: PublicAuthProvider
   /** Same-origin return target (desktop browser-login handshake). */
   redirectTo?: string
+  account?: OAuthSignInAccount
 }
 
-export function OAuthSignIn({ provider, redirectTo }: OAuthSignInProps) {
+export function OAuthSignIn({
+  provider,
+  redirectTo,
+  account,
+}: OAuthSignInProps) {
   const [pending, setPending] = useState(false)
 
   async function onOAuth() {
@@ -22,6 +28,7 @@ export function OAuthSignIn({ provider, redirectTo }: OAuthSignInProps) {
       const { error } = await authClient.signIn.oauth2({
         providerId: provider.providerId,
         callbackURL: authCallbackUrl(redirectTo ?? "/"),
+        account,
       })
       if (error) {
         toastAuthAttemptFailure(

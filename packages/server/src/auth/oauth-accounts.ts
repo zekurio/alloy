@@ -1,4 +1,4 @@
-import type { OAuthProviderConfig } from "@alloy/contracts"
+import type { OAuthProviderConfig, OAuthSignInAccount } from "@alloy/contracts"
 import { authAccount, user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
@@ -12,15 +12,24 @@ import {
 import { syncOAuthAvatar } from "./oauth-avatar"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"
-import { generateUniqueUsername } from "./username"
+import { findUserIdByUsernameHint, generateUniqueUsername } from "./username"
 
 const logger = createLogger("oauth")
+const NO_LINKED_ACCOUNT =
+  "No Alloy account is linked to this OAuth account. Sign in with another method and link it from settings."
+
+export type SignInResolution = {
+  /** `link-required`: the username claim names a user, who has to sign in and link. */
+  kind: "matched" | "created" | "link-required"
+  userId: string
+}
 
 export async function resolveSignInUser(input: {
   profile: OAuthProfile
   provider: OAuthProviderConfig
   tokens: StoredTokens
-}): Promise<{ userId: string; created: boolean }> {
+  account: OAuthSignInAccount | undefined
+}): Promise<SignInResolution> {
   const existingAccount = await findLinkedAccount(
     input.provider.providerId,
     input.profile.providerAccountId,
@@ -28,13 +37,21 @@ export async function resolveSignInUser(input: {
   if (existingAccount) {
     await updateLinkedAccount(existingAccount.id, input.profile, input.tokens)
     await syncOAuthUserRole(existingAccount.user_id, input.profile)
-    return { userId: existingAccount.user_id, created: false }
+    return { kind: "matched", userId: existingAccount.user_id }
+  }
+
+  if (input.account === "linked") throw new Error(NO_LINKED_ACCOUNT)
+
+  // Linking on the claim alone would hand the local account to whoever
+  // controls that claim at the provider, so the user proves they own it by
+  // signing in first.
+  if (input.account !== "new") {
+    const match = await findUserIdByUsernameHint(input.profile.usernameHint)
+    if (match) return { kind: "link-required", userId: match }
   }
 
   if (!configStore.get("openRegistrations")) {
-    throw new Error(
-      "No Alloy account is linked to this OAuth account. Sign in with another method and link it from settings.",
-    )
+    throw new Error(NO_LINKED_ACCOUNT)
   }
 
   const userId = await db.transaction(async (tx) => {
@@ -74,7 +91,7 @@ export async function resolveSignInUser(input: {
 
   await syncOAuthUserRole(userId, input.profile)
   await syncOAuthAvatar(userId, input.profile)
-  return { userId, created: true }
+  return { kind: "created", userId }
 }
 
 export async function linkAccountToUser(input: {

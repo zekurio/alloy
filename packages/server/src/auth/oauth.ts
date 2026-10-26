@@ -1,3 +1,7 @@
+import {
+  OAUTH_SIGN_IN_ACCOUNTS,
+  type OAuthSignInAccount,
+} from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { createLogger } from "@alloy/logging"
 import type { Context } from "hono"
@@ -26,6 +30,7 @@ import {
   callbackURLWithWelcome,
   loginURLWithAccountReactivation,
   loginURLWithOAuthError,
+  loginURLWithOAuthLink,
   normalizeCallbackURL,
   oauthClient,
   oauthErrorLogDetail,
@@ -38,6 +43,7 @@ import { getSession } from "./session"
 
 const logger = createLogger("oauth")
 const OAuthChallengePayloadSchema = t.object({
+  account: t.enum(OAUTH_SIGN_IN_ACCOUNTS).optional(),
   browserNonce: t.string(),
   callbackURL: t.string(),
   codeVerifier: t.string().optional(),
@@ -51,6 +57,7 @@ export { fallbackOAuthErrorRedirect } from "./oauth-client"
 export async function startOAuthSignIn(input: {
   providerId: string
   callbackURL?: string | null
+  account?: OAuthSignInAccount
 }): Promise<{ browserNonce: string; url: string }> {
   return startOAuthFlow({ ...input, mode: "sign-in" })
 }
@@ -66,6 +73,7 @@ export async function startOAuthLink(input: {
 async function startOAuthFlow(input: {
   providerId: string
   callbackURL?: string | null
+  account?: OAuthSignInAccount
   mode: OAuthMode
   userId?: string
 }): Promise<{ browserNonce: string; url: string }> {
@@ -92,6 +100,7 @@ async function startOAuthFlow(input: {
 
   const url = buildAuthorizationUrl(config, params)
   const payload: OAuthChallengePayload = {
+    account: input.account,
     browserNonce,
     callbackURL,
     codeVerifier,
@@ -160,14 +169,31 @@ export async function finishOAuthCallback(
         tokens: storedTokens(tokens),
         userId: session.user.id,
       })
+      logger.info(
+        `linked ${provider.providerId} account to user ${session.user.id}`,
+      )
       return { redirectTo: payload.callbackURL }
     }
 
-    const { userId, created } = await resolveSignInUser({
+    const resolved = await resolveSignInUser({
       profile,
       provider,
       tokens: storedTokens(tokens),
+      account: payload.account,
     })
+    if (resolved.kind === "link-required") {
+      logger.info(
+        `${provider.providerId} sign-in matched the username of user ${resolved.userId}; asking to link`,
+      )
+      return {
+        redirectTo: loginURLWithOAuthLink(
+          payload.callbackURL,
+          provider.providerId,
+        ),
+      }
+    }
+    const { kind, userId } = resolved
+    logger.info(`${provider.providerId} sign-in ${kind} user ${userId}`)
     const signIn = await completeAuthenticatedSignIn(c, userId)
     if (signIn.kind === "reactivation-required") {
       return {
@@ -183,9 +209,10 @@ export async function finishOAuthCallback(
       }
     }
     return {
-      redirectTo: created
-        ? callbackURLWithWelcome(payload.callbackURL, provider.providerId)
-        : payload.callbackURL,
+      redirectTo:
+        kind === "created"
+          ? callbackURLWithWelcome(payload.callbackURL, provider.providerId)
+          : payload.callbackURL,
     }
   } catch (cause) {
     logger.warn(
@@ -193,11 +220,12 @@ export async function finishOAuthCallback(
       oauthErrorLogDetail(cause),
     )
     // A failed link keeps the user signed in, so send them back to where they
-    // started (settings). A failed sign-in leaves them logged out, so route to
+    // started (settings). A sign-in from the link page goes back to it to try
+    // another method. Other failed sign-ins leave them logged out, so route to
     // /login where the error toast can actually surface.
     return {
       redirectTo:
-        payload.mode === "link"
+        payload.mode === "link" || payload.account === "linked"
           ? callbackURLWithOAuthError(payload.callbackURL, cause)
           : loginURLWithOAuthError(payload.callbackURL, cause),
     }

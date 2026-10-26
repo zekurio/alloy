@@ -2,6 +2,7 @@ import type {
   AuthSessionSummary,
   ContractJsonValue,
   LinkedAccount,
+  OAuthSignInAccount,
   Passkey,
   SessionData,
   SyncedThemePreferences,
@@ -198,7 +199,11 @@ function createPasskeyActions(
       passkey: () => passkeySignIn(request, store),
       reactivate: () => completeAccountReactivation(request, store),
       preloadPasskey: preloadWebAuthnBrowser,
-      oauth2: (input: { providerId: string; callbackURL?: string }) =>
+      oauth2: (input: {
+        providerId: string
+        callbackURL?: string
+        account?: OAuthSignInAccount
+      }) =>
         startOAuthRedirect(
           request,
           redirect,
@@ -356,7 +361,11 @@ async function startOAuthRedirect(
   request: RequestFn,
   redirect: AuthRedirect,
   path: string,
-  input: { providerId: string; callbackURL?: string },
+  input: {
+    providerId: string
+    callbackURL?: string
+    account?: OAuthSignInAccount
+  },
   fallback: string,
 ): AuthResult<never> {
   try {

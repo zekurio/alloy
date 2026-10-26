@@ -9,6 +9,20 @@ export type AuthErrorCode =
   (typeof AUTH_ERROR_CODES)[keyof typeof AUTH_ERROR_CODES]
 
 /**
+ * Login page query key naming the provider to link once signed in, set by an
+ * OAuth sign-in whose username claim matched an existing user.
+ */
+export const OAUTH_LINK_QUERY_KEY = "link"
+
+/**
+ * Which account an OAuth sign-in may end in. `new` creates one even when the
+ * username claim names an existing user; `linked` only signs in to the
+ * account the identity is already linked to. Unset matches or creates.
+ */
+export const OAUTH_SIGN_IN_ACCOUNTS = ["new", "linked"] as const
+export type OAuthSignInAccount = (typeof OAUTH_SIGN_IN_ACCOUNTS)[number]
+
+/**
  * How a session was created: a browser sign-in, or the desktop app's code
  * exchange. Set by the endpoint that creates the session, never derived from
  * the client's User-Agent.
