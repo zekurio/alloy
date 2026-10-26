@@ -1,3 +1,4 @@
+import { OAUTH_SIGN_IN_ACCOUNTS } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { setOAuthStateCookie } from "@alloy/server/auth/cookies"
 import { unlinkOAuthAccountPreservingSignIn } from "@alloy/server/auth/identity"
@@ -36,7 +37,7 @@ const OAuthStartBody = t.object({
 })
 
 const OAuthSignInBody = OAuthStartBody.extend({
-  createAccount: t.boolean().optional(),
+  account: t.enum(OAUTH_SIGN_IN_ACCOUNTS).optional(),
 })
 
 async function startOAuthResponse(

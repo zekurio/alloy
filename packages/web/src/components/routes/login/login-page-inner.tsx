@@ -1,4 +1,5 @@
 import type { PublicAuthConfig } from "@alloy/api"
+import type { OAuthSignInAccount } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Spinner } from "@alloy/ui/components/spinner"
@@ -36,6 +37,7 @@ export function LoginForm({
   passkeySupported,
   redirectTo,
   onReactivationRequired,
+  oauthAccount,
   notice,
   footer,
 }: {
@@ -44,6 +46,7 @@ export function LoginForm({
   passkeySupported: boolean
   redirectTo?: string
   onReactivationRequired?: () => void
+  oauthAccount?: OAuthSignInAccount
   /** Shown between the heading and the sign-in methods. */
   notice?: ReactNode
   /** Replaces the sign-up prompt below the sign-in methods. */
@@ -76,6 +79,7 @@ export function LoginForm({
             key={provider.providerId}
             provider={provider}
             redirectTo={redirectTo}
+            account={oauthAccount}
           />
         ))}
       </div>

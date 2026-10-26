@@ -5,6 +5,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { LoginPageInner } from "@/components/routes/login/login-page-inner"
 import { OAuthLinkPage } from "@/components/routes/login/oauth-link-page"
 import { redirectAuthedBeforeLoad } from "@/lib/auth-guards"
+import { validateUsername } from "@/lib/form-validators"
 import { sanitizeLoginRedirect } from "@/lib/login-redirect"
 import { searchText } from "@/lib/route-search"
 
@@ -25,6 +26,14 @@ function linkProvider(config: PublicAuthConfig, search: LoginSearch) {
   )
 }
 
+/** A username fit to show in the link notice, which anyone can link to. */
+function linkUsername(cause: unknown): string | undefined {
+  const username = searchText(cause)
+  return username && validateUsername(username) === undefined
+    ? username
+    : undefined
+}
+
 export const Route = createFileRoute("/(auth)/_auth/login")({
   validateSearch: (search) => {
     const result: LoginSearch = {}
@@ -35,7 +44,7 @@ export const Route = createFileRoute("/(auth)/_auth/login")({
     }
     const provider = searchText(search[OAUTH_LINK_QUERY_KEYS.provider])
     if (provider) result[OAUTH_LINK_QUERY_KEYS.provider] = provider
-    const username = searchText(search[OAUTH_LINK_QUERY_KEYS.username])
+    const username = linkUsername(search[OAUTH_LINK_QUERY_KEYS.username])
     if (username) result[OAUTH_LINK_QUERY_KEYS.username] = username
     return result
   },
@@ -51,6 +60,9 @@ export const Route = createFileRoute("/(auth)/_auth/login")({
 function LoginPage() {
   const { config } = Route.useLoaderData()
   const search = Route.useSearch()
+  // The router spreads the raw query under validateSearch's result, so a
+  // value it dropped still shows up here. Check what the page acts on again.
+  const redirectTo = sanitizeLoginRedirect(search.redirect) ?? undefined
   const provider = linkProvider(config, search)
 
   if (provider) {
@@ -58,16 +70,16 @@ function LoginPage() {
       <OAuthLinkPage
         config={config}
         provider={provider}
-        username={search[OAUTH_LINK_QUERY_KEYS.username]}
-        redirectTo={search.redirect}
+        username={linkUsername(search[OAUTH_LINK_QUERY_KEYS.username])}
+        redirectTo={redirectTo}
       />
     )
   }
   return (
     <LoginPageInner
       config={config}
-      redirectTo={search.redirect}
-      reactivate={search.reactivate}
+      redirectTo={redirectTo}
+      reactivate={search.reactivate === true}
     />
   )
 }

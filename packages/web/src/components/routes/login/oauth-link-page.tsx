@@ -84,7 +84,7 @@ function OAuthLinkSignIn({
       const { error } = await authClient.signIn.oauth2({
         providerId: provider.providerId,
         callbackURL: authCallbackUrl(redirectTo ?? "/"),
-        createAccount: true,
+        account: "new",
       })
       if (!error) return
       toastAuthAttemptFailure(
@@ -109,6 +109,9 @@ function OAuthLinkSignIn({
         passkeyReady={passkeyReady}
         passkeySupported={passkeySupported}
         redirectTo={returnTo}
+        // A second unlinked provider would ask to link too and stack another
+        // link page, so other providers only sign in to linked accounts.
+        oauthAccount="linked"
         onReactivationRequired={() => setReactivationRequired(true)}
         notice={
           <Callout tone="info" className="mb-6">

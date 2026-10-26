@@ -2,6 +2,7 @@ import type {
   AuthSessionSummary,
   ContractJsonValue,
   LinkedAccount,
+  OAuthSignInAccount,
   Passkey,
   SessionData,
   SyncedThemePreferences,
@@ -201,8 +202,7 @@ function createPasskeyActions(
       oauth2: (input: {
         providerId: string
         callbackURL?: string
-        /** Create a new account even if the username claim matches one. */
-        createAccount?: boolean
+        account?: OAuthSignInAccount
       }) =>
         startOAuthRedirect(
           request,
@@ -361,7 +361,11 @@ async function startOAuthRedirect(
   request: RequestFn,
   redirect: AuthRedirect,
   path: string,
-  input: { providerId: string; callbackURL?: string; createAccount?: boolean },
+  input: {
+    providerId: string
+    callbackURL?: string
+    account?: OAuthSignInAccount
+  },
   fallback: string,
 ): AuthResult<never> {
   try {

@@ -1,4 +1,4 @@
-import type { OAuthProviderConfig } from "@alloy/contracts"
+import type { OAuthProviderConfig, OAuthSignInAccount } from "@alloy/contracts"
 import { authAccount, user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
@@ -15,6 +15,8 @@ import type { OAuthProfile, StoredTokens } from "./oauth-types"
 import { findUserByUsernameHint, generateUniqueUsername } from "./username"
 
 const logger = createLogger("oauth")
+const NO_LINKED_ACCOUNT =
+  "No Alloy account is linked to this OAuth account. Sign in with another method and link it from settings."
 
 export type SignInResolution =
   | { kind: "matched" | "created"; userId: string }
@@ -25,8 +27,7 @@ export async function resolveSignInUser(input: {
   profile: OAuthProfile
   provider: OAuthProviderConfig
   tokens: StoredTokens
-  /** The user chose a new account over linking the one their claim matches. */
-  createAccount: boolean
+  account: OAuthSignInAccount | undefined
 }): Promise<SignInResolution> {
   const existingAccount = await findLinkedAccount(
     input.provider.providerId,
@@ -38,10 +39,12 @@ export async function resolveSignInUser(input: {
     return { kind: "matched", userId: existingAccount.user_id }
   }
 
+  if (input.account === "linked") throw new Error(NO_LINKED_ACCOUNT)
+
   // Linking on the claim alone would hand the local account to whoever
   // controls that claim at the provider, so the user proves they own it by
   // signing in first.
-  if (!input.createAccount) {
+  if (input.account !== "new") {
     const match = await findUserByUsernameHint(input.profile.usernameHint)
     if (match) {
       return {
@@ -53,9 +56,7 @@ export async function resolveSignInUser(input: {
   }
 
   if (!configStore.get("openRegistrations")) {
-    throw new Error(
-      "No Alloy account is linked to this OAuth account. Sign in with another method and link it from settings.",
-    )
+    throw new Error(NO_LINKED_ACCOUNT)
   }
 
   const userId = await db.transaction(async (tx) => {

@@ -1,14 +1,14 @@
-import type { UserRole } from "@alloy/contracts"
+import type { OAuthSignInAccount, UserRole } from "@alloy/contracts"
 import type { JsonObject } from "openid-client"
 
 export type OAuthMode = "sign-in" | "link"
 
 export type OAuthChallengePayload = {
+  /** Sign-in only. */
+  account?: OAuthSignInAccount
   browserNonce: string
   callbackURL: string
   codeVerifier?: string
-  /** Sign-in only: skip the username match and create a new account. */
-  createAccount?: boolean
   mode: OAuthMode
   providerId: string
   userId?: string
