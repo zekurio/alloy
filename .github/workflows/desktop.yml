@@ -202,6 +202,6 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: alloy-desktop-windows-x64-${{ github.sha }}
-          path: packages/desktop/release/*.exe
+          path: packages/desktop/release/*-setup.exe
           if-no-files-found: error
           retention-days: 14
