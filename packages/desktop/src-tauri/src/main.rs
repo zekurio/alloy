@@ -1310,6 +1310,8 @@ fn main() {
             }
             let _ = setup_host.logs.set(logs.ok());
             log::info!("Alloy desktop {} started", app.package_info().version);
+            #[cfg(target_os = "linux")]
+            linux_frame::init();
             if let Some(action) = startup_action() {
                 log::warn!(
                     "`--action {}` found Alloy closed, so nothing was saved: there is no \
