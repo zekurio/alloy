@@ -13,3 +13,9 @@ export const MODAL_OVERLAY_FORCE_RENDER = true
  */
 export const MODAL_FOOTER_BUTTON_CLASS_NAME =
   "[&_[data-slot=button][data-variant=outline]]:!border-transparent [&_[data-slot=button][data-variant=outline]]:!bg-transparent [&_[data-slot=button][data-variant=outline]]:!text-foreground-muted [&_[data-slot=button][data-variant=outline]]:hover:!bg-surface-raised [&_[data-slot=button][data-variant=outline]]:hover:!text-foreground [&_[data-slot=button][data-variant=secondary]]:!border-transparent [&_[data-slot=button][data-variant=secondary]]:!bg-transparent [&_[data-slot=button][data-variant=secondary]]:!text-foreground-muted [&_[data-slot=button][data-variant=secondary]]:hover:!bg-surface-raised [&_[data-slot=button][data-variant=secondary]]:hover:!text-foreground"
+
+/**
+ * Modal backdrops tint the page with the theme background and blur it, so the
+ * layer beneath stays legible as context instead of dropping to black.
+ */
+export const MODAL_OVERLAY_CLASS_NAME = "bg-background/60 backdrop-blur-xs"
