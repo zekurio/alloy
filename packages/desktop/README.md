@@ -127,6 +127,13 @@ app under the same id. GTK refuses a second process with that application
 id; the single-instance plugin forwards its arguments to the running app
 before that matters.
 
+On Wayland the server window keeps its frameless look with a shadow and
+rounded corners. GTK draws the shadow, the resize borders, and the input
+shape as client-side decorations around a transparent window; the bridge
+flags the page with `is-desktop-rounded` and `is-window-maximized`, and the
+web app rounds itself to the same radius and scrolls inside its root. A
+server from before that CSS shows a square page inside the frame.
+
 Wayland gives applications no global key hook. The host binds the clip and
 screenshot shortcuts through the GlobalShortcuts portal, which KDE Plasma,
 GNOME 48+, and Hyprland provide. The hotkeys from the settings are only

@@ -24,12 +24,19 @@ pub fn remote_window_label(generation: u64) -> String {
 }
 
 /// The initialization script runs in the main frame only. It still checks
-/// the origin because a WebView can navigate more than once.
-pub fn bridge_initialization_script(origin: &Url) -> String {
+/// the origin because a WebView can navigate more than once. `rounded_frame`
+/// tells it the host draws a shadowed frame with rounded corners around a
+/// transparent window, so the page rounds itself to match.
+pub fn bridge_initialization_script(origin: &Url, rounded_frame: bool) -> String {
     let origin = serde_json::to_string(&origin.origin().ascii_serialization())
         .expect("a URL origin is always valid JSON");
     let script = include_str!("bridge.js");
-    script.replace("\"__ALLOY_SELECTED_ORIGIN__\"", &origin)
+    script
+        .replace("\"__ALLOY_SELECTED_ORIGIN__\"", &origin)
+        .replace(
+            "\"__ALLOY_ROUNDED_FRAME__\"",
+            if rounded_frame { "true" } else { "false" },
+        )
 }
 
 #[cfg(test)]

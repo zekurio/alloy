@@ -19,6 +19,10 @@ export function getRouter() {
       queryClient,
     },
     scrollRestoration: true,
+    // In the desktop's rounded frame the page scrolls inside #root rather
+    // than the document (see `.is-desktop-rounded` in globals.css), so
+    // navigation resets that element too. A no-op where the document scrolls.
+    scrollToTopSelectors: ["#root"],
     defaultPreload: "intent",
     defaultPreloadStaleTime: 30_000,
     defaultErrorComponent: (props) => (

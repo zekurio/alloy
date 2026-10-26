@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod host;
+#[cfg(target_os = "linux")]
+mod linux_frame;
 mod native_cookies;
 mod preferences;
 mod runtime;
@@ -343,6 +345,7 @@ async fn desktop_api(
             }
         }
         "autostart.getState" => to_value(services.get_autostart_state()),
+        "window.getState" => to_value(frame_state(&window)),
         "autostart.setEnabled" => {
             let enabled: bool = arg(&args, 0)?;
             to_value(services.set_autostart_enabled(enabled)?)
@@ -517,17 +520,24 @@ fn open_remote_window(
     let event_runtime = Arc::clone(runtime);
     let blank =
         Url::parse("about:blank").map_err(logged("Could not open the Alloy server window."))?;
+    // On Wayland the host draws a shadowed, rounded frame around a
+    // transparent window; elsewhere the window is an opaque rectangle.
+    let rounded_frame = rounded_frame_available();
     let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::External(blank))
         .title("Alloy")
         .inner_size(f64::from(state.width), f64::from(state.height))
         .min_inner_size(f64::from(MIN_WINDOW_WIDTH), f64::from(MIN_WINDOW_HEIGHT))
         .maximized(state.maximized)
         .visible(false)
-        .background_color(WINDOW_BACKGROUND)
         // The web app renders its own title bar and window controls.
         .decorations(false)
         .incognito(false)
-        .initialization_script(bridge_initialization_script(origin));
+        .initialization_script(bridge_initialization_script(origin, rounded_frame));
+    let builder = if rounded_frame {
+        builder.transparent(true)
+    } else {
+        builder.background_color(WINDOW_BACKGROUND)
+    };
     // Overlay scrollbars keep the layout stable. Setting extra arguments
     // replaces Tauri's defaults, so restate them.
     let builder = builder.additional_browser_args(
@@ -557,6 +567,10 @@ fn open_remote_window(
         })
         .build()
         .map_err(logged("Could not open the Alloy server window."))?;
+    #[cfg(target_os = "linux")]
+    if rounded_frame && let Err(error) = linux_frame::decorate(&window) {
+        log::warn!("Could not draw the window frame: {error}");
+    }
     let event_window = window.clone();
     window.on_window_event(move |event| match event {
         // Alt+F4 and the like behave like the title bar close button: hide
@@ -574,10 +588,39 @@ fn open_remote_window(
                 let _ = show_connect(&app, &host);
             });
         }
+        // Maximizing and fullscreen change the size, and the page drops its
+        // corner radius for them.
+        WindowEvent::Resized(_) => emit_frame_state(&event_window),
         _ => {}
     });
     track_window_state(&window, services);
     Ok((window, loaded))
+}
+
+/// Whether the host draws a shadowed frame with rounded corners around a
+/// transparent server window. Only GTK on Wayland does; see `linux_frame`.
+fn rounded_frame_available() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        linux_frame::available()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        false
+    }
+}
+
+/// The window state the page mirrors in its frame: no corner radius while
+/// maximized or fullscreen, where the frame has none either.
+fn frame_state(window: &WebviewWindow) -> Value {
+    serde_json::json!({
+        "maximized": window.is_maximized().unwrap_or(false),
+        "fullscreen": window.is_fullscreen().unwrap_or(false),
+    })
+}
+
+fn emit_frame_state(window: &WebviewWindow) {
+    let _ = window.emit_to(window.label(), "alloy:window", frame_state(window));
 }
 
 /// Gives the new window its session: the token from a fresh sign-in, or the

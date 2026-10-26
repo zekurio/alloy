@@ -59,6 +59,7 @@ dependencies = [
  "fs2",
  "futures-util",
  "glib",
+ "gtk",
  "http",
  "log",
  "open",

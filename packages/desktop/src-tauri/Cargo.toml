@@ -16,6 +16,7 @@ shell = [
   "dep:tauri-plugin-single-instance",
   "dep:ashpd",
   "dep:glib",
+  "dep:gtk",
 ]
 custom-protocol = ["tauri/custom-protocol"]
 
@@ -69,6 +70,8 @@ uuid = { version = "1", features = ["v4"] }
 [target.'cfg(target_os = "linux")'.dependencies]
 # Sets the GLib program name, which GTK 3 sends as the Wayland app id.
 glib = { version = "0.18", optional = true }
+# Draws the shadowed, rounded frame of the frameless window on Wayland.
+gtk = { version = "0.18", optional = true }
 ashpd = { version = "0.13", optional = true, default-features = false, features = [
   "tokio",
   "global_shortcuts",

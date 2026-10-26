@@ -970,3 +970,39 @@ html[data-theme-inspecting] *:not([data-theme-editor], [data-theme-editor] *) {
   -webkit-app-region: no-drag;
   --app-region: no-drag;
 }
+
+/* Desktop shell on Linux: the host draws a shadowed frame with rounded
+   corners around a transparent window and flags <html> with
+   `is-desktop-rounded` (see the desktop bridge). The page becomes the
+   window's opaque, rounded surface and scrolls inside #root, so the corners
+   stay at the viewport edges. `is-window-maximized` drops the radius, as the
+   frame does while maximized or fullscreen. Full-viewport overlays round the
+   same way. */
+.is-desktop-rounded {
+  --alloy-window-radius: 12px;
+}
+.is-desktop-rounded.is-window-maximized {
+  --alloy-window-radius: 0px;
+}
+.is-desktop-rounded,
+.is-desktop-rounded body {
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+.is-desktop-rounded #root {
+  position: fixed;
+  inset: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--alloy-window-radius);
+  background: var(--background);
+}
+.is-desktop-rounded
+  :is(
+    #boot-splash,
+    [data-slot="dialog-overlay"],
+    [data-slot="drawer-overlay"]
+  ) {
+  border-radius: var(--alloy-window-radius);
+}

@@ -120,6 +120,24 @@
     }
   })
 
+  // On Linux the host draws a shadowed frame with rounded corners around a
+  // transparent window. Flag the document so the web app becomes the
+  // window's rounded surface (globals.css), and drop the radius while
+  // maximized or fullscreen, where the frame has none.
+  const roundedFrame = "__ALLOY_ROUNDED_FRAME__"
+  if (roundedFrame) {
+    const root = document.documentElement
+    root.classList.add("is-desktop-rounded")
+    const applyState = (state) => {
+      const flat = Boolean(state && (state.maximized || state.fullscreen))
+      root.classList.toggle("is-window-maximized", flat)
+    }
+    void call("window.getState")
+      .then(applyState)
+      .catch(() => {})
+    subscribe("alloy:window", applyState)
+  }
+
   window.alloyTauriDesktop = Object.freeze({
     bridgeContract: 1,
     minimizeWindow: () => shell("minimizeWindow"),
