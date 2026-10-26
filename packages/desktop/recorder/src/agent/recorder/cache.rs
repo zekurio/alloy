@@ -148,11 +148,13 @@ impl Recorder {
             hdr_enabled: false,
         };
         let obs = LibObs::load(self.obs_runtime_dir.as_deref())?;
+        let adapter = selected_gpu_adapter(settings, &self.cached_gpus);
         let caps = unsafe {
             obs.start(
                 self.obs_runtime_dir.as_deref(),
                 video_config,
-                selected_gpu_adapter(settings, &self.cached_gpus),
+                adapter,
+                false,
             )?;
             let encoders = obs.enumerate_encoders();
             let hardware_settings = RecordingSettings {
@@ -164,6 +166,7 @@ impl Recorder {
                     &obs,
                     &hardware_settings,
                     &encoders,
+                    adapter,
                     selected_gpu_label(settings, &self.cached_gpus),
                 ),
                 software_h264: has_software_h264_encoder(&encoders),

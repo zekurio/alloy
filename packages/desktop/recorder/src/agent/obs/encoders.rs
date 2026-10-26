@@ -34,6 +34,7 @@ pub(in crate::agent) fn available_video_codecs(
     obs: &LibObs,
     settings: &RecordingSettings,
     available: &[ObsEncoderDescriptor],
+    adapter: u32,
     selected_gpu_label: Option<&str>,
 ) -> Vec<RecordingCodec> {
     [
@@ -44,7 +45,7 @@ pub(in crate::agent) fn available_video_codecs(
     .into_iter()
     .filter(|codec| {
         codec_allowed_for_gpu_label(codec, selected_gpu_label)
-            && can_create_video_codec(obs, settings, available, codec, selected_gpu_label)
+            && can_create_video_codec(obs, settings, available, codec, adapter, selected_gpu_label)
     })
     .collect()
 }
@@ -54,6 +55,7 @@ fn can_create_video_codec(
     settings: &RecordingSettings,
     available: &[ObsEncoderDescriptor],
     codec: &RecordingCodec,
+    adapter: u32,
     selected_gpu_label: Option<&str>,
 ) -> bool {
     let candidates =
@@ -70,7 +72,14 @@ fn can_create_video_codec(
             };
             let result = obs.with_data(|data| {
                 let quality = effective_quality(&probe_settings);
-                configure_video_encoder(obs, data, &probe_settings, &quality)?;
+                configure_video_encoder(
+                    obs,
+                    data,
+                    &candidate.id,
+                    adapter,
+                    &probe_settings,
+                    &quality,
+                )?;
                 create_video_encoder(obs, &candidate.id, data)
             });
 
@@ -133,7 +142,7 @@ fn video_encoder_matches(
 
     match target {
         RecordingEncoder::Software => is_software_h264_encoder(encoder),
-        RecordingEncoder::Hardware => !is_software_video_encoder(encoder),
+        RecordingEncoder::Hardware => !is_cpu_video_encoder(encoder),
     }
 }
 
@@ -197,7 +206,7 @@ fn preferred_gpu_label(label: &str) -> bool {
             || normalized.contains("gtx")
             || normalized.contains("amd")
             || normalized.contains("radeon")
-            || normalized.contains("intel arc"))
+            || (normalized.contains("intel") && normalized.contains("arc")))
 }
 
 fn software_gpu_label(label: &str) -> bool {
@@ -303,6 +312,8 @@ fn hardware_encoder_gpu_priority(
     }
 }
 
+/// Words in the id or name of the encoders that run on a GPU family. Linux
+/// encodes on AMD and Intel through VAAPI, and on Intel through QSV too.
 fn gpu_encoder_family(label: &str) -> Vec<&'static str> {
     let normalized = label.to_ascii_lowercase();
     if normalized.contains("nvidia")
@@ -313,10 +324,18 @@ fn gpu_encoder_family(label: &str) -> Vec<&'static str> {
         return vec!["nvidia", "nvenc"];
     }
     if normalized.contains("amd") || normalized.contains("radeon") {
-        return vec!["amd", "amf"];
+        return if cfg!(windows) {
+            vec!["amd", "amf"]
+        } else {
+            vec!["vaapi"]
+        };
     }
     if normalized.contains("intel") {
-        return vec!["intel", "qsv", "quick sync"];
+        return if cfg!(windows) {
+            vec!["intel", "qsv", "quick sync"]
+        } else {
+            vec!["qsv", "quick sync", "vaapi"]
+        };
     }
     Vec::new()
 }
@@ -337,6 +356,16 @@ fn is_software_video_encoder(encoder: &ObsEncoderDescriptor) -> bool {
             .display_name
             .as_deref()
             .is_some_and(|name| name.to_ascii_lowercase().contains("x264"))
+}
+
+/// Encoders that run on the CPU, which GPU encoding must not pick: x264 and
+/// FFmpeg's SVT-AV1, AOM AV1 and OpenH264.
+fn is_cpu_video_encoder(encoder: &ObsEncoderDescriptor) -> bool {
+    is_software_video_encoder(encoder)
+        || matches!(
+            encoder.id.as_str(),
+            "ffmpeg_svt_av1" | "ffmpeg_aom_av1" | "ffmpeg_openh264"
+        )
 }
 
 fn recording_codec_from_obs(codec: &str) -> Option<RecordingCodec> {

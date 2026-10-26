@@ -142,6 +142,10 @@ struct ActiveSession {
     target_game_key: Option<String>,
     game_content_expires_at: Option<Instant>,
     game_capture_hook_wait: Option<GameCaptureHookWait>,
+    /// Set while display capture waits for its first frame, which on Wayland
+    /// arrives once a screen is chosen in the screen-sharing dialog.
+    #[cfg(target_os = "linux")]
+    display_wait_started_at: Option<Instant>,
 }
 
 impl Drop for Recorder {
@@ -162,6 +166,47 @@ const CODEC_PROBE_RETRY_COOLDOWN: Duration = Duration::from_secs(30);
 const REPLAY_START_RETRY_MIN: Duration = Duration::from_secs(2);
 const REPLAY_START_RETRY_MAX: Duration = Duration::from_secs(60);
 const TELEMETRY_EVENT_INTERVAL: Duration = Duration::from_secs(10);
+/// How long display capture may go without a frame before the buffer stops:
+/// enough to answer the screen-sharing dialog.
+#[cfg(target_os = "linux")]
+const DISPLAY_CAPTURE_START_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// What this recorder can do, for the version handshake and the status. The
+/// web hides the controls for anything a recorder leaves out.
+#[cfg(windows)]
+pub(in crate::agent) const CAPABILITIES: &[&str] = &[
+    "screenshots",
+    "game-capture",
+    "audio-devices",
+    "audio-applications",
+    "audio-volume",
+    "game-processes",
+    "display-capture",
+    "displays",
+    "replay-buffer",
+    "notification-sounds",
+    "audio-levels",
+    "hotkeys",
+    "telemetry",
+];
+
+/// Linux leaves out `hotkeys`: Wayland gives applications no global key hook,
+/// so the desktop host binds the shortcuts through the GlobalShortcuts portal.
+#[cfg(target_os = "linux")]
+pub(in crate::agent) const CAPABILITIES: &[&str] = &[
+    "screenshots",
+    "game-capture",
+    "audio-devices",
+    "audio-applications",
+    "audio-volume",
+    "game-processes",
+    "display-capture",
+    "displays",
+    "replay-buffer",
+    "notification-sounds",
+    "audio-levels",
+    "telemetry",
+];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GameBoundaryReason {
@@ -181,6 +226,17 @@ fn preserve_capture_dimensions(
 
 impl Recorder {
     pub(super) fn configure(&mut self, params: ConfigureParams) -> Result<RecordingStatus, String> {
+        #[cfg(target_os = "linux")]
+        let params = {
+            let mut params = params;
+            crate::agent::obs::platform::set_agent_state_folder(&params.agent_state_folder);
+            // The host passes the runtime it found; a manual run can name it
+            // in the environment instead.
+            if params.obs_runtime_dir.is_none() {
+                params.obs_runtime_dir = env::var_os("ALLOY_OBS_RUNTIME_DIR").map(PathBuf::from);
+            }
+            params
+        };
         let settings = params.settings;
         hotkeys::configure(&settings);
         let output_folder = if params.output_folder.is_empty() {
@@ -344,6 +400,7 @@ impl Recorder {
             available_audio_applications: self.cached_audio_applications.clone(),
             telemetry,
             message: self.last_error.clone(),
+            capabilities: CAPABILITIES.iter().map(ToString::to_string).collect(),
         }
     }
 
@@ -732,12 +789,9 @@ impl Recorder {
         }
 
         let obs = LibObs::load(self.obs_runtime_dir.as_deref())?;
+        let adapter = selected_gpu_adapter(settings, &self.cached_gpus);
         unsafe {
-            obs.start(
-                self.obs_runtime_dir.as_deref(),
-                video_config,
-                selected_gpu_adapter(settings, &self.cached_gpus),
-            )?;
+            obs.start(self.obs_runtime_dir.as_deref(), video_config, adapter, true)?;
             self.available_encoders = obs.enumerate_encoders();
             let hardware_settings = RecordingSettings {
                 encoder: RecordingEncoder::Hardware,
@@ -747,6 +801,7 @@ impl Recorder {
                 &obs,
                 &hardware_settings,
                 &self.available_encoders,
+                adapter,
                 selected_gpu_label(settings, &self.cached_gpus),
             );
         }
@@ -1248,6 +1303,10 @@ impl Recorder {
     }
 
     fn refresh_active_output_for_focus(&mut self) -> Result<(), String> {
+        #[cfg(target_os = "linux")]
+        if !self.refresh_display_capture()? {
+            return Ok(());
+        }
         if self.refresh_game_capture_hook()? == GameCaptureHookRefresh::TargetClosed {
             self.clear_closed_active_game();
             self.stop_active_replay_buffer()?;
@@ -1256,6 +1315,44 @@ impl Recorder {
         let status = self.status();
         emit_event(RecordingEvent::Status { status });
         self.refresh_active_source()
+    }
+
+    /// Watches display capture for its first frame and keeps the portal's
+    /// restore token once it has one. Returns whether the buffer still runs:
+    /// without a frame by the deadline (the dialog was dismissed, or the
+    /// portal failed) it stops and retries on the start backoff.
+    #[cfg(target_os = "linux")]
+    fn refresh_display_capture(&mut self) -> Result<bool, String> {
+        let (Some(obs), Some(session)) = (self.obs.as_ref(), self.replay_session.as_mut()) else {
+            return Ok(true);
+        };
+        if session.source_kind != OutputSourceKind::Display {
+            return Ok(true);
+        }
+        let source = session.video_graph.source;
+        // SAFETY: the session's source belongs to this libobs instance.
+        let (width, height) = unsafe { obs.source_size(source) };
+        if width > 0 && height > 0 {
+            session.display_wait_started_at = None;
+            // SAFETY: as above; the source is a display capture source.
+            unsafe { crate::agent::obs::platform::remember_display_restore_token(obs, source) };
+            return Ok(true);
+        }
+        let waiting_since = *session
+            .display_wait_started_at
+            .get_or_insert_with(Instant::now);
+        if waiting_since.elapsed() < DISPLAY_CAPTURE_START_TIMEOUT {
+            return Ok(true);
+        }
+
+        let settings = self.settings.clone().unwrap_or_default();
+        let target = self.replay_target(&settings);
+        self.stop_active_replay_buffer()?;
+        let error = "Display capture received no picture. Choose a screen in the \
+                     screen-sharing dialog to record."
+            .to_string();
+        self.remember_replay_start_failure(target, &error);
+        Err(error)
     }
 
     fn refresh_active_source(&mut self) -> Result<(), String> {

@@ -12,8 +12,8 @@ use crate::agent::{
         configure_video_encoder, create_audio_graph, create_output, create_output_audio_encoder,
         create_video_encoder, create_video_graph,
         encoders::{
-            choose_audio_encoder, choose_video_encoder, codec_label, selected_gpu_label,
-            unavailable_video_encoder_message,
+            choose_audio_encoder, choose_video_encoder, codec_label, selected_gpu_adapter,
+            selected_gpu_label, unavailable_video_encoder_message,
         },
         estimated_replay_buffer_mb, game_capture_hook_poll, game_capture_hook_timeout_message,
         game_capture_source_hooked, game_capture_target_name, output_last_error,
@@ -54,6 +54,8 @@ impl Recorder {
         output_config: ReplayBufferConfig,
     ) -> Result<ActiveSession, String> {
         let source_kind = source_kind(settings);
+        #[cfg(target_os = "linux")]
+        crate::agent::obs::platform::mux_helper_ready()?;
         let video_config = self.ensure_obs_for_source(settings, game, source_kind)?;
         let obs = self
             .obs
@@ -78,6 +80,7 @@ impl Recorder {
         };
         let audio_encoder_id = choose_audio_encoder(&self.available_encoders)
             .ok_or_else(|| "No OBS audio encoder is available.".to_string())?;
+        let adapter = selected_gpu_adapter(settings, &self.cached_gpus);
 
         let output_quality = effective_quality_for_base(settings, video_config.base);
         // SAFETY: OBS is initialized above and this session is creating sources
@@ -100,7 +103,14 @@ impl Recorder {
         };
         let video_encoder = unsafe {
             obs.with_data(|video_settings| {
-                configure_video_encoder(obs, video_settings, &encoder_settings, &output_quality)?;
+                configure_video_encoder(
+                    obs,
+                    video_settings,
+                    &video_encoder_id,
+                    adapter,
+                    &encoder_settings,
+                    &output_quality,
+                )?;
                 create_video_encoder(obs, &video_encoder_id, video_settings)
                     .map_err(|_| unavailable_video_encoder_message(&encoder_settings))
             })
@@ -259,6 +269,8 @@ impl Recorder {
             target_game_key: game.map(|game| game.window_key.clone()),
             game_content_expires_at: None,
             game_capture_hook_wait,
+            #[cfg(target_os = "linux")]
+            display_wait_started_at: None,
         })
     }
 

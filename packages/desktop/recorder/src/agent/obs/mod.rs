@@ -17,8 +17,10 @@ use std::{
 
 use libloading::{Library, Symbol};
 
+#[cfg(windows)]
+use crate::agent::platform::primary_display_id;
 use crate::{
-    agent::platform::{primary_display_id, DetectedGame},
+    agent::platform::DetectedGame,
     protocol::SIDE_CAR_NAME,
     settings::{
         default_audio_device_selections, resolve_audio_device_selection,
@@ -34,18 +36,21 @@ use crate::{
 
 use self::{
     bindings::{
-        CallData, ObsData, ObsEncoder, ObsOutput, ObsSource, Vec2, APPLICATION_AUDIO_SOURCE_ID,
-        AUDIO_INPUT_SOURCE_ID, AUDIO_MIXER_ZERO, AUDIO_OUTPUT_CHANNEL_BASE, AUDIO_OUTPUT_SOURCE_ID,
-        DISPLAY_CAPTURE_SOURCE_ID, GAME_CAPTURE_SOURCE_ID, MAX_OUTPUT_CHANNELS, OBS_ALIGN_CENTER,
-        OBS_BOUNDS_SCALE_INNER, OBS_SCALE_BILINEAR,
+        CallData, ObsData, ObsEncoder, ObsOutput, ObsSource, Vec2, AUDIO_MIXER_ZERO,
+        AUDIO_OUTPUT_CHANNEL_BASE, MAX_OUTPUT_CHANNELS, OBS_ALIGN_CENTER, OBS_BOUNDS_SCALE_INNER,
+        OBS_SCALE_BILINEAR,
     },
     platform::{
         audio_application_from_game, available_audio_applications, free_calldata,
-        platform_audio_devices, platform_default_audio_device_id,
+        platform_audio_devices, platform_default_audio_device_id, APPLICATION_AUDIO_PRIORITY,
+        APPLICATION_AUDIO_SOURCE_ID, APPLICATION_AUDIO_TARGET_KEY, AUDIO_INPUT_SOURCE_ID,
+        AUDIO_OUTPUT_SOURCE_ID, GAME_CAPTURE_SOURCE_ID,
     },
     types::{AudioGraph, AudioSource, GameCaptureHookWait, OutputSourceKind, VideoGraph},
     video_config::EffectiveQuality,
 };
+
+pub(in crate::agent) use crate::agent::quality::target_bitrate_kbps;
 
 pub(in crate::agent) unsafe fn load_symbol<T: Copy>(
     library: &Library,
@@ -224,18 +229,32 @@ pub(in crate::agent) unsafe fn clear_audio_output_sources(obs: &LibObs, source_c
 pub(in crate::agent) unsafe fn configure_video_encoder(
     obs: &LibObs,
     data: *mut ObsData,
+    encoder_id: &str,
+    adapter: u32,
     settings: &RecordingSettings,
     quality: &EffectiveQuality,
 ) -> Result<(), String> {
     let bitrate = target_bitrate_kbps(quality);
     obs.set_string(data, c"rate_control", "CBR")?;
-    // Profile names are codec-specific: "high" only exists for H.264, and
-    // HEVC/AV1 encoders (notably AMF) can reject it at creation time.
-    let profile = match settings.codec {
-        RecordingCodec::H264 => "high",
-        RecordingCodec::Hevc | RecordingCodec::Av1 => "main",
-    };
-    obs.set_string(data, c"profile", profile)?;
+    // VAAPI takes its profile as a number and defaults to High (H.264) or
+    // Main (HEVC, AV1); a string would read as profile 0.
+    let vaapi = encoder_id.contains("vaapi");
+    if !vaapi {
+        // Profile names are codec-specific: "high" only exists for H.264, and
+        // HEVC/AV1 encoders (notably AMF) can reject it at creation time.
+        let profile = match settings.codec {
+            RecordingCodec::H264 => "high",
+            RecordingCodec::Hevc | RecordingCodec::Av1 => "main",
+        };
+        obs.set_string(data, c"profile", profile)?;
+    }
+    // VAAPI encodes on the render node of the selected GPU.
+    #[cfg(target_os = "linux")]
+    if let Some(device) = platform::vaapi_device(adapter).filter(|_| vaapi) {
+        obs.set_string(data, c"vaapi_device", &device)?;
+    }
+    #[cfg(windows)]
+    let _ = adapter;
     obs.set_string(
         data,
         c"preset",
@@ -249,23 +268,6 @@ pub(in crate::agent) unsafe fn configure_video_encoder(
     obs.set_int(data, c"keyint_sec", 2);
     obs.set_bool(data, c"psycho_aq", true);
     Ok(())
-}
-
-pub(in crate::agent) fn target_bitrate_kbps(quality: &EffectiveQuality) -> u32 {
-    if let Some(kbps) = quality.bitrate.custom_kbps() {
-        return kbps;
-    }
-
-    match (quality.height, quality.fps) {
-        (height, fps) if height >= 2160 && fps >= 60 => 55_000,
-        (height, _) if height >= 2160 => 40_000,
-        (height, fps) if height >= 1440 && fps >= 60 => 30_000,
-        (height, _) if height >= 1440 => 22_000,
-        (height, fps) if height >= 1080 && fps >= 60 => 18_000,
-        (height, _) if height >= 1080 => 12_000,
-        (_, fps) if fps >= 60 => 8_000,
-        _ => 5_000,
-    }
 }
 
 pub(in crate::agent) fn estimated_replay_buffer_mb(
@@ -295,7 +297,13 @@ pub(in crate::agent) fn gpu_adapter(settings: &RecordingSettings) -> u32 {
 
 static GAME_CAPTURE_HOOKED: AtomicBool = AtomicBool::new(false);
 const GAME_CAPTURE_HOOK_RETRY_INTERVAL: Duration = Duration::from_secs(2);
+/// Windows detects a game by its window, so the hook follows within seconds.
+#[cfg(windows)]
 const GAME_CAPTURE_HOOK_MAX_RETRIES: u32 = 20;
+/// Linux detects a game from its process, which can run for a minute before
+/// it creates the swapchain obs-vkcapture captures.
+#[cfg(target_os = "linux")]
+const GAME_CAPTURE_HOOK_MAX_RETRIES: u32 = 60;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(in crate::agent) enum GameCaptureHookPoll {
@@ -313,13 +321,8 @@ unsafe fn create_video_source(
 ) -> Result<*mut ObsSource, String> {
     if source_kind == OutputSourceKind::Display {
         return obs.with_data(|source_settings| {
-            configure_display_capture_source(obs, source_settings, settings)?;
-            create_source(
-                obs,
-                DISPLAY_CAPTURE_SOURCE_ID,
-                "alloy_display_video",
-                Some(source_settings),
-            )
+            let id = configure_display_capture_source(obs, source_settings, settings)?;
+            create_source(obs, id, "alloy_display_video", Some(source_settings))
         });
     }
 
@@ -333,15 +336,27 @@ unsafe fn create_video_source(
             Some(source_settings),
         )
     });
-    let source = source.map_err(|error| {
-        format!(
-            "{error} OBS game capture is unavailable; make sure the win-capture plugin is bundled."
-        )
-    })?;
+    let source = source.map_err(|error| format!("{error} {GAME_CAPTURE_UNAVAILABLE}"))?;
     connect_game_capture_signals(obs, source);
     Ok(source)
 }
 
+#[cfg(windows)]
+const GAME_CAPTURE_UNAVAILABLE: &str =
+    "OBS game capture is unavailable; make sure the win-capture plugin is bundled.";
+#[cfg(target_os = "linux")]
+const GAME_CAPTURE_UNAVAILABLE: &str =
+    "OBS game capture is unavailable; install the obs-vkcapture plugin.";
+
+/// win-capture signals hooks as they happen. obs-vkcapture has no signals
+/// and is only polled through `get_hooked`.
+#[cfg(target_os = "linux")]
+unsafe fn connect_game_capture_signals(_obs: &LibObs, _source: *mut ObsSource) {}
+
+#[cfg(target_os = "linux")]
+unsafe fn disconnect_game_capture_signals(_obs: &LibObs, _source: *mut ObsSource) {}
+
+#[cfg(windows)]
 unsafe fn connect_game_capture_signals(obs: &LibObs, source: *mut ObsSource) {
     let handler = (obs.obs_source_get_signal_handler)(source);
     if handler.is_null() {
@@ -363,6 +378,7 @@ unsafe fn connect_game_capture_signals(obs: &LibObs, source: *mut ObsSource) {
     );
 }
 
+#[cfg(windows)]
 unsafe fn disconnect_game_capture_signals(obs: &LibObs, source: *mut ObsSource) {
     let handler = (obs.obs_source_get_signal_handler)(source);
     if handler.is_null() {
@@ -384,10 +400,12 @@ unsafe fn disconnect_game_capture_signals(obs: &LibObs, source: *mut ObsSource) 
     );
 }
 
+#[cfg(windows)]
 unsafe extern "C" fn game_capture_hooked(_data: *mut c_void, _cd: *mut CallData) {
     GAME_CAPTURE_HOOKED.store(true, Ordering::SeqCst);
 }
 
+#[cfg(windows)]
 unsafe extern "C" fn game_capture_unhooked(_data: *mut c_void, _cd: *mut CallData) {
     GAME_CAPTURE_HOOKED.store(false, Ordering::SeqCst);
 }
@@ -432,9 +450,19 @@ pub(in crate::agent) fn game_capture_hook_poll(
     )
 }
 
+#[cfg(windows)]
 pub(in crate::agent) fn game_capture_hook_timeout_message(game: Option<&DetectedGame>) -> String {
     let target = game_capture_target_name(game);
     format!("OBS game capture did not hook {target}. Keep the game visible and try again.")
+}
+
+#[cfg(target_os = "linux")]
+pub(in crate::agent) fn game_capture_hook_timeout_message(game: Option<&DetectedGame>) -> String {
+    let target = game_capture_target_name(game);
+    format!(
+        "OBS game capture received no frames from {target}. Start games with OBS_VKCAPTURE=1 \
+         so obs-vkcapture can capture them."
+    )
 }
 
 pub(in crate::agent) fn game_capture_target_name(game: Option<&DetectedGame>) -> &str {
@@ -484,11 +512,13 @@ pub(in crate::agent) unsafe fn game_capture_source_hooked(
     ok && hooked != 0
 }
 
+/// Configures the display capture source and returns its OBS source id.
+#[cfg(windows)]
 unsafe fn configure_display_capture_source(
     obs: &LibObs,
     data: *mut ObsData,
     settings: &RecordingSettings,
-) -> Result<(), String> {
+) -> Result<&'static str, String> {
     const OBS_DISPLAY_METHOD_WGC: i64 = 2;
 
     if !settings.selected_display_id.trim().is_empty() {
@@ -500,7 +530,46 @@ unsafe fn configure_display_capture_source(
     obs.set_bool(data, c"force_sdr", false);
 
     obs.set_bool(data, c"capture_cursor", false);
-    Ok(())
+    Ok("monitor_capture")
+}
+
+/// Configures the display capture source and returns its OBS source id: the
+/// screen-sharing portal on Wayland, OBS's X11 screen capture on X11.
+#[cfg(target_os = "linux")]
+unsafe fn configure_display_capture_source(
+    obs: &LibObs,
+    data: *mut ObsData,
+    settings: &RecordingSettings,
+) -> Result<&'static str, String> {
+    const PIPEWIRE_MONITOR_CAPTURE: &str = "pipewire-desktop-capture-source";
+    const PIPEWIRE_SCREEN_CAPTURE: &str = "pipewire-screen-capture-source";
+
+    match platform::display_capture_source(settings)? {
+        platform::DisplayCaptureSource::Portal { restore_token } => {
+            obs.set_bool(data, c"ShowCursor", false);
+            if let Some(token) = restore_token {
+                obs.set_string(data, c"RestoreToken", &token)?;
+            }
+            // The monitor-only source keeps windows out of the portal's
+            // choices; portals without monitor capture offer the combined one.
+            if obs.source_registered(PIPEWIRE_MONITOR_CAPTURE) {
+                Ok(PIPEWIRE_MONITOR_CAPTURE)
+            } else if obs.source_registered(PIPEWIRE_SCREEN_CAPTURE) {
+                Ok(PIPEWIRE_SCREEN_CAPTURE)
+            } else {
+                Err(
+                    "Screen sharing is unavailable: install xdg-desktop-portal with a \
+                     ScreenCast backend and OBS's linux-pipewire plugin."
+                        .into(),
+                )
+            }
+        }
+        platform::DisplayCaptureSource::X11Screen(screen) => {
+            obs.set_int(data, c"screen", screen);
+            obs.set_bool(data, c"show_cursor", false);
+            Ok("xshm_input_v2")
+        }
+    }
 }
 
 pub(in crate::agent) unsafe fn create_video_graph(
@@ -580,8 +649,6 @@ impl AudioSourceConfig {
     }
 }
 
-pub(in crate::agent) const OBS_WINDOW_PRIORITY_EXE: i64 = 2;
-
 /// Creates one audio capture source from a resolved selection and applies the
 /// shared mixer and per-source volume. Routing to an output channel is kept
 /// separate so a live update can build every new source before it touches the
@@ -595,7 +662,7 @@ pub(in crate::agent) unsafe fn create_audio_source(
             obs.set_string(source_settings, c"device_id", device_id)?;
         }
         if let Some(window) = config.window.as_deref() {
-            obs.set_string(source_settings, c"window", window)?;
+            obs.set_string(source_settings, APPLICATION_AUDIO_TARGET_KEY, window)?;
         }
         if let Some(priority) = config.priority {
             obs.set_int(source_settings, c"priority", priority);
@@ -685,7 +752,7 @@ pub(in crate::agent) fn audio_source_configs(
                     selector: application.id,
                     device_id: None,
                     window: Some(application.window),
-                    priority: Some(OBS_WINDOW_PRIORITY_EXE),
+                    priority: APPLICATION_AUDIO_PRIORITY,
                     volume: audio_volume(application.volume),
                 })
                 .collect();
@@ -822,6 +889,22 @@ fn audio_volume(volume: u32) -> f32 {
     (volume.min(100) as f32) / 100.0
 }
 
+/// obs-vkcapture captures the client whose reported name equals `window`.
+/// Without a name it takes whichever client connected last.
+#[cfg(target_os = "linux")]
+unsafe fn configure_game_capture_source(
+    obs: &LibObs,
+    data: *mut ObsData,
+    game: Option<&DetectedGame>,
+) -> Result<(), String> {
+    obs.set_string(
+        data,
+        c"window",
+        game_capture_target_window(game).unwrap_or(""),
+    )
+}
+
+#[cfg(windows)]
 unsafe fn configure_game_capture_source(
     obs: &LibObs,
     data: *mut ObsData,
@@ -848,6 +931,7 @@ unsafe fn configure_game_capture_source(
     Ok(())
 }
 
+#[cfg(windows)]
 fn game_capture_rgb10a2_space(game: Option<&DetectedGame>) -> &'static str {
     if game.is_some_and(|game| game.hdr_enabled) {
         "2100pq"
@@ -856,6 +940,7 @@ fn game_capture_rgb10a2_space(game: Option<&DetectedGame>) -> &'static str {
     }
 }
 
+#[cfg(windows)]
 fn game_capture_mode(game: Option<&DetectedGame>) -> &'static str {
     if game.is_some_and(|game| game.fullscreen) {
         "any_fullscreen"

@@ -1,8 +1,6 @@
 use std::{
-    collections::{HashMap, HashSet},
-    ffi::CString,
+    ffi::{c_void, CStr, CString},
     path::{Path, PathBuf},
-    ptr,
 };
 
 use serde_json::Value;
@@ -10,7 +8,7 @@ use windows_sys::Win32::Media::Audio::{eCapture, eRender};
 
 use crate::{
     agent::platform::{
-        audio_application_id_from_parts, audio_applications,
+        audio_application_id_from_parts,
         com::{
             active_audio_endpoint_devices, create_mm_device_enumerator, default_endpoint_id,
             endpoint_friendly_name, endpoint_id, ComApartment, ComPtr,
@@ -20,17 +18,16 @@ use crate::{
     types::{RecordingAudioApplicationSelection, RecordingAudioDevice, RecordingAudioDeviceKind},
 };
 
-use super::bindings::{CallData, LibObs};
+use super::{sort_audio_devices, LibObs, ModulePaths, ObsModuleSpec};
 
-pub(in crate::agent) fn dedupe_audio_devices(
-    devices: Vec<RecordingAudioDevice>,
-) -> Vec<RecordingAudioDevice> {
-    let mut seen = HashSet::new();
-    devices
-        .into_iter()
-        .filter(|device| seen.insert((device.kind.clone(), device.id.clone())))
-        .collect()
-}
+pub(in crate::agent) const GAME_CAPTURE_SOURCE_ID: &str = "game_capture";
+pub(in crate::agent) const AUDIO_OUTPUT_SOURCE_ID: &str = "wasapi_output_capture";
+pub(in crate::agent) const AUDIO_INPUT_SOURCE_ID: &str = "wasapi_input_capture";
+pub(in crate::agent) const APPLICATION_AUDIO_SOURCE_ID: &str = "wasapi_process_output_capture";
+/// The application audio source's `title:class:exe` window setting.
+pub(in crate::agent) const APPLICATION_AUDIO_TARGET_KEY: &CStr = c"window";
+/// Match application windows by executable first.
+pub(in crate::agent) const APPLICATION_AUDIO_PRIORITY: Option<i64> = Some(2);
 
 pub(in crate::agent) fn platform_audio_devices(
     obs: Option<&LibObs>,
@@ -141,22 +138,6 @@ unsafe fn collect_active_audio_devices(
     Ok(())
 }
 
-pub(in crate::agent) fn sort_audio_devices(devices: &mut [RecordingAudioDevice]) {
-    devices.sort_by(|a, b| {
-        audio_device_kind_order(&a.kind)
-            .cmp(&audio_device_kind_order(&b.kind))
-            .then_with(|| a.label.to_lowercase().cmp(&b.label.to_lowercase()))
-            .then_with(|| a.id.cmp(&b.id))
-    });
-}
-
-fn audio_device_kind_order(kind: &RecordingAudioDeviceKind) -> u8 {
-    match kind {
-        RecordingAudioDeviceKind::Output => 0,
-        RecordingAudioDeviceKind::Input => 1,
-    }
-}
-
 pub(in crate::agent) fn platform_default_audio_device_id(
     kind: &RecordingAudioDeviceKind,
 ) -> Option<String> {
@@ -193,21 +174,10 @@ fn audio_application_id(game: &DetectedGame) -> String {
     )
 }
 
-pub(in crate::agent) fn available_audio_applications(
-) -> HashMap<String, RecordingAudioApplicationSelection> {
-    audio_applications()
-        .into_iter()
-        .map(|application| (application.id.clone(), application))
-        .collect()
-}
-
-pub(in crate::agent) unsafe fn free_calldata(obs: &LibObs, data: &mut CallData) {
-    if !data.fixed && !data.stack.is_null() {
-        (obs.bfree)(data.stack.cast());
-        data.stack = ptr::null_mut();
-    }
-    data.size = 0;
-    data.capacity = 0;
+/// WASAPI endpoint ids are case-insensitive GUID paths; the settings store
+/// them in lowercase.
+pub(in crate::agent) fn normalized_device_id(id: &str) -> String {
+    id.to_ascii_lowercase()
 }
 
 pub(in crate::agent) fn libobs_candidates(runtime_dir: Option<&Path>) -> Vec<PathBuf> {
@@ -222,15 +192,31 @@ pub(in crate::agent) fn libobs_candidates(runtime_dir: Option<&Path>) -> Vec<Pat
     candidates
 }
 
-pub(in crate::agent) fn module_bin_path(runtime_dir: &Path, module: &str) -> PathBuf {
-    runtime_dir
-        .join("obs-plugins/64bit")
-        .join(format!("{module}.dll"))
+/// libobs as loaded; Windows needs no more than the candidate that loaded.
+pub(in crate::agent) fn library_path(candidate: &Path, _symbol: *const c_void) -> PathBuf {
+    candidate.to_path_buf()
 }
 
-pub(in crate::agent) struct ObsModuleSpec {
-    pub(in crate::agent) name: &'static str,
-    pub(in crate::agent) required: bool,
+pub(in crate::agent) fn graphics_module(_libobs: &Path) -> CString {
+    c"libobs-d3d11".to_owned()
+}
+
+/// Where a module from `platform_modules` lives in the bundled runtime.
+/// Without a runtime, OBS loads every module from its own search paths.
+pub(in crate::agent) fn module_paths(
+    runtime_dir: Option<&Path>,
+    _libobs: &Path,
+    module: &str,
+) -> Vec<ModulePaths> {
+    runtime_dir
+        .map(|runtime_dir| ModulePaths {
+            bin: runtime_dir
+                .join("obs-plugins/64bit")
+                .join(format!("{module}.dll")),
+            data: runtime_dir.join("data/obs-plugins").join(module),
+        })
+        .into_iter()
+        .collect()
 }
 
 pub(in crate::agent) fn platform_modules() -> &'static [ObsModuleSpec] {
@@ -238,39 +224,42 @@ pub(in crate::agent) fn platform_modules() -> &'static [ObsModuleSpec] {
         ObsModuleSpec {
             name: "obs-ffmpeg",
             required: true,
+            capture: false,
         },
         ObsModuleSpec {
             name: "obs-outputs",
             required: true,
+            capture: false,
         },
         ObsModuleSpec {
             name: "obs-x264",
             required: true,
+            capture: false,
         },
         ObsModuleSpec {
             name: "obs-nvenc",
             required: false,
+            capture: false,
         },
         ObsModuleSpec {
             name: "obs-qsv11",
             required: false,
+            capture: false,
         },
         ObsModuleSpec {
             name: "coreaudio-encoder",
             required: false,
+            capture: false,
         },
         ObsModuleSpec {
             name: "win-capture",
             required: true,
+            capture: true,
         },
         ObsModuleSpec {
             name: "win-wasapi",
             required: true,
+            capture: true,
         },
     ]
-}
-
-pub(in crate::agent) fn cstring_path(path: &Path) -> Result<CString, String> {
-    CString::new(path.to_string_lossy().replace('\\', "/").into_bytes())
-        .map_err(|_| format!("Path contains a nul byte: {}", path.display()))
 }

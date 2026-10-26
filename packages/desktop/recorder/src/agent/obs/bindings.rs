@@ -1,6 +1,6 @@
 use std::{
     ffi::{c_char, c_int, c_void, CStr, CString},
-    path::Path,
+    path::{Path, PathBuf},
     ptr,
     sync::atomic::{AtomicBool, Ordering},
 };
@@ -16,7 +16,9 @@ use crate::{
 use super::{
     load_optional_symbol, load_symbol,
     platform::{
-        cstring_path, libobs_candidates, module_bin_path, platform_modules, sort_audio_devices,
+        cstring_path, graphics_module, libobs_candidates, library_path, module_paths,
+        normalized_device_id, platform_modules, sort_audio_devices, ModulePaths,
+        AUDIO_INPUT_SOURCE_ID, AUDIO_OUTPUT_SOURCE_ID,
     },
     screenshot::ScreenshotBindings,
 };
@@ -37,12 +39,6 @@ pub(in crate::agent) const OBS_ENCODER_VIDEO: c_int = 1;
 pub(in crate::agent) const OBS_ENCODER_CAP_DEPRECATED: u32 = 1 << 0;
 pub(in crate::agent) const OBS_ENCODER_CAP_PASS_TEXTURE: u32 = 1 << 1;
 pub(in crate::agent) const OBS_ENCODER_CAP_INTERNAL: u32 = 1 << 3;
-pub(in crate::agent) const GAME_CAPTURE_SOURCE_ID: &str = "game_capture";
-pub(in crate::agent) const DISPLAY_CAPTURE_SOURCE_ID: &str = "monitor_capture";
-pub(in crate::agent) const AUDIO_OUTPUT_SOURCE_ID: &str = "wasapi_output_capture";
-pub(in crate::agent) const AUDIO_INPUT_SOURCE_ID: &str = "wasapi_input_capture";
-pub(in crate::agent) const APPLICATION_AUDIO_SOURCE_ID: &str = "wasapi_process_output_capture";
-const GRAPHICS_MODULE: &CStr = c"libobs-d3d11";
 pub(in crate::agent) const OBS_PROPERTY_LIST: i32 = 6;
 pub(in crate::agent) const OBS_COMBO_FORMAT_STRING: i32 = 3;
 
@@ -113,6 +109,9 @@ pub(in crate::agent) struct LibObs {
     pub(in crate::agent) screenshots: ScreenshotBindings,
     // Keep the DLL loaded for as long as any of its function pointers are held.
     _library: Library,
+    /// The loaded libobs file; Linux finds its plugins beside it.
+    library_path: PathBuf,
+    graphics_module: CString,
     // Set once this instance's `obs_startup` succeeds. Dropping the instance
     // shuts OBS down before the DLL unloads, also when a later startup step
     // failed and the caller returned early.
@@ -123,11 +122,16 @@ pub(in crate::agent) struct LibObs {
     pub(in crate::agent) obs_shutdown: unsafe extern "C" fn(),
     pub(in crate::agent) obs_add_data_path: unsafe extern "C" fn(*const c_char),
     pub(in crate::agent) obs_add_module_path: unsafe extern "C" fn(*const c_char, *const c_char),
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     pub(in crate::agent) obs_load_all_modules: unsafe extern "C" fn(),
     pub(in crate::agent) obs_open_module:
         unsafe extern "C" fn(*mut *mut ObsModule, *const c_char, *const c_char) -> i32,
     pub(in crate::agent) obs_init_module: unsafe extern "C" fn(*mut ObsModule) -> bool,
     pub(in crate::agent) obs_post_load_modules: unsafe extern "C" fn(),
+    #[cfg(target_os = "linux")]
+    obs_set_nix_platform: unsafe extern "C" fn(c_int),
+    #[cfg(target_os = "linux")]
+    obs_set_nix_platform_display: unsafe extern "C" fn(*mut c_void),
     obs_reset_audio: unsafe extern "C" fn(*const ObsAudioInfo) -> bool,
     obs_reset_video: unsafe extern "C" fn(*mut ObsVideoInfo) -> i32,
     pub(in crate::agent) obs_set_video_levels: Option<unsafe extern "C" fn(f32, f32)>,
@@ -152,6 +156,10 @@ pub(in crate::agent) struct LibObs {
         unsafe extern "C" fn(*mut ObsData, *const c_char, *const c_char),
     pub(in crate::agent) obs_data_set_int: unsafe extern "C" fn(*mut ObsData, *const c_char, i64),
     pub(in crate::agent) obs_data_set_bool: unsafe extern "C" fn(*mut ObsData, *const c_char, bool),
+    #[cfg(target_os = "linux")]
+    obs_data_get_string: unsafe extern "C" fn(*mut ObsData, *const c_char) -> *const c_char,
+    #[cfg(target_os = "linux")]
+    obs_get_source_output_flags: Option<unsafe extern "C" fn(*const c_char) -> u32>,
     pub(in crate::agent) obs_get_source_properties:
         unsafe extern "C" fn(*const c_char) -> *mut ObsProperties,
     pub(in crate::agent) obs_properties_destroy: unsafe extern "C" fn(*mut ObsProperties),
@@ -172,15 +180,25 @@ pub(in crate::agent) struct LibObs {
         *mut ObsData,
     ) -> *mut ObsSource,
     pub(in crate::agent) obs_source_release: unsafe extern "C" fn(*mut ObsSource),
+    #[cfg(target_os = "linux")]
+    obs_source_get_settings: unsafe extern "C" fn(*const ObsSource) -> *mut ObsData,
+    #[cfg(target_os = "linux")]
+    obs_source_get_width: unsafe extern "C" fn(*const ObsSource) -> u32,
+    #[cfg(target_os = "linux")]
+    obs_source_get_height: unsafe extern "C" fn(*const ObsSource) -> u32,
     pub(in crate::agent) obs_source_remove: unsafe extern "C" fn(*mut ObsSource),
     pub(in crate::agent) obs_source_set_audio_mixers: unsafe extern "C" fn(*mut ObsSource, u32),
     pub(in crate::agent) obs_source_set_volume: unsafe extern "C" fn(*mut ObsSource, f32),
+    // obs-vkcapture on Linux has no hook signals.
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     pub(in crate::agent) obs_source_get_signal_handler:
         unsafe extern "C" fn(*const ObsSource) -> *mut SignalHandler,
     pub(in crate::agent) obs_source_get_proc_handler:
         unsafe extern "C" fn(*const ObsSource) -> *mut ProcHandler,
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     pub(in crate::agent) signal_handler_connect:
         unsafe extern "C" fn(*mut SignalHandler, *const c_char, SignalCallback, *mut c_void),
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     pub(in crate::agent) signal_handler_disconnect:
         unsafe extern "C" fn(*mut SignalHandler, *const c_char, SignalCallback, *mut c_void),
     pub(in crate::agent) obs_set_output_source: unsafe extern "C" fn(u32, *mut ObsSource),
@@ -269,7 +287,7 @@ impl LibObs {
                     continue;
                 }
             };
-            match unsafe { Self::from_library(library) } {
+            match unsafe { Self::from_library(library, &candidate) } {
                 Ok(obs) => return Ok(obs),
                 Err(error) => {
                     errors.push(format!("{}: {error}", candidate.display()));
@@ -285,11 +303,16 @@ impl LibObs {
         Err(format!("Could not load libobs ({detail})."))
     }
 
-    unsafe fn from_library(library: Library) -> Result<Self, String> {
+    unsafe fn from_library(library: Library, candidate: &Path) -> Result<Self, String> {
         super::logging::install(&library)?;
+        let obs_startup: unsafe extern "C" fn(*const c_char, *const c_char, *const c_char) -> bool =
+            load_symbol(&library, b"obs_startup\0")?;
+        let library_path = library_path(candidate, obs_startup as *const c_void);
         Ok(Self {
+            graphics_module: graphics_module(&library_path),
+            library_path,
             screenshots: ScreenshotBindings::load(&library)?,
-            obs_startup: load_symbol(&library, b"obs_startup\0")?,
+            obs_startup,
             obs_initialized: load_symbol(&library, b"obs_initialized\0")?,
             obs_shutdown: load_symbol(&library, b"obs_shutdown\0")?,
             obs_add_data_path: load_symbol(&library, b"obs_add_data_path\0")?,
@@ -298,6 +321,10 @@ impl LibObs {
             obs_open_module: load_symbol(&library, b"obs_open_module\0")?,
             obs_init_module: load_symbol(&library, b"obs_init_module\0")?,
             obs_post_load_modules: load_symbol(&library, b"obs_post_load_modules\0")?,
+            #[cfg(target_os = "linux")]
+            obs_set_nix_platform: load_symbol(&library, b"obs_set_nix_platform\0")?,
+            #[cfg(target_os = "linux")]
+            obs_set_nix_platform_display: load_symbol(&library, b"obs_set_nix_platform_display\0")?,
             obs_reset_audio: load_symbol(&library, b"obs_reset_audio\0")?,
             obs_reset_video: load_symbol(&library, b"obs_reset_video\0")?,
             obs_set_video_levels: load_optional_symbol(&library, b"obs_set_video_levels\0"),
@@ -324,6 +351,13 @@ impl LibObs {
             obs_data_set_string: load_symbol(&library, b"obs_data_set_string\0")?,
             obs_data_set_int: load_symbol(&library, b"obs_data_set_int\0")?,
             obs_data_set_bool: load_symbol(&library, b"obs_data_set_bool\0")?,
+            #[cfg(target_os = "linux")]
+            obs_data_get_string: load_symbol(&library, b"obs_data_get_string\0")?,
+            #[cfg(target_os = "linux")]
+            obs_get_source_output_flags: load_optional_symbol(
+                &library,
+                b"obs_get_source_output_flags\0",
+            ),
             obs_get_source_properties: load_symbol(&library, b"obs_get_source_properties\0")?,
             obs_properties_destroy: load_symbol(&library, b"obs_properties_destroy\0")?,
             obs_properties_get: load_symbol(&library, b"obs_properties_get\0")?,
@@ -337,6 +371,12 @@ impl LibObs {
             )?,
             obs_source_create: load_symbol(&library, b"obs_source_create\0")?,
             obs_source_release: load_symbol(&library, b"obs_source_release\0")?,
+            #[cfg(target_os = "linux")]
+            obs_source_get_settings: load_symbol(&library, b"obs_source_get_settings\0")?,
+            #[cfg(target_os = "linux")]
+            obs_source_get_width: load_symbol(&library, b"obs_source_get_width\0")?,
+            #[cfg(target_os = "linux")]
+            obs_source_get_height: load_symbol(&library, b"obs_source_get_height\0")?,
             obs_source_remove: load_symbol(&library, b"obs_source_remove\0")?,
             obs_source_set_audio_mixers: load_symbol(&library, b"obs_source_set_audio_mixers\0")?,
             obs_source_set_volume: load_symbol(&library, b"obs_source_set_volume\0")?,
@@ -401,13 +441,24 @@ impl LibObs {
         })
     }
 
+    /// Starts OBS and loads its modules. An encoder probe passes
+    /// `capture: false` and skips the capture source modules.
     pub(in crate::agent) unsafe fn start(
         &self,
         runtime_dir: Option<&Path>,
         video_config: ObsVideoConfig,
         adapter: u32,
+        capture: bool,
     ) -> Result<(), String> {
         self.add_paths(runtime_dir);
+        // libobs renders through the session's display connection on Linux,
+        // and reads the platform during startup.
+        #[cfg(target_os = "linux")]
+        {
+            let session = super::platform::prepare_display_session()?;
+            (self.obs_set_nix_platform)(session.platform);
+            (self.obs_set_nix_platform_display)(session.display);
+        }
         let locale = c"en-US";
         if !(self.obs_startup)(locale.as_ptr(), ptr::null(), ptr::null()) {
             return Err("OBS startup failed.".to_string());
@@ -422,7 +473,7 @@ impl LibObs {
         // silently falls back to DXGI duplication otherwise.
         self.reset_audio()?;
         self.reset_video(video_config, adapter)?;
-        self.load_modules(runtime_dir)?;
+        self.load_modules(runtime_dir, capture)?;
         (self.obs_post_load_modules)();
         Ok(())
     }
@@ -490,14 +541,22 @@ impl LibObs {
         (self.obs_add_module_path)(bin_path.as_ptr(), data_path.as_ptr());
     }
 
-    unsafe fn load_modules(&self, runtime_dir: Option<&Path>) -> Result<(), String> {
-        let Some(runtime_dir) = runtime_dir else {
+    unsafe fn load_modules(&self, runtime_dir: Option<&Path>, capture: bool) -> Result<(), String> {
+        // Without a bundled runtime, Windows OBS loads every module from its
+        // own install. Linux always picks its modules, since a system OBS
+        // ships frontend and browser plugins the agent must not load.
+        #[cfg(windows)]
+        if runtime_dir.is_none() {
             (self.obs_load_all_modules)();
             return Ok(());
-        };
+        }
 
-        for module in platform_modules() {
-            if let Err(error) = self.load_module(runtime_dir, module.name) {
+        for module in platform_modules()
+            .iter()
+            .filter(|module| capture || !module.capture)
+        {
+            let paths = module_paths(runtime_dir, &self.library_path, module.name);
+            if let Err(error) = self.load_module(module.name, &paths) {
                 if module.required {
                     return Err(error);
                 }
@@ -507,19 +566,25 @@ impl LibObs {
         Ok(())
     }
 
-    unsafe fn load_module(&self, runtime_dir: &Path, module: &str) -> Result<(), String> {
-        let bin_path = module_bin_path(runtime_dir, module);
-        if !bin_path.exists() {
+    unsafe fn load_module(&self, module: &str, paths: &[ModulePaths]) -> Result<(), String> {
+        let Some(ModulePaths {
+            bin: bin_path,
+            data: data_path,
+        }) = paths.iter().find(|paths| paths.bin.exists())
+        else {
+            let searched: Vec<_> = paths
+                .iter()
+                .map(|paths| paths.bin.display().to_string())
+                .collect();
             return Err(format!(
-                "OBS module {module} was not found at {}.",
-                bin_path.display()
+                "OBS module {module} was not found (searched {}).",
+                searched.join(", ")
             ));
-        }
+        };
 
-        let data_path = runtime_dir.join("data/obs-plugins").join(module);
-        let bin_path = cstring_path(&bin_path)?;
+        let bin_path = cstring_path(bin_path)?;
         let data_path = if data_path.exists() {
-            Some(cstring_path(&data_path)?)
+            Some(cstring_path(data_path)?)
         } else {
             None
         };
@@ -562,7 +627,7 @@ impl LibObs {
 
     unsafe fn reset_video(&self, video_config: ObsVideoConfig, adapter: u32) -> Result<(), String> {
         let mut info = ObsVideoInfo {
-            graphics_module: GRAPHICS_MODULE.as_ptr(),
+            graphics_module: self.graphics_module.as_ptr(),
             fps_num: video_config.fps,
             fps_den: 1,
             base_width: video_config.base.width,
@@ -674,6 +739,46 @@ impl LibObs {
         (self.obs_data_set_bool)(data, key.as_ptr(), value);
     }
 
+    /// A string from a source's current settings, or `None` when unset.
+    #[cfg(target_os = "linux")]
+    pub(in crate::agent) unsafe fn source_setting_string(
+        &self,
+        source: *mut ObsSource,
+        key: &CStr,
+    ) -> Option<String> {
+        let settings = (self.obs_source_get_settings)(source);
+        if settings.is_null() {
+            return None;
+        }
+        let value = (self.obs_data_get_string)(settings, key.as_ptr());
+        let value = (!value.is_null())
+            .then(|| CStr::from_ptr(value).to_string_lossy().into_owned())
+            .filter(|value| !value.is_empty());
+        self.release_data(settings);
+        value
+    }
+
+    /// The source's current frame size; zero until it produces frames.
+    #[cfg(target_os = "linux")]
+    pub(in crate::agent) unsafe fn source_size(&self, source: *mut ObsSource) -> (u32, u32) {
+        (
+            (self.obs_source_get_width)(source),
+            (self.obs_source_get_height)(source),
+        )
+    }
+
+    /// Whether a module registered the source type `id`.
+    #[cfg(target_os = "linux")]
+    pub(in crate::agent) unsafe fn source_registered(&self, id: &str) -> bool {
+        let (Some(output_flags), Ok(id)) = (
+            self.obs_get_source_output_flags,
+            c_string(id, "OBS source id"),
+        ) else {
+            return false;
+        };
+        output_flags(id.as_ptr()) != 0
+    }
+
     pub(in crate::agent) unsafe fn audio_devices(
         &self,
     ) -> Result<Vec<RecordingAudioDevice>, String> {
@@ -727,7 +832,7 @@ impl LibObs {
                     id: if id.eq_ignore_ascii_case("default") {
                         "default".to_string()
                     } else {
-                        id.to_ascii_lowercase()
+                        normalized_device_id(&id)
                     },
                     label: CStr::from_ptr(label).to_string_lossy().into_owned(),
                     kind: kind.clone(),

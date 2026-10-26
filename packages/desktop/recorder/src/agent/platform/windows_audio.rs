@@ -49,11 +49,11 @@ use super::{
         for_each_process_audio_session, release_com, string_from_cotaskmem_pwstr, succeeded,
         ComApartment,
     },
-    game_matching::clean_user_facing_process_name,
     valid_capture_dimensions,
     windows::{monitor_info_ex, wide_array_to_string},
     DetectedGame, GameDetection,
 };
+use crate::agent::game_matching::clean_user_facing_process_name;
 use crate::types::{RecordingSettings, VideoDimensions};
 
 const PNG_ENCODER_CLSID: GUID = GUID::from_u128(0x557cf406_1a04_11d3_9a73_0000f81ef32e);
@@ -350,7 +350,7 @@ pub(super) fn looks_like_audio_application(
         .any(|blocked| executable == *blocked || class_name.contains(blocked))
 }
 
-pub(super) fn application_display_name(path: &str) -> Option<String> {
+pub(in crate::agent) fn application_display_name(path: &str) -> Option<String> {
     file_version_string(path, "ProductName")
         .or_else(|| file_version_string(path, "FileDescription"))
         .and_then(|name| clean_user_facing_process_name(&name))

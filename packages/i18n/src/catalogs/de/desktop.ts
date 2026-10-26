@@ -392,6 +392,8 @@ export const DESKTOP_MESSAGES = {
   "Press keys…": "Tasten drücken…",
   "Quit Alloy": "Alloy beenden",
   "Reconnecting…": "Verbindung wird wiederhergestellt…",
+  "Record the selected display while an allowed game runs, or all the time, and keep the replay buffer ready.":
+    "Nimmt das ausgewählte Display auf, während ein erlaubtes Spiel läuft oder dauerhaft, und hält den Replay-Puffer bereit.",
   Recording: "Aufnahme",
   "Recording and hotkey behavior may change.":
     "Aufnahme- und Hotkey-Verhalten können sich ändern.",
@@ -449,6 +451,8 @@ export const DESKTOP_MESSAGES = {
     "Wähle einen Sound aus dem Ordner für Benachrichtigungssounds aus.",
   "Select the display Alloy should use for desktop capture.":
     "Wähle das Display, das Alloy für die Desktop-Aufnahme verwenden soll.",
+  "Selected sources are mixed into one track. Set their levels in the system sound settings.":
+    "Ausgewählte Quellen werden in eine Tonspur gemischt. Ihre Pegel legst du in den Soundeinstellungen des Systems fest.",
   Server: "Server",
   "Server + Device": "Server + Gerät",
   "Server URL": "Server-URL",
@@ -545,6 +549,8 @@ export const DESKTOP_MESSAGES = {
     "Wo das Replay-Video aufbewahrt wird, bevor ein Clip gespeichert wird.",
   "You can capture up to {count} audio sources at once.":
     "Du kannst bis zu {count} Audioquellen gleichzeitig aufnehmen.",
+  "Your desktop owns the clip and screenshot shortcuts. Change them in its keyboard settings. If it has no shortcut portal, bind {clip} and {screenshot} there instead.":
+    "Dein Desktop verwaltet die Tastenkürzel für Clips und Screenshots. Ändere sie in seinen Tastatureinstellungen. Hat er kein Shortcut-Portal, lege dort stattdessen {clip} und {screenshot} fest.",
   "ffmpeg not detected": "ffmpeg nicht erkannt",
   fps: "fps",
   "{available} free of {total}": "{available} von {total} frei",

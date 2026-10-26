@@ -1,10 +1,10 @@
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 fn main() {
     alloy_recorder::run();
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 fn main() {
-    eprintln!("alloy-agent is currently Windows-only.");
+    eprintln!("alloy-agent runs only on Windows and Linux.");
     std::process::exit(1);
 }

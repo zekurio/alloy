@@ -125,6 +125,7 @@ pub fn unavailable_status(
         available_audio_applications: settings.audio_applications.clone(),
         telemetry: None,
         message,
+        capabilities: Vec::new(),
     }
 }
 

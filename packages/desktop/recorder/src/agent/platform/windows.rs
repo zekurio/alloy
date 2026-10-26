@@ -1,7 +1,3 @@
-use super::game_matching::{
-    candidate_game_detection_match, clean_user_facing_process_name, readable_detected_game_name,
-    user_facing_process_name, ProcessDisplayName,
-};
 use super::windows_audio::{
     active_audio_sessions, application_icon_data_url, fullscreen_monitor_dimensions,
     is_capturable_application_window, looks_like_audio_application, process_executable,
@@ -9,8 +5,12 @@ use super::windows_audio::{
     AudioWindowContext, GameWindowContext, WindowInfo,
 };
 use super::{
-    audio_application_id_from_parts, normalized_path, obs_window_selector, path_file_name,
-    valid_capture_dimensions, DetectedGame, GameDetection,
+    audio_application_id_from_parts, obs_window_selector, valid_capture_dimensions, DetectedGame,
+    GameDetection,
+};
+use crate::agent::game_matching::{
+    candidate_game_detection_match, clean_user_facing_process_name, normalized_path,
+    path_file_name, readable_detected_game_name, user_facing_process_name, ProcessDisplayName,
 };
 use crate::agent::time::now_iso;
 use crate::types::{

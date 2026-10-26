@@ -1,3 +1,7 @@
+//! Game identification shared by every platform: the user's allowed and
+//! denied games, the Discord detectable-games catalog, the built-in non-game
+//! list, and the names shown for detected processes.
+
 use std::{
     collections::{HashMap, HashSet},
     env, fs,
@@ -8,10 +12,8 @@ use std::{
 
 use serde::Deserialize;
 
-use super::{
-    manual_allowed_game_match, manual_game_denied, path_file_name,
-    windows_audio::application_display_name, DetectedGame,
-};
+#[cfg(windows)]
+use crate::agent::platform::application_display_name;
 use crate::{
     protocol::SIDE_CAR_NAME,
     types::{
@@ -20,8 +22,7 @@ use crate::{
     },
 };
 
-const PLAYS_NON_GAME_DETECTIONS_JSON: &str =
-    include_str!("../../detections/nonGameDetections.json");
+const PLAYS_NON_GAME_DETECTIONS_JSON: &str = include_str!("../detections/nonGameDetections.json");
 
 const MANUAL_ALLOW_SCORE: i32 = 120;
 const DISCORD_DETECTIONS_PATH_ENV: &str = "ALLOY_DISCORD_DETECTIONS_PATH";
@@ -45,27 +46,29 @@ const GAME_CLASS_DENY_TERMS: &[&str] = &[
 ];
 
 #[derive(Clone, Debug)]
-pub(super) struct CandidateGameMatch {
-    pub(super) id: Option<String>,
-    pub(super) source: RecordingGameGuessSource,
-    pub(super) source_id: Option<String>,
-    pub(super) name: String,
-    pub(super) aliases: Vec<String>,
-    pub(super) icon_url: Option<String>,
+pub(in crate::agent) struct CandidateGameMatch {
+    pub(in crate::agent) id: Option<String>,
+    pub(in crate::agent) source: RecordingGameGuessSource,
+    pub(in crate::agent) source_id: Option<String>,
+    pub(in crate::agent) name: String,
+    pub(in crate::agent) aliases: Vec<String>,
+    pub(in crate::agent) icon_url: Option<String>,
     preserve_name: bool,
-    pub(super) detection_score: i32,
-    pub(super) confidence: u8,
-    pub(super) match_kind: RecordingGameGuessMatchKind,
+    pub(in crate::agent) detection_score: i32,
+    pub(in crate::agent) confidence: u8,
+    pub(in crate::agent) match_kind: RecordingGameGuessMatchKind,
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct ProcessDisplayName<'a> {
-    pub(super) path: Option<&'a str>,
-    pub(super) preferred: Option<&'a str>,
-    pub(super) title: Option<&'a str>,
-    pub(super) executable: Option<&'a str>,
-    pub(super) fallback: Option<&'a str>,
-    pub(super) preserve_preferred: bool,
+pub(in crate::agent) struct ProcessDisplayName<'a> {
+    /// Windows reads the product name from the executable's version info.
+    #[cfg_attr(not(windows), expect(dead_code))]
+    pub(in crate::agent) path: Option<&'a str>,
+    pub(in crate::agent) preferred: Option<&'a str>,
+    pub(in crate::agent) title: Option<&'a str>,
+    pub(in crate::agent) executable: Option<&'a str>,
+    pub(in crate::agent) fallback: Option<&'a str>,
+    pub(in crate::agent) preserve_preferred: bool,
 }
 
 #[derive(Default)]
@@ -122,7 +125,7 @@ struct PlaysNonGameRule {
 static NON_GAME_EXECUTABLES: OnceLock<HashSet<String>> = OnceLock::new();
 static DISCORD_DETECTION_STATE: OnceLock<Mutex<RuntimeDiscordDetectionState>> = OnceLock::new();
 
-pub(super) fn candidate_game_detection_match(
+pub(in crate::agent) fn candidate_game_detection_match(
     path: Option<&str>,
     executable: Option<&str>,
     title: Option<&str>,
@@ -157,21 +160,6 @@ pub(super) fn candidate_game_detection_match(
 
     discord_game_match(executable)
         .filter(|_| known_game_window_is_plausible(capture_dimensions, class_name))
-}
-
-pub(in crate::agent) fn detected_game_allowed(
-    detected: &DetectedGame,
-    settings: &RecordingSettings,
-) -> bool {
-    candidate_game_detection_match(
-        detected.game.path.as_deref(),
-        detected.game.executable.as_deref(),
-        detected.game.window_title.as_deref(),
-        detected.game.window_class.as_deref(),
-        detected.capture_dimensions,
-        settings,
-    )
-    .is_some()
 }
 
 fn manual_game_name(
@@ -295,7 +283,7 @@ fn contains_any_folded(value: &str, terms: &[&str]) -> bool {
         .any(|term| lower.contains(term) || compact.contains(term))
 }
 
-pub(super) fn readable_detected_game_name(
+pub(in crate::agent) fn readable_detected_game_name(
     candidate: &CandidateGameMatch,
     path: Option<&str>,
     title: Option<&str>,
@@ -315,11 +303,12 @@ pub(super) fn readable_detected_game_name(
     .unwrap_or_else(|| candidate.name.clone())
 }
 
-pub(super) fn user_facing_process_name(input: ProcessDisplayName<'_>) -> Option<String> {
+pub(in crate::agent) fn user_facing_process_name(input: ProcessDisplayName<'_>) -> Option<String> {
     if input.preserve_preferred {
         return input.preferred.and_then(clean_user_facing_process_name);
     }
 
+    #[cfg(windows)]
     if let Some(name) = input.path.and_then(application_display_name) {
         return Some(name);
     }
@@ -338,7 +327,7 @@ pub(super) fn user_facing_process_name(input: ProcessDisplayName<'_>) -> Option<
         .or_else(|| input.fallback.and_then(humanize_compact_process_name))
 }
 
-pub(super) fn clean_user_facing_process_name(value: &str) -> Option<String> {
+pub(in crate::agent) fn clean_user_facing_process_name(value: &str) -> Option<String> {
     let name = value.trim();
     if name.is_empty() {
         None
@@ -544,4 +533,86 @@ fn load_non_game_executables() -> HashSet<String> {
         }
     }
     catalog
+}
+
+pub(in crate::agent) fn path_file_name(path: &str) -> Option<String> {
+    path.rsplit(['\\', '/'])
+        .next()
+        .filter(|name| !name.trim().is_empty())
+        .map(str::to_string)
+}
+
+pub(in crate::agent) fn paths_equal(left: &str, right: &str) -> bool {
+    normalized_path(left)
+        .trim_end_matches('/')
+        .eq_ignore_ascii_case(normalized_path(right).trim_end_matches('/'))
+}
+
+pub(in crate::agent) fn normalized_path(path: &str) -> String {
+    path.replace('\\', "/")
+}
+
+fn best_allowed_game_match<'a>(
+    allowed_games: &'a [RecordingAllowedGame],
+    path: Option<&str>,
+    executable: Option<&str>,
+    class_name: Option<&str>,
+) -> Option<(&'a RecordingAllowedGame, i32)> {
+    allowed_games
+        .iter()
+        .filter_map(|game| {
+            let score = allowed_game_match_score(game, path, executable, class_name);
+            (score > 0).then_some((game, score))
+        })
+        .max_by_key(|(_, score)| *score)
+}
+
+fn manual_allowed_game_match<'a>(
+    settings: &'a RecordingSettings,
+    path: Option<&str>,
+    executable: Option<&str>,
+    class_name: Option<&str>,
+) -> Option<(&'a RecordingAllowedGame, i32)> {
+    let allowed = best_allowed_game_match(&settings.allowed_games, path, executable, class_name)?;
+    let denied = best_allowed_game_match(&settings.denied_games, path, executable, class_name);
+    denied
+        .is_none_or(|(_, denied_score)| denied_score < allowed.1)
+        .then_some(allowed)
+}
+
+fn manual_game_denied(
+    settings: &RecordingSettings,
+    path: Option<&str>,
+    executable: Option<&str>,
+    class_name: Option<&str>,
+) -> bool {
+    let Some((_, denied_score)) =
+        best_allowed_game_match(&settings.denied_games, path, executable, class_name)
+    else {
+        return false;
+    };
+    best_allowed_game_match(&settings.allowed_games, path, executable, class_name)
+        .is_none_or(|(_, allowed_score)| denied_score >= allowed_score)
+}
+
+fn allowed_game_match_score(
+    game: &RecordingAllowedGame,
+    path: Option<&str>,
+    executable: Option<&str>,
+    class_name: Option<&str>,
+) -> i32 {
+    if let Some(allowed_path) = game.path.as_deref() {
+        return i32::from(path.is_some_and(|path| paths_equal(allowed_path, path))) * 100;
+    }
+    if game.executable.as_deref().is_some_and(|allowed| {
+        executable.is_some_and(|candidate| allowed.eq_ignore_ascii_case(candidate))
+    }) {
+        return 80;
+    }
+    if game.window_class.as_deref().is_some_and(|allowed| {
+        class_name.is_some_and(|candidate| allowed.eq_ignore_ascii_case(candidate))
+    }) {
+        return 60;
+    }
+    0
 }

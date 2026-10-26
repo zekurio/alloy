@@ -53,6 +53,11 @@ const DISCORD_CONNECT_TIMEOUT: Duration = Duration::from_secs(8);
 // The detectable-applications payload is ~13 MB as of 2026 and keeps growing.
 const DISCORD_MAX_BODY_BYTES: usize = 64 * 1024 * 1024;
 const DISCORD_MAX_ROWS: usize = 100_000;
+#[cfg(windows)]
+const DISCORD_EXECUTABLE_OSES: &[&str] = &["win32"];
+// Linux runs native games and Windows games through Proton.
+#[cfg(not(windows))]
+const DISCORD_EXECUTABLE_OSES: &[&str] = &["win32", "linux"];
 
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1848,7 +1853,8 @@ fn trim_discord_detections(payload: Value) -> Result<DiscordDetectionCache, Stri
                 let Some(executable) = raw_executable.as_object() else {
                     continue;
                 };
-                if discord_string(executable.get("os")) != "win32" {
+                if !DISCORD_EXECUTABLE_OSES.contains(&discord_string(executable.get("os")).as_str())
+                {
                     continue;
                 }
                 let key = discord_executable_key(&discord_string(executable.get("name")));

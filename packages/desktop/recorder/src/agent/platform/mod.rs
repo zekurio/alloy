@@ -1,30 +1,54 @@
+//! Platform discovery behind one API: games, displays, audio applications and
+//! level meters, and the hotkey hook. Windows reads windows, WASAPI and COM;
+//! Linux reads `/proc`, sysfs and PulseAudio in `linux`.
+
 use std::process::Command;
 
-use crate::types::{
-    RecordingAllowedGame, RecordingDisplay, RecordingGame, RecordingSettings, VideoDimensions,
-};
+use crate::agent::game_matching::candidate_game_detection_match;
+use crate::types::{RecordingDisplay, RecordingGame, RecordingSettings, VideoDimensions};
 
+#[cfg(windows)]
 mod audio_levels;
+#[cfg(windows)]
 pub(in crate::agent) mod com;
-mod game_matching;
+#[cfg(windows)]
 pub(in crate::agent) mod hotkeys;
+#[cfg(target_os = "linux")]
+pub(in crate::agent) mod linux;
+#[cfg(windows)]
 mod windows;
+#[cfg(windows)]
 mod windows_audio;
 
+#[cfg(windows)]
 pub(in crate::agent) use audio_levels::{stop_audio_level_events, subscribe_audio_level_events};
-pub(in crate::agent) use game_matching::detected_game_allowed;
+#[cfg(target_os = "linux")]
+pub(in crate::agent) use linux::{
+    audio_applications, detect_game_activity, hotkeys, is_detected_game_alive, list_displays,
+    list_game_processes, primary_display_id, refresh_capture_metadata, stop_audio_level_events,
+    subscribe_audio_level_events,
+};
+#[cfg(windows)]
 pub(in crate::agent) use windows::{
     audio_applications, detect_game_activity, is_detected_game_alive, list_displays,
     list_game_processes, primary_display_id,
 };
-pub(in crate::agent) use windows_audio::refresh_capture_metadata;
+#[cfg(windows)]
+pub(in crate::agent) use windows_audio::{application_display_name, refresh_capture_metadata};
 
 #[derive(Clone, Debug)]
 pub(in crate::agent) struct DetectedGame {
     pub(in crate::agent) game: RecordingGame,
+    /// What OBS game capture targets: the `title:class:exe` window selector
+    /// on Windows, the name obs-vkcapture's layer reports on Linux.
     pub(in crate::agent) obs_window: Option<String>,
     pub(in crate::agent) window_key: String,
+    #[cfg(windows)]
     pub(in crate::agent) window_handle: isize,
+    /// Start time in clock ticks, so a recycled pid is a different process.
+    #[cfg(target_os = "linux")]
+    pub(in crate::agent) process_start_ticks: u64,
+    #[cfg(windows)]
     pub(in crate::agent) fullscreen: bool,
     pub(in crate::agent) capture_dimensions: Option<VideoDimensions>,
     pub(in crate::agent) hdr_enabled: bool,
@@ -35,6 +59,21 @@ pub(in crate::agent) struct DetectedGame {
 pub(in crate::agent) struct GameDetection {
     pub(in crate::agent) game: DetectedGame,
     pub(in crate::agent) focused: bool,
+}
+
+pub(in crate::agent) fn detected_game_allowed(
+    detected: &DetectedGame,
+    settings: &RecordingSettings,
+) -> bool {
+    candidate_game_detection_match(
+        detected.game.path.as_deref(),
+        detected.game.executable.as_deref(),
+        detected.game.window_title.as_deref(),
+        detected.game.window_class.as_deref(),
+        detected.capture_dimensions,
+        settings,
+    )
+    .is_some()
 }
 
 pub(in crate::agent) fn selected_display(settings: &RecordingSettings) -> Option<RecordingDisplay> {
@@ -64,24 +103,14 @@ pub(in crate::agent) fn selected_display_dimensions(
     })
 }
 
-pub(in crate::agent) fn path_file_name(path: &str) -> Option<String> {
-    path.rsplit(['\\', '/'])
-        .next()
-        .filter(|name| !name.trim().is_empty())
-        .map(str::to_string)
-}
-
-pub(in crate::agent) fn paths_equal(left: &str, right: &str) -> bool {
-    normalized_path(left)
-        .trim_end_matches('/')
-        .eq_ignore_ascii_case(normalized_path(right).trim_end_matches('/'))
-}
-
 pub(in crate::agent) fn command_output(command: &str, args: &[&str]) -> Option<String> {
     let mut process = Command::new(command);
     process.args(args);
-    use std::os::windows::process::CommandExt;
-    process.creation_flags(0x0800_0000);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        process.creation_flags(0x0800_0000);
+    }
     let output = process.output().ok()?;
     output
         .status
@@ -89,6 +118,7 @@ pub(in crate::agent) fn command_output(command: &str, args: &[&str]) -> Option<S
         .then(|| String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
+#[cfg(windows)]
 pub(in crate::agent) fn obs_window_selector(
     title: &str,
     class_name: &str,
@@ -102,12 +132,9 @@ pub(in crate::agent) fn obs_window_selector(
     )
 }
 
+#[cfg(windows)]
 fn obs_window_selector_component(value: &str) -> String {
     value.replace('#', "#22").replace(':', "#3A")
-}
-
-fn normalized_path(path: &str) -> String {
-    path.replace('\\', "/")
 }
 
 pub(in crate::agent) fn valid_capture_dimensions(dimensions: VideoDimensions) -> bool {
@@ -127,69 +154,4 @@ pub(in crate::agent) fn audio_application_id_from_parts(
         return format!("class:{}", class_name.to_ascii_lowercase());
     }
     format!("process:{process_id}")
-}
-
-fn best_allowed_game_match<'a>(
-    allowed_games: &'a [RecordingAllowedGame],
-    path: Option<&str>,
-    executable: Option<&str>,
-    class_name: Option<&str>,
-) -> Option<(&'a RecordingAllowedGame, i32)> {
-    allowed_games
-        .iter()
-        .filter_map(|game| {
-            let score = allowed_game_match_score(game, path, executable, class_name);
-            (score > 0).then_some((game, score))
-        })
-        .max_by_key(|(_, score)| *score)
-}
-
-fn manual_allowed_game_match<'a>(
-    settings: &'a RecordingSettings,
-    path: Option<&str>,
-    executable: Option<&str>,
-    class_name: Option<&str>,
-) -> Option<(&'a RecordingAllowedGame, i32)> {
-    let allowed = best_allowed_game_match(&settings.allowed_games, path, executable, class_name)?;
-    let denied = best_allowed_game_match(&settings.denied_games, path, executable, class_name);
-    denied
-        .is_none_or(|(_, denied_score)| denied_score < allowed.1)
-        .then_some(allowed)
-}
-
-fn manual_game_denied(
-    settings: &RecordingSettings,
-    path: Option<&str>,
-    executable: Option<&str>,
-    class_name: Option<&str>,
-) -> bool {
-    let Some((_, denied_score)) =
-        best_allowed_game_match(&settings.denied_games, path, executable, class_name)
-    else {
-        return false;
-    };
-    best_allowed_game_match(&settings.allowed_games, path, executable, class_name)
-        .is_none_or(|(_, allowed_score)| denied_score >= allowed_score)
-}
-
-fn allowed_game_match_score(
-    game: &RecordingAllowedGame,
-    path: Option<&str>,
-    executable: Option<&str>,
-    class_name: Option<&str>,
-) -> i32 {
-    if let Some(allowed_path) = game.path.as_deref() {
-        return i32::from(path.is_some_and(|path| paths_equal(allowed_path, path))) * 100;
-    }
-    if game.executable.as_deref().is_some_and(|allowed| {
-        executable.is_some_and(|candidate| allowed.eq_ignore_ascii_case(candidate))
-    }) {
-        return 80;
-    }
-    if game.window_class.as_deref().is_some_and(|allowed| {
-        class_name.is_some_and(|candidate| allowed.eq_ignore_ascii_case(candidate))
-    }) {
-        return 60;
-    }
-    0
 }
