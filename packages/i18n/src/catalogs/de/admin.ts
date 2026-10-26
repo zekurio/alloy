@@ -14,7 +14,6 @@ export const ADMIN_MESSAGES = {
     "Erlaube neuen Nutzern, Konten auf diesem Server zu erstellen.",
   "Allow users to sign in with this provider.":
     "Erlaube Nutzern, sich mit diesem Anbieter anzumelden.",
-  "Alloy's lavender is in use.": "Alloys Lavendel wird verwendet.",
   "Announce published clips to Discord or your own endpoint.":
     "Kündige veröffentlichte Clips auf Discord oder deinem eigenen Endpunkt an.",
   "Apple VideoToolbox": "Apple VideoToolbox",

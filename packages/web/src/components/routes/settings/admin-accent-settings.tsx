@@ -77,7 +77,6 @@ export function AdminAccentSettings({
       <SettingRows>
         <SettingRow
           title={t("Server accent")}
-          description={draft ? undefined : t("Alloy's lavender is in use.")}
           htmlFor="server-accent"
           stack
           footer={

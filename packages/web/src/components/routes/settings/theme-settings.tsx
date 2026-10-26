@@ -219,17 +219,6 @@ function BaseThemeSection({ theme }: { theme: ThemeState }) {
       )}
     >
       <BaseThemePicker theme={theme} />
-      {preferences.mode === "system" ? (
-        <p className="text-foreground-dim -mt-1 text-xs">
-          {t(
-            "Syncing uses {light} in light mode and {dark} in dark mode. Pick a swatch under Themes to change either one.",
-            {
-              light: variantName(theme.light),
-              dark: variantName(theme.dark),
-            },
-          )}
-        </p>
-      ) : null}
       <SettingRows>
         <SettingRow
           title={t("Accent color")}
