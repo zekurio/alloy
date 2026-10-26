@@ -6,6 +6,7 @@ import type {
 } from "./desktop-api"
 import type { AlloyDesktopAutostartApi } from "./desktop-autostart"
 import type { AlloyDesktopUpdatesApi } from "./desktop-update"
+import { isStringValue } from "./object"
 import { t } from "./schema"
 
 /** Returned by the local connection screen and the in-app server switch. */
@@ -17,8 +18,14 @@ export type DesktopTauriConnectResult = t.infer<
   typeof DesktopTauriConnectResultSchema
 >
 
-/** Tauri rejects native commands with a user-facing error message. */
-export const DesktopTauriErrorSchema = t.string().trim().min(1)
+/**
+ * Tauri rejects native commands with a user-facing error message. Only strings
+ * qualify; `t.string()` alone would coerce `null` or a number into one.
+ */
+export const DesktopTauriErrorSchema = t.preprocess(
+  (value) => (isStringValue(value) ? value : undefined),
+  t.string().trim().min(1),
+)
 
 export const DesktopTauriSavedServersSchema = t
   .array(
