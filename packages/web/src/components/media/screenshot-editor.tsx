@@ -557,11 +557,22 @@ export function ScreenshotEditor({
               ))}
             </SelectContent>
           </Select>
+          {/* Sized to the uncropped readout, the widest the crop can produce:
+              a narrower one could unwrap the toolbar mid-drag, which resizes
+              the viewport and moves the image under the pointer. */}
           <span
             aria-label={t("Image dimensions")}
-            className="text-foreground-faint font-mono text-xs tabular-nums"
+            className="text-foreground-faint grid font-mono text-xs tabular-nums"
           >
-            {image ? `${outputWidth} × ${outputHeight}` : "—"}
+            <span
+              aria-hidden="true"
+              className="invisible col-start-1 row-start-1"
+            >
+              {`${dimensions.width} × ${dimensions.height}`}
+            </span>
+            <span className="col-start-1 row-start-1 text-right">
+              {image ? `${outputWidth} × ${outputHeight}` : "—"}
+            </span>
           </span>
           <div className="flex items-center gap-1">
             <Button
