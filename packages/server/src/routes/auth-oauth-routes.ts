@@ -25,7 +25,7 @@ import {
   signUpPendingOAuthAccount,
 } from "@alloy/server/auth/oauth-pending-link"
 import { publicLinkedAccountRow } from "@alloy/server/auth/security-responses"
-import { requireSession } from "@alloy/server/auth/session"
+import { getSession, requireSession } from "@alloy/server/auth/session"
 import {
   badRequest,
   badRequestFromCause,
@@ -132,6 +132,11 @@ export const authOAuthRoute = new Hono()
     }
   })
   .post("/oauth/pending/sign-up", async (c) => {
+    // A signed-in browser links the pending sign-in instead. A stale tab must
+    // not swap it into a new account, so refuse before using the record up.
+    if (await getSession(c)) {
+      return badRequest(c, "Sign out before creating a new account.")
+    }
     const token = readOAuthPendingLinkCookie(c)
     clearOAuthPendingLinkCookie(c)
     try {

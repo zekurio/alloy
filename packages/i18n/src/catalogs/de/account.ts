@@ -165,6 +165,8 @@ export const ACCOUNT_MESSAGES = {
   "Sign in without a password using your device or hardware key.":
     "Melde dich ohne Passwort mit deinem Gerät oder Hardware-Schlüssel an.",
   "Sign out": "Abmelden",
+  "Sign out before creating a new account.":
+    "Melde dich ab, bevor du ein neues Konto erstellst.",
   "Sign out of all other sessions?": "Alle anderen Sitzungen abmelden?",
   "Sign out other sessions": "Andere Sitzungen abmelden",
   "Sign out others": "Andere abmelden",

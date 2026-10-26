@@ -8,7 +8,10 @@ import { useState } from "react"
 
 import { SignInReactivationPrompt } from "@/components/account/reactivate-account-prompt"
 import { authClient } from "@/lib/auth-client"
-import { toastAuthAttemptFailure } from "@/lib/auth-flow"
+import {
+  completeAuthSessionFlow,
+  toastAuthAttemptFailure,
+} from "@/lib/auth-flow"
 import { clientLogger } from "@/lib/client-log"
 import { usePasskeySupport } from "@/lib/passkey-support"
 import { useSuspenseSession } from "@/lib/session-suspense"
@@ -95,8 +98,12 @@ function OAuthLinkSignIn({
       )
     }
     setPending(false)
-    // A failed attempt may have used up the pending sign-in.
-    await router.invalidate()
+    // The server refuses while signed in, e.g. from another tab, so refresh
+    // the session to show the link step. A failed attempt may also have used
+    // up the pending sign-in.
+    await completeAuthSessionFlow({
+      invalidateRouter: () => router.invalidate(),
+    })
   }
 
   return (
