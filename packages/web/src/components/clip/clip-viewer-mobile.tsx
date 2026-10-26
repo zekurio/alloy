@@ -75,6 +75,7 @@ function MobileClipViewerBody({
 
   const share = useClipShare({
     clipId: row.id,
+    gameSlug: gameRef?.slug ?? null,
     title: row.title,
     privacy: row.privacy,
   })

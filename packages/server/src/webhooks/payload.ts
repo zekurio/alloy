@@ -35,7 +35,7 @@ export async function clipPublishedPayload(
     timestamp: announcedAt.toISOString(),
     clip: {
       id: row.id,
-      url: clipShareUrl(row.id, origin),
+      url: clipShareUrl(row.id, row.gameRef?.slug ?? null, origin),
       title: row.title,
       description: row.description,
       game: clipGameName(row),
