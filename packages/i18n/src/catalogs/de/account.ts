@@ -21,8 +21,6 @@ export const ACCOUNT_MESSAGES = {
   "Add passkey": "Passkey hinzufügen",
   "Alloy Desktop": "Alloy Desktop",
   "Already have an account?": "Hast du schon ein Konto?",
-  "An account with your {provider} username already exists. Sign in to it to link your {provider} account.":
-    "Ein Konto mit deinem {provider}-Benutzernamen existiert bereits. Melde dich dort an, um dein {provider}-Konto zu verknüpfen.",
   "Auth attempt cancelled.": "Authentifizierungsversuch abgebrochen.",
   Avatar: "Profilbild",
   "Avatar imported from your sign-in provider":
@@ -245,6 +243,8 @@ export const ACCOUNT_MESSAGES = {
     "Dein Profil und deine Clips sind ausgeblendet, solange dein Konto deaktiviert ist.",
   "Your profile and clips will be hidden until you sign back in and reactivate.":
     "Dein Profil und deine Clips werden ausgeblendet, bis du dich wieder anmeldest und reaktivierst.",
+  "Your {provider} username matches an existing account. Sign in to that account to link {provider}.":
+    "Dein Benutzername bei {provider} stimmt mit einem bestehenden Konto überein. Melde dich bei diesem Konto an, um {provider} zu verknüpfen.",
   "e.g. Laptop, YubiKey": "z.B. Laptop, YubiKey",
   "this game": "dieses Spiel",
   user: "Nutzer",

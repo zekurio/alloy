@@ -118,11 +118,16 @@ function OAuthLinkSignIn({
         oauthAccount="linked"
         onReactivationRequired={() => setReactivationRequired(true)}
         notice={
-          <Callout tone="info" className="mb-6">
+          // The form sits on the clip wall, so tint an opaque surface rather
+          // than letting the wall show through the text.
+          <Callout
+            tone="info"
+            className="mb-6 bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))]"
+          >
             <LinkIcon />
             <p>
               {t(
-                "An account with your {provider} username already exists. Sign in to it to link your {provider} account.",
+                "Your {provider} username matches an existing account. Sign in to that account to link {provider}.",
                 { provider: displayName },
               )}
             </p>
