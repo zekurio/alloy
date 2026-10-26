@@ -44,6 +44,7 @@ export const ACCOUNT_MESSAGES = {
     "Dein Passkey-Konto konnte nicht erstellt werden",
   "Couldn't delete account": "Konto konnte nicht gelöscht werden",
   "Couldn't disable account": "Konto konnte nicht deaktiviert werden",
+  "Couldn't link account": "Konto konnte nicht verknüpft werden",
   "Couldn't load passkeys": "Passkeys konnten nicht geladen werden",
   "Couldn't load profile": "Profil konnte nicht geladen werden",
   "Couldn't load sessions": "Sitzungen konnten nicht geladen werden",
@@ -101,6 +102,7 @@ export const ACCOUNT_MESSAGES = {
     "Verknüpfe eine andere aktive Anmeldemethode, bevor du diese entfernst",
   "Link {provider}": "{provider} verknüpfen",
   "Linked accounts": "Verknüpfte Konten",
+  "Linking…": "Wird verknüpft…",
   "Make your profile and clips visible again.":
     "Mach dein Profil und deine Clips wieder sichtbar.",
   "Manage sign-in methods in a browser": "Anmeldemethoden im Browser verwalten",
@@ -163,6 +165,8 @@ export const ACCOUNT_MESSAGES = {
   "Sign in without a password using your device or hardware key.":
     "Melde dich ohne Passwort mit deinem Gerät oder Hardware-Schlüssel an.",
   "Sign out": "Abmelden",
+  "Sign out before creating a new account.":
+    "Melde dich ab, bevor du ein neues Konto erstellst.",
   "Sign out of all other sessions?": "Alle anderen Sitzungen abmelden?",
   "Sign out other sessions": "Andere Sitzungen abmelden",
   "Sign out others": "Andere abmelden",
@@ -177,6 +181,8 @@ export const ACCOUNT_MESSAGES = {
   "Sign-ups are disabled": "Registrierungen sind deaktiviert",
   "Signed in as {username}. Continue only if you opened the Alloy desktop app.":
     "Angemeldet als {username}. Fahre nur fort, wenn du die Alloy-Desktop-App geöffnet hast.",
+  "Signed in as {username}. Link the {provider} account {account} to sign in with it next time.":
+    "Angemeldet als {username}. Verknüpfe das {provider}-Konto {account}, um dich beim nächsten Mal damit anzumelden.",
   "Signed in as {username}. Link your {provider} account to sign in with it next time.":
     "Angemeldet als {username}. Verknüpfe dein {provider}-Konto, um dich beim nächsten Mal damit anzumelden.",
   "Signed in {date}": "Angemeldet am {date}",

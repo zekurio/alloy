@@ -16,7 +16,11 @@ import {
 
 import { completeAuthenticatedSignIn } from "./account-sign-in"
 import { insertAuthChallenge } from "./challenges"
-import { clearOAuthStateCookie, readOAuthStateCookie } from "./cookies"
+import {
+  clearOAuthStateCookie,
+  readOAuthStateCookie,
+  setOAuthPendingLinkCookie,
+} from "./cookies"
 import { linkAccountToUser, resolveSignInUser } from "./oauth-accounts"
 import {
   browserNonceMatches,
@@ -37,6 +41,7 @@ import {
   requireEnabledProvider,
   scopesForProvider,
 } from "./oauth-client"
+import { savePendingOAuthLink } from "./oauth-pending-link"
 import { profileFromTokens, storedTokens } from "./oauth-profile"
 import type { OAuthChallengePayload, OAuthMode } from "./oauth-types"
 import { getSession } from "./session"
@@ -153,6 +158,7 @@ export async function finishOAuthCallback(
       pkceCodeVerifier: payload.codeVerifier,
     })
     const profile = await profileFromTokens(config, provider, tokens)
+    const stored = storedTokens(tokens)
 
     if (payload.mode === "link") {
       const session = await getSession(c)
@@ -166,7 +172,7 @@ export async function finishOAuthCallback(
       await linkAccountToUser({
         profile,
         provider,
-        tokens: storedTokens(tokens),
+        tokens: stored,
         userId: session.user.id,
       })
       logger.info(
@@ -178,13 +184,20 @@ export async function finishOAuthCallback(
     const resolved = await resolveSignInUser({
       profile,
       provider,
-      tokens: storedTokens(tokens),
+      tokens: stored,
       account: payload.account,
     })
     if (resolved.kind === "link-required") {
       logger.info(
         `${provider.providerId} sign-in matched the username of user ${resolved.userId}; asking to link`,
       )
+      const pendingToken = await savePendingOAuthLink({
+        callbackURL: payload.callbackURL,
+        profile,
+        providerId: provider.providerId,
+        tokens: stored,
+      })
+      setOAuthPendingLinkCookie(c, pendingToken)
       return {
         redirectTo: loginURLWithOAuthLink(
           payload.callbackURL,

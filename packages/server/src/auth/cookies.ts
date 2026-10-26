@@ -11,6 +11,8 @@ const LEGACY_REFRESH_COOKIE = "alloy_refresh"
 const AUTH_MARKER_COOKIE = "alloy_is_authenticated"
 const ACCOUNT_REACTIVATION_COOKIE = "alloy_account_reactivation"
 const OAUTH_STATE_COOKIE_PREFIX = "alloy_oauth_state_"
+const OAUTH_PENDING_LINK_COOKIE = "alloy_oauth_pending_link"
+const OAUTH_PENDING_LINK_PATH = "/api/auth/oauth/pending"
 // Chromium's cap on cookie lifetimes. The session itself expires server-side
 // after a period without use; `GET /api/auth/session` renews the cookie.
 export const SESSION_COOKIE_MAX_AGE_SEC = 400 * 24 * 60 * 60
@@ -118,6 +120,28 @@ export function setOAuthStateCookie(
 export function clearOAuthStateCookie(c: Context, providerId: string): void {
   deleteCookie(c, oauthStateCookieName(providerId), {
     path: oauthStateCookiePath(providerId),
+    secure: secureCookies(),
+  })
+}
+
+export function readOAuthPendingLinkCookie(c: Context): string | null {
+  return getCookie(c, OAUTH_PENDING_LINK_COOKIE) ?? null
+}
+
+/** Ties a pending OAuth link to the browser whose callback saved it. */
+export function setOAuthPendingLinkCookie(c: Context, token: string): void {
+  setCookie(c, OAUTH_PENDING_LINK_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: secureCookies(),
+    path: OAUTH_PENDING_LINK_PATH,
+    maxAge: OAUTH_STATE_MAX_AGE_SEC,
+  })
+}
+
+export function clearOAuthPendingLinkCookie(c: Context): void {
+  deleteCookie(c, OAUTH_PENDING_LINK_COOKIE, {
+    path: OAUTH_PENDING_LINK_PATH,
     secure: secureCookies(),
   })
 }

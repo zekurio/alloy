@@ -9,6 +9,7 @@ import { consumeAccountReactivation } from "@alloy/server/auth/account-reactivat
 import { completeAuthenticatedSignIn } from "@alloy/server/auth/account-sign-in"
 import {
   clearAccountReactivationCookie,
+  clearOAuthPendingLinkCookie,
   clearSessionCookies,
   readAccountReactivationCookie,
   readSessionToken,
@@ -68,6 +69,7 @@ const STRICT_AUTH_RATE_LIMIT_PATHS = new Set([
   "/passkey/sign-in/options",
   "/oauth/sign-in",
   "/oauth/link",
+  "/oauth/pending/sign-up",
 ])
 const ACCOUNT_BANNED_CODE = AUTH_ERROR_CODES.accountBanned
 
@@ -103,6 +105,7 @@ export const authRoute = new Hono()
   .use("/passkey/sign-in/options", strictAuthRateLimit)
   .use("/oauth/sign-in", strictAuthRateLimit)
   .use("/oauth/link", strictAuthRateLimit)
+  .use("/oauth/pending/sign-up", strictAuthRateLimit)
   .get("/session", async (c) => {
     const session = await getSession(c)
     const token = readSessionToken(c)
@@ -116,6 +119,9 @@ export const authRoute = new Hono()
   .post("/sign-out", async (c) => {
     await deleteCurrentSession(c)
     clearSessionCookies(c)
+    // Whoever signs in next on this browser must not find the last person's
+    // OAuth identity waiting to be linked.
+    clearOAuthPendingLinkCookie(c)
     return success(c)
   })
   .post("/reactivate", async (c) => {

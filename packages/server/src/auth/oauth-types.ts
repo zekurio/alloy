@@ -1,5 +1,4 @@
 import type { OAuthSignInAccount, UserRole } from "@alloy/contracts"
-import type { JsonObject } from "openid-client"
 
 export type OAuthMode = "sign-in" | "link"
 
@@ -17,9 +16,10 @@ export type OAuthChallengePayload = {
 export type OAuthProfile = {
   avatarUrl: string | null
   providerAccountId: string
-  raw: JsonObject
-  role: UserRole | undefined
-  storageQuotaBytes: number | null | undefined
+  /** Unset when the provider sent no usable role claim. */
+  role?: UserRole
+  /** Unset when the provider sent no usable quota claim. */
+  storageQuotaBytes?: number | null
   usernameHint: string | null
 }
 
