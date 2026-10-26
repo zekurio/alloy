@@ -434,9 +434,16 @@ impl DesktopRuntime {
     }
 
     /// Reopens the current media library and recorder after an update install
-    /// fails after the normal shutdown step.
-    pub async fn resume_after_failed_update(self: &Arc<Self>) -> Result<(), String> {
+    /// fails after the normal shutdown step. `origin` is the server whose
+    /// window is still open; `shutdown` cleared the selection.
+    pub async fn resume_after_failed_update(
+        self: &Arc<Self>,
+        origin: Option<Url>,
+    ) -> Result<(), String> {
         let _selection = self.selection_lock.lock().await;
+        if let Ok(mut selected) = self.selected.write() {
+            selected.clone_from(&origin);
+        }
         let settings = self.recorder.get_settings().await;
         let output = if settings.output_folder.is_empty() {
             self.default_output.clone()

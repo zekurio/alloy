@@ -3,7 +3,10 @@ import type {
   DesktopUpdateStatus,
 } from "@alloy/contracts/desktop-update"
 import { app } from "electron"
-import electronUpdater, { type UpdateInfo } from "electron-updater"
+import electronUpdater, {
+  type UpdateDownloadedEvent,
+  type UpdateInfo,
+} from "electron-updater"
 
 import { asError, log } from "./log"
 import type { NativeAddon } from "./native"
@@ -44,6 +47,11 @@ function releaseSignature(info: UpdateInfo): string | null {
   const signature = (info as UpdateInfo & { alloySignature?: string })
     .alloySignature
   return signature?.trim() ? signature : null
+}
+
+/** What electron-updater reported downloading, once it has. */
+interface DownloadedUpdate {
+  event: UpdateDownloadedEvent | null
 }
 
 /** Why `restartToInstall` returned instead of restarting. */
@@ -184,34 +192,43 @@ export class Updates {
 
   async downloadUpdate(): Promise<DesktopUpdateState> {
     this.requireUpdater()
-    const pending = this.pending
-    if (this.downloadInFlight || this.downloaded || !pending) {
+    if (this.downloadInFlight || this.downloaded || !this.pending) {
       return this.getState()
     }
     this.downloadInFlight = true
     this.setStatus("downloading")
+    // electron-updater downloads the release its latest check found, which a
+    // background check may have replaced since; its event names the release
+    // and the file, so the signature always belongs to what gets installed.
+    const downloaded: DownloadedUpdate = { event: null }
+    const onDownloaded = (event: UpdateDownloadedEvent) => {
+      downloaded.event = event
+    }
+    autoUpdater.on("update-downloaded", onDownloaded)
+    let version: string
     try {
-      const signature = releaseSignature(pending)
+      await autoUpdater.downloadUpdate()
+      const update = downloaded.event
+      if (!update) throw new Error("The download reported no installer.")
+      const signature = releaseSignature(update)
       if (!signature) throw new Error("The release has no update signature.")
-      const files = await autoUpdater.downloadUpdate()
-      const installer = files.find((file) =>
-        file.toLowerCase().endsWith(".exe"),
-      )
-      if (!installer) throw new Error("The download has no installer.")
       await this.native.verifyUpdateSignature(
         UPDATE_PUBLIC_KEY,
         signature,
-        installer,
+        update.downloadedFile,
       )
+      version = update.version
     } catch (cause) {
       this.downloadInFlight = false
       this.setStatus("available")
       log.warn(`${DOWNLOAD_FAILED} %s`, asError(cause))
       throw new Error(DOWNLOAD_FAILED)
+    } finally {
+      autoUpdater.off("update-downloaded", onDownloaded)
     }
     this.downloadInFlight = false
     this.downloaded = true
-    this.setStatus("downloaded")
+    this.setStatus("downloaded", version)
     return this.getState()
   }
 

@@ -104,14 +104,15 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # The staging scripts pin OBS and FFmpeg and decide what lands in the
-      # runtime folder, so their hash keys the cache.
+      # runtime folder, so their hash keys the cache. The addon script does
+      # not touch these folders.
       - name: cache native runtimes
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             packages/desktop/resources/obs-runtime
             packages/desktop/.cache/ffmpeg
-          key: windows-native-${{ hashFiles('packages/desktop/scripts/*.mjs') }}
+          key: windows-native-${{ hashFiles('packages/desktop/scripts/archive.mjs', 'packages/desktop/scripts/build-agent.mjs', 'packages/desktop/scripts/install-obs-runtime.mjs', 'packages/desktop/scripts/obs-runtime.mjs', 'packages/desktop/scripts/prepare-native.mjs') }}
 
       # Builds the recorder and stages the FFmpeg the tests run against.
       - name: stage recorder and media tools
@@ -168,14 +169,15 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # The staging scripts pin OBS and FFmpeg and decide what lands in the
-      # runtime folder, so their hash keys the cache.
+      # runtime folder, so their hash keys the cache. The addon script does
+      # not touch these folders.
       - name: cache native runtimes
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             packages/desktop/resources/obs-runtime
             packages/desktop/.cache/ffmpeg
-          key: windows-native-${{ hashFiles('packages/desktop/scripts/*.mjs') }}
+          key: windows-native-${{ hashFiles('packages/desktop/scripts/archive.mjs', 'packages/desktop/scripts/build-agent.mjs', 'packages/desktop/scripts/install-obs-runtime.mjs', 'packages/desktop/scripts/obs-runtime.mjs', 'packages/desktop/scripts/prepare-native.mjs') }}
 
       - name: stage obs runtime
         run: pnpm --filter @alloy/desktop obs:install

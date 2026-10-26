@@ -86,7 +86,8 @@ export interface NativeRuntime {
   notificationSoundsFolder(event: string): string
   trigger(action: CaptureAction): void
   shutdown(): Promise<void>
-  resumeAfterFailedUpdate(): Promise<void>
+  /** Selects `server` again: `shutdown` cleared the selection. */
+  resumeAfterFailedUpdate(server: string | null): Promise<void>
 }
 
 export type CaptureAction = "clip" | "screenshot"

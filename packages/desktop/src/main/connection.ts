@@ -13,6 +13,7 @@ import type { PreparedServer, SessionToken } from "./native"
 import {
   createRemoteWindow,
   destroyConnect,
+  focusRemote,
   serverSession,
   showConnect,
   showWindow,
@@ -180,9 +181,8 @@ async function installRemote(
     await activateRemote(host, window, origin, loaded, signal, show)
   } catch (cause) {
     host.restoreRemote(generation, previous)
-    await host
-      .requireRuntime()
-      .selectServer(previous?.origin ?? null)
+    await host.runtime
+      ?.selectServer(previous?.origin ?? null)
       .catch(() => undefined)
     window.destroy()
     throw cause
@@ -218,8 +218,7 @@ async function activateRemote(
   show: boolean,
 ): Promise<void> {
   await host.requireRuntime().selectServer(origin)
-  // A failed load shows Chromium's error page, from which the web app's
-  // reload brings the server back.
+  // The window retries a failed load itself (see `createRemoteWindow`).
   window.loadURL(`${origin}/`).catch(() => undefined)
   ensureNotCancelled(signal)
   if (show) {
@@ -241,22 +240,24 @@ async function abandonRemote(host: Host, generation: number): Promise<void> {
     const session = host.remote
     if (session?.generation !== generation) return
     host.clearRemote(generation)
-    await host
-      .requireRuntime()
-      .selectServer(null)
-      .catch(() => undefined)
+    await host.runtime?.selectServer(null).catch(() => undefined)
     session.window.destroy()
     showConnect(host)
   })
 }
 
-/** Removes a saved server and everything its profile kept. */
+/**
+ * Removes a saved server and everything its profile kept. `allowed` checks
+ * the caller again once no connection attempt can change the selection.
+ */
 export async function forgetSavedServer(
   host: Host,
   origin: string,
+  allowed: () => void,
 ): Promise<NativeJson> {
   const release = await host.connecting.acquire()
   try {
+    allowed()
     const active = host.remote?.origin === origin ? host.remote : null
     if (active) {
       await withSelection(host, () => clearActiveProfile(host, active))
@@ -325,8 +326,11 @@ export async function restoreSavedServer(
       )
       rememberConnected(host, server)
       // The connect screen only exists here if it was opened from the tray
-      // while the server was still being restored.
+      // while the server was still being restored. The user asked for a
+      // window then, so a tray start shows the server instead.
+      const asked = host.connectWindow !== null
       destroyConnect(host)
+      if (asked && !show) focusRemote(host)
     } catch (cause) {
       if (!(cause instanceof NoSavedSession)) {
         log.warn("Could not restore the saved Alloy server: %s", asError(cause))

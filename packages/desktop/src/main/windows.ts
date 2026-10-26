@@ -37,6 +37,12 @@ const WINDOW_BACKGROUND = "#040404"
  */
 const CONNECT_SHOW_FALLBACK_MS = 3000
 /**
+ * How long a server window waits before it loads its page again after a
+ * failed load or a crashed renderer, doubling up to the cap.
+ */
+const RELOAD_RETRY_MIN_MS = 2000
+const RELOAD_RETRY_MAX_MS = 30_000
+/**
  * Permissions the server's web app may use: fullscreen video, copying links
  * after an await (where the user gesture has expired), and reading local
  * media from the loopback capture server.
@@ -243,9 +249,15 @@ export function focusRemote(host: Host): boolean {
   return true
 }
 
+/**
+ * Drops the connect screen without its close handling. An attempt it
+ * started is cancelled, as closing it would.
+ */
 export function destroyConnect(host: Host): void {
   const window = host.connectWindow
-  if (window && !window.isDestroyed()) window.destroy()
+  if (!window || window.isDestroyed()) return
+  host.sendCancel()
+  window.destroy()
 }
 
 /** Shows the server window and drops the connect screen, or opens it. */
@@ -334,11 +346,38 @@ export function createRemoteWindow(
   const loadedPromise = new Promise<void>((resolve) => {
     resolveLoaded = resolve
   })
+
+  // Electron shows nothing for a page that fails to load, and the frameless
+  // window has no controls without the web app, so the window keeps trying
+  // until the server answers again.
+  let retryDelay = RELOAD_RETRY_MIN_MS
+  let retryTimer: ReturnType<typeof setTimeout> | null = null
+  const retryLoad = (url: string) => {
+    if (retryTimer) clearTimeout(retryTimer)
+    retryTimer = setTimeout(() => {
+      retryTimer = null
+      if (!window.isDestroyed()) window.loadURL(url).catch(() => undefined)
+    }, retryDelay)
+    retryDelay = Math.min(retryDelay * 2, RELOAD_RETRY_MAX_MS)
+  }
   window.webContents.on("did-finish-load", () => {
-    if (done || !isSameOrigin(window.webContents.getURL(), origin)) return
+    if (!isSameOrigin(window.webContents.getURL(), origin)) return
+    retryDelay = RELOAD_RETRY_MIN_MS
+    if (done) return
     done = true
     resolveLoaded()
   })
+  window.webContents.on(
+    "did-fail-load",
+    (_event, errorCode, _description, url, isMainFrame) => {
+      // -3 is ERR_ABORTED: another navigation replaced this one.
+      if (!isMainFrame || errorCode === -3 || !isSameOrigin(url, origin)) {
+        return
+      }
+      log.warn(`The server window could not load its page (${errorCode}).`)
+      retryLoad(url)
+    },
+  )
 
   const stayOnServer = (event: { url: string; preventDefault(): void }) => {
     if (isSameOrigin(event.url, origin)) return
@@ -358,6 +397,9 @@ export function createRemoteWindow(
   )
   window.webContents.on("render-process-gone", (_event, details) => {
     log.warn(`The server window's renderer stopped: ${details.reason}`)
+    if (details.reason === "clean-exit") return
+    const url = window.webContents.getURL()
+    retryLoad(isSameOrigin(url, origin) ? url : `${origin}/`)
   })
 
   window.on("close", (event) => {
@@ -368,6 +410,7 @@ export function createRemoteWindow(
     window.hide()
   })
   window.on("closed", () => {
+    if (retryTimer) clearTimeout(retryTimer)
     if (!host.clearRemote(generation) || host.quitting) return
     const runtime = host.runtime
     void (runtime ? runtime.selectServer(null) : Promise.resolve())

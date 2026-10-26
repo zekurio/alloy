@@ -116,6 +116,7 @@ export function registerIpc(host: Host, updates: Updates): void {
         return forgetSavedServer(
           host,
           host.native.normalizeServerOrigin(parseUrl(url)),
+          () => requireConnectSender(host, event),
         )
     }
   })
@@ -224,10 +225,17 @@ async function runApiOperation(
       return remote.origin
     case "servers.forget": {
       const origin = host.native.normalizeServerOrigin(stringArgument(args, 0))
-      if (origin === remote.origin) {
-        throw new Error("Switch to another server before forgetting this one.")
+      // Checked again once the forget holds the connection lock: a switch
+      // that finished meanwhile may have selected this server.
+      const allowed = () => {
+        if (origin === requireRemoteSender(host, event).origin) {
+          throw new Error(
+            "Switch to another server before forgetting this one.",
+          )
+        }
       }
-      return forgetSavedServer(host, origin)
+      allowed()
+      return forgetSavedServer(host, origin, allowed)
     }
     case "updates.getState":
       return updateJson(updates.getState())
@@ -275,7 +283,8 @@ async function restartToInstall(host: Host, updates: Updates): Promise<void> {
   } catch (cause) {
     if (!(cause instanceof RestartError) || !cause.afterShutdown) throw cause
     try {
-      await runtime.resumeAfterFailedUpdate()
+      // The window stays open, so its server is selected again.
+      await runtime.resumeAfterFailedUpdate(host.remote?.origin ?? null)
     } catch (resumeCause) {
       log.warn(
         `Could not resume Alloy after the failed update (${cause.message}): %s`,

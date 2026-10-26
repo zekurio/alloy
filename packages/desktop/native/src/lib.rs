@@ -382,11 +382,12 @@ impl Runtime {
     }
 
     /// Reopens the library and restarts the recorder after an update install
-    /// failed once `shutdown` had run.
+    /// failed once `shutdown` had run, selecting `server` again.
     #[napi]
-    pub async fn resume_after_failed_update(&self) -> Result<()> {
+    pub async fn resume_after_failed_update(&self, server: Option<String>) -> Result<()> {
+        let server = server.as_deref().map(origin).transpose()?;
         self.inner
-            .resume_after_failed_update()
+            .resume_after_failed_update(server)
             .await
             .map_err(reject)
     }

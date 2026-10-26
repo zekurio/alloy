@@ -90,8 +90,14 @@ jobs:
         run: |
           grep -R -q "alloyTauriDesktop" packages/web/dist
 
-      - name: build desktop connection screen
-        run: corepack pnpm --filter @alloy/desktop build:renderer
+      # The shell bundles need no Rust; the desktop workflow builds the addon.
+      - name: build desktop shell
+        run: corepack pnpm --filter @alloy/desktop build:shell
 
-      - name: check desktop connection artifact
-        run: test -f packages/desktop/dist/index.html
+      # The preload must keep installing the bridge under the name the web
+      # app reads.
+      - name: check desktop shell artifacts
+        run: |
+          test -f packages/desktop/out/renderer/index.html
+          test -f packages/desktop/out/main/index.cjs
+          grep -q "alloyTauriDesktop" packages/desktop/out/preload/server.cjs

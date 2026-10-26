@@ -1,4 +1,4 @@
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { app, type BrowserWindow, type IpcMainInvokeEvent } from "electron"
@@ -122,9 +122,14 @@ export function isConnectPageUrl(url: string): boolean {
         (parsed.pathname === "/" || parsed.pathname === "/index.html")
       )
     }
-    return (
-      parsed.protocol === "file:" && fileURLToPath(parsed) === connectPagePath()
-    )
+    if (parsed.protocol !== "file:") return false
+    const page = resolve(fileURLToPath(parsed))
+    const expected = resolve(connectPagePath())
+    // Windows paths compare without case: Chromium uppercases the drive
+    // letter, while the app path keeps whatever case it was launched with.
+    return process.platform === "win32"
+      ? page.toLowerCase() === expected.toLowerCase()
+      : page === expected
   } catch {
     return false
   }
