@@ -9,16 +9,60 @@ import { CircleAlertIcon, DownloadIcon, RefreshCwIcon } from "lucide-react"
 import { useState } from "react"
 
 import { alloyDesktop } from "@/lib/desktop"
-import { useDesktopUpdateState } from "@/lib/desktop-updates"
+import {
+  updateDownloadPercent,
+  useDesktopUpdateState,
+} from "@/lib/desktop-updates"
+
+/**
+ * A ring around the rail icon that fills as the update downloads. The item's
+ * own styles size every icon in it, so the ring sets its size inline.
+ */
+function DownloadProgressRing({ percent }: { percent: number }) {
+  return (
+    <svg
+      viewBox="0 0 40 40"
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 -rotate-90"
+      style={{ width: "100%", height: "100%" }}
+    >
+      <circle
+        cx="20"
+        cy="20"
+        r="18"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        className="opacity-25"
+      />
+      <circle
+        cx="20"
+        cy="20"
+        r="18"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        pathLength={100}
+        strokeDasharray="100"
+        strokeDashoffset={100 - percent}
+        className="transition-[stroke-dashoffset] duration-300 ease-out"
+      />
+    </svg>
+  )
+}
 
 /**
  * Device-local "update ready" control pinned in the nav rail's bottom cluster.
- * The rail shows an icon. Its tooltip shows the current update state.
- * Renders nothing in a regular browser or until an update is available,
- * downloading, or ready to install.
+ * The rail shows an icon, ringed with the download's progress while it
+ * downloads. Its tooltip shows the current update state. Renders nothing in a
+ * regular browser or until an update is available, downloading, or ready to
+ * install.
  */
 export function DesktopUpdatePill() {
-  const { status } = useDesktopUpdateState()
+  const updateState = useDesktopUpdateState()
+  const { status } = updateState
+  const percent = updateDownloadPercent(updateState)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [restartDialogOpen, setRestartDialogOpen] = useState(false)
@@ -75,7 +119,9 @@ export function DesktopUpdatePill() {
         ? t("Restart to update")
         : status === "available"
           ? t("Update available")
-          : t("Downloading update")
+          : percent === null
+            ? t("Downloading update")
+            : t("Downloading {progress}%", { progress: percent })
 
   return (
     <>
@@ -97,6 +143,9 @@ export function DesktopUpdatePill() {
                 : "cursor-pointer hover:bg-accent/20",
             )}
           >
+            {percent !== null && !error ? (
+              <DownloadProgressRing percent={percent} />
+            ) : null}
             {error ? (
               <CircleAlertIcon className="text-destructive" />
             ) : downloaded ? (

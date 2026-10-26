@@ -4,6 +4,7 @@ import type {
 } from "@alloy/contracts/desktop-update"
 import { app } from "electron"
 import electronUpdater, {
+  type ProgressInfo,
   type UpdateDownloadedEvent,
   type UpdateInfo,
 } from "electron-updater"
@@ -88,6 +89,7 @@ export class Updates {
       version: null,
       supported: Updates.supported(),
       lastCheckedAt: null,
+      downloadProgress: null,
     }
     if (!this.state.supported) return
     autoUpdater.logger = {
@@ -205,6 +207,16 @@ export class Updates {
       downloaded.event = event
     }
     autoUpdater.on("update-downloaded", onDownloaded)
+    // Published in whole percent steps, so the bridge carries at most a
+    // hundred progress updates per download.
+    const onProgress = (progress: ProgressInfo) => {
+      const fraction = Math.min(Math.max(progress.percent / 100, 0), 1)
+      const previous = this.state.downloadProgress ?? 0
+      if (Math.floor(fraction * 100) > Math.floor(previous * 100)) {
+        this.update({ downloadProgress: fraction })
+      }
+    }
+    autoUpdater.on("download-progress", onProgress)
     let version: string
     try {
       await autoUpdater.downloadUpdate()
@@ -225,6 +237,7 @@ export class Updates {
       throw new Error(DOWNLOAD_FAILED)
     } finally {
       autoUpdater.off("update-downloaded", onDownloaded)
+      autoUpdater.off("download-progress", onProgress)
     }
     this.downloadInFlight = false
     this.downloaded = true
@@ -293,11 +306,17 @@ export class Updates {
     if (!this.state.supported) throw new Error(UPDATE_UNSUPPORTED_ERROR)
   }
 
+  /** Progress starts at zero with a download and is null otherwise. */
   private setStatus(
     status: DesktopUpdateStatus,
     version?: string | null,
   ): void {
-    this.update(version === undefined ? { status } : { status, version })
+    const downloadProgress = status === "downloading" ? 0 : null
+    this.update(
+      version === undefined
+        ? { status, downloadProgress }
+        : { status, version, downloadProgress },
+    )
   }
 
   private update(changes: Partial<DesktopUpdateState>): void {

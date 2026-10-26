@@ -48,7 +48,8 @@ function applyState(state: DesktopUpdateState): void {
     snapshot.supported === state.supported &&
     snapshot.currentVersion === state.currentVersion &&
     snapshot.version === state.version &&
-    snapshot.lastCheckedAt === state.lastCheckedAt
+    snapshot.lastCheckedAt === state.lastCheckedAt &&
+    snapshot.downloadProgress === state.downloadProgress
   ) {
     return
   }
@@ -63,6 +64,25 @@ function subscribe(listener: () => void): () => void {
   return () => {
     listeners.delete(listener)
   }
+}
+
+/**
+ * The downloaded share of an update in whole percent while it downloads, or
+ * null when the desktop host reports no progress (older hosts never do).
+ */
+export function updateDownloadPercent(
+  state: DesktopUpdateState,
+): number | null {
+  if (state.status !== "downloading") return null
+  const progress = state.downloadProgress
+  if (
+    progress === null ||
+    progress === undefined ||
+    !Number.isFinite(progress)
+  ) {
+    return null
+  }
+  return Math.round(Math.min(Math.max(progress, 0), 1) * 100)
 }
 
 /**
