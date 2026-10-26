@@ -28,9 +28,9 @@ import {
 /**
  * Painted behind every window until the page renders, so windows never
  * flash white while the app loads. Matches the dark app background
- * (`--background`, `oklch(0.11 0 0)`).
+ * (`--background`, `oklch(0.19 0 0)`).
  */
-const WINDOW_BACKGROUND = "#040404"
+const WINDOW_BACKGROUND = "#141414"
 /**
  * If the connect screen never reports that it rendered, show it anyway so a
  * broken bundle does not look like the app silently doing nothing.
