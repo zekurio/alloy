@@ -126,7 +126,7 @@ export function TranscodingLadder({
       action={
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           onClick={addTier}
           disabled={form.tiers.length >= 6}
         >

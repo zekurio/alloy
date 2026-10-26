@@ -159,8 +159,7 @@ export function TranscodingSettingsContent({
                 ) : null}
                 <FeedbackButton
                   type="button"
-                  variant="outline"
-                  size="sm"
+                  variant="secondary"
                   state={detectionFeedback.feedback.state}
                   pendingLabel={t("Detecting...")}
                   successLabel={t("Detected")}

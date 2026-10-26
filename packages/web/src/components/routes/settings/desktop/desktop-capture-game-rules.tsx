@@ -30,7 +30,7 @@ export function RuleGroup({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-0.5">
           <div className="text-sm font-medium">{title}</div>
           <p className="text-foreground-dim text-xs">{description}</p>

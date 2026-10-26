@@ -132,7 +132,6 @@ export function ThemeSettings() {
             <Button
               type="button"
               variant="secondary"
-              size="sm"
               onClick={() => openEditor(createSeed(theme))}
             >
               <PaletteIcon />
@@ -141,7 +140,6 @@ export function ThemeSettings() {
             <Button
               type="button"
               variant="secondary"
-              size="sm"
               onClick={() => setImporting(true)}
             >
               <PlusIcon />

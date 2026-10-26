@@ -111,7 +111,12 @@ export function CreateGameDialog() {
     >
       <ResponsiveDialogTrigger
         render={
-          <Button type="button" size="icon" aria-label={t("Add game")}>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            aria-label={t("Add game")}
+          >
             <PlusIcon />
           </Button>
         }

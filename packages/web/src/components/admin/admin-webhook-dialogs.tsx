@@ -92,7 +92,7 @@ export function CreateWebhookDialog() {
       open={open}
       onOpenChange={setOpen}
       trigger={
-        <Button type="button">
+        <Button type="button" variant="secondary">
           <PlusIcon />
           {t("Add webhook")}
         </Button>

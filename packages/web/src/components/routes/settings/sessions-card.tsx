@@ -76,7 +76,7 @@ export function SessionsCard() {
         hasOtherSessions ? (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             onClick={() => {
               revokeOthers.reset()
               setRevokeOthersOpen(true)

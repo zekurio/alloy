@@ -251,7 +251,7 @@ function PasskeyNameDialog({
   const isAdd = mode === "add"
   const fieldId = isAdd ? "passkey-name" : `passkey-name-${passkeyId}`
   const trigger = isAdd ? (
-    <Button type="button">
+    <Button type="button" variant="secondary">
       <PlusIcon />
       {t("Add passkey")}
     </Button>

@@ -55,40 +55,40 @@ export function SettingsSubsection({
       ref={register}
       className="flex scroll-mt-6 flex-col gap-4 sm:scroll-mt-8"
     >
-      <div className="flex min-w-0 flex-col gap-1">
+      <SettingsIntro action={action}>
         <h3 className="text-foreground text-lg font-semibold tracking-[var(--tracking-tight)]">
           {title}
         </h3>
-        {description || action ? (
-          <SettingsIntro action={action} className="text-foreground-dim">
-            {description}
-          </SettingsIntro>
+        {description ? (
+          <p className="text-foreground-dim">{description}</p>
         ) : null}
-      </div>
+      </SettingsIntro>
       {children}
     </section>
   )
 }
 
 /**
- * A line of copy with the button that acts on what it describes, such as a
- * list's description and its create button. In a narrow panel the button takes
- * the full row under the copy, so its label never fights the text for width;
- * once the panel has room it moves onto the same line.
+ * Copy with the button that acts on what it describes, such as a section's
+ * heading and description and its create button. In a narrow panel the button
+ * takes the full row under the copy, so its label never fights the text for
+ * width; once the panel has room it moves beside the copy, centered on all of
+ * it. Section actions use the secondary button style; primary is reserved for
+ * submitting a dialog or the save bar.
  */
 export function SettingsIntro({
   children,
   action,
-  className,
 }: {
   children?: ReactNode
   action?: ReactNode
-  className?: string
 }) {
   return (
-    <div className={cn("text-foreground-muted @container", className)}>
+    <div className="text-foreground-muted @container">
       <div className="flex flex-col gap-3 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6">
-        {children ? <p className="min-w-0 text-sm">{children}</p> : null}
+        {children ? (
+          <div className="flex min-w-0 flex-col gap-1 text-sm">{children}</div>
+        ) : null}
         {action ? (
           <div className="shrink-0 [&>button]:w-full @xl:[&>button]:w-auto">
             {action}
