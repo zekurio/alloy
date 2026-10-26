@@ -1,8 +1,7 @@
 import type { AdminRuntimeConfig } from "@alloy/api"
 import type { ThemeAccents } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
-import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
+import { ColorPicker } from "@alloy/ui/components/color-picker"
 import { setServerThemeAccents } from "@alloy/ui/lib/theme"
 import {
   defaultThemeAccent,
@@ -11,48 +10,35 @@ import {
   type ThemeAppearance,
 } from "@alloy/ui/lib/theme-colors"
 import { cn } from "@alloy/ui/lib/utils"
-import { CheckIcon, RotateCcwIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
-import { HexColorInput } from "@/components/routes/settings/hex-color-input"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
 import { api } from "@/lib/api"
 
-/**
- * Starting points per appearance, the same hues in each; any color works, and
- * contrast is fixed up per theme.
- */
-const ACCENT_PRESETS = {
-  dark: [
-    "#d0c4eb",
-    "#6d8cf5",
-    "#38bdf8",
-    "#2dd4bf",
-    "#4ade80",
-    "#facc15",
-    "#fb923c",
-    "#f43f5e",
-    "#ec4899",
-  ],
-  light: [
-    "#5d4f96",
-    "#3b5bdb",
-    "#0369a1",
-    "#0f766e",
-    "#13793a",
-    "#975c06",
-    "#bb3e0b",
-    "#be123c",
-    "#be185d",
-  ],
-} as const satisfies Record<ThemeAppearance, readonly string[]>
+type AccentPair = Record<ThemeAppearance, string>
 
 /**
- * The Alloy theme's accents for everyone on the server, one per appearance.
- * The page previews the draft right away; members on another theme keep its
- * own accent.
+ * Starting points, Alloy's own first: one hue each, in a shade per
+ * appearance. Any color works, and contrast is fixed up per theme.
+ */
+const ACCENT_PRESETS: readonly AccentPair[] = [
+  { light: defaultThemeAccent("light"), dark: defaultThemeAccent("dark") },
+  { light: "#3b5bdb", dark: "#6d8cf5" },
+  { light: "#0369a1", dark: "#38bdf8" },
+  { light: "#0f766e", dark: "#2dd4bf" },
+  { light: "#13793a", dark: "#4ade80" },
+  { light: "#975c06", dark: "#facc15" },
+  { light: "#bb3e0b", dark: "#fb923c" },
+  { light: "#be123c", dark: "#f43f5e" },
+  { light: "#be185d", dark: "#ec4899" },
+]
+
+/**
+ * The Alloy theme's accents for everyone on the server. A preset sets both
+ * appearances at once; the pickers tune one. The page previews the draft
+ * right away; members on another theme keep its own accent.
  */
 export function AdminAccentSettings({
   config,
@@ -86,6 +72,9 @@ export function AdminAccentSettings({
     discard: () => setDraft(saved),
   })
 
+  const accent = (appearance: ThemeAppearance) =>
+    draft[appearance] ?? defaultThemeAccent(appearance)
+
   return (
     <SettingsSubsection
       id="accent-color"
@@ -94,95 +83,85 @@ export function AdminAccentSettings({
         "Colors buttons, links, and highlights in the Alloy theme for everyone on this server.",
       )}
     >
-      <SettingRows>
-        {THEME_APPEARANCES.map((appearance) => (
-          <ServerAccentRow
-            key={appearance}
-            appearance={appearance}
-            value={draft[appearance]}
-            onChange={(accent) =>
-              setDraft((current) => ({ ...current, [appearance]: accent }))
-            }
-          />
-        ))}
-      </SettingRows>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+        <div
+          role="group"
+          aria-label={t("Suggested accents")}
+          className="flex flex-wrap gap-2.5"
+        >
+          {ACCENT_PRESETS.map((preset, index) => {
+            const name =
+              index === 0
+                ? t("Alloy default")
+                : `${preset.light} / ${preset.dark}`
+            const selected = THEME_APPEARANCES.every(
+              (appearance) => accent(appearance) === preset[appearance],
+            )
+            return (
+              <button
+                key={preset.dark}
+                type="button"
+                aria-label={name}
+                title={name}
+                aria-pressed={selected}
+                onClick={() =>
+                  setDraft({
+                    light: storedAccent("light", preset.light),
+                    dark: storedAccent("dark", preset.dark),
+                  })
+                }
+                className={cn(
+                  "ring-offset-background size-7 rounded-full ring-offset-2 outline-offset-4 transition-shadow",
+                  selected
+                    ? "ring-foreground ring-2"
+                    : "hover:ring-border-emphasis hover:ring-2",
+                )}
+                style={{
+                  // A hard stop on a diagonal stair-steps; a pixel of blend
+                  // smooths it.
+                  background: `linear-gradient(135deg, ${preset.light} calc(50% - 0.5px), ${preset.dark} calc(50% + 0.5px))`,
+                }}
+              />
+            )
+          })}
+        </div>
+        <div className="flex items-center gap-4">
+          {THEME_APPEARANCES.map((appearance) => (
+            <div
+              key={appearance}
+              className="text-foreground-dim flex items-center gap-2 text-sm"
+            >
+              <span aria-hidden>
+                {appearance === "light" ? t("Light") : t("Dark")}
+              </span>
+              <ColorPicker
+                value={accent(appearance)}
+                label={
+                  appearance === "light"
+                    ? t("Light mode accent")
+                    : t("Dark mode accent")
+                }
+                hexInput
+                onValueChange={(color) =>
+                  setDraft((current) => ({
+                    ...current,
+                    [appearance]: storedAccent(appearance, color),
+                  }))
+                }
+              />
+            </div>
+          ))}
+        </div>
+      </div>
     </SettingsSubsection>
   )
 }
 
-function ServerAccentRow({
-  appearance,
-  value,
-  onChange,
-}: {
-  appearance: ThemeAppearance
-  value: string | null
-  onChange: (accent: string | null) => void
-}) {
-  const id = `server-accent-${appearance}`
-  const label =
-    appearance === "light" ? t("Light mode accent") : t("Dark mode accent")
-
-  return (
-    <SettingRow
-      title={label}
-      htmlFor={id}
-      stack
-      footer={
-        <div
-          role="group"
-          aria-label={t("Suggested accents")}
-          className="flex flex-wrap gap-2"
-        >
-          {ACCENT_PRESETS[appearance].map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              aria-label={preset}
-              aria-pressed={value === preset}
-              onClick={() => onChange(preset)}
-              className={cn(
-                "focus-visible:ring-ring focus-visible:ring-offset-background grid size-7 place-items-center rounded-full border-2 transition-[border-color] outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                value === preset
-                  ? "border-foreground"
-                  : "border-transparent hover:border-border-emphasis",
-              )}
-              style={{ background: preset }}
-            >
-              {value === preset ? (
-                <CheckIcon
-                  aria-hidden
-                  className={cn(
-                    "size-3.5",
-                    appearance === "light" ? "text-white" : "text-black/80",
-                  )}
-                  strokeWidth={3}
-                />
-              ) : null}
-            </button>
-          ))}
-        </div>
-      }
-    >
-      <HexColorInput
-        id={id}
-        value={value ?? defaultThemeAccent(appearance)}
-        label={label}
-        className="text-xs"
-        commit={normalizeThemeColor}
-        onChange={(color) => onChange(color.toLowerCase())}
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={!value}
-          onClick={() => onChange(null)}
-        >
-          <RotateCcwIcon />
-          {t("Reset")}
-        </Button>
-      </HexColorInput>
-    </SettingRow>
-  )
+/** Alloy's own accent is stored as none, so the server keeps following it. */
+function storedAccent(
+  appearance: ThemeAppearance,
+  color: string,
+): string | null {
+  const hex = normalizeThemeColor(color)
+  return hex === defaultThemeAccent(appearance) ? null : hex
 }

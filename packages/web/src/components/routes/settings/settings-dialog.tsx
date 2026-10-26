@@ -18,6 +18,7 @@ import {
 } from "@alloy/ui/components/input-group"
 import { List, ListItemButton } from "@alloy/ui/components/list"
 import { LoadingState } from "@alloy/ui/components/loading-state"
+import { ScrollArea } from "@alloy/ui/components/scroll-area"
 import { useIsMobile } from "@alloy/ui/hooks/use-mobile"
 import { cn } from "@alloy/ui/lib/utils"
 import { useBlocker } from "@tanstack/react-router"
@@ -424,7 +425,11 @@ function SettingsSectionView({
 
   return (
     <SettingsSectionsProvider>
-      <nav className="border-border bg-background hidden w-64 shrink-0 flex-col gap-1 overflow-y-auto border-r p-5 md:flex">
+      <ScrollArea
+        render={<nav />}
+        className="border-border bg-background hidden w-64 shrink-0 border-r md:flex"
+        viewportClassName="flex flex-col gap-1 p-5"
+      >
         <div className="text-foreground px-2.5 pb-3 text-lg font-semibold tracking-[var(--tracking-tight)]">
           {t("Settings")}
         </div>
@@ -482,7 +487,7 @@ function SettingsSectionView({
           </p>
         ) : null}
         <SettingsBuildInfo className="mt-auto px-2.5 pt-8" />
-      </nav>
+      </ScrollArea>
 
       {/* On a phone a section replaces the menu, so it pushes in over it. */}
       <div className="max-md:animate-in max-md:fade-in-0 max-md:slide-in-from-right-4 flex min-w-0 flex-1 flex-col duration-200 motion-reduce:animate-none">
@@ -520,10 +525,11 @@ function SettingsSectionView({
           </header>
         )}
 
-        <div
-          ref={scrollRef}
-          className={cn(
-            "min-h-0 flex-1 overflow-y-auto px-5 py-6 md:py-8 md:pr-14 md:pl-10",
+        <ScrollArea
+          className="flex-1"
+          viewportRef={scrollRef}
+          viewportClassName={cn(
+            "px-5 py-6 md:px-10 md:py-8",
             native
               ? "max-md:pb-6"
               : "max-md:pb-[max(1.5rem,env(safe-area-inset-bottom))]",
@@ -532,7 +538,7 @@ function SettingsSectionView({
           <Suspense fallback={<LoadingState variant="panel" />}>
             <ActivePanel />
           </Suspense>
-        </div>
+        </ScrollArea>
 
         <SettingsSaveBar />
       </div>
