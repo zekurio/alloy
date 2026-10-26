@@ -134,7 +134,15 @@ the installer from the release. It removes the Tauri app the same way.
 Uninstalling the Tauri app first also works and keeps the data, as long as
 its "delete the application data" box stays unchecked.
 
-`latest.json` can be dropped once no Tauri installs remain.
+The move leaves the Tauri build's leftovers: files in its old install folder
+(`%LOCALAPPDATA%\Alloy`), its WebView2 profiles, which still hold its session
+cookies, and its installer's registry key. The installer has no cleanup for
+them. Instead, `packages/desktop/scripts/remove-tauri-leftovers.ps1` removes
+them; link it in the release notes of the first Electron release. Run it with
+`-WhatIf` to list what it would remove.
+
+`latest.json`, the `tauri signer` step, and the leftovers script can be dropped
+once no Tauri installs remain.
 
 ## Recovery
 

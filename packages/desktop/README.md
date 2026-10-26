@@ -161,7 +161,8 @@ variants. Never log or screenshot token values.
 - `%APPDATA%\dev.zekurio.alloy`: settings, saved servers, and capture manifest.
 - `%LOCALAPPDATA%\dev.zekurio.alloy`: caches, temporary media, the browser
   profiles in `electron\`, and `logs\alloy-desktop.log`. The Tauri build's
-  WebView2 profiles (`EBWebView\`, `webviews\`) are no longer used.
+  WebView2 profiles (`EBWebView\`, `webviews\`) are no longer used;
+  `scripts/remove-tauri-leftovers.ps1` removes them and its other leftovers.
 - `%LOCALAPPDATA%\Programs\alloy`: the app.
 - `%USERPROFILE%\Videos\Alloy`: default recordings folder.
 - `%TEMP%\Alloy\replay`: default replay buffer.
