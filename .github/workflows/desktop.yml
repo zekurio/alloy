@@ -188,6 +188,16 @@ jobs:
       - name: build unsigned installer
         run: pnpm desktop:dist:win:installer
 
+      # Electron brings no Visual C++ runtime, so the addon must not import
+      # one: a machine without the redistributable could not start Alloy.
+      - name: check the addon needs no Visual C++ runtime
+        shell: pwsh
+        run: |
+          $addon = "packages/desktop/resources/native/alloy-desktop.node"
+          if (Select-String -Path $addon -Pattern "VCRUNTIME140" -SimpleMatch -Quiet) {
+            throw "The desktop addon imports the Visual C++ runtime."
+          }
+
       - name: upload test installer
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

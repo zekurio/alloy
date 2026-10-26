@@ -254,6 +254,16 @@ jobs:
           corepack pnpm desktop:dist:win:installer
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      # Electron brings no Visual C++ runtime, so the addon must not import
+      # one: a machine without the redistributable could not start Alloy.
+      - name: check the addon needs no Visual C++ runtime
+        shell: pwsh
+        run: |
+          $addon = "packages/desktop/resources/native/alloy-desktop.node"
+          if (Select-String -Path $addon -Pattern "VCRUNTIME140" -SimpleMatch -Quiet) {
+            throw "The desktop addon imports the Visual C++ runtime."
+          }
+
       # Signs with the minisign key pair the Tauri updater trusted, so the
       # same signature serves this app's updater and the Tauri builds that
       # update to it. `tauri signer` writes `<installer>.sig`; the CLI is only

@@ -14,6 +14,16 @@ import {
 
 const release = process.argv.includes("--release")
 const targetTriple = process.env.CARGO_BUILD_TARGET
+// Electron brings no Visual C++ runtime, so on Windows the addon links the C
+// runtime statically, as Node addons usually do. The different flags build
+// into their own target folder, so the recorder and the tests keep theirs.
+const staticRuntime = (
+  targetTriple ?? (process.platform === "win32" ? "windows-msvc" : "")
+).includes("windows-msvc")
+const targetRoot = join(
+  resolve(process.env.CARGO_TARGET_DIR ?? join(workspaceDir, "target")),
+  ...(staticRuntime ? ["static-crt"] : []),
+)
 
 const cargoArgs = [
   "build",
@@ -22,20 +32,25 @@ const cargoArgs = [
   "--package",
   "alloy-desktop-native",
   "--locked",
+  "--target-dir",
+  targetRoot,
 ]
 if (release) cargoArgs.push("--release")
 if (targetTriple) cargoArgs.push("--target", targetTriple)
 
-const cargo = spawnSync("cargo", cargoArgs, { stdio: "inherit" })
+const env = { ...process.env }
+if (staticRuntime) {
+  env.RUSTFLAGS = [process.env.RUSTFLAGS, "-C target-feature=+crt-static"]
+    .filter(Boolean)
+    .join(" ")
+}
+const cargo = spawnSync("cargo", cargoArgs, { stdio: "inherit", env })
 if (cargo.error) {
   console.error(`Failed to run cargo: ${cargo.error.message}`)
   process.exit(1)
 }
 if (cargo.status !== 0) process.exit(cargo.status ?? 1)
 
-const targetRoot = resolve(
-  process.env.CARGO_TARGET_DIR ?? join(workspaceDir, "target"),
-)
 const profileDir = release ? "release" : "debug"
 const buildDir = targetTriple
   ? join(targetRoot, targetTriple, profileDir)
