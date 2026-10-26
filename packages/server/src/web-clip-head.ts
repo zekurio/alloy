@@ -22,8 +22,9 @@ type MetadataClip = NonNullable<
  * Metadata for a clip permalink, injected into the app shell for crawlers.
  *
  * OpenGraph supplies the title and media; oEmbed supplies the uploader's profile
- * link. Both bare and game-scoped permalinks use `/clips/:id` as their canonical
- * link and share the same metadata. Only the request path selects the clip.
+ * link. Both bare and game-scoped permalinks share the same metadata, with the
+ * game-scoped form as the canonical link when the clip has a game. Only the
+ * request path selects the clip.
  */
 export async function clipHead(pathname: string): Promise<string> {
   const clipId = clipIdFromPath(pathname)
@@ -40,7 +41,7 @@ export async function clipHead(pathname: string): Promise<string> {
 
 function buildClipHead(row: MetadataClip): string {
   const origin = env.PUBLIC_SERVER_URL
-  const permalink = clipShareUrl(row.id, origin)
+  const permalink = clipShareUrl(row.id, row.gameRef?.slug ?? null, origin)
   const provider = clipEmbedProvider(row.authorUsername, origin)
   const poster = embedPosterUrl(row, origin)
   const video = row.mediaKind === "video" ? embedVideo(row, origin) : null

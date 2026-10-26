@@ -95,7 +95,12 @@ function ClipMeta({
   const hasDescription = Boolean(description && description.trim().length > 0)
 
   const reEncodeMutation = useReEncodeClipMutation()
-  const share = useClipShare({ clipId, title, privacy })
+  const share = useClipShare({
+    clipId,
+    gameSlug: gameRef?.slug ?? null,
+    title,
+    privacy,
+  })
 
   const avatarStyle = {
     background: uploader.avatar.bg ?? "var(--neutral-200)",

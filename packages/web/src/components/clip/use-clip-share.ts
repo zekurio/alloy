@@ -10,10 +10,12 @@ import { useActionFeedback } from "@/lib/use-action-feedback"
 /** Shares the clip's public link, or copies it where sharing is unavailable. */
 export function useClipShare({
   clipId,
+  gameSlug,
   title,
   privacy,
 }: {
   clipId: string
+  gameSlug: string | null
   title: string
   privacy: ClipPrivacy
 }) {
@@ -22,7 +24,7 @@ export function useClipShare({
   const share = useCallback(async () => {
     await run(async () => {
       if (privacy === "private") throw new Error(t("Clip link is disabled"))
-      const url = clipShareUrl(clipId, publicOrigin())
+      const url = clipShareUrl(clipId, gameSlug, publicOrigin())
       const result = await shareUrlWithFallback(url, {
         title,
         action: "share clip link",
@@ -30,7 +32,7 @@ export function useClipShare({
       if (result === "failed") throw new Error(t("Couldn't share clip"))
       return result !== "cancelled"
     }, t("Couldn't share clip"))
-  }, [clipId, privacy, run, title])
+  }, [clipId, gameSlug, privacy, run, title])
 
   return { feedback, share }
 }
