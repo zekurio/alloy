@@ -1,27 +1,47 @@
-import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises"
+import { readFile, readdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+
+// Finishes the desktop release assets electron-builder wrote to
+// packages/desktop/release, after the installer has been signed with the
+// update key (`<installer>.sig`):
+//
+// - `latest.yml` gains the signature, which the app checks before it
+//   installs an update.
+// - `latest.json` offers the same installer to Tauri builds, whose updater
+//   reads that file and checks the same signature. Running it replaces the
+//   Tauri install with this one.
 
 const version = process.argv[2]
 if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
   throw new Error("Pass the release version as X.Y.Z.")
 }
-const source = "target/x86_64-pc-windows-msvc/release/bundle/nsis"
 const output = "packages/desktop/release"
-const installers = (await readdir(source)).filter((name) =>
-  name.endsWith(".exe"),
-)
-if (installers.length !== 1) {
-  throw new Error("Expected one Windows installer.")
+const installer = `Alloy-Desktop-${version}-win-x64-setup.exe`
+const files = await readdir(output)
+for (const name of [installer, `${installer}.sig`, `${installer}.blockmap`]) {
+  if (!files.includes(name)) throw new Error(`Missing ${name} in ${output}.`)
 }
-const installer = installers[0]
+
 const signature = (
-  await readFile(join(source, `${installer}.sig`), "utf8")
+  await readFile(join(output, `${installer}.sig`), "utf8")
 ).trim()
-if (!signature) throw new Error("The installer has no update signature.")
-const fileName = `Alloy-Desktop-${version}-win-x64-setup.exe`
-await mkdir(output, { recursive: true })
-await copyFile(join(source, installer), join(output, fileName))
-await writeFile(join(output, `${fileName}.sig`), `${signature}\n`)
+if (!/^[A-Za-z0-9+/=]+$/.test(signature)) {
+  throw new Error("The installer has no valid update signature.")
+}
+
+const updateInfoPath = join(output, "latest.yml")
+const updateInfo = await readFile(updateInfoPath, "utf8")
+if (!updateInfo.includes(`version: ${version}\n`)) {
+  throw new Error(`latest.yml does not describe version ${version}.`)
+}
+if (!updateInfo.includes(`path: ${installer}\n`)) {
+  throw new Error(`latest.yml does not point at ${installer}.`)
+}
+await writeFile(
+  updateInfoPath,
+  `${updateInfo.replace(/^alloySignature: .*\n/m, "").trimEnd()}\nalloySignature: '${signature}'\n`,
+)
+
 await writeFile(
   join(output, "latest.json"),
   `${JSON.stringify(
@@ -31,7 +51,7 @@ await writeFile(
       platforms: {
         "windows-x86_64": {
           signature,
-          url: `https://github.com/zekurio/alloy/releases/download/v${version}/${fileName}`,
+          url: `https://github.com/zekurio/alloy/releases/download/v${version}/${installer}`,
         },
       },
     },
@@ -39,4 +59,4 @@ await writeFile(
     2,
   )}\n`,
 )
-console.log(`Prepared signed desktop release ${version}.`)
+console.log(`Prepared desktop release ${version}.`)

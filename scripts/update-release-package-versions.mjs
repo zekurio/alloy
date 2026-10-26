@@ -4,18 +4,18 @@ import { readFileSync, writeFileSync } from "node:fs"
 
 const version = process.argv[2]
 
-const releasePackageFiles = [
-  "package.json",
-  "packages/desktop/package.json",
-  "packages/desktop/src-tauri/tauri.conf.json",
-]
+// The desktop package version is the app version electron-builder stamps
+// into the installer and electron-updater compares against.
+const releasePackageFiles = ["package.json", "packages/desktop/package.json"]
 const cargoPackageFiles = [
   ["packages/desktop/recorder/Cargo.toml", "alloy-agent"],
-  ["packages/desktop/src-tauri/Cargo.toml", "alloy-desktop"],
+  ["packages/desktop/host/Cargo.toml", "alloy-desktop"],
+  ["packages/desktop/native/Cargo.toml", "alloy-desktop-native"],
 ]
 const cargoLockPackageFiles = [
   ["Cargo.lock", "alloy-agent"],
   ["Cargo.lock", "alloy-desktop"],
+  ["Cargo.lock", "alloy-desktop-native"],
 ]
 
 const fail = (message) => {
@@ -41,8 +41,8 @@ for (const filePath of releasePackageFiles) {
   }
 
   // Patch the version value in place instead of re-serializing the document:
-  // `JSON.stringify` expands arrays that oxfmt keeps inline in the Tauri
-  // config, which would leave the release commit failing `pnpm fmt:check`.
+  // `JSON.stringify` expands arrays that oxfmt keeps inline, which would
+  // leave the release commit failing `pnpm fmt:check`.
   const updated = original.replace(
     /^ {2}"version": "[^"]+"(,?)$/m,
     `  "version": "${version}"$1`,

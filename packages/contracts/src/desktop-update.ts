@@ -21,6 +21,12 @@ export interface DesktopUpdateState {
    * background check or a manual one. Null until the first check finishes.
    */
   lastCheckedAt: string | null
+  /**
+   * How much of the update has downloaded, from 0 to 1, while `status` is
+   * "downloading"; null otherwise. Absent from hosts that do not report
+   * progress, such as the Tauri build.
+   */
+  downloadProgress?: number | null
 }
 
 /** Desktop auto-update state and controls exposed through the native bridge. */

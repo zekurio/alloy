@@ -1,8 +1,24 @@
 # Alloy desktop
 
-The Windows desktop app loads an Alloy server's web UI through Tauri.
-`src-tauri/` contains the native host; `recorder/` contains the separate OBS
-recorder process, `alloy-agent`.
+The desktop app is an Electron shell around an Alloy server's web UI. Its
+native work is in Rust:
+
+- `src/main/`: the Electron main process. It owns the windows, the tray,
+  single instance, autostart, updates, cookies, and the IPC bridge, and checks
+  every call against the calling window and its selected server.
+- `src/preload/`: `connect.ts` gives the bundled connect screen
+  (`src/connect/`) its commands; `server.ts` installs the native bridge for
+  the selected server's web app as `window.alloyTauriDesktop`, bridge
+  contract 1, the name the Tauri host used, so one web build works with both.
+- `host/` (`alloy-desktop`): the recorder client, the capture library and its
+  loopback media server, downloads, server checks, browser sign-in,
+  preferences, update signature checks, and the host log. It knows nothing
+  about windows; the shell passes it folders, dialog results, and cookies.
+- `native/` (`alloy-desktop-native`): the napi-rs addon that loads `host`
+  into the main process. `src/main/native.ts` declares its exports.
+- `recorder/`: the separate OBS recorder process, `alloy-agent`.
+- `update-signer/` (`alloy-update-signer`): release tooling that signs the
+  installer for the update check; see `.github/RELEASING.md`.
 
 Desktop capture records the selected display while game detection continues.
 Saved clips and screenshots use the detected game's metadata and folder, or
@@ -34,7 +50,7 @@ a caller needs them.
 
 ## Capture library media work
 
-`src-tauri/src/capture_library/` owns everything the host does to capture
+`host/src/capture_library/` owns everything the host does to capture
 files after the recorder writes them. Jobs are async functions; each one
 starts its tools through `work.rs`, never through its own `Command`:
 
@@ -67,14 +83,19 @@ starts its tools through `work.rs`, never through its own `Command`:
 
 ## Run
 
-Requires Windows, Node 24, the pinned pnpm version, Rust, Windows C++ build tools,
-and WebView2. Start a compatible Alloy server, then run from the repository root:
+Requires Node 24, the pinned pnpm version, and Rust. Recording and the
+installer also need Windows with the C++ build tools. Start a compatible Alloy
+server, then run from the repository root:
 
 ```sh
 pnpm install
-pnpm desktop:obs:install --version 32.1.2
-pnpm tauri:dev
+pnpm desktop:obs:install --version 32.1.2   # Windows only
+pnpm desktop:dev
 ```
+
+`desktop:dev` stages the recorder and FFmpeg on Windows, builds the addon,
+downloads Electron if needed, and starts the shell with the connect screen
+served by Vite. Changes to the main process or preloads restart the app.
 
 The installer checks the OBS ZIP against a SHA-256 pinned in
 `scripts/install-obs-runtime.mjs` (32.1.2 today), or against the digest GitHub
@@ -83,23 +104,39 @@ another version for local development, set `ALLOY_OBS_ALLOW_UNVERIFIED=1` to ski
 the check; CI and release builds never should.
 
 Enter the server origin serving both the web UI and `/api/*`. HTTP is allowed
-only on loopback; other servers require HTTPS. Restart Tauri after changing the
-bundled connection screen.
+only on loopback; other servers require HTTPS.
+
+### Linux
+
+The shell runs on Linux for development; Linux recording (through OBS, as on
+Windows) and packages come later, so until then the recorder reports itself
+missing. The host hands the agent `resources/obs-runtime`, or
+`ALLOY_OBS_RUNTIME_DIR` when set; without libobs there, the agent uses the
+system's OBS. devenv provides Rust,
+`pkg-config`, and ALSA for the addon. The Electron binary npm downloads does
+not run on NixOS, so devenv sets `ELECTRON_EXEC_PATH` to nixpkgs' Electron,
+which can trail the pinned version by a few releases. Media tools come from
+`PATH` unless `ALLOY_FFMPEG` and `ALLOY_FFPROBE` point elsewhere. Folders follow
+XDG: data in `~/.local/share/dev.zekurio.alloy`, caches in
+`~/.cache/dev.zekurio.alloy`, the browser profile in
+`~/.config/dev.zekurio.alloy`.
 
 ## Build and check
 
 ```sh
-pnpm tauri:build
-pnpm tauri:dist:win:installer
+pnpm desktop:build              # stage natives and bundle into out/
+pnpm desktop:dist:win:installer # Windows: NSIS installer in release/
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 pnpm --filter @alloy/desktop test:native
 ```
 
-Builds bundle the recorder, OBS, and FFmpeg. `test:native` runs the host's
-integration tests. Unit tests have been removed; E2E testing is not configured yet.
-A successful build does not validate recording or playback. For affected flows,
-check on Windows:
+Builds bundle the recorder, OBS, FFmpeg, and the addon as extra resources;
+`electron-builder.yml` lists them, and `nsis/installer.nsh` adds the login item
+handling and the move from the Tauri build (see `.github/RELEASING.md`).
+`test:native` runs the host's integration tests. Unit tests have been removed;
+E2E testing is not configured yet. A successful build does not validate
+recording or playback. For affected flows, check on Windows:
 
 - Login, cancellation, session refresh after restart, server switching, and
   incompatible-server rejection.
@@ -110,24 +147,27 @@ check on Windows:
 - H.264, HEVC, and AV1 playback, seeking, editing, export, and upload.
 - Thumbnails and BlurHash placeholders for new clips, screenshots, imports,
   and downloads, and for captures saved by an older build.
-- Installer setup, updates, and uninstall.
+- Installer setup over a Tauri install, updates, and uninstall.
 
-For cookie changes, test HTTPS on a registrable domain and loopback with stale
-host-only and domain-scoped cookies. After login, only a host-only
-`alloy_session` cookie should remain and survive restart, including a forced
-restart of Windows. A session from an older app (`alloy_refresh`) must restore
-without a new sign-in; its `alloy_refresh` cookie stays next to `alloy_session`
-until it expires, so not-yet-updated apps still find it. Forgetting the server
-must remove both scopes and the legacy names, including stale path variants.
-Never log or screenshot token values.
+For cookie changes, test HTTPS on a registrable domain and loopback. The shell
+sets the session cookie host-only at `/`, as the server does, so after login
+only a host-only `alloy_session` cookie should remain and survive restart,
+including a forced restart of Windows. A session from an older app
+(`alloy_refresh`) must restore without a new sign-in. Forgetting the server
+must clear its profile, and opening the connect screen from the login page
+must remove every session cookie, including legacy names and stale path
+variants. Never log or screenshot token values.
 
 ## Storage and logs
 
 - `%APPDATA%\dev.zekurio.alloy`: settings, saved servers, and capture manifest.
-- `%LOCALAPPDATA%\dev.zekurio.alloy`: WebView2 profiles, caches, temporary media,
-  and `logs\alloy-desktop.log`.
+- `%LOCALAPPDATA%\dev.zekurio.alloy`: caches, temporary media, the browser
+  profiles in `electron\`, and `logs\alloy-desktop.log`. The Tauri build's
+  WebView2 profiles (`EBWebView\`, `webviews\`) are no longer used.
+- `%LOCALAPPDATA%\Programs\alloy`: the app.
 - `%USERPROFILE%\Videos\Alloy`: default recordings folder.
 - `%TEMP%\Alloy\replay`: default replay buffer.
 
 Open the host log through Settings > Desktop > App > Diagnostics > Open logs folder.
-It includes recorder stderr, not browser console or server logs. Review before sharing.
+It includes the shell's and the recorder's diagnostics, not browser console or
+server logs. Review before sharing.

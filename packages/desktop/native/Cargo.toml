@@ -1,0 +1,26 @@
+# The Node-API addon the Electron main process loads. It only adapts
+# `alloy-desktop` to JavaScript: the native work and its tests live there.
+[package]
+name = "alloy-desktop-native"
+version = "0.0.19"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+# Node-API symbols resolve only once Electron loads the addon, so it has no
+# test harness of its own.
+test = false
+doctest = false
+
+[dependencies]
+alloy-desktop = { path = "../host" }
+log = "0.4"
+napi = { version = "3", features = ["napi8", "async", "serde-json"] }
+napi-derive = "3"
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+url = { workspace = true }
+
+[build-dependencies]
+napi-build = "2"

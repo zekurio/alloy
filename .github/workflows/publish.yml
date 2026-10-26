@@ -166,8 +166,8 @@ jobs:
               git add package.json \
                 Cargo.lock \
                 packages/desktop/package.json \
-                packages/desktop/src-tauri/tauri.conf.json \
-                packages/desktop/src-tauri/Cargo.toml \
+                packages/desktop/host/Cargo.toml \
+                packages/desktop/native/Cargo.toml \
                 packages/desktop/recorder/Cargo.toml
               git commit -m "chore: release $tag"
             fi
@@ -220,43 +220,72 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: .
-          # Same key as the Windows jobs in desktop-tauri.yml: a cache saved on
-          # `dev` is the only one a pull request can restore, so this release
-          # build is what keeps desktop CI from recompiling from scratch.
-          shared-key: tauri-desktop
+          # Same key as the installer job in desktop.yml: a cache saved on `dev`
+          # is the only one a pull request can restore, so this release build
+          # is what keeps desktop CI from recompiling from scratch.
+          shared-key: desktop
 
       # The staging scripts pin OBS and FFmpeg and decide what lands in the
-      # runtime folder, so their hash keys the cache.
+      # runtime folder, so their hash keys the cache. The addon script does
+      # not touch these folders.
       - name: cache native runtimes
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             packages/desktop/resources/obs-runtime
             packages/desktop/.cache/ffmpeg
-          key: windows-native-${{ hashFiles('packages/desktop/scripts/*.mjs') }}
+          key: windows-native-${{ hashFiles('packages/desktop/scripts/archive.mjs', 'packages/desktop/scripts/build-agent.mjs', 'packages/desktop/scripts/install-obs-runtime.mjs', 'packages/desktop/scripts/obs-runtime.mjs', 'packages/desktop/scripts/prepare-native.mjs') }}
 
       - name: stage obs runtime
         run: corepack pnpm --filter @alloy/desktop obs:install
 
-      - name: build desktop installer and update signature
+      # The public key is compiled into the app, which checks every update
+      # against it. Without it the build would ship with updates off.
+      - name: build desktop installer
         env:
           NODE_ENV: production
           ALLOY_UPDATER_PUBLIC_KEY: ${{ vars.ALLOY_UPDATER_PUBLIC_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          if (!$env:ALLOY_UPDATER_PUBLIC_KEY -or !$env:TAURI_SIGNING_PRIVATE_KEY) {
-            throw "Configure the Tauri update signing key and public key before a release."
+          if (!$env:ALLOY_UPDATER_PUBLIC_KEY) {
+            throw "Configure ALLOY_UPDATER_PUBLIC_KEY before a release."
           }
-          # The public key is not checked in. Merge it into the Tauri config so
-          # the CLI can sign the update artifacts and the app trusts them.
-          $updaterConfig = Join-Path $env:RUNNER_TEMP "tauri.updater.conf.json"
-          @{ plugins = @{ updater = @{ pubkey = $env:ALLOY_UPDATER_PUBLIC_KEY } } } |
-            ConvertTo-Json -Depth 5 |
-            Set-Content -Path $updaterConfig -Encoding utf8
-          corepack pnpm --filter @alloy/desktop dist:win:installer:signed --config $updaterConfig
+          corepack pnpm desktop:dist:win:installer
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Electron brings no Visual C++ runtime, so the addon must not import
+      # one: a machine without the redistributable could not start Alloy.
+      - name: check the addon needs no Visual C++ runtime
+        shell: pwsh
+        run: |
+          $addon = "packages/desktop/resources/native/alloy-desktop.node"
+          if (Select-String -Path $addon -Pattern "VCRUNTIME140" -SimpleMatch -Quiet) {
+            throw "The desktop addon imports the Visual C++ runtime."
+          }
+
+      # Built from Cargo.lock in its own step, so no build script runs while
+      # the signing key is in the environment.
+      - name: build update signer
+        run: cargo build --locked --package alloy-update-signer --target-dir target/update-signer
+
+      # Signs with the minisign key pair the Tauri updater trusted, so the
+      # same signature serves this app's updater and the Tauri builds that
+      # update to it. The signer writes `<installer>.sig` and fails unless the
+      # key pair matches the public key compiled into the app.
+      - name: sign desktop installer
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          UPDATE_SIGNING_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          ALLOY_UPDATER_PUBLIC_KEY: ${{ vars.ALLOY_UPDATER_PUBLIC_KEY }}
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (!$env:UPDATE_SIGNING_KEY) {
+            throw "Configure the update signing key before a release."
+          }
+          & target/update-signer/debug/alloy-update-signer.exe "packages/desktop/release/Alloy-Desktop-$env:RELEASE_VERSION-win-x64-setup.exe" $env:RELEASE_VERSION
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: prepare desktop release assets
@@ -267,8 +296,10 @@ jobs:
         with:
           name: desktop-release-assets
           path: |
-            packages/desktop/release/*.exe
-            packages/desktop/release/*.sig
+            packages/desktop/release/*-setup.exe
+            packages/desktop/release/*-setup.exe.blockmap
+            packages/desktop/release/*-setup.exe.sig
+            packages/desktop/release/latest.yml
             packages/desktop/release/latest.json
           if-no-files-found: error
 
@@ -388,8 +419,10 @@ jobs:
           prerelease: false
           make_latest: true
           files: |
-            release-assets/*.exe
-            release-assets/*.sig
+            release-assets/*-setup.exe
+            release-assets/*-setup.exe.blockmap
+            release-assets/*-setup.exe.sig
+            release-assets/latest.yml
             release-assets/latest.json
             release-assets/checksums.txt
           fail_on_unmatched_files: true

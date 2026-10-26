@@ -33,7 +33,7 @@ export function alloyDesktop(): AlloyTauriDesktop | null {
     : null
 }
 
-/** Returns whether the page runs inside the Tauri desktop host. */
+/** Returns whether the page runs inside the desktop host. */
 export function isNativeDesktop(): boolean {
   return alloyDesktop() !== null
 }

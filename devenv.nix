@@ -39,12 +39,16 @@ in
     nil
     # Rendition transcoding and poster extraction in the media pipeline.
     ffmpeg-headless
-    # Only `cargo fmt --all --check` runs here: both desktop crates build and
-    # lint on Windows. CI formats with rustup's stable toolchain, which
-    # nixpkgs' current stable rustfmt tracks closely.
+    # The desktop host and its addon build here for the Electron shell; the
+    # Windows recorder and the installer build on Windows. CI formats with
+    # rustup's stable toolchain, which nixpkgs' current stable rustfmt tracks
+    # closely.
     cargo
     rustc
     rustfmt
+    # The recorder library the host links plays sounds through ALSA.
+    pkg-config
+    alsa-lib.dev
   ];
 
   # Single source of truth for the static dev environment. `pnpm dev` goes
@@ -70,6 +74,10 @@ in
     ALLOY_STORAGE_FS_CLIPS_PATH = "${config.devenv.root}/data/storage/clips";
     ALLOY_STORAGE_FS_THUMBNAILS_PATH = "${config.devenv.root}/data/storage/thumbnails";
     ALLOY_STORAGE_FS_ASSETS_PATH = "${config.devenv.root}/data/storage/assets";
+    # The Electron binary npm downloads does not run on NixOS, so
+    # electron-vite starts the desktop shell on nixpkgs' build, which can
+    # trail the pinned version.
+    ELECTRON_EXEC_PATH = "${pkgs.electron}/bin/electron";
   };
 
   # Create `.env` and start the one Postgres shared by all active shells. This

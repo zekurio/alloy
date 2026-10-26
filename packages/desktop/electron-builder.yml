@@ -1,0 +1,77 @@
+# Packages the built shell (`out/`) with the staged native resources. The
+# release workflow builds the Windows NSIS installer; electron-updater reads
+# the `latest.yml` this writes from the latest GitHub release.
+appId: dev.zekurio.alloy
+productName: Alloy
+# Names the per-user install folder (`%LOCALAPPDATA%\Programs\alloy`) and
+# electron-updater's download cache, which the scoped package name would turn
+# into `@alloydesktop`.
+extraMetadata:
+  name: alloy
+directories:
+  output: release
+  buildResources: assets
+files:
+  - out/**
+  - package.json
+# Electron's runtime switches, flipped in the packaged binary: it never runs
+# as plain Node, ignores NODE_OPTIONS and --inspect, encrypts cookies with
+# the OS key store, and loads only its integrity-checked app.asar.
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+# Chromium's own UI strings: the languages Alloy ships.
+electronLanguages:
+  - en-US
+  - de
+extraResources:
+  - from: assets/icon.ico
+    to: assets/icon.ico
+  - from: ../../public/logo.png
+    to: assets/icon.png
+  - from: resources/native
+    to: native
+    filter:
+      - alloy-desktop.node
+  - from: resources/agent
+    to: agent
+    filter:
+      - "**/*"
+      - "!.gitkeep"
+      - "!**/*.pdb"
+  - from: resources/obs-runtime
+    to: obs-runtime
+    filter:
+      - "**/*"
+      - "!.gitkeep"
+      - "!**/*.pdb"
+  - from: resources/ffmpeg
+    to: ffmpeg
+    filter:
+      - "**/*"
+      - "!.build-checksum"
+win:
+  icon: assets/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: Alloy-Desktop-${version}-win-${arch}-setup.${ext}
+nsis:
+  # One click, per user, like the Tauri installer it replaces. Updates run
+  # it silently.
+  oneClick: true
+  perMachine: false
+  include: nsis/installer.nsh
+  deleteAppDataOnUninstall: false
+  shortcutName: Alloy
+  uninstallDisplayName: Alloy
+publish:
+  - provider: github
+    owner: zekurio
+    repo: alloy
+    releaseType: release

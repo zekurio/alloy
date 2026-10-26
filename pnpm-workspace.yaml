@@ -8,18 +8,21 @@ allowBuilds:
   esbuild: true
   # Native image decoding for server-side BlurHash computation (game art).
   sharp: true
+  # Squirrel.Windows support pulled in by electron-builder. The desktop app
+  # ships an NSIS installer, so its install script is never needed.
+  electron-winstaller: false
 
 overrides:
   # Upstream packages have not yet refreshed these transitive patch releases.
   "@xmldom/xmldom": 0.8.15
-  brace-expansion@1: 1.1.18
-  brace-expansion@2: 2.1.4
-  brace-expansion@5: 5.0.9
+  brace-expansion@1: 1.1.21
+  brace-expansion@2: 2.1.7
+  brace-expansion@5: 5.0.12
   esbuild: 0.28.1
-  fast-uri: 3.1.6
+  fast-uri: 3.1.9
   form-data: 4.0.6
   js-yaml: 4.3.2
   # GHSA-r292-9mhp-454m (uncatchable stack overflow on crafted long paths).
   tar: 7.5.21
-  undici: 7.29.0
+  undici: 7.30.1
   vite: "catalog:"

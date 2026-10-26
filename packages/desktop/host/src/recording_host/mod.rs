@@ -1,0 +1,2025 @@
+mod models;
+
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    env, fmt,
+    fs::{self, File},
+    io::{self, Write},
+    path::{Path, PathBuf},
+    process::Stdio,
+    sync::{
+        Arc, Weak,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
+
+use fs2::{available_space, total_space};
+use models::*;
+use serde::{Serialize, de::DeserializeOwned};
+use serde_json::{Value, json};
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+use tokio::{
+    io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWriteExt, BufReader},
+    process::{Child, ChildStdin, Command},
+    sync::{Mutex, Notify, RwLock, broadcast, oneshot},
+    time::{sleep, timeout},
+};
+
+pub use models::{
+    AGENT_NAME, AGENT_PROTOCOL_VERSION, CaptureManifest, EventEnvelope,
+    PlayNotificationSoundRequest, RecorderHostOptions, RecordingActionResult, RecordingAllowedGame,
+    RecordingAudioApplicationSelection, RecordingAudioDevice, RecordingAudioDeviceKind,
+    RecordingAudioDeviceSelection, RecordingAudioLevel, RecordingAudioLevelTarget,
+    RecordingAudioMode, RecordingBackendState, RecordingBitrate, RecordingBufferStorage,
+    RecordingCapture, RecordingCaptureKind, RecordingCaptureMode, RecordingCapturePostProcess,
+    RecordingCaptureSource, RecordingCodec, RecordingDisplay, RecordingEncoder, RecordingEvent,
+    RecordingGame, RecordingGameGuess, RecordingGameGuessMatchKind, RecordingGameGuessSource,
+    RecordingGameProcess, RecordingHotkeys, RecordingMode, RecordingNotificationSoundSettings,
+    RecordingNotificationSounds, RecordingQualityProfile, RecordingQualitySettings,
+    RecordingResolution, RecordingRunState, RecordingSettings, RecordingStatus,
+    RecordingStorageInfo, RecordingTelemetry, SaveReplayClipRequest, SidecarVersion,
+};
+const SETTINGS_FILE: &str = "recording-settings.json";
+const CAPTURES_FILE: &str = "recording-captures.json";
+const CAPTURE_EXTENSIONS: &[&str] = &["mp4", "mkv", "mov", "webm", "png", "jpg", "jpeg", "webp"];
+const DISCORD_DETECTABLE_URL: &str = "https://discord.com/api/v9/applications/detectable";
+const DISCORD_CACHE_FILE_NAME: &str = "discord-detections.json";
+const DISCORD_CACHE_SCHEMA_VERSION: u32 = 1;
+const DISCORD_CACHE_TTL_SECONDS: i64 = 24 * 60 * 60;
+const DISCORD_REFRESH_INTERVAL: Duration = Duration::from_secs(60 * 60);
+const DISCORD_FETCH_TIMEOUT: Duration = Duration::from_secs(15);
+const DISCORD_CONNECT_TIMEOUT: Duration = Duration::from_secs(8);
+// The detectable-applications payload is ~13 MB as of 2026 and keeps growing.
+const DISCORD_MAX_BODY_BYTES: usize = 64 * 1024 * 1024;
+const DISCORD_MAX_ROWS: usize = 100_000;
+
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DiscordDetectionCache {
+    schema_version: u32,
+    source: String,
+    source_url: String,
+    fetched_at: Option<String>,
+    games: Vec<DiscordDetectionGame>,
+    executables: BTreeMap<String, Vec<DiscordExecutableRule>>,
+}
+
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DiscordDetectionGame {
+    id: String,
+    name: String,
+    aliases: Vec<String>,
+    icon_hash: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DiscordExecutableRule {
+    game_id: String,
+    is_launcher: bool,
+    score: i32,
+}
+
+#[derive(Debug)]
+pub enum RecorderHostError {
+    Io {
+        context: String,
+        source: io::Error,
+    },
+    Json {
+        context: String,
+        source: serde_json::Error,
+    },
+    InvalidSettings(String),
+    InvalidRequest(String),
+    MissingExecutable(PathBuf),
+    Protocol(String),
+    Process(String),
+    Timeout {
+        method: String,
+    },
+    /// The last agent start failed and its retry window is still running.
+    /// Carries that failure's message.
+    StartBackoff(String),
+    Shutdown,
+}
+
+impl fmt::Display for RecorderHostError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io { context, source } => write!(formatter, "{context}: {source}"),
+            Self::Json { context, source } => write!(formatter, "{context}: {source}"),
+            Self::InvalidSettings(message) => {
+                write!(formatter, "Invalid recording settings: {message}")
+            }
+            Self::InvalidRequest(message) => {
+                write!(formatter, "Invalid recording request: {message}")
+            }
+            Self::MissingExecutable(path) => {
+                write!(formatter, "Alloy recorder is missing: {}", path.display())
+            }
+            Self::Protocol(message) => {
+                write!(formatter, "Alloy recorder protocol error: {message}")
+            }
+            Self::Process(message) => write!(formatter, "Alloy recorder process error: {message}"),
+            Self::Timeout { method } => {
+                write!(formatter, "Alloy recorder timed out during {method}.")
+            }
+            Self::StartBackoff(message) => formatter.write_str(message),
+            Self::Shutdown => formatter.write_str("Alloy recorder host is shut down."),
+        }
+    }
+}
+
+impl std::error::Error for RecorderHostError {}
+
+fn io_error(context: impl Into<String>, source: io::Error) -> RecorderHostError {
+    RecorderHostError::Io {
+        context: context.into(),
+        source,
+    }
+}
+
+fn json_error(context: impl Into<String>, source: serde_json::Error) -> RecorderHostError {
+    RecorderHostError::Json {
+        context: context.into(),
+        source,
+    }
+}
+
+/// Empties a folder without removing it. Leftovers are reported and skipped:
+/// a file the agent still holds open must not stop it from starting.
+fn clear_folder_contents(folder: &Path) {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let removed = match entry.file_type() {
+            Ok(kind) if kind.is_dir() => fs::remove_dir_all(&path),
+            Ok(_) => fs::remove_file(&path),
+            Err(error) => Err(error),
+        };
+        if let Err(error) = removed {
+            log::warn!(
+                "[alloy-recording-host] could not clear {}: {error}",
+                path.display()
+            );
+        }
+    }
+}
+
+#[derive(Debug)]
+struct PendingResponse {
+    sender: oneshot::Sender<Result<WireResponse, RecorderHostError>>,
+}
+
+struct Session {
+    id: u64,
+    stdin: Mutex<ChildStdin>,
+    pending: Mutex<HashMap<u64, PendingResponse>>,
+    next_id: AtomicU64,
+    alive: AtomicBool,
+    exited: AtomicBool,
+    kill_notify: Notify,
+}
+
+impl Session {
+    async fn spawn(inner: &Arc<Inner>) -> Result<Arc<Self>, RecorderHostError> {
+        let options = &inner.options;
+        if !options.executable.is_file() {
+            return Err(RecorderHostError::MissingExecutable(
+                options.executable.clone(),
+            ));
+        }
+
+        // Disk-mode replay segments are the agent's alone, and it cleans them
+        // up when it stops or saves a clip. A crash or a watchdog kill skips
+        // that, so the folder is emptied before the next agent starts. Those
+        // segments add up to the whole replay buffer, so the removal runs on
+        // a blocking thread.
+        let scratch = options.replay_scratch_folder.clone();
+        off_worker(move || clear_folder_contents(&scratch)).await?;
+
+        let mut command = Command::new(&options.executable);
+        command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        configure_runtime_environment(&mut command, options, inner.discord_cache_path.as_deref());
+
+        #[cfg(windows)]
+        {
+            command.creation_flags(0x0800_0000);
+        }
+
+        let mut child = command.spawn().map_err(|source| {
+            io_error(
+                format!(
+                    "Failed to start Alloy recorder {}",
+                    options.executable.display()
+                ),
+                source,
+            )
+        })?;
+        let stdin = child.stdin.take().ok_or_else(|| {
+            RecorderHostError::Process("Alloy recorder stdin was not available.".into())
+        })?;
+        let stdout = child.stdout.take().ok_or_else(|| {
+            RecorderHostError::Process("Alloy recorder stdout was not available.".into())
+        })?;
+        let stderr = child.stderr.take().ok_or_else(|| {
+            RecorderHostError::Process("Alloy recorder stderr was not available.".into())
+        })?;
+        let id = inner.next_session_id.fetch_add(1, Ordering::Relaxed);
+        let session = Arc::new(Self {
+            id,
+            stdin: Mutex::new(stdin),
+            pending: Mutex::new(HashMap::new()),
+            next_id: AtomicU64::new(1),
+            alive: AtomicBool::new(true),
+            exited: AtomicBool::new(false),
+            kill_notify: Notify::new(),
+        });
+
+        let stdout_session = Arc::clone(&session);
+        let stdout_inner = Arc::downgrade(inner);
+        let max_line_bytes = options.max_line_bytes;
+        tokio::spawn(async move {
+            read_stdout(stdout, stdout_session, stdout_inner, max_line_bytes).await;
+        });
+
+        let stderr_inner = Arc::downgrade(inner);
+        tokio::spawn(async move {
+            read_stderr(stderr, stderr_inner, max_line_bytes).await;
+        });
+
+        let wait_session = Arc::clone(&session);
+        let wait_inner = Arc::downgrade(inner);
+        tokio::spawn(async move {
+            wait_for_exit(child, wait_session, wait_inner).await;
+        });
+
+        if !options.heartbeat_interval.is_zero() {
+            let heartbeat_session = Arc::clone(&session);
+            let heartbeat_inner = Arc::downgrade(inner);
+            let interval = options.heartbeat_interval;
+            let request_timeout = options.request_timeout;
+            tokio::spawn(async move {
+                heartbeat(
+                    heartbeat_session,
+                    heartbeat_inner,
+                    interval,
+                    request_timeout,
+                )
+                .await;
+            });
+        }
+
+        Ok(session)
+    }
+
+    fn is_alive(&self) -> bool {
+        self.alive.load(Ordering::Acquire)
+    }
+
+    async fn request(
+        &self,
+        method: &str,
+        params: Value,
+        request_timeout: Duration,
+    ) -> Result<WireResponse, RecorderHostError> {
+        if !self.is_alive() {
+            return Err(RecorderHostError::Process(
+                "Alloy recorder is not running.".into(),
+            ));
+        }
+
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let timeout_millis = u64::try_from(request_timeout.as_millis()).unwrap_or(u64::MAX);
+        let request = WireRequest {
+            id,
+            method: method.to_string(),
+            params,
+            deadline_unix_ms: Some(now_unix_millis().saturating_add(timeout_millis)),
+        };
+        let line = serde_json::to_string(&request)
+            .map_err(|source| json_error("Failed to encode recorder request", source))?;
+        let (sender, receiver) = oneshot::channel();
+        self.pending
+            .lock()
+            .await
+            .insert(id, PendingResponse { sender });
+
+        let started = Instant::now();
+        let write_result = async {
+            let mut stdin = self.stdin.lock().await;
+            stdin.write_all(line.as_bytes()).await?;
+            stdin.write_all(b"\n").await
+        }
+        .await;
+        if let Err(source) = write_result {
+            self.pending.lock().await.remove(&id);
+            self.mark_dead(RecorderHostError::Process(format!(
+                "Failed to write {method}: {source}"
+            )))
+            .await;
+            return Err(io_error(
+                format!("Failed to write recorder {method}"),
+                source,
+            ));
+        }
+
+        let remaining = request_timeout.saturating_sub(started.elapsed());
+        match timeout(remaining, receiver).await {
+            Ok(Ok(Ok(response))) => Ok(response),
+            Ok(Ok(Err(error))) => Err(error),
+            Ok(Err(_)) => Err(RecorderHostError::Process(
+                "Alloy recorder stopped while handling a request.".into(),
+            )),
+            Err(_) => {
+                self.pending.lock().await.remove(&id);
+                Err(RecorderHostError::Timeout {
+                    method: method.to_string(),
+                })
+            }
+        }
+    }
+
+    async fn mark_dead(&self, error: RecorderHostError) {
+        if self.alive.swap(false, Ordering::AcqRel) {
+            let mut pending = self.pending.lock().await;
+            for (_, entry) in pending.drain() {
+                let _ = entry
+                    .sender
+                    .send(Err(RecorderHostError::Process(error.to_string())));
+            }
+        }
+    }
+
+    async fn fail_pending(&self, message: &str) {
+        self.alive.store(false, Ordering::Release);
+        let mut pending = self.pending.lock().await;
+        for (_, entry) in pending.drain() {
+            let _ = entry
+                .sender
+                .send(Err(RecorderHostError::Process(message.to_string())));
+        }
+    }
+
+    async fn stop(&self, options: &RecorderHostOptions) -> bool {
+        let _ = timeout(
+            options.shutdown_request_timeout,
+            self.request("shutdown", Value::Null, options.shutdown_request_timeout),
+        )
+        .await;
+        self.alive.store(false, Ordering::Release);
+
+        {
+            let mut stdin = self.stdin.lock().await;
+            let _ = stdin.shutdown().await;
+        }
+
+        self.wait_until_exited(options.graceful_exit_timeout).await;
+        if self.exited.load(Ordering::Acquire) {
+            self.fail_pending("Alloy recorder stopped.").await;
+            return true;
+        }
+        self.kill_notify.notify_one();
+        let exited = self.wait_until_exited(options.forced_exit_timeout).await;
+        self.fail_pending("Alloy recorder was terminated.").await;
+        exited
+    }
+
+    async fn wait_until_exited(&self, duration: Duration) -> bool {
+        let deadline = Instant::now() + duration;
+        while !self.exited.load(Ordering::Acquire) && Instant::now() < deadline {
+            sleep(Duration::from_millis(20)).await;
+        }
+        self.exited.load(Ordering::Acquire)
+    }
+}
+
+/// Paces agent starts. Requests and automatic respawns both start the agent
+/// through `ensure_session`, which answers with the last failure instead of
+/// starting another agent while that failure's retry window runs.
+struct RespawnState {
+    consecutive: u32,
+    /// When the running agent finished starting. A crash after it ran for
+    /// `respawn_streak_reset` starts a new failure streak.
+    running_since: Option<Instant>,
+    scheduled: bool,
+    failure: Option<StartFailure>,
+}
+
+struct StartFailure {
+    message: String,
+    retry_at: Instant,
+}
+
+impl RespawnState {
+    fn new() -> Self {
+        Self {
+            consecutive: 0,
+            running_since: None,
+            scheduled: false,
+            failure: None,
+        }
+    }
+}
+
+struct Inner {
+    options: RecorderHostOptions,
+    discord_cache_path: Option<PathBuf>,
+    discord_refresh_started: AtomicBool,
+    settings: RwLock<RecordingSettings>,
+    status: RwLock<RecordingStatus>,
+    captures: Mutex<CaptureManifest>,
+    emitted_captures: Mutex<HashSet<String>>,
+    completed_captures: Mutex<HashMap<String, RecordingCapture>>,
+    events: broadcast::Sender<RecordingEvent>,
+    session: Mutex<Option<Arc<Session>>>,
+    start_lock: Mutex<()>,
+    configure_lock: Mutex<()>,
+    applied_settings: Mutex<Option<RecordingSettings>>,
+    respawn: Mutex<RespawnState>,
+    shutdown: AtomicBool,
+    next_session_id: AtomicU64,
+}
+
+#[derive(Clone)]
+pub struct RecorderHost {
+    inner: Arc<Inner>,
+}
+
+impl RecorderHost {
+    pub fn new(options: RecorderHostOptions) -> Result<Self, RecorderHostError> {
+        fs::create_dir_all(&options.state_dir)
+            .map_err(|source| io_error("Failed to create recording state folder", source))?;
+        // A corrupt or rejected state file must not block startup: the user
+        // could not reach the settings UI to fix it. Fall back to defaults and
+        // log what was ignored.
+        let settings_path = options.state_dir.join(SETTINGS_FILE);
+        let settings = load_json_or_default(&settings_path)
+            .and_then(|settings: RecordingSettings| validate_settings(&settings).map(|()| settings))
+            .unwrap_or_else(|error| {
+                log::warn!(
+                    "Ignoring recording settings {}: {error}",
+                    settings_path.display()
+                );
+                RecordingSettings::default()
+            });
+        let captures_path = options.state_dir.join(CAPTURES_FILE);
+        let captures = load_json_or_default(&captures_path).unwrap_or_else(|error| {
+            log::warn!("Ignoring capture list {}: {error}", captures_path.display());
+            CaptureManifest::default()
+        });
+        let discord_cache_path = Some(options.cache_dir.join(DISCORD_CACHE_FILE_NAME))
+            .filter(|path| match prepare_discord_detection_cache(path) {
+                Ok(()) => true,
+                Err(error) => {
+                    log::warn!(
+                        "[alloy-recording-host] failed to prepare Discord detection cache {}: {error}",
+                        path.display()
+                    );
+                    false
+                }
+            });
+        let (events, _) = broadcast::channel(256);
+        let status = unavailable_status(&settings, None);
+        Ok(Self {
+            inner: Arc::new(Inner {
+                options,
+                discord_cache_path,
+                discord_refresh_started: AtomicBool::new(false),
+                settings: RwLock::new(settings),
+                status: RwLock::new(status),
+                captures: Mutex::new(captures),
+                emitted_captures: Mutex::new(HashSet::new()),
+                completed_captures: Mutex::new(HashMap::new()),
+                events,
+                session: Mutex::new(None),
+                start_lock: Mutex::new(()),
+                configure_lock: Mutex::new(()),
+                applied_settings: Mutex::new(None),
+                respawn: Mutex::new(RespawnState::new()),
+                shutdown: AtomicBool::new(false),
+                next_session_id: AtomicU64::new(1),
+            }),
+        })
+    }
+
+    pub fn subscribe_events(&self) -> broadcast::Receiver<RecordingEvent> {
+        self.inner.events.subscribe()
+    }
+
+    pub async fn get_settings(&self) -> RecordingSettings {
+        self.inner.settings.read().await.clone()
+    }
+
+    /// Checks a settings payload the way `set_settings` does, without applying
+    /// it. Callers with their own side effects run this first.
+    pub fn validate(&self, settings: &RecordingSettings) -> Result<(), RecorderHostError> {
+        validate_settings(settings)
+    }
+
+    pub async fn set_settings(
+        &self,
+        settings: RecordingSettings,
+    ) -> Result<RecordingSettings, RecorderHostError> {
+        validate_settings(&settings)?;
+        // Holding the lock across the write keeps two saves from sharing the
+        // temporary file and the file in step with the settings in memory.
+        let mut current = self.inner.settings.write().await;
+        write_json_off_worker(
+            self.inner.options.state_dir.join(SETTINGS_FILE),
+            settings.clone(),
+        )
+        .await?;
+        *current = settings.clone();
+        drop(current);
+        *self.inner.applied_settings.lock().await = None;
+        // New settings may fix what made the last start fail; let the next
+        // request try them at once.
+        self.inner.respawn.lock().await.failure = None;
+        self.refresh_status_settings(&settings).await;
+        let _ = self.inner.events.send(RecordingEvent::Status {
+            status: self.get_status().await,
+        });
+        Ok(settings)
+    }
+
+    pub async fn get_status(&self) -> RecordingStatus {
+        self.inner.status.read().await.clone()
+    }
+
+    pub async fn configure(&self) -> Result<RecordingStatus, RecorderHostError> {
+        let settings = self.get_settings().await;
+        self.configure_with_settings(&settings).await
+    }
+
+    pub async fn configure_with_settings(
+        &self,
+        settings: &RecordingSettings,
+    ) -> Result<RecordingStatus, RecorderHostError> {
+        validate_settings(settings)?;
+        let _configure = self.inner.configure_lock.lock().await;
+        let session = self.ensure_session().await?;
+        if self
+            .inner
+            .applied_settings
+            .lock()
+            .await
+            .as_ref()
+            .is_some_and(|applied| applied == settings)
+        {
+            let response = session
+                .request("status", Value::Null, self.inner.options.request_timeout)
+                .await?;
+            let status: RecordingStatus = decode_response(response, "status")?;
+            self.apply_status(status.clone()).await;
+            return Ok(status);
+        }
+        let response = session
+            .request(
+                "configure",
+                self.configure_params(settings).await?,
+                self.inner.options.configure_timeout,
+            )
+            .await?;
+        let status: RecordingStatus = decode_response(response, "configure")?;
+        self.apply_status(status.clone()).await;
+        *self.inner.applied_settings.lock().await = Some(settings.clone());
+        Ok(status)
+    }
+
+    pub async fn restart(&self) -> Result<RecordingStatus, RecorderHostError> {
+        self.inner.shutdown.store(true, Ordering::Release);
+        self.stop_current_session().await;
+        *self.inner.respawn.lock().await = RespawnState::new();
+        *self.inner.applied_settings.lock().await = None;
+        self.inner.shutdown.store(false, Ordering::Release);
+        self.configure().await
+    }
+
+    pub async fn shutdown(&self) -> bool {
+        self.inner.shutdown.store(true, Ordering::Release);
+        self.stop_current_session().await
+    }
+
+    pub async fn list_game_processes(
+        &self,
+    ) -> Result<Vec<RecordingGameProcess>, RecorderHostError> {
+        let result = self
+            .request_value(
+                "listGameProcesses",
+                Value::Null,
+                self.inner.options.request_timeout,
+            )
+            .await?;
+        decode_value(result, "listGameProcesses")
+    }
+
+    pub async fn list_displays(&self) -> Result<Vec<RecordingDisplay>, RecorderHostError> {
+        let result = self
+            .request_value(
+                "listDisplays",
+                Value::Null,
+                self.inner.options.request_timeout,
+            )
+            .await?;
+        decode_value(result, "listDisplays")
+    }
+
+    pub async fn save_replay_clip(
+        &self,
+        request: SaveReplayClipRequest,
+    ) -> Result<RecordingActionResult, RecorderHostError> {
+        if request.duration_seconds == 0 || request.duration_seconds > 600 {
+            return Err(RecorderHostError::InvalidRequest(
+                "Replay duration must be between 1 and 600 seconds.".into(),
+            ));
+        }
+        let result = self
+            .request_value(
+                "saveReplayClip",
+                serde_json::to_value(request)
+                    .map_err(|source| json_error("Failed to encode replay request", source))?,
+                self.inner.options.request_timeout,
+            )
+            .await?;
+        let result: RecordingActionResult = decode_value(result, "saveReplayClip")?;
+        self.remember_action_capture(&result).await?;
+        Ok(result)
+    }
+
+    pub async fn save_screenshot(&self) -> Result<RecordingActionResult, RecorderHostError> {
+        let _session = self.ensure_session().await?;
+        let result = self
+            .request_value(
+                "saveScreenshot",
+                Value::Null,
+                self.inner.options.request_timeout,
+            )
+            .await?;
+        let result: RecordingActionResult = decode_value(result, "saveScreenshot")?;
+        self.remember_action_capture(&result).await?;
+        Ok(result)
+    }
+
+    pub async fn subscribe_audio_levels(&self) -> Result<(), RecorderHostError> {
+        let result = self
+            .request_value(
+                "subscribeAudioLevels",
+                Value::Null,
+                self.inner.options.request_timeout,
+            )
+            .await?;
+        ensure_null_result(result, "subscribeAudioLevels")
+    }
+
+    pub async fn stop_audio_levels(&self) -> Result<(), RecorderHostError> {
+        let result = self
+            .request_value(
+                "stopAudioLevels",
+                Value::Null,
+                self.inner.options.request_timeout,
+            )
+            .await?;
+        ensure_null_result(result, "stopAudioLevels")
+    }
+
+    pub async fn play_notification_sound(
+        &self,
+        request: PlayNotificationSoundRequest,
+    ) -> Result<(), RecorderHostError> {
+        if request.path.trim().is_empty() || request.path.contains('\0') {
+            return Err(RecorderHostError::InvalidRequest(
+                "Notification sound path must be non-empty.".into(),
+            ));
+        }
+        if !request.volume.is_finite() || !(0.0..=1.0).contains(&request.volume) {
+            return Err(RecorderHostError::InvalidRequest(
+                "Notification sound volume must be between 0 and 1.".into(),
+            ));
+        }
+        let result = self
+            .request_value(
+                "playNotificationSound",
+                serde_json::to_value(request)
+                    .map_err(|source| json_error("Failed to encode sound request", source))?,
+                self.inner.options.request_timeout,
+            )
+            .await?;
+        ensure_null_result(result, "playNotificationSound")
+    }
+
+    pub async fn storage_info(&self) -> Result<RecordingStorageInfo, RecorderHostError> {
+        let settings = self.get_settings().await;
+        let folder = effective_output_folder(&self.inner.options, &settings);
+        // Summing the captures walks the whole output folder.
+        off_worker(move || {
+            fs::create_dir_all(&folder).map_err(|source| {
+                io_error(
+                    format!("Failed to create capture folder {}", folder.display()),
+                    source,
+                )
+            })?;
+            let total_bytes = total_space(&folder).map_err(|source| {
+                io_error(
+                    format!("Failed to read disk size for {}", folder.display()),
+                    source,
+                )
+            })?;
+            let available_bytes = available_space(&folder).map_err(|source| {
+                io_error(
+                    format!("Failed to read free disk space for {}", folder.display()),
+                    source,
+                )
+            })?;
+            Ok(RecordingStorageInfo {
+                output_folder: folder.to_string_lossy().into_owned(),
+                total_bytes,
+                used_bytes: total_bytes.saturating_sub(available_bytes),
+                available_bytes,
+                clips_bytes: sum_capture_bytes(&folder),
+            })
+        })
+        .await?
+    }
+
+    pub async fn captures(&self) -> Vec<RecordingCapture> {
+        self.inner.captures.lock().await.captures.clone()
+    }
+
+    pub async fn remove_capture(&self, id: &str) -> Result<bool, RecorderHostError> {
+        let mut manifest = self.inner.captures.lock().await;
+        let before = manifest.captures.len();
+        manifest.captures.retain(|capture| capture.id != id);
+        if manifest.captures.len() == before {
+            return Ok(false);
+        }
+        write_json_off_worker(
+            self.inner.options.state_dir.join(CAPTURES_FILE),
+            manifest.clone(),
+        )
+        .await?;
+        Ok(true)
+    }
+
+    /// Mark a capture complete after the capture library has persisted it.
+    ///
+    /// The recorder manifest is the recovery queue for raw captures. Keep the
+    /// entry until the caller confirms that finalization and library storage
+    /// both succeeded. The completed value also protects status updates from
+    /// replacing finalized metadata with the recorder's raw post-process
+    /// metadata.
+    pub async fn complete_capture(
+        &self,
+        capture: RecordingCapture,
+    ) -> Result<(), RecorderHostError> {
+        let mut manifest = self.inner.captures.lock().await;
+        let original = manifest.clone();
+        let before = manifest.captures.len();
+        manifest
+            .captures
+            .retain(|pending| !captures_match(pending, &capture));
+        if manifest.captures.len() != before
+            && let Err(error) = write_json_off_worker(
+                self.inner.options.state_dir.join(CAPTURES_FILE),
+                manifest.clone(),
+            )
+            .await
+        {
+            *manifest = original;
+            return Err(error);
+        }
+        drop(manifest);
+
+        {
+            let mut completed = self.inner.completed_captures.lock().await;
+            for key in capture_identity_keys(&capture) {
+                completed.insert(key, capture.clone());
+            }
+        }
+
+        let mut status = self.inner.status.write().await;
+        if status
+            .current_capture
+            .as_ref()
+            .is_some_and(|current| captures_match(current, &capture))
+        {
+            status.current_capture = Some(capture);
+        }
+        Ok(())
+    }
+
+    async fn ensure_session(&self) -> Result<Arc<Session>, RecorderHostError> {
+        ensure_session(&self.inner).await
+    }
+
+    async fn configure_params(
+        &self,
+        settings: &RecordingSettings,
+    ) -> Result<Value, RecorderHostError> {
+        let output_folder = effective_output_folder(&self.inner.options, settings);
+        fs::create_dir_all(&output_folder).map_err(|source| {
+            io_error(
+                format!(
+                    "Failed to create capture folder {}",
+                    output_folder.display()
+                ),
+                source,
+            )
+        })?;
+        fs::create_dir_all(&self.inner.options.agent_state_folder)
+            .map_err(|source| io_error("Failed to create recorder state folder", source))?;
+        fs::create_dir_all(&self.inner.options.replay_scratch_folder)
+            .map_err(|source| io_error("Failed to create replay scratch folder", source))?;
+        serde_json::to_value(json!({
+            "settings": settings,
+            "agentStateFolder": self.inner.options.agent_state_folder,
+            "outputFolder": output_folder,
+            "replayScratchFolder": self.inner.options.replay_scratch_folder,
+            "obsRuntimeDir": self.inner.options.obs_runtime_dir,
+        }))
+        .map_err(|source| json_error("Failed to encode recorder configuration", source))
+    }
+
+    async fn request_value(
+        &self,
+        method: &str,
+        params: Value,
+        request_timeout: Duration,
+    ) -> Result<Value, RecorderHostError> {
+        let session = self.ensure_session().await?;
+        let response = session.request(method, params, request_timeout).await?;
+        if let Some(status) = response.status.as_ref() {
+            self.apply_status(status.clone()).await;
+        }
+        decode_response(response, method)
+    }
+
+    async fn remember_action_capture(
+        &self,
+        result: &RecordingActionResult,
+    ) -> Result<(), RecorderHostError> {
+        self.apply_status(result.status.clone()).await;
+        if let Some(capture) = &result.capture {
+            self.remember_capture(capture.clone()).await?;
+        }
+        Ok(())
+    }
+
+    async fn remember_capture(&self, capture: RecordingCapture) -> Result<(), RecorderHostError> {
+        remember_capture_inner(&self.inner, capture).await
+    }
+
+    async fn apply_status(&self, status: RecordingStatus) {
+        apply_status_inner(&self.inner, status).await;
+    }
+
+    async fn refresh_status_settings(&self, settings: &RecordingSettings) {
+        let mut status = self.inner.status.write().await;
+        status.capture_mode = settings.capture_mode.clone();
+        status.replay_buffer_seconds = settings.replay_buffer_seconds;
+        status.available_audio_applications = settings.audio_applications.clone();
+    }
+
+    async fn stop_current_session(&self) -> bool {
+        let session = self.inner.session.lock().await.take();
+        match session {
+            Some(session) => session.stop(&self.inner.options).await,
+            None => true,
+        }
+    }
+}
+
+async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHostError> {
+    if inner.shutdown.load(Ordering::Acquire) {
+        return Err(RecorderHostError::Shutdown);
+    }
+    if let Some(session) = inner.session.lock().await.clone()
+        && session.is_alive()
+    {
+        return Ok(session);
+    }
+
+    let _start = inner.start_lock.lock().await;
+    if inner.shutdown.load(Ordering::Acquire) {
+        return Err(RecorderHostError::Shutdown);
+    }
+    if let Some(session) = inner.session.lock().await.clone()
+        && session.is_alive()
+    {
+        return Ok(session);
+    }
+
+    if let Some(failure) = inner.respawn.lock().await.failure.as_ref()
+        && Instant::now() < failure.retry_at
+    {
+        return Err(RecorderHostError::StartBackoff(failure.message.clone()));
+    }
+
+    start_discord_detection_refresh(inner);
+    let session = match Session::spawn(inner).await {
+        Ok(session) => session,
+        Err(error) => {
+            record_start_failure(inner, error.to_string()).await;
+            return Err(error);
+        }
+    };
+    *inner.session.lock().await = Some(Arc::clone(&session));
+
+    let startup = async {
+        let version_value = session
+            .request("version", Value::Null, inner.options.request_timeout)
+            .await
+            .map_err(|error| error.to_string())?;
+        let version: SidecarVersion =
+            decode_response(version_value, "version").map_err(|error| error.to_string())?;
+        if version.name != AGENT_NAME || version.protocol_version != AGENT_PROTOCOL_VERSION {
+            return Err(format!(
+                "Incompatible Alloy agent {} protocol {}; expected {} protocol {}.",
+                version.name, version.protocol_version, AGENT_NAME, AGENT_PROTOCOL_VERSION
+            ));
+        }
+        let settings = inner.settings.read().await.clone();
+        let output_folder = effective_output_folder(&inner.options, &settings);
+        fs::create_dir_all(&output_folder)
+            .map_err(|error| format!("Failed to create capture folder: {error}"))?;
+        fs::create_dir_all(&inner.options.agent_state_folder)
+            .map_err(|error| format!("Failed to create recorder state folder: {error}"))?;
+        fs::create_dir_all(&inner.options.replay_scratch_folder)
+            .map_err(|error| format!("Failed to create replay scratch folder: {error}"))?;
+        let config = json!({
+            "settings": settings,
+            "agentStateFolder": inner.options.agent_state_folder,
+            "outputFolder": output_folder,
+            "replayScratchFolder": inner.options.replay_scratch_folder,
+            "obsRuntimeDir": inner.options.obs_runtime_dir,
+        });
+        let configure_value = session
+            .request("configure", config, inner.options.configure_timeout)
+            .await
+            .map_err(|error| error.to_string())?;
+        let status: RecordingStatus =
+            decode_response(configure_value, "configure").map_err(|error| error.to_string())?;
+        apply_status_inner(inner, status).await;
+        *inner.applied_settings.lock().await = Some(settings);
+        Ok::<(), String>(())
+    }
+    .await;
+
+    // An agent that dies during startup also reaches `process_exited`.
+    // Whichever side removes the session counts the failure, so one crash is
+    // counted once and a failure `process_exited` recorded is not cleared.
+    if let Err(message) = startup {
+        let removed = {
+            let mut current = inner.session.lock().await;
+            if current
+                .as_ref()
+                .is_some_and(|current| current.id == session.id)
+            {
+                current.take();
+                true
+            } else {
+                false
+            }
+        };
+        session.stop(&inner.options).await;
+        let error = RecorderHostError::Protocol(message.clone());
+        if removed {
+            set_error_status(inner, message).await;
+            record_start_failure(inner, error.to_string()).await;
+            schedule_respawn(inner);
+        }
+        return Err(error);
+    }
+    {
+        let current = inner.session.lock().await;
+        if !current
+            .as_ref()
+            .is_some_and(|current| current.id == session.id)
+        {
+            return Err(RecorderHostError::Process(
+                "Alloy recorder exited during startup.".into(),
+            ));
+        }
+        let mut respawn = inner.respawn.lock().await;
+        respawn.running_since = Some(Instant::now());
+        respawn.failure = None;
+    }
+    Ok(session)
+}
+
+/// Counts a failed start or an unexpected exit and opens a retry window that
+/// doubles with each consecutive failure, up to `max_respawn_backoff`.
+async fn record_start_failure(inner: &Arc<Inner>, message: String) {
+    let mut respawn = inner.respawn.lock().await;
+    if respawn
+        .running_since
+        .take()
+        .is_some_and(|since| since.elapsed() >= inner.options.respawn_streak_reset)
+    {
+        respawn.consecutive = 0;
+    }
+    respawn.consecutive = respawn.consecutive.saturating_add(1);
+    let wait = inner
+        .options
+        .respawn_delay
+        .saturating_mul(1 << (respawn.consecutive - 1).min(16))
+        .min(inner.options.max_respawn_backoff);
+    log::warn!(
+        "[alloy-recording-host] recorder start failed ({} in a row); next start in {}s: {message}",
+        respawn.consecutive,
+        wait.as_secs()
+    );
+    respawn.failure = Some(StartFailure {
+        message,
+        retry_at: Instant::now() + wait,
+    });
+}
+
+async fn wait_for_exit(mut child: Child, session: Arc<Session>, inner: Weak<Inner>) {
+    let result = tokio::select! {
+        result = child.wait() => result,
+        _ = session.kill_notify.notified() => {
+            let _ = child.kill().await;
+            child.wait().await
+        }
+    };
+    session.exited.store(true, Ordering::Release);
+    session.alive.store(false, Ordering::Release);
+    let message = match result {
+        Ok(status) if status.success() => "Alloy agent exited.".to_string(),
+        Ok(status) => format!("Alloy agent exited with {status}."),
+        Err(error) => format!("Alloy agent process wait failed: {error}"),
+    };
+    session.fail_pending(&message).await;
+    if let Some(inner) = inner.upgrade() {
+        process_exited(&inner, session.id, message).await;
+    }
+}
+
+enum BoundedLine {
+    Eof,
+    Oversized,
+    Line(String),
+}
+
+/// Reads one line without buffering more than `max_line_bytes` of it. A line
+/// that runs past the limit is reported as oversized while its tail is still
+/// in the stream; `discard_line_tail` drops the rest.
+async fn read_bounded_line<R>(reader: &mut R, max_line_bytes: usize) -> io::Result<BoundedLine>
+where
+    R: AsyncBufRead + Unpin,
+{
+    let mut buffer = Vec::new();
+    let count = reader
+        .take(max_line_bytes as u64 + 1)
+        .read_until(b'\n', &mut buffer)
+        .await?;
+    if count == 0 {
+        return Ok(BoundedLine::Eof);
+    }
+    if count > max_line_bytes {
+        return Ok(BoundedLine::Oversized);
+    }
+    let line = String::from_utf8(buffer)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    Ok(BoundedLine::Line(line))
+}
+
+async fn discard_line_tail<R>(reader: &mut R) -> io::Result<()>
+where
+    R: AsyncBufRead + Unpin,
+{
+    let mut chunk = Vec::with_capacity(64 * 1024);
+    loop {
+        chunk.clear();
+        let count = reader.take(64 * 1024).read_until(b'\n', &mut chunk).await?;
+        if count == 0 || chunk.last() == Some(&b'\n') {
+            return Ok(());
+        }
+    }
+}
+
+async fn read_stdout<R>(stdout: R, session: Arc<Session>, inner: Weak<Inner>, max_line_bytes: usize)
+where
+    R: AsyncRead + Unpin,
+{
+    let mut reader = BufReader::new(stdout);
+    loop {
+        let line = match read_bounded_line(&mut reader, max_line_bytes).await {
+            Ok(BoundedLine::Line(line)) => line,
+            Ok(BoundedLine::Eof) => break,
+            Ok(BoundedLine::Oversized) => {
+                session
+                    .fail_pending("Alloy agent sent an oversized protocol line.")
+                    .await;
+                if let Some(inner) = inner.upgrade() {
+                    let _ = session.stop(&inner.options).await;
+                }
+                break;
+            }
+            Err(error) => {
+                session
+                    .fail_pending(&format!("Alloy agent stdout failed: {error}"))
+                    .await;
+                break;
+            }
+        };
+        let Some(inner) = inner.upgrade() else {
+            break;
+        };
+        handle_line(&inner, &session, line.trim_end_matches(['\r', '\n'])).await;
+    }
+}
+
+async fn read_stderr<R>(stderr: R, _inner: Weak<Inner>, max_line_bytes: usize)
+where
+    R: AsyncRead + Unpin,
+{
+    let mut reader = BufReader::new(stderr);
+    loop {
+        let line = match read_bounded_line(&mut reader, max_line_bytes).await {
+            Ok(BoundedLine::Line(line)) => line,
+            Ok(BoundedLine::Eof) => break,
+            Ok(BoundedLine::Oversized) => {
+                log::warn!("[alloy-agent] discarded oversized stderr line");
+                if discard_line_tail(&mut reader).await.is_err() {
+                    break;
+                }
+                continue;
+            }
+            Err(error) => {
+                log::warn!("[alloy-agent] stderr read failed: {error}");
+                break;
+            }
+        };
+        let message = line.trim();
+        if message.is_empty() {
+            continue;
+        }
+        // The agent forwards OBS log output at every level. Debug output
+        // stays out of the log file; errors and warnings log as warnings.
+        match message
+            .strip_prefix("[obs] ")
+            .and_then(|rest| rest.split_once(": "))
+            .map(|(level, _)| level)
+        {
+            Some("debug") => log::debug!("[alloy-agent] {message}"),
+            Some("error" | "warning") => log::warn!("[alloy-agent] {message}"),
+            _ => log::info!("[alloy-agent] {message}"),
+        }
+    }
+}
+
+async fn handle_line(inner: &Arc<Inner>, session: &Arc<Session>, line: &str) {
+    if line.trim().is_empty() {
+        return;
+    }
+    let value: Value = match serde_json::from_str(line) {
+        Ok(value) => value,
+        Err(error) => {
+            log::warn!("[alloy-agent] invalid protocol JSON: {error}");
+            return;
+        }
+    };
+
+    if value.get("event").is_some() {
+        match serde_json::from_value::<EventEnvelope>(value) {
+            Ok(envelope) => handle_event(inner, envelope.event).await,
+            Err(error) => log::warn!("[alloy-agent] invalid event: {error}"),
+        }
+        return;
+    }
+
+    if value.get("id").is_some() {
+        // serde reads `"result": null` as `None`, the same as an omitted
+        // result. Requests with nothing to return answer null, so keep it.
+        let has_result = value.get("result").is_some();
+        let mut response = match serde_json::from_value::<WireResponse>(value) {
+            Ok(response) => response,
+            Err(error) => {
+                log::warn!("[alloy-agent] invalid response: {error}");
+                return;
+            }
+        };
+        if response.id == 0 {
+            log::warn!("[alloy-agent] ignored response with id 0");
+            return;
+        }
+        if has_result && response.result.is_none() {
+            response.result = Some(Value::Null);
+        }
+        let pending = session.pending.lock().await.remove(&response.id);
+        if let Some(pending) = pending {
+            let _ = pending.sender.send(Ok(response));
+        }
+        return;
+    }
+
+    log::warn!("[alloy-agent] ignored unknown protocol message");
+}
+
+async fn handle_event(inner: &Arc<Inner>, event: RecordingEvent) {
+    if let Some(capture) = event_capture(&event) {
+        if !begin_capture_event(inner, capture).await {
+            return;
+        }
+        if let Err(error) = remember_capture_inner(inner, capture.clone()).await {
+            log::warn!("[alloy-recording-host] failed to persist capture: {error}");
+            forget_capture_event(inner, capture).await;
+            return;
+        }
+    }
+    if let Some(status) = event_status(&event) {
+        apply_status_inner(inner, status.clone()).await;
+    }
+    let _ = inner.events.send(event);
+}
+
+async fn begin_capture_event(inner: &Arc<Inner>, capture: &RecordingCapture) -> bool {
+    let keys = capture_identity_keys(capture);
+    let completed = inner.completed_captures.lock().await;
+    if keys.iter().any(|key| completed.contains_key(key)) {
+        return false;
+    }
+    drop(completed);
+
+    let mut emitted = inner.emitted_captures.lock().await;
+    if keys.iter().any(|key| emitted.contains(key)) {
+        return false;
+    }
+    emitted.extend(keys);
+    true
+}
+
+async fn forget_capture_event(inner: &Arc<Inner>, capture: &RecordingCapture) {
+    let mut emitted = inner.emitted_captures.lock().await;
+    for key in capture_identity_keys(capture) {
+        emitted.remove(&key);
+    }
+}
+
+fn capture_identity_keys(capture: &RecordingCapture) -> Vec<String> {
+    let mut keys = Vec::with_capacity(2);
+    if !capture.id.is_empty() {
+        keys.push(format!("id:{}", capture.id));
+    }
+    if !capture.filename.is_empty() {
+        keys.push(format!("filename:{}", capture.filename));
+    }
+    keys
+}
+
+fn captures_match(left: &RecordingCapture, right: &RecordingCapture) -> bool {
+    (!left.id.is_empty() && left.id == right.id)
+        || (!left.filename.is_empty() && left.filename == right.filename)
+}
+
+async fn apply_status_inner(inner: &Arc<Inner>, mut status: RecordingStatus) {
+    if let Some(capture) = status.current_capture.as_ref() {
+        let completed = inner.completed_captures.lock().await;
+        if let Some(finalized) = capture_identity_keys(capture)
+            .iter()
+            .find_map(|key| completed.get(key))
+        {
+            status.current_capture = Some(finalized.clone());
+        }
+    }
+    *inner.status.write().await = status;
+}
+
+async fn heartbeat(
+    session: Arc<Session>,
+    inner: Weak<Inner>,
+    interval: Duration,
+    request_timeout: Duration,
+) {
+    loop {
+        sleep(interval).await;
+        if !session.is_alive() {
+            return;
+        }
+        let result = session
+            .request("status", Value::Null, request_timeout)
+            .await;
+        let Ok(response) = result else {
+            if let Some(inner) = inner.upgrade() {
+                let _ = session.stop(&inner.options).await;
+            }
+            return;
+        };
+        if !response.ok {
+            if let Some(inner) = inner.upgrade() {
+                let _ = session.stop(&inner.options).await;
+            }
+            return;
+        }
+        if response.result.is_none() && response.status.is_none() {
+            if let Some(inner) = inner.upgrade() {
+                let _ = session.stop(&inner.options).await;
+            }
+            return;
+        }
+        if let Some(inner) = inner.upgrade() {
+            if let Some(status) = response.status {
+                apply_status_inner(&inner, status).await;
+            } else if let Some(result) = response.result
+                && let Ok(status) = serde_json::from_value::<RecordingStatus>(result)
+            {
+                apply_status_inner(&inner, status).await;
+            }
+        }
+    }
+}
+
+async fn process_exited(inner: &Arc<Inner>, session_id: u64, message: String) {
+    let removed = {
+        let mut current = inner.session.lock().await;
+        if current
+            .as_ref()
+            .is_some_and(|session| session.id == session_id)
+        {
+            current.take();
+            true
+        } else {
+            false
+        }
+    };
+    if !removed {
+        return;
+    }
+    *inner.applied_settings.lock().await = None;
+    set_error_status(inner, message.clone()).await;
+    record_start_failure(inner, message.clone()).await;
+    let status = inner.status.read().await.clone();
+    let _ = inner.events.send(RecordingEvent::Error {
+        error: message,
+        status,
+    });
+    schedule_respawn(inner);
+}
+
+/// Starts the agent again once the current failure's retry window ends. After
+/// `max_consecutive_respawns` failures in a row it stops trying on its own;
+/// requests can still start the agent once per retry window.
+fn schedule_respawn(inner: &Arc<Inner>) {
+    let weak = Arc::downgrade(inner);
+    tokio::spawn(async move {
+        {
+            let Some(inner) = weak.upgrade() else {
+                return;
+            };
+            if inner.shutdown.load(Ordering::Acquire) || !inner.options.executable.is_file() {
+                return;
+            }
+            let mut state = inner.respawn.lock().await;
+            if state.consecutive > inner.options.max_consecutive_respawns || state.scheduled {
+                return;
+            }
+            state.scheduled = true;
+        }
+        // A request can fail another start meanwhile and move the window, so
+        // wait for whichever window is current. Only a weak reference is held
+        // while waiting.
+        loop {
+            let retry_at = {
+                let Some(inner) = weak.upgrade() else {
+                    return;
+                };
+                let state = inner.respawn.lock().await;
+                state.failure.as_ref().map(|failure| failure.retry_at)
+            };
+            match retry_at {
+                Some(retry_at) if Instant::now() < retry_at => {
+                    tokio::time::sleep_until(retry_at.into()).await;
+                }
+                _ => break,
+            }
+        }
+        let Some(inner) = weak.upgrade() else {
+            return;
+        };
+        inner.respawn.lock().await.scheduled = false;
+        if inner.shutdown.load(Ordering::Acquire) {
+            return;
+        }
+        if let Err(error) = ensure_session(&inner).await {
+            log::warn!("[alloy-recording-host] recorder respawn failed: {error}");
+        }
+    });
+}
+
+async fn set_error_status(inner: &Arc<Inner>, message: String) {
+    let mut status = inner.status.read().await.clone();
+    status.backend = RecordingBackendState::Error;
+    status.mode = RecordingMode::Idle;
+    status.run_state = RecordingRunState::Error;
+    status.replay_active = false;
+    status.active_game = None;
+    status.active_game_detail = None;
+    status.active_display = None;
+    status.focused = false;
+    status.current_source = None;
+    status.current_capture = None;
+    status.telemetry = None;
+    status.message = Some(message);
+    *inner.status.write().await = status;
+}
+
+async fn remember_capture_inner(
+    inner: &Arc<Inner>,
+    capture: RecordingCapture,
+) -> Result<(), RecorderHostError> {
+    let mut manifest = inner.captures.lock().await;
+    let original = manifest.clone();
+    if let Some(existing) = manifest
+        .captures
+        .iter_mut()
+        .find(|entry| entry.id == capture.id || entry.filename == capture.filename)
+    {
+        *existing = capture;
+    } else {
+        manifest.captures.push(capture);
+    }
+    // The write stays under the lock so two captures never race each other
+    // to the file, but it runs off the worker that reads the agent's stdout.
+    if let Err(error) = write_json_off_worker(
+        inner.options.state_dir.join(CAPTURES_FILE),
+        manifest.clone(),
+    )
+    .await
+    {
+        *manifest = original;
+        return Err(error);
+    }
+    Ok(())
+}
+
+fn decode_response<T: DeserializeOwned>(
+    response: WireResponse,
+    method: &str,
+) -> Result<T, RecorderHostError> {
+    if !response.ok {
+        return Err(RecorderHostError::Process(
+            response
+                .error
+                .unwrap_or_else(|| format!("Alloy agent {method} failed.")),
+        ));
+    }
+    let value = response.result.ok_or_else(|| {
+        RecorderHostError::Protocol(format!("Alloy agent {method} response omitted result."))
+    })?;
+    serde_json::from_value(value)
+        .map_err(|source| json_error(format!("Invalid {method} response"), source))
+}
+
+fn decode_value<T: DeserializeOwned>(value: Value, method: &str) -> Result<T, RecorderHostError> {
+    serde_json::from_value(value)
+        .map_err(|source| json_error(format!("Invalid {method} response"), source))
+}
+
+fn ensure_null_result(value: Value, method: &str) -> Result<(), RecorderHostError> {
+    if value.is_null() {
+        Ok(())
+    } else {
+        Err(RecorderHostError::Protocol(format!(
+            "Alloy agent {method} response was not null."
+        )))
+    }
+}
+
+fn validate_settings(settings: &RecordingSettings) -> Result<(), RecorderHostError> {
+    if !(15..=600).contains(&settings.replay_buffer_seconds)
+        || !settings.replay_buffer_seconds.is_multiple_of(15)
+    {
+        return Err(RecorderHostError::InvalidSettings(
+            "replayBufferSeconds must be 15..600 in 15 second steps.".into(),
+        ));
+    }
+    for (name, fps) in [
+        ("fps", settings.fps),
+        ("customQuality.fps", settings.custom_quality.fps),
+    ] {
+        if !matches!(fps, 30 | 60 | 120) {
+            return Err(RecorderHostError::InvalidSettings(format!(
+                "{name} must be 30, 60, or 120."
+            )));
+        }
+    }
+    for (name, bitrate) in [
+        ("bitrate", settings.bitrate.0.as_str()),
+        (
+            "customQuality.bitrate",
+            settings.custom_quality.bitrate.0.as_str(),
+        ),
+    ] {
+        if bitrate != "auto"
+            && (bitrate.parse::<u32>().is_err()
+                || !matches!(bitrate.parse::<u32>(), Ok(value) if (5..=50).contains(&value) && value % 5 == 0))
+        {
+            return Err(RecorderHostError::InvalidSettings(format!(
+                "{name} must be auto or a 5..50 Mbps step."
+            )));
+        }
+    }
+    if settings.gpu.trim().is_empty() || settings.gpu.contains('\0') {
+        return Err(RecorderHostError::InvalidSettings(
+            "gpu must be a non-empty identifier.".into(),
+        ));
+    }
+    for device in &settings.audio_devices {
+        validate_audio_volume(device.volume, "audioDevices")?;
+        validate_non_empty(&device.id, "audioDevices.id")?;
+        validate_non_empty(&device.label, "audioDevices.label")?;
+    }
+    for application in &settings.audio_applications {
+        validate_audio_volume(application.volume, "audioApplications")?;
+        validate_non_empty(&application.id, "audioApplications.id")?;
+        validate_non_empty(&application.name, "audioApplications.name")?;
+    }
+    for game in settings.allowed_games.iter().chain(&settings.denied_games) {
+        validate_non_empty(&game.id, "allowedGames.id")?;
+        validate_non_empty(&game.name, "allowedGames.name")?;
+        if game.executable.is_none() && game.path.is_none() && game.window_class.is_none() {
+            return Err(RecorderHostError::InvalidSettings(
+                "Each allowed game needs executable, path, or windowClass.".into(),
+            ));
+        }
+    }
+    validate_sound(&settings.notification_sounds.replay_buffer_started)?;
+    validate_sound(&settings.notification_sounds.clip_saved)?;
+    if !settings.output_folder.is_empty() && !settings.output_folder.contains('\0') {
+        let path = Path::new(&settings.output_folder);
+        if !path.is_absolute() {
+            return Err(RecorderHostError::InvalidSettings(
+                "outputFolder must be an absolute path.".into(),
+            ));
+        }
+    } else if settings.output_folder.contains('\0') {
+        return Err(RecorderHostError::InvalidSettings(
+            "outputFolder contains a NUL byte.".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_audio_volume(volume: u32, field: &str) -> Result<(), RecorderHostError> {
+    if volume > 100 {
+        Err(RecorderHostError::InvalidSettings(format!(
+            "{field}.volume must be between 0 and 100."
+        )))
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_sound(sound: &RecordingNotificationSoundSettings) -> Result<(), RecorderHostError> {
+    validate_audio_volume(sound.volume, "notificationSounds")?;
+    if sound.path.contains('\0') {
+        return Err(RecorderHostError::InvalidSettings(
+            "notification sound path contains a NUL byte.".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_non_empty(value: &str, field: &str) -> Result<(), RecorderHostError> {
+    if value.trim().is_empty() || value.contains('\0') {
+        Err(RecorderHostError::InvalidSettings(format!(
+            "{field} must be non-empty."
+        )))
+    } else {
+        Ok(())
+    }
+}
+
+fn effective_output_folder(options: &RecorderHostOptions, settings: &RecordingSettings) -> PathBuf {
+    if settings.output_folder.trim().is_empty() {
+        options.output_folder.clone()
+    } else {
+        PathBuf::from(&settings.output_folder)
+    }
+}
+
+fn load_json_or_default<T>(path: &Path) -> Result<T, RecorderHostError>
+where
+    T: DeserializeOwned + Default,
+{
+    match fs::read_to_string(path) {
+        Ok(contents) => serde_json::from_str(&contents)
+            .map_err(|source| json_error(format!("Failed to read {}", path.display()), source)),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(T::default()),
+        Err(source) => Err(io_error(
+            format!("Failed to read {}", path.display()),
+            source,
+        )),
+    }
+}
+
+fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<(), RecorderHostError> {
+    // Each write gets its own temporary file, so two writes that overlap can
+    // never interleave their bytes in one file.
+    static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
+    let parent = path.parent().ok_or_else(|| {
+        RecorderHostError::Process(format!("No parent folder for {}", path.display()))
+    })?;
+    fs::create_dir_all(parent)
+        .map_err(|source| io_error(format!("Failed to create {}", parent.display()), source))?;
+    let temp = path.with_extension(format!(
+        "tmp-{}-{}",
+        std::process::id(),
+        NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+    ));
+    let bytes = serde_json::to_vec_pretty(value)
+        .map_err(|source| json_error(format!("Failed to encode {}", path.display()), source))?;
+    {
+        let mut file = File::create(&temp)
+            .map_err(|source| io_error(format!("Failed to create {}", temp.display()), source))?;
+        file.write_all(&bytes)
+            .and_then(|_| file.write_all(b"\n"))
+            .and_then(|_| file.sync_all())
+            .map_err(|source| io_error(format!("Failed to write {}", temp.display()), source))?;
+    }
+    if let Err(source) = fs::rename(&temp, path) {
+        let _ = fs::remove_file(&temp);
+        return Err(io_error(
+            format!("Failed to replace {}", path.display()),
+            source,
+        ));
+    }
+    Ok(())
+}
+
+fn sum_capture_bytes(path: &Path) -> u64 {
+    let Ok(entries) = fs::read_dir(path) else {
+        return 0;
+    };
+    entries
+        .filter_map(Result::ok)
+        .map(|entry| {
+            let path = entry.path();
+            let Ok(metadata) = entry.metadata() else {
+                return 0;
+            };
+            if metadata.is_dir() {
+                return sum_capture_bytes(&path);
+            }
+            if !metadata.is_file() {
+                return 0;
+            }
+            let extension = path
+                .extension()
+                .and_then(|value| value.to_str())
+                .unwrap_or("");
+            if CAPTURE_EXTENSIONS
+                .iter()
+                .any(|candidate| candidate.eq_ignore_ascii_case(extension))
+            {
+                metadata.len()
+            } else {
+                0
+            }
+        })
+        .sum()
+}
+
+fn prepare_discord_detection_cache(path: &Path) -> Result<(), RecorderHostError> {
+    let parent = path.parent().ok_or_else(|| {
+        RecorderHostError::Process(format!(
+            "No parent folder for Discord detection cache {}",
+            path.display()
+        ))
+    })?;
+    fs::create_dir_all(parent)
+        .map_err(|source| io_error(format!("Failed to create {}", parent.display()), source))?;
+    match fs::metadata(path) {
+        Ok(metadata) if metadata.is_file() => Ok(()),
+        Ok(_) => Err(RecorderHostError::Process(format!(
+            "Discord detection cache path is not a file: {}",
+            path.display()
+        ))),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            write_json_atomic(path, &empty_discord_detection_cache())
+        }
+        Err(source) => Err(io_error(
+            format!("Failed to inspect {}", path.display()),
+            source,
+        )),
+    }
+}
+
+fn start_discord_detection_refresh(inner: &Arc<Inner>) {
+    if !cfg!(windows)
+        || inner.discord_cache_path.is_none()
+        || inner.discord_refresh_started.swap(true, Ordering::AcqRel)
+    {
+        return;
+    }
+
+    let weak = Arc::downgrade(inner);
+    let path = inner.discord_cache_path.clone().expect("checked above");
+    tokio::spawn(async move {
+        loop {
+            let Some(inner) = weak.upgrade() else {
+                return;
+            };
+            if !inner.shutdown.load(Ordering::Acquire)
+                && let Err(error) = refresh_discord_detection_cache(&path).await
+            {
+                log::warn!("[alloy-recording-host] failed to refresh Discord detections: {error}");
+            }
+            sleep(DISCORD_REFRESH_INTERVAL).await;
+        }
+    });
+}
+
+async fn refresh_discord_detection_cache(path: &Path) -> Result<(), String> {
+    // Checking freshness parses the whole cache file.
+    let cached = path.to_path_buf();
+    if off_worker(move || discord_cache_is_fresh(&cached))
+        .await
+        .map_err(|error| error.to_string())?
+    {
+        return Ok(());
+    }
+
+    crate::server::install_crypto_provider();
+    let client = reqwest::Client::builder()
+        .timeout(DISCORD_FETCH_TIMEOUT)
+        .connect_timeout(DISCORD_CONNECT_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|error| format!("failed to create Discord HTTP client: {error}"))?;
+    let response = client
+        .get(DISCORD_DETECTABLE_URL)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .await
+        .map_err(|error| format!("Discord detectable games request failed: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Discord detectable games request failed with HTTP {}",
+            response.status()
+        ));
+    }
+    if response
+        .content_length()
+        .is_some_and(|length| length > DISCORD_MAX_BODY_BYTES as u64)
+    {
+        return Err("Discord detectable games response was too large.".into());
+    }
+
+    let mut body = Vec::new();
+    let mut response = response;
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| format!("failed to read Discord detectable games response: {error}"))?
+    {
+        if body.len().saturating_add(chunk.len()) > DISCORD_MAX_BODY_BYTES {
+            return Err("Discord detectable games response was too large.".into());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    // The body is a dozen megabytes of JSON; decoding and trimming it takes
+    // long enough to stall the workers that handle the agent's events.
+    let path = path.to_path_buf();
+    off_worker(move || {
+        let payload: Value = serde_json::from_slice(&body)
+            .map_err(|error| format!("invalid Discord detectable games JSON: {error}"))?;
+        let cache = trim_discord_detections(payload)?;
+        write_json_atomic(&path, &cache).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+/// Runs blocking file work on a thread of its own. The host's async tasks
+/// read the agent's stdout and answer the native bridge, so none of them may
+/// wait on a disk.
+async fn off_worker<T, F>(run: F) -> Result<T, RecorderHostError>
+where
+    T: Send + 'static,
+    F: FnOnce() -> T + Send + 'static,
+{
+    tokio::task::spawn_blocking(run)
+        .await
+        .map_err(|error| RecorderHostError::Process(format!("Blocking task failed: {error}")))
+}
+
+/// Writes `value` on a blocking thread. That write runs to completion even if
+/// this future is dropped, so callers that hold a lock across it to order
+/// writes and roll back memory must not be cancelled. Today they all run in
+/// spawned tasks or command handlers that are never aborted.
+async fn write_json_off_worker<T>(path: PathBuf, value: T) -> Result<(), RecorderHostError>
+where
+    T: Serialize + Send + 'static,
+{
+    off_worker(move || write_json_atomic(&path, &value)).await?
+}
+
+fn trim_discord_detections(payload: Value) -> Result<DiscordDetectionCache, String> {
+    let rows = payload
+        .as_array()
+        .ok_or_else(|| "Discord detectable games response was not an array.".to_string())?;
+    let mut games = Vec::new();
+    let mut executables: BTreeMap<String, Vec<DiscordExecutableRule>> = BTreeMap::new();
+
+    for row in rows.iter().take(DISCORD_MAX_ROWS) {
+        let Some(row) = row.as_object() else {
+            continue;
+        };
+        let id = discord_string(row.get("id"));
+        let name = discord_string(row.get("name"));
+        if id.is_empty() || name.is_empty() {
+            continue;
+        }
+
+        let mut matched_executable = false;
+        if let Some(raw_executables) = row.get("executables").and_then(Value::as_array) {
+            for raw_executable in raw_executables {
+                let Some(executable) = raw_executable.as_object() else {
+                    continue;
+                };
+                if discord_string(executable.get("os")) != "win32" {
+                    continue;
+                }
+                let key = discord_executable_key(&discord_string(executable.get("name")));
+                if key.is_empty() {
+                    continue;
+                }
+                matched_executable = true;
+                let is_launcher = executable
+                    .get("is_launcher")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                executables
+                    .entry(key)
+                    .or_default()
+                    .push(DiscordExecutableRule {
+                        game_id: id.clone(),
+                        is_launcher,
+                        score: if is_launcher { 82 } else { 112 },
+                    });
+            }
+        }
+        if !matched_executable {
+            continue;
+        }
+
+        let mut aliases = row
+            .get("aliases")
+            .and_then(Value::as_array)
+            .map(|values| {
+                values
+                    .iter()
+                    .map(|value| discord_string(Some(value)))
+                    .filter(|value| !value.is_empty())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        aliases.sort();
+        aliases.dedup();
+        let icon_hash = discord_string(row.get("icon_hash"));
+        games.push(DiscordDetectionGame {
+            id,
+            name,
+            aliases,
+            icon_hash: (!icon_hash.is_empty()).then_some(icon_hash),
+        });
+    }
+
+    games.sort_by(|left, right| left.name.cmp(&right.name));
+    for rules in executables.values_mut() {
+        rules.sort_by(|left, right| {
+            right
+                .score
+                .cmp(&left.score)
+                .then_with(|| left.game_id.cmp(&right.game_id))
+        });
+        let mut seen = HashSet::new();
+        rules.retain(|rule| seen.insert(rule.game_id.clone()));
+    }
+
+    Ok(DiscordDetectionCache {
+        schema_version: DISCORD_CACHE_SCHEMA_VERSION,
+        source: "discord-detectable".into(),
+        source_url: DISCORD_DETECTABLE_URL.into(),
+        fetched_at: Some(
+            OffsetDateTime::now_utc()
+                .format(&Rfc3339)
+                .map_err(|error| format!("failed to format cache timestamp: {error}"))?,
+        ),
+        games,
+        executables: executables.into_iter().collect(),
+    })
+}
+
+fn empty_discord_detection_cache() -> DiscordDetectionCache {
+    DiscordDetectionCache {
+        schema_version: DISCORD_CACHE_SCHEMA_VERSION,
+        source: "discord-detectable".into(),
+        source_url: DISCORD_DETECTABLE_URL.into(),
+        fetched_at: None,
+        games: Vec::new(),
+        executables: BTreeMap::new(),
+    }
+}
+
+fn discord_cache_is_fresh(path: &Path) -> bool {
+    let Ok(contents) = fs::read_to_string(path) else {
+        return false;
+    };
+    let Ok(cache) = serde_json::from_str::<DiscordDetectionCache>(&contents) else {
+        return false;
+    };
+    let Some(fetched_at) = cache.fetched_at else {
+        return false;
+    };
+    let Ok(fetched_at) = OffsetDateTime::parse(&fetched_at, &Rfc3339) else {
+        return false;
+    };
+    OffsetDateTime::now_utc()
+        .unix_timestamp()
+        .saturating_sub(fetched_at.unix_timestamp())
+        < DISCORD_CACHE_TTL_SECONDS
+}
+
+fn discord_string(value: Option<&Value>) -> String {
+    value
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default()
+        .to_string()
+}
+
+fn discord_executable_key(value: &str) -> String {
+    value
+        .replace('\\', "/")
+        .rsplit('/')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase()
+}
+
+fn configure_runtime_environment(
+    command: &mut Command,
+    options: &RecorderHostOptions,
+    discord_cache_path: Option<&Path>,
+) {
+    if let Some(path) = discord_cache_path {
+        command.env("ALLOY_DISCORD_DETECTIONS_PATH", path);
+    }
+    let Some(runtime) = options.obs_runtime_dir.as_ref() else {
+        return;
+    };
+    command.env("ALLOY_OBS_RUNTIME_DIR", runtime);
+    let candidates = [
+        runtime.clone(),
+        runtime.join("bin"),
+        runtime.join("bin").join("64bit"),
+    ];
+    prepend_command_path(command, "PATH", &candidates);
+    for candidate in [
+        runtime.join("bin").join("64bit"),
+        runtime.join("bin"),
+        runtime.clone(),
+    ] {
+        if candidate.is_dir() {
+            command.current_dir(candidate);
+            break;
+        }
+    }
+}
+
+fn prepend_command_path(command: &mut Command, key: &str, paths: &[PathBuf]) {
+    let present: Vec<PathBuf> = paths.iter().filter(|path| path.is_dir()).cloned().collect();
+    if present.is_empty() {
+        return;
+    }
+    let existing = env::var_os(key);
+    let mut values = present;
+    if let Some(existing) = existing {
+        values.extend(env::split_paths(&existing));
+    }
+    if let Ok(joined) = env::join_paths(values) {
+        command.env(key, joined);
+    }
+}
+
+fn now_unix_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .try_into()
+        .unwrap_or(u64::MAX)
+}

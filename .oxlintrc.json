@@ -45,7 +45,7 @@
     "packages/desktop/.cache/**",
     "packages/desktop/resources/**",
     "packages/desktop/dist/**",
-    "packages/desktop/src-tauri/gen/**",
+    "packages/desktop/out/**",
     "node_modules/**"
   ],
   "rules": {
