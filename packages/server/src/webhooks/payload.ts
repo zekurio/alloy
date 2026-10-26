@@ -55,8 +55,8 @@ export async function clipPublishedPayload(
 }
 
 /**
- * Message webhooks receive the bare permalink so Discord or Fluxer can unfurl
- * the clip page's metadata into a link preview.
+ * Message webhooks receive the canonical permalink so Discord or Fluxer can
+ * unfurl the clip page's metadata into a link preview.
  */
 export function messageWebhookContent(payload: ClipPublishedPayload): string {
   return payload.clip.url
