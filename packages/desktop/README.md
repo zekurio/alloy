@@ -17,6 +17,8 @@ native work is in Rust:
 - `native/` (`alloy-desktop-native`): the napi-rs addon that loads `host`
   into the main process. `src/main/native.ts` declares its exports.
 - `recorder/`: the separate OBS recorder process, `alloy-agent`.
+- `update-signer/` (`alloy-update-signer`): release tooling that signs the
+  installer for the update check; see `.github/RELEASING.md`.
 
 Desktop capture records the selected display while game detection continues.
 Saved clips and screenshots use the detected game's metadata and folder, or

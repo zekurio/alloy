@@ -20,7 +20,8 @@ Leave unrelated working-tree changes alone.
   `packages/i18n`: English-keyed message catalogs.
 - `packages/desktop`: Electron shell (`src/main`, `src/preload`, and the
   connect screen in `src/connect`), the Rust `host` library and the napi-rs
-  `native` addon that loads it, and the Rust `recorder` (OBS sidecar).
+  `native` addon that loads it, the Rust `recorder` (OBS sidecar), and the
+  `update-signer` the release workflow signs installers with.
 - `scripts`: release tooling. `tools/oxlint`: custom lint rules. `nix`: package
   and NixOS module. `.github/gardener`: PR/issue upkeep bot.
 

@@ -1,0 +1,14 @@
+# Signs the desktop installer in the release workflow. It handles the private
+# update key, so it is built from the lockfile instead of fetched at release
+# time. Release tooling, never shipped, so it stays out of the version files.
+[package]
+name = "alloy-update-signer"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+base64 = { workspace = true }
+# The minisign line `tauri signer` 2.12 signs with, whose signatures the Tauri
+# builds already accept.
+minisign = "0.9"

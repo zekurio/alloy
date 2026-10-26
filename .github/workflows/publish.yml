@@ -264,22 +264,28 @@ jobs:
             throw "The desktop addon imports the Visual C++ runtime."
           }
 
+      # Built from Cargo.lock in its own step, so no build script runs while
+      # the signing key is in the environment.
+      - name: build update signer
+        run: cargo build --locked --package alloy-update-signer --target-dir target/update-signer
+
       # Signs with the minisign key pair the Tauri updater trusted, so the
       # same signature serves this app's updater and the Tauri builds that
-      # update to it. `tauri signer` writes `<installer>.sig`; the CLI is only
-      # fetched here, not a dependency.
+      # update to it. The signer writes `<installer>.sig` and fails unless the
+      # key pair matches the public key compiled into the app.
       - name: sign desktop installer
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          UPDATE_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          UPDATE_SIGNING_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          ALLOY_UPDATER_PUBLIC_KEY: ${{ vars.ALLOY_UPDATER_PUBLIC_KEY }}
           RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          if (!$env:TAURI_SIGNING_PRIVATE_KEY) {
+          if (!$env:UPDATE_SIGNING_KEY) {
             throw "Configure the update signing key before a release."
           }
-          corepack pnpm dlx @tauri-apps/cli@2.12.3 signer sign "packages/desktop/release/Alloy-Desktop-$env:RELEASE_VERSION-win-x64-setup.exe"
+          & target/update-signer/debug/alloy-update-signer.exe "packages/desktop/release/Alloy-Desktop-$env:RELEASE_VERSION-win-x64-setup.exe" $env:RELEASE_VERSION
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: prepare desktop release assets

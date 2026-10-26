@@ -98,8 +98,10 @@ out of the repository. The publish workflow:
 
 1. builds the installer with `ALLOY_UPDATER_PUBLIC_KEY` in the environment,
    which compiles it into the app;
-2. signs the installer with `tauri signer sign` (fetched with `pnpm dlx`; the
-   CLI is not a dependency), which writes `<installer>.sig`;
+2. signs the installer with `packages/desktop/update-signer`, which writes
+   `<installer>.sig` in the format `tauri signer sign` wrote, binds the
+   signature to the release version, and fails unless the key pair matches
+   `ALLOY_UPDATER_PUBLIC_KEY`;
 3. runs `scripts/prepare-desktop-release.mjs`, which adds the signature to
    `latest.yml` and writes `latest.json`.
 
@@ -141,8 +143,7 @@ WebView2 profiles (`EBWebView\` and `webviews\` in
 its installer's registry key (`HKCU\Software\zekurio\Alloy`). Removing them
 is safe once the Tauri app is gone.
 
-`latest.json` and the `tauri signer` step can be dropped once no Tauri installs
-remain.
+`latest.json` can be dropped once no Tauri installs remain.
 
 ## Recovery
 

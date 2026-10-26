@@ -7,6 +7,7 @@ members = [
   "packages/desktop/host",
   "packages/desktop/native",
   "packages/desktop/recorder",
+  "packages/desktop/update-signer",
 ]
 
 # Shared versions keep a single copy of each dependency in the graph. Members
