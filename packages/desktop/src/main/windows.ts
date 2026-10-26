@@ -56,8 +56,9 @@ const maximizeOnShow = new WeakSet<BrowserWindow>()
 export function showWindow(window: BrowserWindow): void {
   if (window.isDestroyed()) return
   if (maximizeOnShow.delete(window)) window.maximize()
-  if (window.isMinimized()) window.restore()
   window.show()
+  // A hidden window ignores `restore`, so it comes after `show`.
+  if (window.isMinimized()) window.restore()
   window.focus()
 }
 
@@ -226,7 +227,10 @@ function createConnectWindow(host: Host): BrowserWindow {
       ? window.loadURL(devServer)
       : window.loadFile(connectPagePath())
   loaded.catch((cause: Error) => {
-    log.warn("Could not load the connect screen. %s", cause)
+    // Closing the window while it loads aborts the load; that is no error.
+    if (!window.isDestroyed()) {
+      log.warn("Could not load the connect screen. %s", cause)
+    }
   })
   return window
 }
