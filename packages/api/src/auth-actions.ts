@@ -16,11 +16,12 @@ import {
   type JsonValidator,
   validateAuthSessionSummaries,
   validateLinkedAccounts,
-  validateOAuthStartResponse,
   validatePasskey,
   validatePasskeyAuthenticationOptionsResponse,
   validatePasskeyRegistrationOptionsResponse,
   validatePasskeys,
+  validatePendingOAuthLinkOrNull,
+  validateRedirectResponse,
   validateRevokeOtherSessionsResponse,
   validateSessionData,
   validateSuccessResponse,
@@ -204,11 +205,11 @@ function createPasskeyActions(
         callbackURL?: string
         account?: OAuthSignInAccount
       }) =>
-        startOAuthRedirect(
+        redirectResult(
           request,
           redirect,
           AUTH_PATHS.oauthSignIn,
-          input,
+          { method: "POST", body: JSON.stringify(input) },
           "Could not start OAuth sign-in",
         ),
     },
@@ -357,26 +358,16 @@ function createUserActions(request: RequestFn, store: SessionStore) {
   }
 }
 
-async function startOAuthRedirect(
+/** Send a request that answers with a URL, then go there. */
+async function redirectResult(
   request: RequestFn,
   redirect: AuthRedirect,
   path: string,
-  input: {
-    providerId: string
-    callbackURL?: string
-    account?: OAuthSignInAccount
-  },
+  init: RequestInit,
   fallback: string,
 ): AuthResult<never> {
   try {
-    const data = await request(
-      path,
-      {
-        method: "POST",
-        body: JSON.stringify(input),
-      },
-      validateOAuthStartResponse,
-    )
+    const data = await request(path, init, validateRedirectResponse)
     redirect(data.url)
     return { data: null, error: null }
   } catch (cause) {
@@ -388,13 +379,54 @@ function createOAuthActions(request: RequestFn, redirect: AuthRedirect) {
   return {
     oauth2: {
       link: (input: { providerId: string; callbackURL?: string }) =>
-        startOAuthRedirect(
+        redirectResult(
           request,
           redirect,
           AUTH_PATHS.oauthLink,
-          input,
+          { method: "POST", body: JSON.stringify(input) },
           "Could not start OAuth link",
         ),
+      /**
+       * An OAuth sign-in in this browser whose username claim matched an
+       * existing user. Linking it or creating an account from it goes back to
+       * where that sign-in started, without another trip to the provider.
+       */
+      pending: {
+        get: () =>
+          jsonResult(
+            request,
+            AUTH_PATHS.oauthPending,
+            {},
+            "Could not load pending sign-in",
+            validatePendingOAuthLinkOrNull,
+          ),
+        /** Link it to the signed-in user. */
+        link: () =>
+          redirectResult(
+            request,
+            redirect,
+            AUTH_PATHS.oauthPendingLink,
+            { method: "POST" },
+            "Could not link OAuth account.",
+          ),
+        /** Create a new account for it instead, and sign in. */
+        signUp: () =>
+          redirectResult(
+            request,
+            redirect,
+            AUTH_PATHS.oauthPendingSignUp,
+            { method: "POST" },
+            "OAuth sign-in failed",
+          ),
+        discard: () =>
+          jsonResult(
+            request,
+            AUTH_PATHS.oauthPending,
+            { method: "DELETE" },
+            "Could not discard pending sign-in",
+            validateSuccessResponse,
+          ),
+      },
     },
   }
 }

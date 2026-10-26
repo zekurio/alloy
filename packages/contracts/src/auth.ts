@@ -10,16 +10,27 @@ export type AuthErrorCode =
 
 /**
  * Login page query key naming the provider to link once signed in, set by an
- * OAuth sign-in whose username claim matched an existing user.
+ * OAuth sign-in whose username claim matched an existing user. It only tells
+ * the page to look up the {@link PendingOAuthLink}, which decides what shows.
  */
 export const OAUTH_LINK_QUERY_KEY = "link"
 
 /**
- * Which account an OAuth sign-in may end in. `new` creates one even when the
- * username claim names an existing user; `linked` only signs in to the
+ * An OAuth sign-in whose username claim matched an existing user, kept for
+ * this browser so it can be linked once signed in, or turned into a new
+ * account, without another trip to the provider.
+ */
+export interface PendingOAuthLink {
+  providerId: string
+  /** The provider's username claim, to show which account would be linked. */
+  accountLabel: string | null
+}
+
+/**
+ * Which account an OAuth sign-in may end in. `linked` only signs in to the
  * account the identity is already linked to. Unset matches or creates.
  */
-export const OAUTH_SIGN_IN_ACCOUNTS = ["new", "linked"] as const
+export const OAUTH_SIGN_IN_ACCOUNTS = ["linked"] as const
 export type OAuthSignInAccount = (typeof OAUTH_SIGN_IN_ACCOUNTS)[number]
 
 /**

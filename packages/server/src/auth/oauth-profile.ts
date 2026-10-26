@@ -59,7 +59,6 @@ export async function profileFromTokens(
       provider.avatarClaim ?? OAUTH_AVATAR_CLAIM_DEFAULT,
     ),
     providerAccountId,
-    raw,
     role: roleFromProfile(raw, provider.roleClaim),
     storageQuotaBytes: quotaFromProfile(raw, provider.quotaClaim),
     usernameHint,

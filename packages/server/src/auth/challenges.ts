@@ -6,8 +6,9 @@ import { and, eq, gt } from "drizzle-orm"
 
 import { wakeAuthChallengeExpiryWorker } from "./challenge-expiry"
 
-// Short-lived, single-use rows: OAuth state, WebAuthn challenges, desktop link
-// codes, and account reactivation tokens. The expiry worker sweeps them.
+// Short-lived, single-use rows: OAuth state and pending links, WebAuthn
+// challenges, desktop link codes, and account reactivation tokens. The expiry
+// worker sweeps them.
 
 type ChallengeMatch =
   | { purpose: string; id: string }
@@ -38,22 +39,34 @@ export async function insertAuthChallenge(input: {
   return id
 }
 
+/** Return the matching unexpired challenge without consuming it. */
+export async function findAuthChallenge(match: ChallengeMatch) {
+  const [row] = await db
+    .select()
+    .from(authChallenge)
+    .where(unexpiredMatch(match))
+    .limit(1)
+  return row ?? null
+}
+
 /** Delete and return the matching unexpired challenge, if there is one. */
 export async function consumeAuthChallenge(match: ChallengeMatch) {
   const [row] = await db
     .delete(authChallenge)
-    .where(
-      and(
-        eq(authChallenge.purpose, match.purpose),
-        "id" in match
-          ? eq(authChallenge.id, match.id)
-          : and(
-              eq(authChallenge.identifier, match.identifier),
-              eq(authChallenge.challenge, match.challenge),
-            ),
-        gt(authChallenge.expires_at, new Date()),
-      ),
-    )
+    .where(unexpiredMatch(match))
     .returning()
   return row ?? null
+}
+
+function unexpiredMatch(match: ChallengeMatch) {
+  return and(
+    eq(authChallenge.purpose, match.purpose),
+    "id" in match
+      ? eq(authChallenge.id, match.id)
+      : and(
+          eq(authChallenge.identifier, match.identifier),
+          eq(authChallenge.challenge, match.challenge),
+        ),
+    gt(authChallenge.expires_at, new Date()),
+  )
 }

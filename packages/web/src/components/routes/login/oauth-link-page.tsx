@@ -2,33 +2,43 @@ import type { PublicAuthConfig, PublicAuthProvider } from "@alloy/api"
 import { message, t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
-import { useLocation, useNavigate } from "@tanstack/react-router"
+import { useLocation, useNavigate, useRouter } from "@tanstack/react-router"
 import { LinkIcon } from "lucide-react"
 import { useState } from "react"
 
 import { SignInReactivationPrompt } from "@/components/account/reactivate-account-prompt"
 import { authClient } from "@/lib/auth-client"
-import { authCallbackUrl, toastAuthAttemptFailure } from "@/lib/auth-flow"
+import { toastAuthAttemptFailure } from "@/lib/auth-flow"
+import { clientLogger } from "@/lib/client-log"
 import { usePasskeySupport } from "@/lib/passkey-support"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 import { LoginForm } from "./login-page-inner"
 
+/** An OAuth sign-in the server holds for this browser until it's linked. */
+export type PendingLink = {
+  provider: PublicAuthProvider
+  /** The provider's username claim. */
+  accountLabel: string | null
+}
+
 type OAuthLinkPageProps = {
   config: PublicAuthConfig
-  provider: PublicAuthProvider
+  link: PendingLink
   redirectTo?: string
 }
 
 /**
  * Where an OAuth sign-in lands when its username claim names an existing
- * account. Signed out, it asks the user to sign in to that account; every
- * sign-in method returns here. Signed in, it starts the link only on a click,
- * since anyone can link to this page.
+ * account. The server keeps that sign-in for this browser, so neither linking
+ * it nor creating an account from it goes back to the provider. Signed out,
+ * the page asks the user to sign in to the account; every sign-in method
+ * returns here. Signed in, it links on a click and names the provider account,
+ * so someone else on a shared browser can tell it isn't theirs.
  */
 export function OAuthLinkPage({
   config,
-  provider,
+  link,
   redirectTo,
 }: OAuthLinkPageProps) {
   const session = useSuspenseSession()
@@ -36,22 +46,20 @@ export function OAuthLinkPage({
   if (session) {
     return (
       <OAuthLinkConfirm
-        provider={provider}
+        link={link}
         username={session.user.username}
         redirectTo={redirectTo}
       />
     )
   }
-  return (
-    <OAuthLinkSignIn
-      config={config}
-      provider={provider}
-      redirectTo={redirectTo}
-    />
-  )
+  return <OAuthLinkSignIn config={config} link={link} />
 }
 
-function OAuthLinkSignIn({ config, provider, redirectTo }: OAuthLinkPageProps) {
+function OAuthLinkSignIn({
+  config,
+  link: { provider },
+}: Omit<OAuthLinkPageProps, "redirectTo">) {
+  const router = useRouter()
   // This page, link param included, so signing in comes back to confirm.
   const returnTo = useLocation({ select: (location) => location.href })
   const [reactivationRequired, setReactivationRequired] = useState(false)
@@ -72,11 +80,7 @@ function OAuthLinkSignIn({ config, provider, redirectTo }: OAuthLinkPageProps) {
     if (pending) return
     setPending(true)
     try {
-      const { error } = await authClient.signIn.oauth2({
-        providerId: provider.providerId,
-        callbackURL: authCallbackUrl(redirectTo ?? "/"),
-        account: "new",
-      })
+      const { error } = await authClient.oauth2.pending.signUp()
       if (!error) return
       toastAuthAttemptFailure(
         "OAuth sign-up",
@@ -91,6 +95,8 @@ function OAuthLinkSignIn({ config, provider, redirectTo }: OAuthLinkPageProps) {
       )
     }
     setPending(false)
+    // A failed attempt may have used up the pending sign-in.
+    await router.invalidate()
   }
 
   return (
@@ -141,15 +147,16 @@ function OAuthLinkSignIn({ config, provider, redirectTo }: OAuthLinkPageProps) {
 }
 
 function OAuthLinkConfirm({
-  provider,
+  link: { provider, accountLabel },
   username,
   redirectTo,
 }: {
-  provider: PublicAuthProvider
+  link: PendingLink
   username: string
   redirectTo?: string
 }) {
   const navigate = useNavigate()
+  const router = useRouter()
   const [pending, setPending] = useState(false)
   const displayName = provider.displayName
 
@@ -157,27 +164,33 @@ function OAuthLinkConfirm({
     if (pending) return
     setPending(true)
     try {
-      const { error } = await authClient.oauth2.link({
-        providerId: provider.providerId,
-        callbackURL: authCallbackUrl(redirectTo ?? "/"),
-      })
+      // Goes back to where the OAuth sign-in started.
+      const { error } = await authClient.oauth2.pending.link()
       if (!error) return
       toastAuthAttemptFailure(
         "OAuth link",
-        message("Couldn't start link flow"),
+        message("Couldn't link account"),
         error,
       )
     } catch (cause) {
       toastAuthAttemptFailure(
         "OAuth link",
-        message("Couldn't start link flow"),
+        message("Couldn't link account"),
         cause,
       )
     }
     setPending(false)
+    // A failed attempt may have used up the pending sign-in.
+    await router.invalidate()
   }
 
-  function onSkip() {
+  async function onSkip() {
+    if (pending) return
+    setPending(true)
+    const { error } = await authClient.oauth2.pending.discard()
+    // It expires on its own, so leaving it behind is harmless.
+    if (error)
+      clientLogger.warn("[auth] Discarding pending OAuth link failed.", error)
     // The target may be a server path such as the desktop handshake.
     if (redirectTo) window.location.assign(redirectTo)
     else void navigate({ to: "/", replace: true })
@@ -190,10 +203,15 @@ function OAuthLinkConfirm({
           {t("Link {provider}", { provider: displayName })}
         </h2>
         <p className="text-foreground-muted text-sm">
-          {t(
-            "Signed in as {username}. Link your {provider} account to sign in with it next time.",
-            { username, provider: displayName },
-          )}
+          {accountLabel
+            ? t(
+                "Signed in as {username}. Link the {provider} account {account} to sign in with it next time.",
+                { username, provider: displayName, account: accountLabel },
+              )
+            : t(
+                "Signed in as {username}. Link your {provider} account to sign in with it next time.",
+                { username, provider: displayName },
+              )}
         </p>
       </div>
       <div className="flex flex-col gap-3">
@@ -206,7 +224,7 @@ function OAuthLinkConfirm({
         >
           <LinkIcon className="size-4" />
           {pending
-            ? t("Redirecting…")
+            ? t("Linking…")
             : t("Link {provider}", { provider: displayName })}
         </Button>
         <Button

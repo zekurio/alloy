@@ -7,6 +7,7 @@ import {
   type ContractJsonInput,
   type LinkedAccount,
   type Passkey,
+  type PendingOAuthLink,
   type SessionData,
   SyncedThemePreferencesSchema,
   type UserTheme,
@@ -304,16 +305,33 @@ export function validateLinkedAccounts(
   )
 }
 
-export function validateOAuthStartResponse(value: ContractJsonInput): {
+export function validateRedirectResponse(value: ContractJsonInput): {
   url: string
 } {
-  const response = objectRecord(value, "OAuth start")
+  const response = objectRecord(value, "redirect")
   validateUrlString(
     response.url,
-    "Invalid OAuth start response: url must be a URL",
+    "Invalid redirect response: url must be a URL",
   )
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as { url: string }
+}
+
+export function validatePendingOAuthLinkOrNull(
+  value: ContractJsonInput,
+): PendingOAuthLink | null {
+  if (value === null) return null
+  const link = objectRecord(value, "pending OAuth link")
+  validateRequiredString(
+    link.providerId,
+    "Invalid pending OAuth link response: providerId is required",
+  )
+  validateNullableString(
+    link.accountLabel,
+    "Invalid pending OAuth link response: accountLabel must be string or null",
+  )
+  // SAFETY: The checks above validate every field in the asserted response contract.
+  return value as PendingOAuthLink
 }
 
 export function validateUserUpdateResponse(value: ContractJsonInput): {

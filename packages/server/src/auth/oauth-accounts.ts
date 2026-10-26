@@ -24,12 +24,15 @@ export type SignInResolution = {
   userId: string
 }
 
-export async function resolveSignInUser(input: {
+type OAuthIdentity = {
   profile: OAuthProfile
   provider: OAuthProviderConfig
   tokens: StoredTokens
-  account: OAuthSignInAccount | undefined
-}): Promise<SignInResolution> {
+}
+
+export async function resolveSignInUser(
+  input: OAuthIdentity & { account: OAuthSignInAccount | undefined },
+): Promise<SignInResolution> {
   const existingAccount = await findLinkedAccount(
     input.provider.providerId,
     input.profile.providerAccountId,
@@ -45,11 +48,16 @@ export async function resolveSignInUser(input: {
   // Linking on the claim alone would hand the local account to whoever
   // controls that claim at the provider, so the user proves they own it by
   // signing in first.
-  if (input.account !== "new") {
-    const match = await findUserIdByUsernameHint(input.profile.usernameHint)
-    if (match) return { kind: "link-required", userId: match }
-  }
+  const match = await findUserIdByUsernameHint(input.profile.usernameHint)
+  if (match) return { kind: "link-required", userId: match }
 
+  return { kind: "created", userId: await createUserForOAuthAccount(input) }
+}
+
+/** Create a user for an OAuth identity that no user is linked to yet. */
+export async function createUserForOAuthAccount(
+  input: OAuthIdentity,
+): Promise<string> {
   if (!configStore.get("openRegistrations")) {
     throw new Error(NO_LINKED_ACCOUNT)
   }
@@ -91,15 +99,12 @@ export async function resolveSignInUser(input: {
 
   await syncOAuthUserRole(userId, input.profile)
   await syncOAuthAvatar(userId, input.profile)
-  return { kind: "created", userId }
+  return userId
 }
 
-export async function linkAccountToUser(input: {
-  profile: OAuthProfile
-  provider: OAuthProviderConfig
-  tokens: StoredTokens
-  userId: string
-}): Promise<void> {
+export async function linkAccountToUser(
+  input: OAuthIdentity & { userId: string },
+): Promise<void> {
   const existing = await findLinkedAccount(
     input.provider.providerId,
     input.profile.providerAccountId,

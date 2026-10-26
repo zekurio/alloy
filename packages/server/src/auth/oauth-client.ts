@@ -278,7 +278,8 @@ export function loginURLWithOAuthError(
   return url.toString()
 }
 
-function oauthErrorMessage(cause: unknown): string {
+/** A failed OAuth step's message, safe to show in the browser. */
+export function oauthErrorMessage(cause: unknown): string {
   if (cause instanceof ResponseBodyError) {
     return providerErrorMessage(
       "OAuth provider rejected the request",
