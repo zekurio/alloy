@@ -14,6 +14,16 @@ directories:
 files:
   - out/**
   - package.json
+# Electron's runtime switches, flipped in the packaged binary: it never runs
+# as plain Node, ignores NODE_OPTIONS and --inspect, encrypts cookies with
+# the OS key store, and loads only its integrity-checked app.asar.
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
 # Chromium's own UI strings: the languages Alloy ships.
 electronLanguages:
   - en-US
