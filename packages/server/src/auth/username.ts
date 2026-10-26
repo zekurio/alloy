@@ -7,7 +7,7 @@ import {
 } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { db } from "@alloy/server/db/index"
-import { eq, inArray, sql } from "drizzle-orm"
+import { and, eq, inArray, isNull, sql } from "drizzle-orm"
 
 const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
 // Newlines and other control characters would break the single-line label in
@@ -126,7 +126,8 @@ async function isUsernameAvailable(candidate: string): Promise<boolean> {
 /**
  * The local user whose username matches an OAuth username claim, as given or
  * as {@link generateUniqueUsername} would slugify it. Sign-in asks that user
- * to link instead of creating a suffixed duplicate next to them.
+ * to link instead of creating a suffixed duplicate next to them. Banned users
+ * can't sign in to link, so they never match.
  */
 export async function findUserByUsernameHint(
   hint: string | null,
@@ -143,7 +144,12 @@ export async function findUserByUsernameHint(
   const rows = await db
     .select({ id: user.id, username: user.username })
     .from(user)
-    .where(inArray(sql`lower(${user.username})`, [...candidates]))
+    .where(
+      and(
+        inArray(sql`lower(${user.username})`, [...candidates]),
+        isNull(user.admin_suspended_at),
+      ),
+    )
     .limit(candidates.size)
   return (
     rows.find((row) => row.username.toLowerCase() === trimmed) ??
