@@ -50,9 +50,9 @@ const ACCENT_PRESETS = {
 } as const satisfies Record<ThemeAppearance, readonly string[]>
 
 /**
- * The accents of the Alloy base themes for everyone on the server, one per
- * appearance. The page previews the draft right away; members who picked
- * their own accent or a different theme keep theirs.
+ * The Alloy theme's accents for everyone on the server, one per appearance.
+ * The page previews the draft right away; members on another theme keep its
+ * own accent.
  */
 export function AdminAccentSettings({
   config,
@@ -91,7 +91,7 @@ export function AdminAccentSettings({
       id="accent-color"
       title={t("Accent color")}
       description={t(
-        "Colors buttons, links, and highlights in Alloy's own themes for everyone on this server. Members can still choose their own.",
+        "Colors buttons, links, and highlights in the Alloy theme for everyone on this server.",
       )}
     >
       <SettingRows>

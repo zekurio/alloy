@@ -1,3 +1,4 @@
+import { THEME_MODES, type ThemeMode } from "@alloy/contracts"
 import { t, tp } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
@@ -16,18 +17,15 @@ import {
   TooltipTrigger,
 } from "@alloy/ui/components/tooltip"
 import {
-  selectBaseTheme,
   selectThemeFamily,
   selectThemeVariant,
-  setThemeAccent,
+  setThemeMode,
   setThemeSync,
-  themeAccentOverride,
   themeVariantColors,
   type ThemeState,
 } from "@alloy/ui/lib/theme"
 import {
   canonicalThemeColors,
-  normalizeThemeColor,
   THEME_APPEARANCES,
   type ThemeAppearance,
   type ThemeColors,
@@ -38,16 +36,13 @@ import {
   type CustomTheme,
 } from "@alloy/ui/lib/theme-custom"
 import {
-  BASE_THEME_VARIANTS,
-  isBaseThemeVariant,
-  isBuiltinThemeVariant,
+  isAlloyThemeVariant,
   themeFamilyDefault,
   type ThemeFamily,
   type ThemeVariant,
 } from "@alloy/ui/lib/theme-presets"
 import { cn } from "@alloy/ui/lib/utils"
 import {
-  CheckIcon,
   CopyIcon,
   DownloadIcon,
   MoonIcon,
@@ -55,16 +50,13 @@ import {
   PaletteIcon,
   PencilIcon,
   PlusIcon,
-  RefreshCwIcon,
-  RotateCcwIcon,
   SunIcon,
   Trash2Icon,
 } from "lucide-react"
 import { lazy, Suspense, useRef, useState } from "react"
-import type { CSSProperties, KeyboardEvent, ReactNode } from "react"
+import type { KeyboardEvent } from "react"
 import { createPortal } from "react-dom"
 
-import { HexColorInput } from "@/components/routes/settings/hex-color-input"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import type { ThemeEditorSeed } from "@/components/routes/settings/theme-editor"
 import { ThemeImportDialog } from "@/components/routes/settings/theme-import-dialog"
@@ -80,9 +72,9 @@ const ThemeEditor = lazy(() =>
 )
 
 /**
- * The Appearance panel's theme sections: a row of monochrome base themes that
- * follow the server's accents, then every bundled and custom theme as a card
- * whose circles pick light and dark separately.
+ * The Appearance panel's theme sections: the color scheme (system, light, or
+ * dark), then every bundled and custom theme as a card whose swatches pick
+ * light and dark separately.
  */
 export function ThemeSettings() {
   const theme = useThemeState()
@@ -121,7 +113,7 @@ export function ThemeSettings() {
 
   return (
     <>
-      <BaseThemeSection theme={theme} />
+      <ColorSchemeSection theme={theme} />
       <SettingsSubsection
         id="themes"
         title={t("Themes")}
@@ -204,30 +196,19 @@ export function ThemeSettings() {
   )
 }
 
-function BaseThemeSection({ theme }: { theme: ThemeState }) {
-  const { preferences } = theme
-
+function ColorSchemeSection({ theme }: { theme: ThemeState }) {
   return (
-    <SettingsSubsection
-      id="theme"
-      title={t("Theme")}
-      description={t(
-        "Choose a base theme, or sync with your system's light and dark mode.",
-      )}
-    >
-      <BaseThemePicker theme={theme} />
+    <SettingsSubsection id="color-scheme" title={t("Color scheme")}>
+      <ColorSchemePicker theme={theme} />
       <SettingRows>
-        {THEME_APPEARANCES.map((appearance) => (
-          <AccentRow key={appearance} theme={theme} appearance={appearance} />
-        ))}
         <SettingRow
           title={t("Sync across devices")}
           description={t(
-            "Use the same theme and accent everywhere you sign in.",
+            "Use the same color scheme and themes everywhere you sign in.",
           )}
         >
           <Switch
-            checked={preferences.sync}
+            checked={theme.preferences.sync}
             onCheckedChange={(checked) => setThemeSync(checked)}
           />
         </SettingRow>
@@ -237,73 +218,13 @@ function BaseThemeSection({ theme }: { theme: ThemeState }) {
 }
 
 /**
- * The personal accent of one appearance. Unset, it shows the accent that
- * appearance's theme paints with now.
+ * System, Light, and Dark as cards, each a miniature of the app in the theme
+ * that mode shows. System splits the light and dark themes down the middle.
  */
-function AccentRow({
-  theme,
-  appearance,
-}: {
-  theme: ThemeState
-  appearance: ThemeAppearance
-}) {
-  const id = `theme-accent-${appearance}`
-  const label =
-    appearance === "light" ? t("Light mode accent") : t("Dark mode accent")
-  const personal = theme.preferences.accents[appearance]
-  const variant = theme[appearance]
-  const note = !isBuiltinThemeVariant(variant.id)
-    ? t("Custom themes keep their own accent.")
-    : !personal && themeAccentOverride(theme, variant)
-      ? t(
-          "The Alloy themes use this server's accent unless you choose your own.",
-        )
-      : undefined
-
-  return (
-    <SettingRow title={label} description={note} htmlFor={id} stack>
-      <HexColorInput
-        id={id}
-        value={personal ?? themeVariantColors(theme, variant).accent}
-        label={label}
-        className="text-xs"
-        commit={normalizeThemeColor}
-        onChange={(color) => setThemeAccent(appearance, color)}
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={!personal}
-          onClick={() => setThemeAccent(appearance, null)}
-        >
-          <RotateCcwIcon />
-          {t("Reset")}
-        </Button>
-      </HexColorInput>
-    </SettingRow>
-  )
-}
-
-const SYNC_OPTION = "system"
-
-/**
- * Fluxer-style radio row: each monochrome base shows itself right away, and
- * the sync swatch follows the OS with the chosen light and dark themes.
- */
-function BaseThemePicker({ theme }: { theme: ThemeState }) {
-  const options = [...BASE_THEME_VARIANTS.map((base) => base.id), SYNC_OPTION]
+function ColorSchemePicker({ theme }: { theme: ThemeState }) {
   const buttons = useRef<(HTMLButtonElement | null)[]>([])
-  const shown = theme[theme.appearance]
-  const selected =
-    theme.preferences.mode === "system"
-      ? SYNC_OPTION
-      : isBaseThemeVariant(shown.id)
-        ? shown.id
-        : null
-  const focusable = selected ?? options[0]
-  const syncing = theme.preferences.mode === "system"
-  const systemColors = themeVariantColors(theme, theme[theme.systemAppearance])
+  const light = themeVariantColors(theme, theme.light)
+  const dark = themeVariantColors(theme, theme.dark)
 
   function moveFocus(event: KeyboardEvent, index: number) {
     const step =
@@ -314,129 +235,115 @@ function BaseThemePicker({ theme }: { theme: ThemeState }) {
           : 0
     if (step === 0) return
     event.preventDefault()
-    const next = (index + step + options.length) % options.length
-    const option = options[next]
-    if (!option) return
-    selectBaseTheme(option)
+    const next = (index + step + THEME_MODES.length) % THEME_MODES.length
+    const mode = THEME_MODES[next]
+    if (!mode) return
+    setThemeMode(mode)
     buttons.current[next]?.focus()
   }
 
   return (
     <div
       role="radiogroup"
-      aria-label={t("Base theme")}
-      className="flex flex-wrap gap-3"
+      aria-label={t("Color scheme")}
+      className="grid grid-cols-3 gap-2 sm:gap-3"
     >
-      {BASE_THEME_VARIANTS.map((variant, index) => (
-        <BaseSwatch
-          key={variant.id}
-          label={t(variant.label)}
-          selected={selected === variant.id}
-          focusable={focusable === variant.id}
-          buttonRef={(button) => {
-            buttons.current[index] = button
-          }}
-          style={{
-            background: variant.colors.background,
-            color: variant.colors.text,
-          }}
-          onSelect={() => selectBaseTheme(variant.id)}
-          onKeyDown={(event) => moveFocus(event, index)}
-        >
-          {syncing && theme[variant.appearance].id === variant.id ? (
-            <ModeBadge appearance={variant.appearance} />
-          ) : null}
-        </BaseSwatch>
-      ))}
-      <BaseSwatch
-        label={t("Sync with system")}
-        selected={selected === SYNC_OPTION}
-        focusable={focusable === SYNC_OPTION}
-        buttonRef={(button) => {
-          buttons.current[options.length - 1] = button
-        }}
-        style={{
-          background: systemColors.background,
-          color: systemColors.text,
-        }}
-        onSelect={() => selectBaseTheme(SYNC_OPTION)}
-        onKeyDown={(event) => moveFocus(event, options.length - 1)}
-      >
-        <RefreshCwIcon className="size-5" strokeWidth={2.25} />
-      </BaseSwatch>
+      {THEME_MODES.map((mode, index) => {
+        const selected = theme.preferences.mode === mode
+        return (
+          <button
+            key={mode}
+            ref={(button) => {
+              buttons.current[index] = button
+            }}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            tabIndex={selected ? 0 : -1}
+            onClick={() => setThemeMode(mode)}
+            onKeyDown={(event) => moveFocus(event, index)}
+            className={cn(
+              "focus-visible:ring-ring flex min-w-0 flex-col gap-2 rounded-xl border p-1.5 pb-2 text-xs font-medium transition-colors outline-none focus-visible:ring-2 sm:p-2 sm:text-sm",
+              selected
+                ? "border-accent bg-accent-soft text-foreground"
+                : "bg-card text-foreground-muted hover:border-border-strong border-border",
+            )}
+          >
+            <span className="relative block">
+              <AppMiniature colors={mode === "dark" ? dark : light} />
+              {mode === "system" ? (
+                <span className="absolute inset-0 [clip-path:inset(0_0_0_50%)]">
+                  <AppMiniature colors={dark} />
+                </span>
+              ) : null}
+            </span>
+            <span className="truncate">{colorSchemeLabel(mode)}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }
 
-function BaseSwatch({
-  label,
-  selected,
-  focusable,
-  buttonRef,
-  style,
-  onSelect,
-  onKeyDown,
-  children,
-}: {
-  label: string
-  selected: boolean
-  focusable: boolean
-  buttonRef: (button: HTMLButtonElement | null) => void
-  style: CSSProperties
-  onSelect: () => void
-  onKeyDown: (event: KeyboardEvent) => void
-  children?: ReactNode
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            ref={buttonRef}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            aria-label={label}
-            tabIndex={focusable ? 0 : -1}
-            onClick={onSelect}
-            onKeyDown={onKeyDown}
-            style={style}
-            className={cn(
-              "focus-visible:ring-ring focus-visible:ring-offset-background relative grid size-14 shrink-0 place-items-center rounded-full border-2 transition-[border-color] outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-              selected
-                ? "border-accent"
-                : "border-border-strong hover:border-border-emphasis",
-            )}
-          >
-            {children}
-            {selected ? (
-              <span
-                aria-hidden
-                className="bg-accent text-accent-foreground ring-background absolute -top-0.5 -right-0.5 grid size-5 place-items-center rounded-full ring-2"
-              >
-                <CheckIcon className="size-3" strokeWidth={3} />
-              </span>
-            ) : null}
-          </button>
-        }
-      />
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  )
+function colorSchemeLabel(mode: ThemeMode): string {
+  if (mode === "light") return t("Light")
+  if (mode === "dark") return t("Dark")
+  return t("System")
 }
 
-/** Marks the base theme each appearance uses while syncing with the system. */
-function ModeBadge({ appearance }: { appearance: ThemeAppearance }) {
+/** The app in `colors`: a rail with its active item, a header, and clips. */
+function AppMiniature({ colors }: { colors: ThemeColors }) {
   return (
     <span
       aria-hidden
-      className="bg-surface-raised text-foreground ring-background absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full ring-2"
+      className="relative block aspect-[16/10] overflow-hidden rounded-lg border"
+      style={{ background: colors.background, borderColor: colors.border }}
     >
-      {appearance === "light" ? (
-        <SunIcon className="size-3" strokeWidth={2.5} />
-      ) : (
-        <MoonIcon className="size-3" strokeWidth={2.5} />
-      )}
+      <span
+        className="absolute inset-y-0 left-0 flex w-[12%] flex-col items-center gap-1 border-r pt-[5%]"
+        style={{ background: colors.surface, borderColor: colors.border }}
+      >
+        {[colors.accent, colors.borderStrong, colors.borderStrong].map(
+          (color, index) => (
+            <span
+              key={index}
+              className="aspect-square w-1/2 rounded-[2px]"
+              style={{ background: color }}
+            />
+          ),
+        )}
+      </span>
+      <span
+        className="absolute top-0 right-0 left-[12%] flex h-[16%] items-center justify-between gap-[6%] border-b px-[5%]"
+        style={{ borderColor: colors.border }}
+      >
+        <span
+          className="h-[18%] w-[14%] rounded-full"
+          style={{ background: colors.textMuted }}
+        />
+        <span
+          className="h-[45%] flex-1 rounded-full"
+          style={{ background: colors.input }}
+        />
+        <span
+          className="h-[45%] w-[16%] rounded-full"
+          style={{ background: colors.accent }}
+        />
+      </span>
+      <span className="absolute top-[16%] right-0 bottom-0 left-[12%] grid grid-cols-3 content-start gap-x-[5%] gap-y-1.5 p-[5%]">
+        {Array.from({ length: 6 }, (_, index) => (
+          <span key={index} className="flex flex-col gap-1">
+            <span
+              className="aspect-video rounded-[2px]"
+              style={{ background: colors.surfaceRaised }}
+            />
+            <span
+              className="h-[3px] w-3/4 rounded-full"
+              style={{ background: colors.textDim }}
+            />
+          </span>
+        ))}
+      </span>
     </span>
   )
 }
@@ -687,9 +594,9 @@ function swatchStripes(colors: ThemeColors): string {
   return `linear-gradient(135deg, ${stops.join(", ")})`
 }
 
-/** Base theme names are translated; palette and custom names are not. */
+/** Alloy's variant names are translated; palette and custom names are not. */
 function variantName(variant: ThemeVariant): string {
-  return isBaseThemeVariant(variant.id) ? t(variant.label) : variant.label
+  return isAlloyThemeVariant(variant.id) ? t(variant.label) : variant.label
 }
 
 /**

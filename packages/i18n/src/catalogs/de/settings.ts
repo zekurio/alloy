@@ -24,16 +24,10 @@ export const SETTINGS_MESSAGES = {
   "Apply changes": "Änderungen anwenden",
   "Apply settings": "Einstellungen anwenden",
   Background: "Hintergrund",
-  "Base theme": "Basis-Theme",
-  "Base theme, accent color, and custom themes.":
-    "Basis-Theme, Akzentfarbe und eigene Themes.",
-  Black: "Schwarz",
   Border: "Rahmen",
   Borders: "Rahmen",
   "Changes preview live": "Live-Vorschau",
   "Changes saved.": "Änderungen gespeichert.",
-  "Choose a base theme, or sync with your system's light and dark mode.":
-    "Wähle ein Basis-Theme oder synchronisiere mit dem hellen und dunklen Modus deines Systems.",
   "Choose files": "Dateien auswählen",
   "Choose how Alloy looks.": "Wähle, wie Alloy aussieht.",
   "Choose the language used by Alloy.": "Wähle die Sprache für Alloy aus.",
@@ -46,6 +40,9 @@ export const SETTINGS_MESSAGES = {
     "Farbpalette für den dunklen Alloy-Modus.",
   "Color palette used while Alloy is light.":
     "Farbpalette für den hellen Alloy-Modus.",
+  "Color scheme": "Farbschema",
+  "Color scheme, themes, and custom themes.":
+    "Farbschema, Themes und eigene Themes.",
   Colors: "Farben",
   "Colors you leave out are derived from the background and accent.":
     "Fehlende Farben werden aus Hintergrund und Akzent abgeleitet.",
@@ -58,14 +55,11 @@ export const SETTINGS_MESSAGES = {
   "Couldn't save preference": "Einstellung konnte nicht gespeichert werden",
   "Couldn't save theme": "Theme konnte nicht gespeichert werden",
   "Create theme": "Theme erstellen",
-  "Custom themes keep their own accent.":
-    "Eigene Themes behalten ihren eigenen Akzent.",
   Danger: "Gefahr",
   Dark: "Dunkel",
   "Dark mode accent": "Akzent im dunklen Modus",
   "Delete theme": "Theme löschen",
   "Delete theme?": "Theme löschen?",
-  Dim: "Gedimmt",
   "Dim accent": "Gedämpfter Akzent",
   "Dim text": "Blasser Text",
   "Drop Alloy or VS Code .json files here.":
@@ -124,14 +118,10 @@ export const SETTINGS_MESSAGES = {
   Surface: "Fläche",
   Surfaces: "Flächen",
   "Sync across devices": "Geräteübergreifend synchronisieren",
-  "Sync with system": "Mit System synchronisieren",
   Text: "Text",
   "Text on accent": "Text auf Akzent",
   "That element doesn't use a theme color.":
     "Dieses Element nutzt keine Theme-Farbe.",
-  "The Alloy themes use this server's accent unless you choose your own.":
-    "Die Alloy-Themes nutzen den Akzent dieses Servers, sofern du keinen eigenen wählst.",
-  Theme: "Theme",
   "Theme JSON": "Theme-JSON",
   "Theme actions": "Theme-Aktionen",
   "Theme files": "Theme-Dateien",
@@ -151,8 +141,8 @@ export const SETTINGS_MESSAGES = {
   'Unknown theme color "{key}".': "Unbekannte Theme-Farbe „{key}“.",
   "Unsupported theme file version.":
     "Diese Version der Theme-Datei wird nicht unterstützt.",
-  "Use the same theme and accent everywhere you sign in.":
-    "Nutze überall, wo du angemeldet bist, dasselbe Theme und denselben Akzent.",
+  "Use the same color scheme and themes everywhere you sign in.":
+    "Nutze überall, wo du angemeldet bist, dasselbe Farbschema und dieselben Themes.",
   "Use {theme} for light and dark mode":
     "{theme} für hellen und dunklen Modus verwenden",
   "Used in dark mode": "Im dunklen Modus verwendet",

@@ -46,8 +46,8 @@ export const ADMIN_MESSAGES = {
   "Clip announcement queued": "Clip-Ankündigung eingereiht",
   Codec: "Codec",
   "Codec & encoding": "Codec & Kodierung",
-  "Colors buttons, links, and highlights in Alloy's own themes for everyone on this server. Members can still choose their own.":
-    "Färbt Schaltflächen, Links und Hervorhebungen in Alloys eigenen Themes für alle auf diesem Server. Mitglieder können weiterhin einen eigenen Akzent wählen.",
+  "Colors buttons, links, and highlights in the Alloy theme for everyone on this server.":
+    "Färbt Schaltflächen, Links und Hervorhebungen im Alloy-Theme für alle auf diesem Server.",
   "Configure external OIDC and OAuth sign-in providers.":
     "Konfiguriere externe OIDC- und OAuth-Anbieter für die Anmeldung.",
   "Copy callback URL": "Callback-URL kopieren",
@@ -252,7 +252,6 @@ export const ADMIN_MESSAGES = {
     "Sichere den Autorisierungsablauf mit Proof Key for Code Exchange ab.",
   "Send test": "Test senden",
   "Separate scopes with spaces.": "Trenne Scopes mit Leerzeichen.",
-  "Server accent": "Server-Akzent",
   "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.":
     "Zeig hinter dem Login-Formular eine schräge, scrollende Wand aus zufälligen Vorschaubildern öffentlicher Clips.",
   "Show the backdrop": "Hintergrund anzeigen",

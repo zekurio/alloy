@@ -101,8 +101,8 @@ export interface LoginBackdropsResponse {
 }
 
 /**
- * Server-wide appearance: the login backdrop treatment and the accent of the
- * Alloy base themes. Structured and validated: admins tune these through
+ * Server-wide appearance: the login backdrop treatment and the accents of the
+ * Alloy theme. Structured and validated: admins tune these through
  * typed fields rather than raw CSS overrides.
  */
 export const AppearanceConfigSchema = t.looseObject({
@@ -337,6 +337,6 @@ export interface PublicAuthConfig {
   desktopAuth: PublicDesktopAuthConfig
   providers: PublicAuthProvider[]
   loginSplash: PublicLoginSplashConfig
-  /** Accents for the Alloy base themes; null keeps Alloy's own. */
+  /** Accents for the Alloy theme; null keeps Alloy's own. */
   accentColors: ThemeAccents
 }

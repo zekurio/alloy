@@ -35,21 +35,14 @@ export const DEFAULT_THEME_VARIANT_IDS = {
 
 const PRESET_VARIANTS = [...LIGHT_THEME_VARIANTS, ...DARK_THEME_VARIANTS]
 
-/** The monochrome bases, in the order the base theme picker shows them. */
-export const BASE_THEME_VARIANTS: readonly ThemeVariant[] = [
-  "alloy-dark",
-  "alloy-dim",
-  "alloy-black",
-  "alloy-light",
-].map(presetVariant)
+/** Alloy's own light and dark, which each appearance falls back to. */
+export const DEFAULT_THEME_VARIANTS = {
+  light: presetVariant(DEFAULT_THEME_VARIANT_IDS.light),
+  dark: presetVariant(DEFAULT_THEME_VARIANT_IDS.dark),
+} as const satisfies Record<ThemeAppearance, ThemeVariant>
 
 export const BUILTIN_THEMES: readonly ThemeFamily[] = [
-  builtinTheme(ALLOY_THEME_ID, "Alloy", [
-    "alloy-light",
-    "alloy-dark",
-    "alloy-dim",
-    "alloy-black",
-  ]),
+  builtinTheme(ALLOY_THEME_ID, "Alloy", ["alloy-light", "alloy-dark"]),
   builtinTheme("catppuccin", "Catppuccin", [
     "catppuccin-latte",
     "catppuccin-frappe",
@@ -66,13 +59,12 @@ export const BUILTIN_THEMES: readonly ThemeFamily[] = [
   builtinTheme("gruvbox", "Gruvbox", ["gruvbox-light", "gruvbox-dark"]),
 ]
 
-export function isBaseThemeVariant(id: string): boolean {
-  return BASE_THEME_VARIANTS.some((variant) => variant.id === id)
-}
-
-/** Bundled with Alloy, as opposed to made or imported by the user. */
-export function isBuiltinThemeVariant(id: string): boolean {
-  return PRESET_VARIANTS.some((variant) => variant.id === id)
+/** Alloy's own variants, the ones the server's accent tints. */
+export function isAlloyThemeVariant(id: string): boolean {
+  return (
+    id === DEFAULT_THEME_VARIANT_IDS.light ||
+    id === DEFAULT_THEME_VARIANT_IDS.dark
+  )
 }
 
 /** The variant a whole-theme pick assigns to `appearance`, if it has one. */

@@ -392,7 +392,7 @@ fn callback_page(lang: &str, title: &str, message: &str) -> String {
             "<title>{title} - Alloy</title>",
             "<style>",
             "html,body{{height:100%;margin:0}}",
-            "body{{display:flex;flex-direction:column;background:oklch(0.11 0 0);color:oklch(0.98 0 0);",
+            "body{{display:flex;flex-direction:column;background:oklch(0.19 0 0);color:oklch(0.98 0 0);",
             "font:16px/1.5 \"DM Sans\",ui-sans-serif,system-ui,-apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;",
             "-webkit-font-smoothing:antialiased}}",
             "header{{display:flex;align-items:center;gap:10px;padding:32px 40px;font:700 20px/1 \"IBM Plex Mono\",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}}",

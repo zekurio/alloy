@@ -1,27 +1,21 @@
 import {
   isObjectRecord,
   isStringValue,
-  NO_THEME_ACCENTS,
   THEME_MODES,
   type ContractJsonInput,
   type ContractJsonValue,
   type SyncedThemePreferences,
-  type ThemeAccents,
 } from "@alloy/contracts"
 import { createLocalStorageDriver } from "@alloy/ui/lib/local-storage"
-import {
-  normalizeThemeColor,
-  type ThemeAppearance,
-} from "@alloy/ui/lib/theme-colors"
+import type { ThemeAppearance } from "@alloy/ui/lib/theme-colors"
 import { DEFAULT_THEME_VARIANT_IDS } from "@alloy/ui/lib/theme-presets"
 
 /** Keep in sync with the pre-paint script in packages/web/index.html. */
 export const THEME_STORAGE_KEY = "alloy.theme"
 
 /**
- * The synced choice (mode, a variant id per appearance where unknown ids fall
- * back to Alloy, and a personal accent per appearance where null keeps the
- * theme's own), plus whether this device shares it with the account.
+ * The synced choice (mode, and a variant id per appearance where unknown ids
+ * fall back to Alloy), plus whether this device shares it with the account.
  */
 export interface ThemePreferences extends SyncedThemePreferences {
   /** Device-local: never sent to the account. */
@@ -32,13 +26,13 @@ export const DEFAULT_THEME_PREFERENCES: ThemePreferences = {
   mode: "system",
   light: DEFAULT_THEME_VARIANT_IDS.light,
   dark: DEFAULT_THEME_VARIANT_IDS.dark,
-  accents: NO_THEME_ACCENTS,
   sync: true,
 }
 
 /**
  * Default variants of the palettes the first theme picker stored as
- * `{ palette, variants, accents }`, so existing choices carry over.
+ * `{ palette, variants, accents }`, so existing choices carry over. Accents
+ * aren't kept; a theme's accent is now edited in the theme itself.
  */
 const LEGACY_PALETTES = [
   { palette: "default", ...DEFAULT_THEME_VARIANT_IDS },
@@ -77,7 +71,6 @@ export function normalizeThemePreferences(
     dark: isStringValue(value.dark)
       ? value.dark
       : DEFAULT_THEME_PREFERENCES.dark,
-    accents: normalizeAccents(value.accents),
     sync,
   }
 }
@@ -115,20 +108,5 @@ function migrateLegacyPreferences(
       ? stored
       : palette[appearance]
   }
-
-  return {
-    light: variant("light"),
-    dark: variant("dark"),
-    accents: normalizeAccents(value.accents),
-  }
-}
-
-/** The legacy picker stored accents in the same shape. */
-function normalizeAccents(value: ContractJsonValue | undefined): ThemeAccents {
-  const accents = isObjectRecord(value) ? value : {}
-  const accent = (appearance: ThemeAppearance) => {
-    const stored = accents[appearance]
-    return isStringValue(stored) ? normalizeThemeColor(stored) : null
-  }
-  return { light: accent("light"), dark: accent("dark") }
+  return { light: variant("light"), dark: variant("dark") }
 }

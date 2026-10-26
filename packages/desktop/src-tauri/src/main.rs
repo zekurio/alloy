@@ -49,8 +49,8 @@ const DESKTOP_API_PERMISSION: &str = "allow-desktop-api";
 const SIGN_IN_CANCELLED: &str = "Sign-in was cancelled.";
 /// Painted behind every webview until the page renders, so windows never
 /// flash white while the app loads. Matches the dark app background
-/// (`--background`, `oklch(0.11 0 0)`).
-const WINDOW_BACKGROUND: Color = Color(0x04, 0x04, 0x04, 0xff);
+/// (`--background`, `oklch(0.19 0 0)`).
+const WINDOW_BACKGROUND: Color = Color(0x14, 0x14, 0x14, 0xff);
 /// If the connect screen never reports that it rendered, show it anyway so a
 /// broken bundle does not look like the app silently doing nothing.
 const CONNECT_SHOW_FALLBACK: Duration = Duration::from_secs(3);
