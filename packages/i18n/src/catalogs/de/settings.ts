@@ -121,8 +121,6 @@ export const SETTINGS_MESSAGES = {
   Surfaces: "Flächen",
   "Sync across devices": "Geräteübergreifend synchronisieren",
   "Sync with system": "Mit System synchronisieren",
-  "Syncing uses {light} in light mode and {dark} in dark mode. Pick a swatch under Themes to change either one.":
-    "Beim Synchronisieren wird im hellen Modus {light} und im dunklen Modus {dark} verwendet. Wähle unter Themes ein Farbfeld, um eins davon zu ändern.",
   Text: "Text",
   "Text on accent": "Text auf Akzent",
   "That element doesn't use a theme color.":
