@@ -382,7 +382,7 @@ function GameEditorBody({
 }) {
   return (
     <>
-      <ResponsiveDialogBody className="flex flex-col gap-4 md:mb-4 md:max-h-[70vh] md:overflow-y-auto md:pb-0">
+      <ResponsiveDialogBody className="flex flex-col gap-4 md:my-3 md:max-h-[70vh] md:overflow-y-auto md:py-1">
         {children}
       </ResponsiveDialogBody>
       {error ? (
