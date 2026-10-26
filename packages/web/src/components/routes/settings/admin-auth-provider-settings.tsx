@@ -24,7 +24,6 @@ import {
   ResponsiveDialogBody,
   ResponsiveDialogClose,
   ResponsiveDialogContent,
-  ResponsiveDialogDescription,
   ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
@@ -410,12 +409,9 @@ function ProviderDialog({
           <ResponsiveDialogTitle>
             {editing ? t("Edit OAuth provider") : t("Add OAuth provider")}
           </ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>
-            {t("Provider secrets are write-only and never shown after saving.")}
-          </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
         <form onSubmit={handleSubmit}>
-          <ResponsiveDialogBody className="flex flex-col gap-4 md:mb-4 md:max-h-[70vh] md:overflow-y-auto md:pb-0">
+          <ResponsiveDialogBody className="flex flex-col gap-4 md:my-3 md:max-h-[70vh] md:overflow-y-auto md:py-1">
             <OAuthProviderForm
               draft={draft}
               editingProviderId={provider?.providerId ?? null}

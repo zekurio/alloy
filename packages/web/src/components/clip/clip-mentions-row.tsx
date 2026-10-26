@@ -119,7 +119,7 @@ function MentionsListDialog({
         <DialogHeader>
           <DialogTitle>{t("Tagged in clip")}</DialogTitle>
         </DialogHeader>
-        <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
+        <DialogBody className="my-2 max-h-[60vh] overflow-y-auto px-2 py-1">
           <ul className="flex flex-col">
             {mentions.map((u) => (
               <li key={u.id}>

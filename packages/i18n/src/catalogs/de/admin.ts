@@ -213,8 +213,6 @@ export const ADMIN_MESSAGES = {
   "Profile images & artwork": "Profilbilder & Grafiken",
   Provider: "Anbieter",
   "Provider ID": "Anbieter-ID",
-  "Provider secrets are write-only and never shown after saving.":
-    "Anbieter-Secrets sind nur schreibbar und werden nach dem Speichern nie angezeigt.",
   "Public clips are announced here as soon as they finish encoding.":
     "Öffentliche Clips werden hier angekündigt, sobald ihre Kodierung fertig ist.",
   Quality: "Qualität",
