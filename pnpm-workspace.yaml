@@ -8,6 +8,9 @@ allowBuilds:
   esbuild: true
   # Native image decoding for server-side BlurHash computation (game art).
   sharp: true
+  # Squirrel.Windows support pulled in by electron-builder. The desktop app
+  # ships an NSIS installer, so its install script is never needed.
+  electron-winstaller: false
 
 overrides:
   # Upstream packages have not yet refreshed these transitive patch releases.

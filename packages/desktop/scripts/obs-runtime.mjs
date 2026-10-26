@@ -25,8 +25,8 @@ const obsHelperExecutables = [
   "obs-qsv-test.exe",
 ]
 
-/** Creates a bundled resource folder with a placeholder file, so the Tauri
- * bundler finds it even when nothing is staged there. */
+/** Creates a bundled resource folder with a placeholder file, so
+ * electron-builder finds it even when nothing is staged there. */
 export function ensureResourceDir(directory) {
   mkdirSync(directory, { recursive: true })
   writeFileSync(join(directory, ".gitkeep"), "")

@@ -23,7 +23,7 @@ image-stream
 packages/desktop/release/
 packages/desktop/.cache/
 packages/desktop/resources/
-packages/desktop/src-tauri/gen/
+packages/desktop/out/
 .nitro
 .tanstack
 .vite
