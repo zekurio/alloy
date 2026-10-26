@@ -10,6 +10,7 @@ export const ADMIN_MESSAGES = {
   Admin: "Admin",
   Administration: "Administration",
   Advanced: "Erweitert",
+  "Alloy default": "Alloy-Standard",
   "Allow new users to create accounts on this server.":
     "Erlaube neuen Nutzern, Konten auf diesem Server zu erstellen.",
   "Allow users to sign in with this provider.":

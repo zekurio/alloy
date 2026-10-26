@@ -1,5 +1,6 @@
 import { t } from "@alloy/i18n"
 import { ColorSwatch } from "@alloy/ui/components/color-swatch"
+import { Input } from "@alloy/ui/components/input"
 import {
   Popover,
   PopoverContent,
@@ -18,6 +19,7 @@ import { useCallback, useRef, useState } from "react"
 import type { CSSProperties, PointerEvent, RefObject } from "react"
 
 const FALLBACK: Hsva = { h: 0, s: 0, v: 0, a: 1 }
+const HEX_COLOR_RE = /^#?([0-9a-f]{6})$/i
 
 /**
  * Colour picker owned end to end: a saturation/value field, a hue rail, and a
@@ -29,6 +31,7 @@ export function ColorPicker({
   value,
   onValueChange,
   label,
+  hexInput = false,
   disabled,
   className,
 }: {
@@ -36,6 +39,8 @@ export function ColorPicker({
   value: string
   onValueChange: (next: string) => void
   label: string
+  /** Adds a `#rrggbb` field, for when the swatch has no text field beside it. */
+  hexInput?: boolean
   disabled?: boolean
   className?: string
 }) {
@@ -92,6 +97,9 @@ export function ColorPicker({
           thumbColor={hueColor(hsva.h)}
           onChange={(ratio) => emit({ ...hsva, h: ratio * 360 })}
         />
+        {hexInput ? (
+          <HexField label={label} value={value} onChange={onValueChange} />
+        ) : null}
       </PopoverContent>
     </Popover>
   )
@@ -207,6 +215,44 @@ function HueRail({
         style={{ left: `${position * 100}%`, top: "50%" }}
       />
     </div>
+  )
+}
+
+/**
+ * Typing reports only complete colors, with or without the `#`; leaving the
+ * field restores the current color.
+ */
+function HexField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (next: string) => void
+}) {
+  const rgba = parseCssColor(value)
+  const hex = rgba ? formatCssColor({ ...rgba, a: 1 }) : ""
+  const [draft, setDraft] = useState(hex)
+  const [syncedHex, setSyncedHex] = useState(hex)
+  if (hex !== syncedHex) {
+    setSyncedHex(hex)
+    setDraft(hex)
+  }
+
+  return (
+    <Input
+      value={draft}
+      aria-label={t("{label} hex value", { label })}
+      spellCheck={false}
+      className="font-mono text-xs"
+      onChange={(event) => {
+        setDraft(event.target.value)
+        const digits = HEX_COLOR_RE.exec(event.target.value.trim())?.[1]
+        if (digits) onChange(`#${digits.toLowerCase()}`)
+      }}
+      onBlur={() => setDraft(hex)}
+    />
   )
 }
 
