@@ -48,7 +48,7 @@ export const config = {
     "nice to have": { color: "a2eeef", description: "Feature request" },
     question: { color: "d876e3", description: "Question or support request" },
 
-    "area: desktop": { color: "1d76db", description: "Tauri desktop app" },
+    "area: desktop": { color: "1d76db", description: "Electron desktop app" },
     "area: recorder": {
       color: "1d76db",
       description: "OBS recorder and clip capture",

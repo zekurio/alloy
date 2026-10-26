@@ -166,8 +166,8 @@ jobs:
               git add package.json \
                 Cargo.lock \
                 packages/desktop/package.json \
-                packages/desktop/src-tauri/tauri.conf.json \
-                packages/desktop/src-tauri/Cargo.toml \
+                packages/desktop/host/Cargo.toml \
+                packages/desktop/native/Cargo.toml \
                 packages/desktop/recorder/Cargo.toml
               git commit -m "chore: release $tag"
             fi
@@ -220,10 +220,10 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: .
-          # Same key as the Windows jobs in desktop-tauri.yml: a cache saved on
-          # `dev` is the only one a pull request can restore, so this release
-          # build is what keeps desktop CI from recompiling from scratch.
-          shared-key: tauri-desktop
+          # Same key as the installer job in desktop.yml: a cache saved on `dev`
+          # is the only one a pull request can restore, so this release build
+          # is what keeps desktop CI from recompiling from scratch.
+          shared-key: desktop
 
       # The staging scripts pin OBS and FFmpeg and decide what lands in the
       # runtime folder, so their hash keys the cache.
@@ -238,25 +238,37 @@ jobs:
       - name: stage obs runtime
         run: corepack pnpm --filter @alloy/desktop obs:install
 
-      - name: build desktop installer and update signature
+      # The public key is compiled into the app, which checks every update
+      # against it. Without it the build would ship with updates off.
+      - name: build desktop installer
         env:
           NODE_ENV: production
           ALLOY_UPDATER_PUBLIC_KEY: ${{ vars.ALLOY_UPDATER_PUBLIC_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          if (!$env:ALLOY_UPDATER_PUBLIC_KEY -or !$env:TAURI_SIGNING_PRIVATE_KEY) {
-            throw "Configure the Tauri update signing key and public key before a release."
+          if (!$env:ALLOY_UPDATER_PUBLIC_KEY) {
+            throw "Configure ALLOY_UPDATER_PUBLIC_KEY before a release."
           }
-          # The public key is not checked in. Merge it into the Tauri config so
-          # the CLI can sign the update artifacts and the app trusts them.
-          $updaterConfig = Join-Path $env:RUNNER_TEMP "tauri.updater.conf.json"
-          @{ plugins = @{ updater = @{ pubkey = $env:ALLOY_UPDATER_PUBLIC_KEY } } } |
-            ConvertTo-Json -Depth 5 |
-            Set-Content -Path $updaterConfig -Encoding utf8
-          corepack pnpm --filter @alloy/desktop dist:win:installer:signed --config $updaterConfig
+          corepack pnpm desktop:dist:win:installer
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Signs with the minisign key pair the Tauri updater trusted, so the
+      # same signature serves this app's updater and the Tauri builds that
+      # update to it. `tauri signer` writes `<installer>.sig`; the CLI is only
+      # fetched here, not a dependency.
+      - name: sign desktop installer
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (!$env:TAURI_SIGNING_PRIVATE_KEY) {
+            throw "Configure the update signing key before a release."
+          }
+          corepack pnpm dlx @tauri-apps/cli@2.12.3 signer sign "packages/desktop/release/Alloy-Desktop-$env:RELEASE_VERSION-win-x64-setup.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: prepare desktop release assets
@@ -268,7 +280,9 @@ jobs:
           name: desktop-release-assets
           path: |
             packages/desktop/release/*.exe
+            packages/desktop/release/*.exe.blockmap
             packages/desktop/release/*.sig
+            packages/desktop/release/latest.yml
             packages/desktop/release/latest.json
           if-no-files-found: error
 
@@ -389,7 +403,9 @@ jobs:
           make_latest: true
           files: |
             release-assets/*.exe
+            release-assets/*.exe.blockmap
             release-assets/*.sig
+            release-assets/latest.yml
             release-assets/latest.json
             release-assets/checksums.txt
           fail_on_unmatched_files: true

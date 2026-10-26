@@ -1,11 +1,11 @@
-name: tauri desktop
+name: desktop
 
-# Windows-only desktop CI: the Tauri host, the recorder, and the installer
-# bundle. JavaScript and TypeScript, including the desktop connection screen,
-# is formatted, linted, typechecked, and built by `checks` on ubuntu (no JS
-# tests exist yet), so shared TS packages, lockfiles, and docs do not start a
-# Windows run. Files outside packages/desktop that the Rust tests or the Tauri
-# build read directly must be listed below.
+# Windows desktop CI: the native host and addon, the recorder, and the
+# Electron installer. JavaScript and TypeScript, including the shell, is
+# formatted, linted, and typechecked by `checks` on ubuntu (no JS tests exist
+# yet), so shared TS packages and docs do not start a Windows run. Files
+# outside packages/desktop that the Rust tests or the installer build read
+# directly must be listed below.
 on:
   pull_request:
     branches: [dev]
@@ -13,10 +13,16 @@ on:
       - "packages/desktop/**"
       - "Cargo.toml"
       - "Cargo.lock"
-      # `tests/connection.rs` embeds this fixture; `tauri.conf.json` embeds the logo.
+      # `tests/connection.rs` embeds this fixture; the installer ships the logo.
       - "packages/contracts/fixtures/**"
       - "public/logo.png"
-      - ".github/workflows/desktop-tauri.yml"
+      # The installer bundles the shell, which these packages build into.
+      - "packages/desktop-contracts/**"
+      - "packages/i18n/**"
+      - "packages/primitives/**"
+      - "packages/ui/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/desktop.yml"
       - "!**/*.md"
   schedule:
     - cron: "23 4 * * 1"
@@ -56,7 +62,7 @@ jobs:
 
   # Lint and test are split from packaging: the two jobs compile different
   # profiles, and a lint failure should not wait behind the release link and
-  # the NSIS bundle. The weekly cron exists for the rustsec audit; both
+  # the NSIS installer. The weekly cron exists for the rustsec audit; both
   # Windows jobs skip it since code did not change.
   rust:
     name: check rust workspace
@@ -92,16 +98,10 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: .
-          shared-key: tauri-desktop-check
+          shared-key: desktop-check
 
       - name: install dependencies
         run: pnpm install --frozen-lockfile
-
-      # `tauri::generate_context!` embeds the frontend dist while compiling, so
-      # the check fails without the connection screen even though `checks` owns
-      # its browser-side verification.
-      - name: build connection screen
-        run: pnpm --filter @alloy/desktop build:renderer
 
       # The staging scripts pin OBS and FFmpeg and decide what lands in the
       # runtime folder, so their hash keys the cache.
@@ -162,13 +162,10 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: .
-          shared-key: tauri-desktop
+          shared-key: desktop
 
       - name: install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: build connection screen
-        run: pnpm --filter @alloy/desktop build:renderer
 
       # The staging scripts pin OBS and FFmpeg and decide what lands in the
       # runtime folder, so their hash keys the cache.
@@ -183,15 +180,16 @@ jobs:
       - name: stage obs runtime
         run: pnpm --filter @alloy/desktop obs:install
 
-      # `dist:win:installer` stages the recorder and FFmpeg itself before it
-      # bundles, so this job repeats none of the staging steps.
+      # `dist:win:installer` stages the recorder, FFmpeg, and the addon itself
+      # before it packages, so this job repeats none of the staging steps.
+      # Without the release key the build has automatic updates off.
       - name: build unsigned installer
-        run: pnpm tauri:dist:win:installer
+        run: pnpm desktop:dist:win:installer
 
       - name: upload test installer
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: alloy-tauri-windows-x64-${{ github.sha }}
-          path: target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          name: alloy-desktop-windows-x64-${{ github.sha }}
+          path: packages/desktop/release/*.exe
           if-no-files-found: error
           retention-days: 14
