@@ -129,9 +129,9 @@ async function isUsernameAvailable(candidate: string): Promise<boolean> {
  * to link instead of creating a suffixed duplicate next to them. Banned users
  * can't sign in to link, so they never match.
  */
-export async function findUserByUsernameHint(
+export async function findUserIdByUsernameHint(
   hint: string | null,
-): Promise<{ id: string; username: string } | null> {
+): Promise<string | null> {
   const candidates = new Set<string>()
   const trimmed = hint?.trim().toLowerCase()
   if (trimmed) candidates.add(trimmed)
@@ -140,7 +140,7 @@ export async function findUserByUsernameHint(
   if (candidates.size === 0) return null
 
   // `a.b` and its slug `a-b` can both be taken by different users. The exact
-  // name wins so the prompt names the same account on every attempt.
+  // name wins so every attempt points at the same account.
   const rows = await db
     .select({ id: user.id, username: user.username })
     .from(user)
@@ -151,9 +151,8 @@ export async function findUserByUsernameHint(
       ),
     )
     .limit(candidates.size)
-  return (
-    rows.find((row) => row.username.toLowerCase() === trimmed) ??
-    rows[0] ??
-    null
-  )
+  const row =
+    rows.find((candidate) => candidate.username.toLowerCase() === trimmed) ??
+    rows[0]
+  return row?.id ?? null
 }

@@ -17,8 +17,6 @@ import { LoginForm } from "./login-page-inner"
 type OAuthLinkPageProps = {
   config: PublicAuthConfig
   provider: PublicAuthProvider
-  /** The existing account the provider's username claim matched. */
-  username?: string
   redirectTo?: string
 }
 
@@ -31,7 +29,6 @@ type OAuthLinkPageProps = {
 export function OAuthLinkPage({
   config,
   provider,
-  username,
   redirectTo,
 }: OAuthLinkPageProps) {
   const session = useSuspenseSession()
@@ -49,19 +46,13 @@ export function OAuthLinkPage({
     <OAuthLinkSignIn
       config={config}
       provider={provider}
-      username={username}
       redirectTo={redirectTo}
     />
   )
 }
 
-function OAuthLinkSignIn({
-  config,
-  provider,
-  username,
-  redirectTo,
-}: OAuthLinkPageProps) {
-  // This page, link params included, so signing in comes back to confirm.
+function OAuthLinkSignIn({ config, provider, redirectTo }: OAuthLinkPageProps) {
+  // This page, link param included, so signing in comes back to confirm.
   const returnTo = useLocation({ select: (location) => location.href })
   const [reactivationRequired, setReactivationRequired] = useState(false)
   const [pending, setPending] = useState(false)
@@ -117,15 +108,10 @@ function OAuthLinkSignIn({
           <Callout tone="info" className="mb-6">
             <LinkIcon />
             <p>
-              {username
-                ? t(
-                    "An account named {username} already exists. Sign in to it to link your {provider} account.",
-                    { username, provider: displayName },
-                  )
-                : t(
-                    "An account with your {provider} username already exists. Sign in to it to link your {provider} account.",
-                    { provider: displayName },
-                  )}
+              {t(
+                "An account with your {provider} username already exists. Sign in to it to link your {provider} account.",
+                { provider: displayName },
+              )}
             </p>
           </Callout>
         }

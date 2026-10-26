@@ -12,16 +12,17 @@ import {
 import { syncOAuthAvatar } from "./oauth-avatar"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"
-import { findUserByUsernameHint, generateUniqueUsername } from "./username"
+import { findUserIdByUsernameHint, generateUniqueUsername } from "./username"
 
 const logger = createLogger("oauth")
 const NO_LINKED_ACCOUNT =
   "No Alloy account is linked to this OAuth account. Sign in with another method and link it from settings."
 
-export type SignInResolution =
-  | { kind: "matched" | "created"; userId: string }
-  /** The username claim names a local user, who has to sign in and link. */
-  | { kind: "link-required"; userId: string; username: string }
+export type SignInResolution = {
+  /** `link-required`: the username claim names a user, who has to sign in and link. */
+  kind: "matched" | "created" | "link-required"
+  userId: string
+}
 
 export async function resolveSignInUser(input: {
   profile: OAuthProfile
@@ -45,14 +46,8 @@ export async function resolveSignInUser(input: {
   // controls that claim at the provider, so the user proves they own it by
   // signing in first.
   if (input.account !== "new") {
-    const match = await findUserByUsernameHint(input.profile.usernameHint)
-    if (match) {
-      return {
-        kind: "link-required",
-        userId: match.id,
-        username: match.username,
-      }
-    }
+    const match = await findUserIdByUsernameHint(input.profile.usernameHint)
+    if (match) return { kind: "link-required", userId: match }
   }
 
   if (!configStore.get("openRegistrations")) {

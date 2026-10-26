@@ -1,37 +1,27 @@
 import type { PublicAuthConfig } from "@alloy/api"
-import { OAUTH_LINK_QUERY_KEYS } from "@alloy/contracts"
+import { OAUTH_LINK_QUERY_KEY } from "@alloy/contracts"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { LoginPageInner } from "@/components/routes/login/login-page-inner"
 import { OAuthLinkPage } from "@/components/routes/login/oauth-link-page"
 import { redirectAuthedBeforeLoad } from "@/lib/auth-guards"
-import { validateUsername } from "@/lib/form-validators"
 import { sanitizeLoginRedirect } from "@/lib/login-redirect"
-import { searchText } from "@/lib/route-search"
+import { searchString } from "@/lib/route-search"
 
 type LoginSearch = {
   redirect?: string
   reactivate?: boolean
-  [OAUTH_LINK_QUERY_KEYS.provider]?: string
-  [OAUTH_LINK_QUERY_KEYS.username]?: string
+  [OAUTH_LINK_QUERY_KEY]?: string
 }
 
 /** The enabled provider an OAuth sign-in asked to link, if any. */
 function linkProvider(config: PublicAuthConfig, search: LoginSearch) {
-  const providerId = search[OAUTH_LINK_QUERY_KEYS.provider]
+  const providerId = search[OAUTH_LINK_QUERY_KEY]
   if (!providerId) return null
   return (
     config.providers.find((provider) => provider.providerId === providerId) ??
     null
   )
-}
-
-/** A username fit to show in the link notice, which anyone can link to. */
-function linkUsername(cause: unknown): string | undefined {
-  const username = searchText(cause)
-  return username && validateUsername(username) === undefined
-    ? username
-    : undefined
 }
 
 export const Route = createFileRoute("/(auth)/_auth/login")({
@@ -42,10 +32,8 @@ export const Route = createFileRoute("/(auth)/_auth/login")({
     if (search.reactivate === true || search.reactivate === "true") {
       result.reactivate = true
     }
-    const provider = searchText(search[OAUTH_LINK_QUERY_KEYS.provider])
-    if (provider) result[OAUTH_LINK_QUERY_KEYS.provider] = provider
-    const username = linkUsername(search[OAUTH_LINK_QUERY_KEYS.username])
-    if (username) result[OAUTH_LINK_QUERY_KEYS.username] = username
+    const provider = searchString(search[OAUTH_LINK_QUERY_KEY])
+    if (provider) result[OAUTH_LINK_QUERY_KEY] = provider
     return result
   },
   beforeLoad: ({ context, search }) => {
@@ -70,7 +58,6 @@ function LoginPage() {
       <OAuthLinkPage
         config={config}
         provider={provider}
-        username={linkUsername(search[OAUTH_LINK_QUERY_KEYS.username])}
         redirectTo={redirectTo}
       />
     )

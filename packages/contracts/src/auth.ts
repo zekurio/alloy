@@ -9,13 +9,10 @@ export type AuthErrorCode =
   (typeof AUTH_ERROR_CODES)[keyof typeof AUTH_ERROR_CODES]
 
 /**
- * Login page query keys set by an OAuth sign-in whose username claim matched
- * an existing user: the provider to link once signed in, and that username.
+ * Login page query key naming the provider to link once signed in, set by an
+ * OAuth sign-in whose username claim matched an existing user.
  */
-export const OAUTH_LINK_QUERY_KEYS = {
-  provider: "link",
-  username: "link_username",
-} as const
+export const OAUTH_LINK_QUERY_KEY = "link"
 
 /**
  * Which account an OAuth sign-in may end in. `new` creates one even when the

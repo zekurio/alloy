@@ -9,17 +9,6 @@ export function searchString(cause: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
-const SearchTextSchema = t.union([t.string(), t.number()])
-
-/**
- * Like {@link searchString} for free text, such as a username, that the
- * router parses as a number when it looks like one.
- */
-export function searchText(cause: unknown): string | undefined {
-  const result = SearchTextSchema.safeParse(cause)
-  return result.success ? searchString(String(result.data)) : undefined
-}
-
 export function searchEnum<T extends string>(
   cause: unknown,
   allowed: readonly T[],

@@ -189,7 +189,6 @@ export async function finishOAuthCallback(
         redirectTo: loginURLWithOAuthLink(
           payload.callbackURL,
           provider.providerId,
-          resolved.username,
         ),
       }
     }

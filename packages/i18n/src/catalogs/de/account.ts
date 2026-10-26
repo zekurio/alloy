@@ -21,8 +21,6 @@ export const ACCOUNT_MESSAGES = {
   "Add passkey": "Passkey hinzufügen",
   "Alloy Desktop": "Alloy Desktop",
   "Already have an account?": "Hast du schon ein Konto?",
-  "An account named {username} already exists. Sign in to it to link your {provider} account.":
-    "Ein Konto namens {username} existiert bereits. Melde dich dort an, um dein {provider}-Konto zu verknüpfen.",
   "An account with your {provider} username already exists. Sign in to it to link your {provider} account.":
     "Ein Konto mit deinem {provider}-Benutzernamen existiert bereits. Melde dich dort an, um dein {provider}-Konto zu verknüpfen.",
   "Auth attempt cancelled.": "Authentifizierungsversuch abgebrochen.",
