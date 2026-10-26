@@ -1199,7 +1199,10 @@ async fn handle_line(inner: &Arc<Inner>, session: &Arc<Session>, line: &str) {
     }
 
     if value.get("id").is_some() {
-        let response = match serde_json::from_value::<WireResponse>(value) {
+        // serde reads `"result": null` as `None`, the same as an omitted
+        // result. Requests with nothing to return answer null, so keep it.
+        let has_result = value.get("result").is_some();
+        let mut response = match serde_json::from_value::<WireResponse>(value) {
             Ok(response) => response,
             Err(error) => {
                 log::warn!("[alloy-agent] invalid response: {error}");
@@ -1209,6 +1212,9 @@ async fn handle_line(inner: &Arc<Inner>, session: &Arc<Session>, line: &str) {
         if response.id == 0 {
             log::warn!("[alloy-agent] ignored response with id 0");
             return;
+        }
+        if has_result && response.result.is_none() {
+            response.result = Some(Value::Null);
         }
         let pending = session.pending.lock().await.remove(&response.id);
         if let Some(pending) = pending {
@@ -1467,10 +1473,9 @@ fn decode_response<T: DeserializeOwned>(
                 .unwrap_or_else(|| format!("Alloy agent {method} failed.")),
         ));
     }
-    // Requests with nothing to return answer `"result": null`, which serde
-    // reads as `None`, the same as an omitted result. Either is a null
-    // result; a method that expects data still fails to decode it.
-    let value = response.result.unwrap_or(Value::Null);
+    let value = response.result.ok_or_else(|| {
+        RecorderHostError::Protocol(format!("Alloy agent {method} response omitted result."))
+    })?;
     serde_json::from_value(value)
         .map_err(|source| json_error(format!("Invalid {method} response"), source))
 }
