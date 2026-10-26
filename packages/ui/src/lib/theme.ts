@@ -1,4 +1,10 @@
-import type { SyncedThemePreferences } from "@alloy/contracts"
+import {
+  NO_THEME_ACCENTS,
+  ThemeAccentsSchema,
+  type SyncedThemePreferences,
+  type ThemeAccents,
+  type ThemeMode,
+} from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import {
   normalizeThemeColor,
@@ -17,11 +23,10 @@ import {
   type CustomTheme,
 } from "@alloy/ui/lib/theme-custom"
 import {
-  ALLOY_THEME_ID,
-  BASE_THEME_VARIANTS,
   BUILTIN_THEMES,
   DEFAULT_THEME_VARIANT_IDS,
-  isBaseThemeVariant,
+  DEFAULT_THEME_VARIANTS,
+  isAlloyThemeVariant,
   themeFamilyDefault,
   type ThemeFamily,
   type ThemeVariant,
@@ -36,7 +41,7 @@ import {
 } from "@alloy/ui/lib/theme-storage"
 
 /**
- * The live theme: stored preferences and custom themes, the server's accent,
+ * The live theme: stored preferences and custom themes, the server's accents,
  * and the OS appearance, resolved into one `<style>` element. Components read
  * it through {@link getThemeState} and {@link subscribeTheme}; account sync
  * listens to {@link subscribeThemeEdits}, answers with
@@ -49,8 +54,8 @@ export interface ThemeState {
   /** Bundled themes first, then the user's own. */
   themes: readonly ThemeFamily[]
   customThemes: readonly CustomTheme[]
-  /** Accent the server's admins chose for the Alloy base themes. */
-  serverAccent: string | null
+  /** Accents the server's admins chose for the Alloy theme. */
+  serverAccents: ThemeAccents
   systemAppearance: ThemeAppearance
   /** The appearance the page shows now. */
   appearance: ThemeAppearance
@@ -65,17 +70,17 @@ const THEME_STYLE_ID = "alloy-theme"
  */
 const THEME_CSS_CACHE_KEY = "alloy.theme-css"
 /**
- * The server's accent as of its last config. The config arrives after the
+ * The server's accents as of its last config. The config arrives after the
  * first theme pass, which would otherwise paint (and cache) Alloy's lavender
  * in the meantime.
  */
-const SERVER_ACCENT_CACHE_KEY = "alloy.server-accent"
+const SERVER_ACCENTS_CACHE_KEY = "alloy.server-accents"
 const DARK_QUERY = "(prefers-color-scheme: dark)"
 const MatchMediaSchema = t.instanceof(Function)
 
 let preferences: ThemePreferences = DEFAULT_THEME_PREFERENCES
 let customThemes: readonly CustomTheme[] = []
-let serverAccent: string | null = null
+let serverAccents: ThemeAccents = NO_THEME_ACCENTS
 let systemAppearance: ThemeAppearance = "dark"
 let preview: { appearance: ThemeAppearance; colors: ThemeColors } | null = null
 let initialized = false
@@ -111,7 +116,6 @@ export function syncedThemePreferences(
     mode: current.mode,
     light: current.light,
     dark: current.dark,
-    accent: current.accent,
   }
 }
 
@@ -124,12 +128,16 @@ export function applySyncedThemePreferences(
   if (
     current.mode === synced.mode &&
     current.light === synced.light &&
-    current.dark === synced.dark &&
-    current.accent === synced.accent
+    current.dark === synced.dark
   ) {
     return
   }
-  preferences = writeThemePreferences({ ...preferences, ...synced })
+  preferences = writeThemePreferences({
+    ...preferences,
+    mode: synced.mode,
+    light: synced.light,
+    dark: synced.dark,
+  })
   refresh()
 }
 
@@ -147,7 +155,7 @@ export function initTheme(): void {
   initialized = true
   preferences = readThemePreferences()
   customThemes = readCustomThemes()
-  serverAccent = readServerAccentCache()
+  serverAccents = readServerAccentsCache()
   systemAppearance = readSystemAppearance()
   refresh()
 
@@ -173,72 +181,42 @@ export function initTheme(): void {
   })
 }
 
-/**
- * The base theme picker: a monochrome base is shown right away, while
- * "system" follows the OS with whichever light and dark themes are chosen.
- */
-export function selectBaseTheme(choice: "system" | string): void {
-  if (choice === "system") {
-    savePreferences({ ...preferences, mode: "system" })
-    return
-  }
-  const variant = BASE_THEME_VARIANTS.find((base) => base.id === choice)
-  if (!variant) return
-  savePreferences(
-    withVariant({ ...preferences, mode: variant.appearance }, variant),
-  )
+/** "system" follows the OS; light and dark each show their chosen theme. */
+export function setThemeMode(mode: ThemeMode): void {
+  savePreferences({ ...preferences, mode })
 }
 
 /**
- * One variant takes over its appearance. A fixed mode switches to that
- * appearance so the pick is visible; "system" keeps following the OS.
+ * One variant takes over its appearance. The color scheme stays put: a pick
+ * for the other appearance shows in the scheme previews until it's in use.
  */
 export function selectThemeVariant(id: string): void {
   const variant = findVariant(state.themes, id)
   if (!variant) return
-  const mode = preferences.mode === "system" ? "system" : variant.appearance
-  savePreferences(withVariant({ ...preferences, mode }, variant))
+  savePreferences(withVariant(preferences, variant))
 }
 
-/** A whole theme takes over every appearance it has. */
+/** A whole theme takes over every appearance it has, scheme unchanged. */
 export function selectThemeFamily(id: string): void {
   const family = state.themes.find((candidate) => candidate.id === id)
   if (!family) return
 
-  let next = { ...preferences }
+  let next = preferences
   for (const appearance of THEME_APPEARANCES) {
-    // Picking Alloy keeps whichever monochrome base is already in use.
-    const keepBase =
-      family.id === ALLOY_THEME_ID &&
-      isBaseThemeVariant(preferences[appearance])
-    const variant = keepBase ? null : themeFamilyDefault(family, appearance)
+    const variant = themeFamilyDefault(family, appearance)
     if (variant) next = withVariant(next, variant)
-  }
-  // A single-appearance theme can't show in the other fixed mode.
-  const onlyVariant = family.variants[0]
-  if (
-    next.mode !== "system" &&
-    onlyVariant &&
-    !themeFamilyDefault(family, next.mode)
-  ) {
-    next.mode = onlyVariant.appearance
   }
   savePreferences(next)
 }
 
-/** Personal accent for the Alloy base themes; null follows the server. */
-export function setThemeAccent(accent: string | null): void {
-  savePreferences({
-    ...preferences,
-    accent: accent ? normalizeThemeColor(accent) : null,
-  })
-}
-
-export function setServerThemeAccent(accent: string | null): void {
-  const next = accent ? normalizeThemeColor(accent) : null
-  if (next === serverAccent) return
-  serverAccent = next
-  writeStorage(SERVER_ACCENT_CACHE_KEY, next)
+export function setServerThemeAccents(accents: ThemeAccents): void {
+  const next = normalizeAccents(accents)
+  if (sameAccents(next, serverAccents)) return
+  serverAccents = next
+  writeStorage(
+    SERVER_ACCENTS_CACHE_KEY,
+    next.light || next.dark ? JSON.stringify(next) : null,
+  )
   refresh()
 }
 
@@ -298,15 +276,23 @@ export function endThemePreview(): void {
   apply()
 }
 
-/** The colors a variant paints with, the base themes' accent included. */
+/** The colors a variant paints with, the server's accent included. */
 export function themeVariantColors(
   theme: ThemeState,
   variant: ThemeVariant,
 ): ThemeColors {
-  const accent = theme.preferences.accent ?? theme.serverAccent
-  return accent && isBaseThemeVariant(variant.id)
-    ? withThemeAccent(variant.colors, accent)
-    : variant.colors
+  const accent = serverAccentFor(theme, variant)
+  return accent ? withThemeAccent(variant.colors, accent) : variant.colors
+}
+
+/** The server's accent tints Alloy's own variants and nothing else. */
+function serverAccentFor(
+  theme: ThemeState,
+  variant: ThemeVariant,
+): string | null {
+  return isAlloyThemeVariant(variant.id)
+    ? theme.serverAccents[variant.appearance]
+    : null
 }
 
 function savePreferences(next: ThemePreferences): void {
@@ -336,12 +322,12 @@ function buildState(): ThemeState {
   const themes = [...BUILTIN_THEMES, ...customThemes.map(customThemeFamily)]
   const resolve = (appearance: ThemeAppearance) =>
     findVariant(themes, preferences[appearance], appearance) ??
-    defaultVariant(appearance)
+    DEFAULT_THEME_VARIANTS[appearance]
   return {
     preferences,
     themes,
     customThemes,
-    serverAccent,
+    serverAccents,
     systemAppearance,
     appearance:
       preferences.mode === "system" ? systemAppearance : preferences.mode,
@@ -357,12 +343,13 @@ function apply(): void {
   root.classList.toggle("dark", appearance === "dark")
   root.classList.toggle("light", appearance === "light")
 
-  const accent = state.preferences.accent ?? state.serverAccent
   const bundledDefaults =
     !preview &&
-    !accent &&
-    state.light.id === DEFAULT_THEME_VARIANT_IDS.light &&
-    state.dark.id === DEFAULT_THEME_VARIANT_IDS.dark
+    THEME_APPEARANCES.every(
+      (target) =>
+        state[target].id === DEFAULT_THEME_VARIANT_IDS[target] &&
+        !serverAccentFor(state, state[target]),
+    )
   if (bundledDefaults) {
     // globals.css already has exactly these colors.
     document.getElementById(THEME_STYLE_ID)?.remove()
@@ -399,13 +386,26 @@ function writeCssCache(css: string | null): void {
   writeStorage(THEME_CSS_CACHE_KEY, css)
 }
 
-function readServerAccentCache(): string | null {
+function readServerAccentsCache(): ThemeAccents {
   try {
-    const cached = localStorage.getItem(SERVER_ACCENT_CACHE_KEY)
-    return cached ? normalizeThemeColor(cached) : null
+    const cached = ThemeAccentsSchema.safeParse(
+      JSON.parse(localStorage.getItem(SERVER_ACCENTS_CACHE_KEY) ?? "null"),
+    )
+    return cached.success ? cached.data : NO_THEME_ACCENTS
   } catch {
-    return null
+    return NO_THEME_ACCENTS
   }
+}
+
+function normalizeAccents(accents: ThemeAccents): ThemeAccents {
+  return {
+    light: accents.light ? normalizeThemeColor(accents.light) : null,
+    dark: accents.dark ? normalizeThemeColor(accents.dark) : null,
+  }
+}
+
+function sameAccents(first: ThemeAccents, second: ThemeAccents): boolean {
+  return first.light === second.light && first.dark === second.dark
 }
 
 function writeStorage(key: string, value: string | null): void {
@@ -431,13 +431,6 @@ function findVariant(
     if (variant) return variant
   }
   return undefined
-}
-
-function defaultVariant(appearance: ThemeAppearance): ThemeVariant {
-  const id = DEFAULT_THEME_VARIANT_IDS[appearance]
-  const variant = BASE_THEME_VARIANTS.find((base) => base.id === id)
-  if (!variant) throw new Error(`Missing default ${appearance} theme`)
-  return variant
 }
 
 // "system" falls back to dark when matchMedia is unavailable, matching the

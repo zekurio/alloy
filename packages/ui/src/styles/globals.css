@@ -190,16 +190,16 @@
   --space-12: 64px;
 
   /* Neutral scale — dark, pure-grey. Themes replace it at runtime (see
-     lib/theme.ts). The low end sits near black; steps 0-300 stay ~0.04-0.07 apart so
-     surfaces, inputs, and borders remain distinguishable at that depth. */
-  --neutral-0: oklch(0.11 0 0);
-  --neutral-50: oklch(0.15 0 0);
-  --neutral-100: oklch(0.19 0 0);
-  --neutral-150: oklch(0.235 0 0);
-  --neutral-200: oklch(0.27 0 0);
-  --neutral-300: oklch(0.34 0 0);
-  --neutral-400: oklch(0.45 0 0);
-  --neutral-500: oklch(0.57 0 0);
+     lib/theme.ts). Steps 0-300 stay ~0.04-0.06 apart so surfaces, inputs,
+     and borders remain distinguishable. */
+  --neutral-0: oklch(0.19 0 0);
+  --neutral-50: oklch(0.23 0 0);
+  --neutral-100: oklch(0.27 0 0);
+  --neutral-150: oklch(0.31 0 0);
+  --neutral-200: oklch(0.35 0 0);
+  --neutral-300: oklch(0.41 0 0);
+  --neutral-400: oklch(0.5 0 0);
+  --neutral-500: oklch(0.59 0 0);
   --neutral-600: oklch(0.68 0 0);
   --neutral-700: oklch(0.79 0 0);
   --neutral-800: oklch(0.9 0 0);
@@ -232,15 +232,15 @@
   --background: var(--neutral-0);
   --surface: var(--neutral-50);
   --surface-raised: var(--neutral-100);
-  --surface-sunken: oklch(0.07 0 0);
+  --surface-sunken: oklch(0.15 0 0);
 
   --foreground: var(--neutral-900);
   --foreground-muted: var(--neutral-700);
   --foreground-dim: var(--neutral-600);
-  /* Decoupled from --neutral-500 (0.57) — that was the right step on the
+  /* Decoupled from --neutral-500 (0.59) — that was the right step on the
      neutral scale but too low-contrast for UI copy. 0.63 stays visibly
      subordinate to --foreground-dim (0.68) while remaining readable
-     against --background (0.11) for meta labels, timestamps, and
+     against --background (0.19) for meta labels, timestamps, and
      separators across the app. */
   --foreground-faint: oklch(0.63 0 0);
 

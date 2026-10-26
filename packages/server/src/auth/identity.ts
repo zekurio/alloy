@@ -275,7 +275,7 @@ export async function createRegistrationUserInTransaction(
 /**
  * Saves the theme shared by the user's devices. Leaves updated_at alone: it is
  * the revision avatar and banner uploads compare, and theme edits arrive often
- * enough (an accent picker drag) to make those uploads fail as stale.
+ * enough (clicking through themes) to make those uploads fail as stale.
  */
 export async function updateUserThemePreferences(
   userId: string,

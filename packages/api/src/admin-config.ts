@@ -5,6 +5,7 @@ import type {
   ContractJsonInput,
   HardwareAcceleration,
   RenditionTierConfig,
+  ThemeAccents,
   TranscodingCapabilities,
   UploadLimits,
   VideoCodec,
@@ -27,8 +28,8 @@ export type AppearanceConfigPatch = {
     blurPx?: number
     darkenOpacity?: number
   }
-  /** `#rrggbb`, or null to restore Alloy's own accent. */
-  accentColor?: string | null
+  /** `#rrggbb` per appearance, or null to restore Alloy's own accent. */
+  accentColors?: ThemeAccents
 }
 
 export type TranscodingConfigPatch = {

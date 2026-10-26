@@ -140,7 +140,7 @@ const RAMP_POSITIONS = {
 /** Alloy's own anchors, used for whatever a theme leaves out. */
 const DEFAULT_ANCHORS = {
   dark: {
-    background: "oklch(0.11 0 0)",
+    background: "oklch(0.19 0 0)",
     accent: "#d0c4eb",
     success: "oklch(0.72 0.19 145)",
     warning: "oklch(0.82 0.18 90)",
@@ -332,8 +332,8 @@ export function generateThemeColors(
 
 /**
  * Replaces a theme's accent with `seed`, adjusted for contrast against that
- * theme's background. Used for the server and personal accent on the Alloy
- * base themes, whose single accent has to work on every base.
+ * theme's background. Used for the server's accents on the Alloy theme, which
+ * an admin picks without seeing every background they land on.
  */
 export function withThemeAccent(
   colors: ThemeColors,

@@ -9,15 +9,27 @@ export const HexColorSchema = t.string().regex(/^#[0-9a-f]{6}$/)
 /** Bundled ids such as `nord`, and custom ones such as `custom-1a2b3c:dark`. */
 const ThemeVariantIdSchema = t.string().regex(/^[a-z0-9][a-z0-9:-]{0,79}$/)
 
+/** An accent per appearance for the Alloy theme; null keeps Alloy's own. */
+export const ThemeAccentsSchema = t.object({
+  light: HexColorSchema.nullable(),
+  dark: HexColorSchema.nullable(),
+})
+
+export type ThemeAccents = t.infer<typeof ThemeAccentsSchema>
+
+export const NO_THEME_ACCENTS: Readonly<ThemeAccents> = Object.freeze({
+  light: null,
+  dark: null,
+})
+
 /**
- * The theme choice that follows a user across devices: the mode, the theme
- * shown in each appearance, and the personal accent of Alloy's base themes.
+ * The theme choice that follows a user across devices: the mode, and the
+ * theme shown in each appearance.
  */
 export const SyncedThemePreferencesSchema = t.object({
   mode: t.enum(THEME_MODES),
   light: ThemeVariantIdSchema,
   dark: ThemeVariantIdSchema,
-  accent: HexColorSchema.nullable(),
 })
 
 export type SyncedThemePreferences = t.infer<

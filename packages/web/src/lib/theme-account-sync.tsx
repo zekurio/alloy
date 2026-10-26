@@ -14,7 +14,7 @@ import { loadAccountThemes } from "./account-themes"
 import { authClient, useSession } from "./auth-client"
 import { clientLogger } from "./client-log"
 
-/** Coalesces bursts, such as dragging the accent picker, into one save. */
+/** Coalesces bursts, such as clicking through themes, into one save. */
 const SAVE_DELAY_MS = 800
 /**
  * Another device's change arrives with the next session and theme list read;
