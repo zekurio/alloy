@@ -2,6 +2,7 @@
 
 import {
   MODAL_FOOTER_BUTTON_CLASS_NAME,
+  MODAL_OVERLAY_CLASS_NAME,
   MODAL_OVERLAY_FORCE_RENDER,
 } from "@alloy/ui/lib/modal"
 import { cn } from "@alloy/ui/lib/utils"
@@ -99,7 +100,7 @@ function DrawerOverlay({
     <Drawer.Backdrop
       data-slot="drawer-overlay"
       forceRender={forceRender}
-      className={cn("fixed inset-0 z-50 bg-black/50", className)}
+      className={cn("fixed inset-0 z-50", MODAL_OVERLAY_CLASS_NAME, className)}
       {...props}
     />
   )

@@ -1,5 +1,6 @@
 import {
   MODAL_FOOTER_BUTTON_CLASS_NAME,
+  MODAL_OVERLAY_CLASS_NAME,
   MODAL_OVERLAY_FORCE_RENDER,
 } from "@alloy/ui/lib/modal"
 import { cn } from "@alloy/ui/lib/utils"
@@ -33,7 +34,8 @@ function DialogOverlay({
       data-slot="dialog-overlay"
       forceRender={forceRender}
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/60",
+        "fixed inset-0 isolate z-50",
+        MODAL_OVERLAY_CLASS_NAME,
         "duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className,
       )}
