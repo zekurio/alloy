@@ -43,19 +43,32 @@ function ResponsiveDialog({
 }) {
   const viewportMobile = useIsMobile()
   // Swapping Drawer and Dialog remounts the content and drops whatever the
-  // user typed, so an open dialog keeps the layout it opened with.
-  const [openedMobile, setOpenedMobile] = useState(viewportMobile)
-  if (!open && openedMobile !== viewportMobile) setOpenedMobile(viewportMobile)
-  const isMobile = open ? openedMobile : viewportMobile
+  // user typed, so a dialog keeps the layout it opened with until it has
+  // finished closing.
+  const [heldMobile, setHeldMobile] = useState(open ? viewportMobile : null)
+  if (open && heldMobile === null) setHeldMobile(viewportMobile)
+  const isMobile = heldMobile ?? viewportMobile
+  const releaseLayout = (nextOpen: boolean) => {
+    if (!nextOpen) setHeldMobile(null)
+  }
 
   return (
     <ResponsiveDialogContext.Provider value={isMobile}>
       {isMobile ? (
-        <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
+        <Drawer
+          open={open}
+          onOpenChange={onOpenChange}
+          onOpenChangeComplete={releaseLayout}
+          direction="bottom"
+        >
           {children}
         </Drawer>
       ) : (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog
+          open={open}
+          onOpenChange={onOpenChange}
+          onOpenChangeComplete={releaseLayout}
+        >
           {children}
         </Dialog>
       )}

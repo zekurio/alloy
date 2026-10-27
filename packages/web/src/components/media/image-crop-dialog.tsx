@@ -152,6 +152,10 @@ export function ImageCropDialog({
     return () => {
       active = false
       revokeObjectUrl(src, "crop source")
+      // Reopening with the same file must not show the revoked URL or the
+      // last session's zoom.
+      setSource((current) => (current?.file === file ? null : current))
+      setView((current) => (current.file === file ? INITIAL_VIEW : current))
     }
   }, [file, open])
 
