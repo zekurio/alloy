@@ -17,7 +17,7 @@ pub(in crate::agent) use displays::{list_displays, primary_display_id, x11_scree
 pub(in crate::agent) use games::{
     audio_target, detect_game_activity, is_detected_game_alive, list_game_processes,
 };
-pub(in crate::agent) use gpus::{render_node, render_nodes};
+pub(in crate::agent) use gpus::{render_node, render_node_labels};
 
 use super::DetectedGame;
 

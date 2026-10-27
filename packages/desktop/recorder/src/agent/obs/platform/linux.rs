@@ -21,7 +21,8 @@ use crate::{
         platform::{
             audio_application_id_from_parts,
             linux::{
-                audio_devices, audio_target, default_audio_device_id, render_node, render_nodes,
+                audio_devices, audio_target, default_audio_device_id, render_node,
+                render_node_labels,
                 session::{display_session, DisplaySession},
                 x11_screen_index,
             },
@@ -370,13 +371,15 @@ pub(in crate::agent) fn display_capture_source(
             restore_token: stored_restore_token(),
         }),
         Some(DisplaySession::X11) => {
-            let display_id = Some(settings.selected_display_id.trim())
+            // A stored id that no longer resolves, such as an unplugged
+            // monitor or Wayland's `portal`, records the primary monitor.
+            let selected = Some(settings.selected_display_id.trim())
                 .filter(|id| !id.is_empty())
-                .map(str::to_string)
-                .or_else(primary_display_id)
-                .unwrap_or_default();
+                .and_then(x11_screen_index);
             Ok(DisplayCaptureSource::X11Screen(
-                x11_screen_index(&display_id).unwrap_or(0),
+                selected
+                    .or_else(|| primary_display_id().and_then(|id| x11_screen_index(&id)))
+                    .unwrap_or(0),
             ))
         }
         None => Err("Display capture needs a Wayland or X11 session.".into()),
@@ -513,10 +516,10 @@ pub(in crate::agent) fn platform_default_audio_device_id(
 
 /// GPUs as `adapter:{index}:{label}`, by DRM render node.
 pub(in crate::agent) fn platform_gpus() -> Option<Vec<String>> {
-    let gpus: Vec<_> = render_nodes()
+    let gpus: Vec<_> = render_node_labels()
         .into_iter()
         .enumerate()
-        .map(|(index, node)| format!("adapter:{index}:{}", node.label))
+        .map(|(index, label)| format!("adapter:{index}:{label}"))
         .collect();
     (!gpus.is_empty()).then_some(gpus)
 }
@@ -531,11 +534,18 @@ pub(in crate::agent) fn audio_application_from_game(
     enabled: bool,
 ) -> Option<RecordingAudioApplicationSelection> {
     let target = audio_target(game)?;
+    // The id and executable match what the application list shows for the
+    // game's stream; only the capture target is the raw binary.
+    let executable = game
+        .game
+        .executable
+        .clone()
+        .unwrap_or_else(|| target.clone());
     Some(RecordingAudioApplicationSelection {
-        id: audio_application_id_from_parts(Some(&target), None, game.game.process_id),
+        id: audio_application_id_from_parts(Some(&executable), None, game.game.process_id),
         name: game.game.name.clone(),
-        window: target.clone(),
-        executable: Some(target),
+        window: target,
+        executable: Some(executable),
         icon_url: None,
         process_id: Some(game.game.process_id),
         enabled,

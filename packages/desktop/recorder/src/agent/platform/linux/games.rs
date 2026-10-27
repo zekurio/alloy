@@ -113,12 +113,16 @@ pub(in crate::agent) fn is_detected_game_alive(game: &DetectedGame) -> bool {
 
 /// The name the PipeWire application audio capture matches for a game: the
 /// Windows executable for a Proton game, which Wine reports as the stream's
-/// application name, and the executable's file name for a native one.
+/// application name, and otherwise the running binary's file name, which
+/// PipeWire and PulseAudio clients report from `/proc/self/exe`. For a
+/// Nix-wrapped game that is `.name-wrapped`, not the executable shown.
 pub(in crate::agent) fn audio_target(game: &DetectedGame) -> Option<String> {
     game.game
-        .executable
-        .clone()
-        .filter(|executable| !executable.is_empty())
+        .path
+        .as_deref()
+        .and_then(path_file_name)
+        .or_else(|| game.game.executable.clone())
+        .filter(|target| !target.is_empty())
 }
 
 fn detected_game(process: Process, settings: &RecordingSettings) -> Option<DetectedGame> {

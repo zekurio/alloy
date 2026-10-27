@@ -4,11 +4,6 @@
 
 use std::fs;
 
-pub(in crate::agent) struct RenderNode {
-    pub(in crate::agent) path: String,
-    pub(in crate::agent) label: String,
-}
-
 /// PCI ID databases, from hwdata or pciutils.
 const PCI_ID_DATABASES: &[&str] = &[
     "/usr/share/hwdata/pci.ids",
@@ -17,11 +12,20 @@ const PCI_ID_DATABASES: &[&str] = &[
     "/run/current-system/sw/share/hwdata/pci.ids",
 ];
 
-pub(in crate::agent) fn render_nodes() -> Vec<RenderNode> {
+/// A render node with its PCI vendor and device ids.
+struct NodeDevice {
+    path: String,
+    vendor: u16,
+    product: Option<u16>,
+}
+
+/// Render nodes in adapter order. Only sysfs is read here; the labels, which
+/// scan `pci.ids`, are left to `render_node_labels`.
+fn node_devices() -> Vec<NodeDevice> {
     let Ok(entries) = fs::read_dir("/sys/class/drm") else {
         return Vec::new();
     };
-    let mut nodes: Vec<(u32, RenderNode)> = entries
+    let mut nodes: Vec<(u32, NodeDevice)> = entries
         .flatten()
         .filter_map(|entry| {
             let name = entry.file_name().to_string_lossy().into_owned();
@@ -33,9 +37,10 @@ pub(in crate::agent) fn render_nodes() -> Vec<RenderNode> {
                 .and_then(|value| pci_id(&value));
             Some((
                 number,
-                RenderNode {
+                NodeDevice {
                     path: format!("/dev/dri/{name}"),
-                    label: gpu_label(vendor, product),
+                    vendor,
+                    product,
                 },
             ))
         })
@@ -44,9 +49,17 @@ pub(in crate::agent) fn render_nodes() -> Vec<RenderNode> {
     nodes.into_iter().map(|(_, node)| node).collect()
 }
 
+/// Each render node's label, in adapter order.
+pub(in crate::agent) fn render_node_labels() -> Vec<String> {
+    node_devices()
+        .into_iter()
+        .map(|node| gpu_label(node.vendor, node.product))
+        .collect()
+}
+
 /// The render node for an adapter index from the settings.
 pub(in crate::agent) fn render_node(adapter: u32) -> Option<String> {
-    render_nodes()
+    node_devices()
         .into_iter()
         .nth(usize::try_from(adapter).ok()?)
         .map(|node| node.path)
