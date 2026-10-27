@@ -1,7 +1,8 @@
-//! Application icons from freedesktop desktop entries and icon themes, as the
-//! data URLs the settings show beside audio applications and processes. A
-//! process is matched to its desktop entry by executable or application name,
-//! or else through the systemd unit its launcher started it in.
+//! Applications' names and icons from freedesktop desktop entries and icon
+//! themes, which the settings show for audio applications and processes, as
+//! Windows shows an executable's product name and icon. A process is matched
+//! to its desktop entry by executable or application name, or else through
+//! the systemd unit its launcher started it in.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -25,37 +26,54 @@ const MAX_ICON_BYTES: u64 = 64 * 1024;
 /// Desktop entries and themes are read again after this, so apps installed
 /// while Alloy runs get their icons.
 const INDEX_TTL: Duration = Duration::from_secs(60);
-const ICON_CACHE_LIMIT: usize = 512;
+const CACHE_LIMIT: usize = 512;
 const MAX_DESKTOP_ENTRY_BYTES: u64 = 64 * 1024;
 const MAX_PROCESS_DEPTH: usize = 64;
 
-static ICON_INDEX: Mutex<Option<IconIndex>> = Mutex::new(None);
+static INDEX: Mutex<Option<Index>> = Mutex::new(None);
 
-/// The icon of the app a process belongs to, as a data URL. `names` are the
-/// process's executable and application names; the process's systemd unit is
-/// tried when they match no desktop entry.
-pub(super) fn application_icon_data_url(process_id: Option<u32>, names: &[&str]) -> Option<String> {
+/// What the desktop entry of the app a process belongs to says about it.
+#[derive(Clone)]
+pub(super) struct DesktopApplication {
+    pub(super) name: Option<String>,
+    /// A data URL.
+    pub(super) icon_url: Option<String>,
+}
+
+/// The app a process belongs to. `names` are the process's executable and
+/// application names; the process's systemd unit is tried when they match no
+/// desktop entry.
+pub(super) fn desktop_application(
+    process_id: Option<u32>,
+    names: &[&str],
+) -> Option<DesktopApplication> {
     let unit_id = process_id.and_then(unit_application_id);
     let key = format!("{}\n{}", unit_id.as_deref().unwrap_or(""), names.join("\n")).to_lowercase();
-    let mut index = ICON_INDEX.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut index = INDEX.lock().unwrap_or_else(PoisonError::into_inner);
     if index
         .as_ref()
         .is_none_or(|index| index.built.elapsed() > INDEX_TTL)
     {
-        *index = Some(IconIndex::build());
+        *index = Some(Index::build());
     }
     let index = index.as_mut()?;
-    if let Some(icon) = index.icons.get(&key) {
-        return icon.clone();
+    if let Some(application) = index.applications.get(&key) {
+        return application.clone();
     }
-    let icon = index
+    let application = index
         .entry_for(unit_id.as_deref(), names)
-        .and_then(|entry| index.icon_data_url(&entry.icon));
-    if index.icons.len() >= ICON_CACHE_LIMIT {
-        index.icons.clear();
+        .map(|entry| DesktopApplication {
+            name: entry.name.clone(),
+            icon_url: entry
+                .icon
+                .as_deref()
+                .and_then(|icon| index.icon_data_url(icon)),
+        });
+    if index.applications.len() >= CACHE_LIMIT {
+        index.applications.clear();
     }
-    index.icons.insert(key, icon.clone());
-    icon
+    index.applications.insert(key, application.clone());
+    application
 }
 
 /// The desktop entry id of the systemd unit a launcher started the process's
@@ -123,18 +141,20 @@ struct DesktopEntry {
     name: Option<String>,
     program: Option<String>,
     wm_class: Option<String>,
-    icon: String,
+    icon: Option<String>,
+    /// Kept out of menus, as a URL handler's entry is.
+    no_display: bool,
 }
 
-struct IconIndex {
+struct Index {
     built: Instant,
     data_dirs: Vec<PathBuf>,
     entries: Vec<DesktopEntry>,
     themes: Vec<String>,
-    icons: HashMap<String, Option<String>>,
+    applications: HashMap<String, Option<DesktopApplication>>,
 }
 
-impl IconIndex {
+impl Index {
     fn build() -> Self {
         let data_dirs = data_dirs();
         let entries = desktop_entries(&data_dirs);
@@ -144,7 +164,7 @@ impl IconIndex {
             data_dirs,
             entries,
             themes,
-            icons: HashMap::new(),
+            applications: HashMap::new(),
         }
     }
 
@@ -286,8 +306,9 @@ fn icon_bases(data_dirs: &[PathBuf]) -> Vec<PathBuf> {
         .collect()
 }
 
-/// Every desktop entry with an icon. An id found in an earlier data
-/// directory hides the same id in later ones.
+/// Every application's desktop entry, those shown in menus first, as a
+/// helper's entry often starts the same program. An id found in an earlier
+/// data directory hides the same id in later ones.
 fn desktop_entries(data_dirs: &[PathBuf]) -> Vec<DesktopEntry> {
     let mut seen = HashSet::new();
     let mut entries = Vec::new();
@@ -303,6 +324,7 @@ fn desktop_entries(data_dirs: &[PathBuf]) -> Vec<DesktopEntry> {
             }
         }
     }
+    entries.sort_by_key(|entry| entry.no_display);
     entries
 }
 
@@ -346,7 +368,8 @@ fn desktop_entry(id: String, path: &Path) -> Option<DesktopEntry> {
         name: value("Name"),
         program: value("Exec").and_then(|exec| exec_program(&exec)),
         wm_class: value("StartupWMClass"),
-        icon: value("Icon")?,
+        icon: value("Icon"),
+        no_display: value("NoDisplay").as_deref() == Some("true"),
     })
 }
 

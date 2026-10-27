@@ -13,8 +13,8 @@ use std::{
 };
 
 use super::{
+    desktop_entries::desktop_application,
     games::unwrapped_executable,
-    icons::application_icon_data_url,
     pipewire::{Client, Graph, Meter, Node, NodeClass},
 };
 use crate::agent::{
@@ -140,28 +140,33 @@ pub(in crate::agent) fn audio_applications() -> Vec<RecordingAudioApplicationSel
         if applications.iter().any(|known| known.id == application.id) {
             continue;
         }
-        let name = user_facing_process_name(ProcessDisplayName {
-            path: None,
-            preferred: application.name.as_deref(),
-            title: None,
-            executable: Some(&application.executable),
-            fallback: Some(&application.executable),
-            preserve_preferred: false,
-        })
-        .unwrap_or_else(|| application.executable.clone());
-        let icon_url = application_icon_data_url(
+        let desktop = desktop_application(
             application.process_id,
             &[
                 application.executable.as_str(),
                 application.name.as_deref().unwrap_or_default(),
             ],
         );
+        let name = desktop
+            .as_ref()
+            .and_then(|desktop| desktop.name.clone())
+            .or_else(|| {
+                user_facing_process_name(ProcessDisplayName {
+                    path: None,
+                    preferred: application.name.as_deref(),
+                    title: None,
+                    executable: Some(&application.executable),
+                    fallback: Some(&application.executable),
+                    preserve_preferred: false,
+                })
+            })
+            .unwrap_or_else(|| application.executable.clone());
         applications.push(RecordingAudioApplicationSelection {
             id: application.id,
             name,
             window: application.target,
             executable: Some(application.executable),
-            icon_url,
+            icon_url: desktop.and_then(|desktop| desktop.icon_url),
             process_id: application.process_id,
             enabled: false,
             volume: 100,

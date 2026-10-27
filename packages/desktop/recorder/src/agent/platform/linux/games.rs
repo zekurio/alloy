@@ -4,7 +4,7 @@
 
 use std::{collections::HashSet, fs, os::unix::fs::MetadataExt};
 
-use super::icons::application_icon_data_url;
+use super::desktop_entries::desktop_application;
 use crate::agent::{
     game_matching::{
         candidate_game_detection_match, path_file_name, readable_detected_game_name,
@@ -195,19 +195,24 @@ pub(in crate::agent) fn list_game_processes() -> Vec<RecordingGameProcess> {
             if !seen.insert(key.clone()) {
                 return None;
             }
-            let name = user_facing_process_name(ProcessDisplayName {
-                path: Some(&path),
-                preferred: None,
-                title: None,
-                executable: process.executable.as_deref(),
-                fallback: process.executable.as_deref(),
-                preserve_preferred: false,
-            })
-            .unwrap_or_else(|| format!("Process {}", process.pid));
-            let icon_url = application_icon_data_url(
+            let desktop = desktop_application(
                 Some(process.pid),
                 &[process.executable.as_deref().unwrap_or_default()],
             );
+            let name = desktop
+                .as_ref()
+                .and_then(|desktop| desktop.name.clone())
+                .or_else(|| {
+                    user_facing_process_name(ProcessDisplayName {
+                        path: Some(&path),
+                        preferred: None,
+                        title: None,
+                        executable: process.executable.as_deref(),
+                        fallback: process.executable.as_deref(),
+                        preserve_preferred: false,
+                    })
+                })
+                .unwrap_or_else(|| format!("Process {}", process.pid));
             Some(RecordingGameProcess {
                 id: key,
                 name,
@@ -215,7 +220,7 @@ pub(in crate::agent) fn list_game_processes() -> Vec<RecordingGameProcess> {
                 executable: process.executable,
                 path: Some(path),
                 window_title: None,
-                icon_url,
+                icon_url: desktop.and_then(|desktop| desktop.icon_url),
             })
         })
         .collect();

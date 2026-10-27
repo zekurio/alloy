@@ -3,10 +3,10 @@
 //! level meters from PipeWire.
 
 mod audio;
+mod desktop_entries;
 mod displays;
 mod games;
 mod gpus;
-mod icons;
 mod pipewire;
 pub(in crate::agent) mod session;
 
