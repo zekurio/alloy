@@ -1,6 +1,12 @@
 import { t } from "@alloy/i18n"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
-import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react"
 import type { MouseEventHandler } from "react"
 
 import { errorMessage } from "@/lib/error-message"
@@ -132,6 +138,18 @@ export function PlayerCore({
       if (video && !video.isConnected) teardownVideoElement(video)
     }
   }, [controls])
+
+  // A hidden <Activity>, like the page kept under the upload editor, leaves
+  // the element mounted with display: none, which doesn't stop playback.
+  // Hiding runs layout-effect cleanups, so pause here. Only while playing:
+  // pausing a video that hasn't started yet (StrictMode's mount replay)
+  // would cancel its autoplay.
+  useLayoutEffect(() => {
+    const video = videoRef.current
+    return () => {
+      if (video && !video.paused) video.pause()
+    }
+  }, [])
 
   useEffect(() => {
     onTimeUpdateRef.current = onTimeUpdate

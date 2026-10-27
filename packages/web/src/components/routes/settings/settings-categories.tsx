@@ -90,7 +90,9 @@ function lazyPanel<TModule>(
   let loaded: ComponentType | null = null
   let loading: Promise<ComponentType> | null = null
   const preload = () => {
-    // A failed fetch is forgotten, so opening the panel later tries again.
+    // A failed fetch is forgotten, so a failed idle preload doesn't stop
+    // the panel loading when it opens. A failure while it renders stays
+    // with that `lazy`, as for any other lazy chunk, until a reload.
     loading ??= load().then(
       (module) => (loaded = pick(module)),
       (cause: unknown) => {
