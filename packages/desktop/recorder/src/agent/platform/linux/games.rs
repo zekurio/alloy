@@ -4,6 +4,7 @@
 
 use std::{collections::HashSet, fs, os::unix::fs::MetadataExt};
 
+use super::icons::application_icon_data_url;
 use crate::agent::{
     game_matching::{
         candidate_game_detection_match, path_file_name, readable_detected_game_name,
@@ -203,6 +204,10 @@ pub(in crate::agent) fn list_game_processes() -> Vec<RecordingGameProcess> {
                 preserve_preferred: false,
             })
             .unwrap_or_else(|| format!("Process {}", process.pid));
+            let icon_url = application_icon_data_url(
+                Some(process.pid),
+                &[process.executable.as_deref().unwrap_or_default()],
+            );
             Some(RecordingGameProcess {
                 id: key,
                 name,
@@ -210,7 +215,7 @@ pub(in crate::agent) fn list_game_processes() -> Vec<RecordingGameProcess> {
                 executable: process.executable,
                 path: Some(path),
                 window_title: None,
-                icon_url: None,
+                icon_url,
             })
         })
         .collect();

@@ -3,7 +3,7 @@
 //! Device ids are node names, which obs-pipewire-audio-capture's device
 //! sources reconnect to: a sink for an output, a source for an input.
 //! Applications are playback streams, identified for its application capture
-//! by binary or, for Wine, by application name.
+//! by binary or, for Wine and shared Electron, by application name.
 
 use std::{
     collections::HashMap,
@@ -14,6 +14,7 @@ use std::{
 
 use super::{
     games::unwrapped_executable,
+    icons::application_icon_data_url,
     pipewire::{Client, Graph, Meter, Node, NodeClass},
 };
 use crate::agent::{
@@ -80,9 +81,11 @@ fn playback_streams(graph: &Graph) -> impl Iterator<Item = &Node> {
 }
 
 /// How a playback stream is identified. PipeWire's application capture
-/// matches its target against the stream's binary or application name. Wine
-/// streams all report the Wine loader as their binary but name the Windows
-/// program, so they are matched by name.
+/// matches its target against the stream's binary or application name.
+/// Streams from a runtime that hosts many programs report the runtime as
+/// their binary but name the program, so they are matched by name: Wine's
+/// loader for Windows programs, and `electron` for apps that run on a shared
+/// Electron, as Nix packages them.
 struct StreamApplication {
     id: String,
     target: String,
@@ -92,11 +95,10 @@ struct StreamApplication {
 }
 
 fn stream_application(node: &Node) -> Option<StreamApplication> {
-    let wine = node
-        .binary
-        .as_deref()
-        .is_none_or(|binary| binary.starts_with("wine"));
-    let (target, executable) = if wine {
+    let by_name = node.binary.as_deref().is_none_or(|binary| {
+        binary.starts_with("wine") || unwrapped_executable(binary.to_string()) == "electron"
+    });
+    let (target, executable) = if by_name {
         let name = node.application_name.clone()?;
         (name.clone(), name)
     } else {
@@ -147,12 +149,19 @@ pub(in crate::agent) fn audio_applications() -> Vec<RecordingAudioApplicationSel
             preserve_preferred: false,
         })
         .unwrap_or_else(|| application.executable.clone());
+        let icon_url = application_icon_data_url(
+            application.process_id,
+            &[
+                application.executable.as_str(),
+                application.name.as_deref().unwrap_or_default(),
+            ],
+        );
         applications.push(RecordingAudioApplicationSelection {
             id: application.id,
             name,
             window: application.target,
             executable: Some(application.executable),
-            icon_url: None,
+            icon_url,
             process_id: application.process_id,
             enabled: false,
             volume: 100,
