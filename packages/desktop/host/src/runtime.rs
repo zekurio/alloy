@@ -500,6 +500,9 @@ impl DesktopRuntime {
         if let Ok(mut selected) = self.selected.write() {
             selected.clone_from(&origin);
         }
+        // `shutdown` ended the shortcuts session. The window keeps running
+        // even if a step below fails, so the shortcuts come back first.
+        self.shortcuts.resume();
         let settings = self.recorder.get_settings().await;
         let output = if settings.output_folder.is_empty() {
             self.default_output.clone()
@@ -522,8 +525,6 @@ impl DesktopRuntime {
         self.watch_downloads(replacement);
 
         self.recorder.restart().await.map_err(error)?;
-        // `shutdown` ended the shortcuts session.
-        self.shortcuts.resume();
         self.emit(json!({ "type": "settings", "settings": settings }));
         Ok(())
     }
