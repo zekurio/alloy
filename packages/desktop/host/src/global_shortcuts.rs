@@ -365,10 +365,10 @@ mod portal {
 
         let binding = match timeout(SETUP_TIMEOUT, prepare(inner, &request)).await {
             Ok(Ok(binding)) => binding,
-            Ok(Err(message)) => return fail(inner, message),
+            Ok(Err(message)) => return fail(inner, generation, message),
             Err(_) => {
                 log::warn!("global shortcuts: the portal did not answer");
-                return fail(inner, FAILED);
+                return fail(inner, generation, FAILED);
             }
         };
         // The dialog waits on the user, so it has no timeout.
@@ -376,21 +376,21 @@ mod portal {
             asked = ask(&binding, &request) => asked,
             () = superseded(inner, generation) => {
                 binding.close().await;
-                return;
+                return stand_down(inner);
             }
         };
         let shortcuts = match asked {
             Ok(shortcuts) => shortcuts,
             Err(message) => {
                 binding.close().await;
-                return fail(inner, message);
+                return fail(inner, generation, message);
             }
         };
         let mut session = inner.session.lock().await;
         if inner.generation.load(Ordering::SeqCst) != generation {
             drop(session);
             binding.close().await;
-            return;
+            return stand_down(inner);
         }
         let configurable = binding.proxy.version() >= 2;
         *session = Some(binding);
@@ -402,13 +402,25 @@ mod portal {
         });
     }
 
-    fn fail(inner: &Inner, message: &str) {
+    /// Reports why the bind failed, unless a newer bind or a shutdown has
+    /// taken over, which this failure says nothing about.
+    fn fail(inner: &Inner, generation: u64, message: &str) {
+        if inner.generation.load(Ordering::SeqCst) != generation {
+            return stand_down(inner);
+        }
         inner.update(|state| {
             state.binding = false;
             state.shortcuts.clear();
             state.configurable = false;
             state.error = Some(message.into());
         });
+    }
+
+    /// Ends a superseded bind. It only clears `binding`, which it set and a
+    /// shutdown may have cleared before it: a newer bind sets it again once
+    /// it holds the bind lock, after this.
+    fn stand_down(inner: &Inner) {
+        inner.update(|state| state.binding = false);
     }
 
     /// Resolves once a newer bind or a shutdown has started.
