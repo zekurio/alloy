@@ -134,7 +134,7 @@ function OAuthLinkSignIn({
           </Callout>
         }
         footer={
-          config.openRegistrations ? (
+          provider.allowSignUp ? (
             <p className="text-foreground-muted mt-6 text-center text-sm">
               {t("Not your account?")}{" "}
               <button

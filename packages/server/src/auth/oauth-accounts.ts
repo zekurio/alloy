@@ -1,7 +1,6 @@
 import type { OAuthProviderConfig, OAuthSignInAccount } from "@alloy/contracts"
 import { authAccount, user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
-import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { and, eq } from "drizzle-orm"
 
@@ -58,9 +57,7 @@ export async function resolveSignInUser(
 export async function createUserForOAuthAccount(
   input: OAuthIdentity,
 ): Promise<string> {
-  if (!configStore.get("openRegistrations")) {
-    throw new Error(NO_LINKED_ACCOUNT)
-  }
+  if (!input.provider.allowSignUp) throw new Error(NO_LINKED_ACCOUNT)
 
   const userId = await db.transaction(async (tx) => {
     const row = await createOAuthUser(input.profile, async (values) => {

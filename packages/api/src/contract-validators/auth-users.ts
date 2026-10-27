@@ -52,6 +52,10 @@ function validatePublicAuthProvider(
       `Invalid auth config response: provider.${key} is required`,
     )
   }
+  validateBoolean(
+    provider.allowSignUp,
+    "Invalid auth config response: provider.allowSignUp must be boolean",
+  )
   validateAuthProviderColors(provider, "auth config response: provider")
   validateOptionalAuthProviderIconString(
     provider.iconUrl,

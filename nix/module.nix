@@ -322,9 +322,10 @@ in
         type = lib.types.nullOr lib.types.bool;
         default = null;
         description = ''
-          Allow sign-up through enabled registration methods. When null the
-          setting is managed in the admin UI (server default: false); setting
-          it here locks the admin UI control.
+          Allow anyone to sign up with a passkey. OAuth providers decide
+          sign-up for themselves. When null the setting is managed in the
+          admin UI (server default: false); setting it here locks the admin
+          UI control.
         '';
       };
 

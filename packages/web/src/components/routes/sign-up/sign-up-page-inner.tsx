@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router"
 import { useEffect } from "react"
 
 import { OAuthSignIn } from "@/components/routes/login/oauth-sign-in"
+import { signUpProviders } from "@/lib/auth-access"
 import { authClient } from "@/lib/auth-client"
 import { useRedirectIfAuthed } from "@/lib/auth-hooks"
 import { usePasskeySupport } from "@/lib/passkey-support"
@@ -31,7 +32,7 @@ export function SignUpForm({
 }) {
   const canPasskeySignUp = config.openRegistrations && config.passkeyEnabled
   const showPasskeySignUp = passkeyReady && canPasskeySignUp && passkeySupported
-  const oauthProviders = config.openRegistrations ? config.providers : []
+  const oauthProviders = signUpProviders(config)
   const canOAuthSignUp = oauthProviders.length > 0
   const showSeparator = showPasskeySignUp && canOAuthSignUp
 

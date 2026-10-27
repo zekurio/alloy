@@ -18,6 +18,7 @@ export type ProviderDraft = {
   clientSecret: string
   discoveryUrl: string
   enabled: boolean
+  allowSignUp: boolean
   authorizationUrl: string
   tokenUrl: string
   userInfoUrl: string
@@ -48,6 +49,7 @@ const EMPTY_PROVIDER_DRAFT: ProviderDraft = {
   clientSecret: "",
   discoveryUrl: "",
   enabled: true,
+  allowSignUp: false,
   authorizationUrl: "",
   tokenUrl: "",
   userInfoUrl: "",
@@ -76,6 +78,7 @@ export function providerToDraft(
     clientSecret: "",
     discoveryUrl: provider.discoveryUrl ?? "",
     enabled: provider.enabled,
+    allowSignUp: provider.allowSignUp,
     authorizationUrl: provider.authorizationUrl ?? "",
     tokenUrl: provider.tokenUrl ?? "",
     userInfoUrl: provider.userInfoUrl ?? "",
@@ -103,6 +106,7 @@ export function providerToInput(
     displayName: provider.displayName,
     clientId: provider.clientId,
     enabled: provider.enabled,
+    allowSignUp: provider.allowSignUp,
     discoveryUrl: provider.discoveryUrl,
     authorizationUrl: provider.authorizationUrl,
     tokenUrl: provider.tokenUrl,
@@ -129,6 +133,7 @@ export function draftToInput(draft: ProviderDraft): AdminOAuthProviderInput {
     clientSecret: draft.clientSecret.trim(),
     discoveryUrl: draft.discoveryUrl.trim(),
     enabled: draft.enabled,
+    allowSignUp: draft.allowSignUp,
     authorizationUrl: draft.authorizationUrl.trim(),
     tokenUrl: draft.tokenUrl.trim(),
     userInfoUrl: draft.userInfoUrl.trim(),

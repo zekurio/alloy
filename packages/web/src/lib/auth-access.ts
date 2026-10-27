@@ -15,3 +15,16 @@ export function shouldForceOnboarding(
     config.setupRequired && !config.adminAccountRequired && isAdmin(session)
   )
 }
+
+/** Providers whose first sign-in creates an account. */
+export function signUpProviders(config: PublicAuthConfig) {
+  return config.providers.filter((provider) => provider.allowSignUp)
+}
+
+/** Whether any sign-up method is open: passkeys or an OAuth provider. */
+export function canSignUp(config: PublicAuthConfig): boolean {
+  return (
+    (config.openRegistrations && config.passkeyEnabled) ||
+    signUpProviders(config).length > 0
+  )
+}
