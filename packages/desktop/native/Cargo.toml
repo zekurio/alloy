@@ -2,7 +2,7 @@
 # `alloy-desktop` to JavaScript: the native work and its tests live there.
 [package]
 name = "alloy-desktop-native"
-version = "0.0.19"
+version = "0.0.20"
 edition = "2024"
 publish = false
 
