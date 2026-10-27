@@ -19,19 +19,19 @@ export function DesktopAutostartSettings() {
     loading,
     error: loadError,
     refetch,
-  } = useDesktopQuery(desktop ? () => desktop.autostart.getState() : null, [
-    desktop,
-  ])
+  } = useDesktopQuery(
+    ["autostart"],
+    desktop ? () => desktop.autostart.getState() : null,
+  )
   const { feedback, run } = useActionFeedback()
 
   if (!desktop) return null
   const autostart = desktop.autostart
 
   function toggle(enabled: boolean) {
-    void run(
-      async () => setState(await autostart.setEnabled(enabled)),
-      t("Couldn't update the startup setting."),
-    )
+    void run(async () => {
+      setState(await autostart.setEnabled(enabled))
+    }, t("Couldn't update the startup setting."))
   }
 
   return (

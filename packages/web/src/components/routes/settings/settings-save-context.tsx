@@ -1,15 +1,8 @@
 import { t } from "@alloy/i18n"
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import { createContext, useContext, useEffect, useId, useState } from "react"
 import type { ReactNode } from "react"
+import { useStore } from "zustand"
+import { createStore, type StoreApi } from "zustand/vanilla"
 
 import { errorMessage } from "@/lib/error-message"
 
@@ -27,13 +20,10 @@ interface SettingsFormHandlers {
   discard: () => void
 }
 
-interface SettingsSaveRegistry {
-  update: (
-    id: string,
-    snapshot: SettingsFormSnapshot,
-    handlers: SettingsFormHandlers,
-  ) => void
-  remove: (id: string) => void
+/** The TanStack form a settings card registers; only its actions are used. */
+interface SettingsSaveForm {
+  handleSubmit: () => Promise<void>
+  reset: () => void
 }
 
 type SettingsSaveFeedback =
@@ -41,222 +31,204 @@ type SettingsSaveFeedback =
   | { state: "error"; message: string }
 
 interface SettingsSaveState {
-  /** Any registered form has unsaved edits. */
-  dirty: boolean
-  /** Any registered form is saving. */
-  saving: boolean
-  /** Every dirty registered form can currently be saved. */
-  valid: boolean
+  forms: ReadonlyMap<string, SettingsFormSnapshot>
   /**
    * Bumped each time a close or tab switch is blocked by unsaved edits, so
    * the save banner can replay its attention flash per attempt.
    */
   attention: number
-  /** Outcome of the latest save, shown by the save banner. */
+  /**
+   * Outcome of the latest save, shown by the save banner. It lives here
+   * rather than in the bar so every way of saving (the bar's button, Enter in
+   * a form) reports through the same bar.
+   */
   feedback: SettingsSaveFeedback
+  register: (
+    id: string,
+    snapshot: SettingsFormSnapshot,
+    handlers: SettingsFormHandlers,
+  ) => void
+  unregister: (id: string) => void
   requestAttention: () => void
   /** Saves every dirty form; never rejects, failures land in `feedback`. */
   saveAll: () => Promise<void>
   discardAll: () => void
+  /** Cancels the pending feedback reset when the provider unmounts. */
+  dispose: () => void
 }
 
-// Two contexts on purpose: forms subscribe to the registry, whose identity
-// never changes, so registering can't loop when the aggregated state (which
-// changes on every keystroke that flips dirtiness) re-renders consumers.
-const SettingsSaveRegistryContext = createContext<SettingsSaveRegistry | null>(
-  null,
-)
-const SettingsSaveStateContext = createContext<SettingsSaveState | null>(null)
+type SettingsSaveStore = StoreApi<SettingsSaveState>
+
+function sameSnapshot(
+  a: SettingsFormSnapshot | undefined,
+  b: SettingsFormSnapshot,
+): boolean {
+  return (
+    a !== undefined &&
+    a.dirty === b.dirty &&
+    a.saving === b.saving &&
+    a.valid === b.valid
+  )
+}
+
+function createSettingsSaveStore(): SettingsSaveStore {
+  // Handlers stay out of the reactive state: only their call-time value
+  // matters, and swapping them must not re-render the banner.
+  const handlers = new Map<string, SettingsFormHandlers>()
+  let resetTimer: number | null = null
+  const clearResetTimer = () => {
+    if (resetTimer !== null) window.clearTimeout(resetTimer)
+    resetTimer = null
+  }
+
+  return createStore<SettingsSaveState>()((set, get) => ({
+    forms: new Map(),
+    attention: 0,
+    feedback: { state: "idle" },
+    register: (id, snapshot, next) => {
+      handlers.set(id, next)
+      const { forms } = get()
+      if (sameSnapshot(forms.get(id), snapshot)) return
+      set({ forms: new Map(forms).set(id, snapshot) })
+    },
+    unregister: (id) => {
+      handlers.delete(id)
+      const { forms } = get()
+      if (!forms.has(id)) return
+      const next = new Map(forms)
+      next.delete(id)
+      set({ forms: next })
+    },
+    requestAttention: () =>
+      set(({ attention }) => ({ attention: attention + 1 })),
+    saveAll: async () => {
+      const state = get()
+      if (
+        selectSettingsSaving(state) ||
+        !selectSettingsValid(state) ||
+        state.feedback.state === "pending"
+      ) {
+        return
+      }
+      clearResetTimer()
+      set({ feedback: { state: "pending" } })
+      try {
+        const jobs: Promise<void>[] = []
+        for (const [id, snapshot] of state.forms) {
+          if (!snapshot.dirty || snapshot.saving) continue
+          const form = handlers.get(id)
+          if (form) jobs.push(Promise.resolve(form.save()))
+        }
+        await Promise.all(jobs)
+        set({ feedback: { state: "success" } })
+        resetTimer = window.setTimeout(() => {
+          set({ feedback: { state: "idle" } })
+          resetTimer = null
+        }, 1400)
+      } catch (cause) {
+        set({
+          feedback: {
+            state: "error",
+            message: errorMessage(cause, t("Couldn't save changes")),
+          },
+        })
+      }
+    },
+    discardAll: () => {
+      clearResetTimer()
+      set({ feedback: { state: "idle" } })
+      for (const [id, snapshot] of get().forms) {
+        if (!snapshot.dirty) continue
+        handlers.get(id)?.discard()
+      }
+    },
+    dispose: clearResetTimer,
+  }))
+}
+
+/** Any registered form has unsaved edits. */
+export function selectSettingsDirty(state: SettingsSaveState): boolean {
+  for (const snapshot of state.forms.values()) {
+    if (snapshot.dirty) return true
+  }
+  return false
+}
+
+/** Any registered form is saving. */
+export function selectSettingsSaving(state: SettingsSaveState): boolean {
+  for (const snapshot of state.forms.values()) {
+    if (snapshot.saving) return true
+  }
+  return false
+}
+
+/** Every dirty registered form can currently be saved. */
+export function selectSettingsValid(state: SettingsSaveState): boolean {
+  for (const snapshot of state.forms.values()) {
+    if (snapshot.dirty && snapshot.valid === false) return false
+  }
+  return true
+}
+
+const SettingsSaveStoreContext = createContext<SettingsSaveStore | null>(null)
 
 /**
  * Collects the dirty/save/discard state of every settings form so the dialog
  * can turn the section header into one save banner and block closing with
  * unsaved edits.
  * Lives outside the dialog content, so it survives open/close transitions.
+ * Scoped per provider: the settings dialog and page can be mounted together.
  */
 export function SettingsSaveProvider({ children }: { children: ReactNode }) {
-  // Handlers live in a ref: their identity changes every render of the
-  // registering form, and only the call-time value matters.
-  const handlersRef = useRef(new Map<string, SettingsFormHandlers>())
-  const [snapshots, setSnapshots] = useState<
-    ReadonlyMap<string, SettingsFormSnapshot>
-  >(new Map())
-  const [attention, setAttention] = useState(0)
-  // Feedback lives here rather than in the bar so every way of saving (the
-  // bar's button, Enter in a form) reports through the same bar.
-  const [feedback, setFeedback] = useState<SettingsSaveFeedback>({
-    state: "idle",
-  })
-  const resetTimer = useRef<number | null>(null)
-
-  const update = useCallback<SettingsSaveRegistry["update"]>(
-    (id, snapshot, handlers) => {
-      handlersRef.current.set(id, handlers)
-      setSnapshots((prev) => {
-        const current = prev.get(id)
-        if (
-          current &&
-          current.dirty === snapshot.dirty &&
-          current.saving === snapshot.saving &&
-          current.valid === snapshot.valid
-        ) {
-          return prev
-        }
-        const next = new Map(prev)
-        next.set(id, snapshot)
-        return next
-      })
-    },
-    [],
-  )
-
-  const remove = useCallback((id: string) => {
-    handlersRef.current.delete(id)
-    setSnapshots((prev) => {
-      if (!prev.has(id)) return prev
-      const next = new Map(prev)
-      next.delete(id)
-      return next
-    })
-  }, [])
-
-  const registry = useMemo<SettingsSaveRegistry>(
-    () => ({ update, remove }),
-    [update, remove],
-  )
-
-  let dirty = false
-  let saving = false
-  let valid = true
-  for (const snapshot of snapshots.values()) {
-    dirty ||= snapshot.dirty
-    saving ||= snapshot.saving
-    if (snapshot.dirty) valid &&= snapshot.valid !== false
-  }
-
-  const clearResetTimer = useCallback(() => {
-    if (resetTimer.current !== null) window.clearTimeout(resetTimer.current)
-    resetTimer.current = null
-  }, [])
-
-  useEffect(() => clearResetTimer, [clearResetTimer])
-
-  const saveAll = useCallback(async () => {
-    if (saving || !valid || feedback.state === "pending") return
-    clearResetTimer()
-    setFeedback({ state: "pending" })
-    try {
-      const jobs: Promise<void>[] = []
-      for (const [id, snapshot] of snapshots) {
-        if (!snapshot.dirty || snapshot.saving) continue
-        const handlers = handlersRef.current.get(id)
-        if (handlers) jobs.push(Promise.resolve(handlers.save()))
-      }
-      await Promise.all(jobs)
-      setFeedback({ state: "success" })
-      resetTimer.current = window.setTimeout(() => {
-        setFeedback({ state: "idle" })
-        resetTimer.current = null
-      }, 1400)
-    } catch (cause) {
-      setFeedback({
-        state: "error",
-        message: errorMessage(cause, t("Couldn't save changes")),
-      })
-    }
-  }, [snapshots, saving, valid, feedback.state, clearResetTimer])
-
-  const discardAll = useCallback(() => {
-    clearResetTimer()
-    setFeedback({ state: "idle" })
-    for (const [id, snapshot] of snapshots) {
-      if (!snapshot.dirty) continue
-      handlersRef.current.get(id)?.discard()
-    }
-  }, [snapshots, clearResetTimer])
-
-  const requestAttention = useCallback(() => {
-    setAttention((count) => count + 1)
-  }, [])
-
-  const state = useMemo<SettingsSaveState>(
-    () => ({
-      dirty,
-      saving,
-      valid,
-      attention,
-      feedback,
-      requestAttention,
-      saveAll,
-      discardAll,
-    }),
-    [
-      dirty,
-      saving,
-      valid,
-      attention,
-      feedback,
-      requestAttention,
-      saveAll,
-      discardAll,
-    ],
-  )
+  const [store] = useState(createSettingsSaveStore)
+  useEffect(() => store.getState().dispose, [store])
 
   return (
-    <SettingsSaveRegistryContext.Provider value={registry}>
-      <SettingsSaveStateContext.Provider value={state}>
-        {children}
-      </SettingsSaveStateContext.Provider>
-    </SettingsSaveRegistryContext.Provider>
+    <SettingsSaveStoreContext.Provider value={store}>
+      {children}
+    </SettingsSaveStoreContext.Provider>
   )
 }
 
-export function useSettingsSaveState(): SettingsSaveState {
-  const value = useContext(SettingsSaveStateContext)
-  if (!value) {
-    throw new Error(
-      "useSettingsSaveState must be used within a SettingsSaveProvider",
-    )
+function useSettingsSaveStore(hook: string): SettingsSaveStore {
+  const store = useContext(SettingsSaveStoreContext)
+  if (!store) {
+    throw new Error(`${hook} must be used within a SettingsSaveProvider`)
   }
-  return value
+  return store
+}
+
+/** Reads one slice of the settings save state; re-renders only when it changes. */
+export function useSettingsSave<T>(
+  selector: (state: SettingsSaveState) => T,
+): T {
+  return useStore(useSettingsSaveStore("useSettingsSave"), selector)
 }
 
 /**
  * Registers a form with the settings save banner, which renders its Cancel/Save
  * controls. Forms keep no save footer of their own, so one rendered outside a
  * SettingsSaveProvider (the settings dialog and page) throws instead of
- * silently losing its only way to save.
+ * silently losing its only way to save. Saving submits the form and Cancel
+ * resets it, so a failed submit must reject for the banner to report it.
  */
 export function useSettingsSaveBar(
-  form: SettingsFormSnapshot & SettingsFormHandlers,
+  form: SettingsSaveForm,
+  { dirty, saving, valid }: SettingsFormSnapshot,
 ): void {
-  const registry = useContext(SettingsSaveRegistryContext)
-  if (!registry) {
-    throw new Error(
-      "useSettingsSaveBar must be used within a SettingsSaveProvider",
-    )
-  }
+  const store = useSettingsSaveStore("useSettingsSaveBar")
   const id = useId()
 
-  const formRef = useRef(form)
-  // Stable wrappers so re-registration never captures stale closures.
-  const handlers = useMemo<SettingsFormHandlers>(
-    () => ({
-      save: () => formRef.current.save(),
-      discard: () => formRef.current.discard(),
-    }),
-    [],
-  )
-
-  // Re-register every render; the provider ignores no-op snapshot updates.
   useEffect(() => {
-    formRef.current = form
-    registry.update(
+    store.getState().register(
       id,
-      { dirty: form.dirty, saving: form.saving, valid: form.valid },
-      handlers,
+      { dirty, saving, valid },
+      {
+        save: () => form.handleSubmit(),
+        discard: () => form.reset(),
+      },
     )
-  })
+  }, [store, id, form, dirty, saving, valid])
 
-  useEffect(() => () => registry.remove(id), [registry, id])
+  useEffect(() => () => store.getState().unregister(id), [store, id])
 }

@@ -3,7 +3,8 @@ import { t } from "@alloy/i18n"
 import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
-import { useEffect, useMemo, useState } from "react"
+import { useForm, useStore } from "@tanstack/react-form"
+import { useMemo } from "react"
 
 import { LoginAppearancePreview } from "@/components/routes/admin-settings/login-appearance-preview"
 import { AdminAccentSettings } from "@/components/routes/settings/admin-accent-settings"
@@ -33,46 +34,30 @@ export function AppearanceSettingsContent({
   )
   const treatmentPending = saveSplashTreatment.isPending
   const splash = config.appearance.loginSplash
-  const [draftBlurPx, setDraftBlurPx] = useState(splash.blurPx)
-  const [draftDarkenOpacity, setDraftDarkenOpacity] = useState(
-    splash.darkenOpacity,
-  )
-  const previewSplash = useMemo(
-    () => ({
-      ...splash,
-      blurPx: draftBlurPx,
-      darkenOpacity: draftDarkenOpacity,
-    }),
-    [draftBlurPx, draftDarkenOpacity, splash],
-  )
-  const treatmentChanged =
-    draftBlurPx !== splash.blurPx || draftDarkenOpacity !== splash.darkenOpacity
-
-  useEffect(() => {
-    setDraftBlurPx(splash.blurPx)
-    setDraftDarkenOpacity(splash.darkenOpacity)
-  }, [splash.blurPx, splash.darkenOpacity])
-
-  function cancelTreatment() {
-    setDraftBlurPx(splash.blurPx)
-    setDraftDarkenOpacity(splash.darkenOpacity)
-  }
-
-  async function saveTreatment() {
-    if (treatmentPending || !treatmentChanged) return
-    await saveSplashTreatment.mutateAsync({
-      blurPx: draftBlurPx,
-      darkenOpacity: draftDarkenOpacity,
-    })
-  }
-
   // The enabled switch applies immediately; only the blur/darkening treatment
   // is deferred, so that's what goes through the unified save bar.
-  useSettingsSaveBar({
-    dirty: treatmentChanged,
+  const form = useForm({
+    defaultValues: {
+      blurPx: splash.blurPx,
+      darkenOpacity: splash.darkenOpacity,
+    },
+    onSubmit: async ({ value, formApi }) => {
+      const updated = await saveSplashTreatment.mutateAsync(value)
+      const { blurPx, darkenOpacity } = updated.appearance.loginSplash
+      formApi.reset({ blurPx, darkenOpacity }, { keepDefaultValues: true })
+    },
+  })
+  const treatment = useStore(form.store, (state) => state.values)
+  const previewSplash = useMemo(
+    () => ({ ...splash, ...treatment }),
+    [splash, treatment],
+  )
+
+  useSettingsSaveBar(form, {
+    dirty:
+      treatment.blurPx !== splash.blurPx ||
+      treatment.darkenOpacity !== splash.darkenOpacity,
     saving: treatmentPending,
-    save: saveTreatment,
-    discard: cancelTreatment,
   })
 
   return (
@@ -119,11 +104,13 @@ export function AppearanceSettingsContent({
             <LoginAppearancePreview
               config={config}
               splash={previewSplash}
-              blurPx={draftBlurPx}
-              darkenOpacity={draftDarkenOpacity}
+              blurPx={treatment.blurPx}
+              darkenOpacity={treatment.darkenOpacity}
               controlsDisabled={treatmentPending}
-              onBlurPxChange={setDraftBlurPx}
-              onDarkenOpacityChange={setDraftDarkenOpacity}
+              onBlurPxChange={(value) => form.setFieldValue("blurPx", value)}
+              onDarkenOpacityChange={(value) =>
+                form.setFieldValue("darkenOpacity", value)
+              }
             />
           </SettingsSubsection>
         </SettingsSections>

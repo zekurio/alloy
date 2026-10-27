@@ -39,17 +39,8 @@ function useSubmitButtonValidity(
   const [formInvalid, setFormInvalid] = useState(false)
 
   useEffect(() => {
-    if (!enabled) {
-      setFormInvalid(false)
-      return
-    }
-
-    const button = buttonRef.current
-    const form = button?.form
-    if (!button || !form) {
-      setFormInvalid(false)
-      return
-    }
+    const form = enabled ? buttonRef.current?.form : null
+    if (!form) return
 
     const update = () => {
       setFormInvalid(hasInvalidFormControl(form))
@@ -93,6 +84,7 @@ function useSubmitButtonValidity(
       form.removeEventListener("invalid", update, true)
       window.clearTimeout(resetTimer)
       observer.disconnect()
+      setFormInvalid(false)
     }
   }, [buttonRef, enabled])
 

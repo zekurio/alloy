@@ -1,8 +1,8 @@
 import type { ProfileViewer } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
+import { useMutation } from "@tanstack/react-query"
 import { ShieldOffIcon } from "lucide-react"
-import { useState } from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -16,26 +16,17 @@ export function ProfileActions({
   viewer: ProfileViewer | null | undefined
   onChange: (next: ProfileViewer) => void
 }) {
-  const [unblockPending, setUnblockPending] = useState(false)
-  const [unblockError, setUnblockError] = useState<string | null>(null)
+  // Optimistic: the button hides at once and comes back if the call fails.
+  const unblock = useMutation({
+    mutationFn: (_previous: ProfileViewer) => api.users.unblock(targetHandle),
+    onMutate: (previous) => onChange({ ...previous, isBlocked: false }),
+    onError: (_cause, previous) => onChange(previous),
+  })
   if (!viewer || viewer.isSelf || !viewer.isBlocked) return null
-  const activeViewer = viewer
-
-  async function runUnblock() {
-    if (unblockPending) return
-    setUnblockError(null)
-    setUnblockPending(true)
-    const prev = activeViewer
-    onChange({ ...prev, isBlocked: false })
-    try {
-      await api.users.unblock(targetHandle)
-    } catch (cause) {
-      onChange(prev)
-      setUnblockError(errorMessage(cause, t("Something went wrong")))
-    } finally {
-      setUnblockPending(false)
-    }
-  }
+  const unblockPending = unblock.isPending
+  const unblockError = unblock.error
+    ? errorMessage(unblock.error, t("Something went wrong"))
+    : null
 
   return (
     <FeedbackButton
@@ -44,7 +35,9 @@ export function ProfileActions({
       size="sm"
       aria-label={t("Unblock")}
       title={unblockError ?? t("Unblock")}
-      onClick={runUnblock}
+      onClick={() => {
+        if (!unblockPending) unblock.mutate(viewer)
+      }}
       disabled={unblockPending}
       state={unblockPending ? "pending" : unblockError ? "error" : "idle"}
       pendingLabel={t("Unblocking…")}

@@ -1,7 +1,10 @@
 import { useCallback } from "react"
-import type { Dispatch, MouseEvent, RefObject, SetStateAction } from "react"
+import type { MouseEvent } from "react"
+
+import type { PlayerStore } from "./video-player-store"
 
 export function useControlledVideoClick({
+  store,
   clearChromeHideTimer,
   isCoarsePointer,
   onVideoClick,
@@ -9,23 +12,22 @@ export function useControlledVideoClick({
   setChromeVisible,
   togglePlay,
 }: {
+  store: PlayerStore
   clearChromeHideTimer: () => void
   isCoarsePointer: boolean
   onVideoClick: ((event: MouseEvent<HTMLVideoElement>) => void) | undefined
   scheduleChromeHide: () => void
-  setChromeVisible: Dispatch<SetStateAction<boolean>>
+  setChromeVisible: (visible: boolean) => void
   togglePlay: () => void
 }) {
   return useCallback(
     (event: MouseEvent<HTMLVideoElement>) => {
       onVideoClick?.(event)
       if (isCoarsePointer) {
-        setChromeVisible((current) => {
-          const next = !current
-          if (next) scheduleChromeHide()
-          else clearChromeHideTimer()
-          return next
-        })
+        const next = !store.getState().chromeVisible
+        setChromeVisible(next)
+        if (next) scheduleChromeHide()
+        else clearChromeHideTimer()
         return
       }
       setChromeVisible(true)
@@ -36,35 +38,37 @@ export function useControlledVideoClick({
       isCoarsePointer,
       onVideoClick,
       scheduleChromeHide,
+      setChromeVisible,
+      store,
       togglePlay,
     ],
   )
 }
 
 export function useVideoChromePointerHandlers({
+  store,
   clearChromeHideTimer,
   isCoarsePointer,
-  playingRef,
   scheduleChromeHide,
   setChromeVisible,
 }: {
+  store: PlayerStore
   clearChromeHideTimer: () => void
   isCoarsePointer: boolean
-  playingRef: RefObject<boolean>
   scheduleChromeHide: () => void
-  setChromeVisible: Dispatch<SetStateAction<boolean>>
+  setChromeVisible: (visible: boolean) => void
 }) {
   const handlePointerMove = useCallback(() => {
     if (isCoarsePointer) return
     setChromeVisible(true)
-    if (playingRef.current) scheduleChromeHide()
-  }, [isCoarsePointer, scheduleChromeHide])
+    if (store.getState().playing) scheduleChromeHide()
+  }, [isCoarsePointer, scheduleChromeHide, setChromeVisible, store])
 
   const handlePointerLeave = useCallback(() => {
     if (isCoarsePointer) return
     clearChromeHideTimer()
     setChromeVisible(false)
-  }, [clearChromeHideTimer, isCoarsePointer])
+  }, [clearChromeHideTimer, isCoarsePointer, setChromeVisible])
 
   return { handlePointerMove, handlePointerLeave }
 }

@@ -19,10 +19,13 @@ import {
   Link2OffIcon,
   SaveIcon,
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import type { ComponentType } from "react"
 
-import { useClipMetadataDraft } from "@/components/clip-editor/use-clip-metadata-draft"
+import {
+  type ClipMetadataDraft,
+  useClipMetadataDraft,
+} from "@/components/clip-editor/use-clip-metadata-draft"
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
 import { absoluteClipHref } from "@/lib/app-paths"
 import { useUpdateClipMutation } from "@/lib/clip-queries"
@@ -100,8 +103,11 @@ interface ClipDetailsProps {
   mediaError: string | null
   /** Save the media edit with the metadata fields. */
   onSaveMedia: () => void
-  /** Reports whether the metadata fields hold unsaved edits. */
-  onDirtyChange: (dirty: boolean) => void
+  /**
+   * The metadata draft, owned by the editor so its edits outlive this sheet
+   * (the touch layout swaps it out for the trimmer) and count as unsaved.
+   */
+  metadata: ClipMetadataDraft
 }
 
 function gameRowFromRef(row: ClipRow): GameRow | null {
@@ -123,6 +129,26 @@ function gameRowFromRef(row: ClipRow): GameRow | null {
   }
 }
 
+/** The metadata draft for an uploaded clip, measured against the row. */
+export function useClipRowMetadataDraft(row: ClipRow): ClipMetadataDraft {
+  return useClipMetadataDraft(
+    {
+      title: row.title,
+      description: row.description ?? "",
+      game: gameRowFromRef(row),
+      mentions: row.mentions ?? [],
+      tags: row.tags,
+    },
+    {
+      title: row.title,
+      description: row.description ?? "",
+      gameId: row.gameRef?.id ?? null,
+      mentionIds: (row.mentions ?? []).map((mention) => mention.id),
+      tags: row.tags,
+    },
+  )
+}
+
 /** Metadata sheet: the dialog editor's fields and dirty tracking, inline. */
 export function ClipEditorDetails({
   row,
@@ -134,7 +160,7 @@ export function ClipEditorDetails({
   mediaPending,
   mediaError,
   onSaveMedia,
-  onDirtyChange,
+  metadata,
 }: ClipDetailsProps) {
   const {
     title,
@@ -157,27 +183,7 @@ export function ClipEditorDetails({
     mentionsChanged,
     tagsChanged,
     dirty,
-  } = useClipMetadataDraft(
-    {
-      title: row.title,
-      description: row.description ?? "",
-      game: gameRowFromRef(row),
-      mentions: row.mentions ?? [],
-      tags: row.tags,
-    },
-    {
-      title: row.title,
-      description: row.description ?? "",
-      gameId: row.gameRef?.id ?? null,
-      mentionIds: (row.mentions ?? []).map((mention) => mention.id),
-      tags: row.tags,
-    },
-  )
-  useEffect(() => {
-    onDirtyChange(dirty)
-    // The draft goes with this sheet, so its edits stop counting on unmount.
-    return () => onDirtyChange(false)
-  }, [dirty, onDirtyChange])
+  } = metadata
   const saveMutation = useUpdateClipMutation()
   const visibilityMutation = useUpdateClipMutation()
   const librarySearch = useLibrarySearch()

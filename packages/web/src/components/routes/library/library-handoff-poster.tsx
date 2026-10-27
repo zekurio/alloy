@@ -2,7 +2,7 @@ import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { CLIP_MEDIA_CLASS } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
-import { useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 
 const HANDOFF_POSTER_TTL_MS = 10_000
 
@@ -42,6 +42,22 @@ export function clearLibraryHandoffPoster(captureId: string): void {
   handoffPosters.delete(captureId)
 }
 
+/**
+ * The poster another editor handed this one, held until the player paints its
+ * first frame. Editors remount per entry, so the poster is read once on mount
+ * and dropped from the handoff map as soon as the frame is up.
+ */
+export function useLibraryHandoffPoster(captureId: string) {
+  const [poster] = useState(() => readLibraryHandoffPoster(captureId))
+  const [frameReady, setFrameReady] = useState(poster === null)
+  const markFrameReady = useCallback(() => {
+    setFrameReady(true)
+    if (poster) clearLibraryHandoffPoster(captureId)
+  }, [captureId, poster])
+
+  return { poster, frameReady, markFrameReady }
+}
+
 export function LibraryHandoffPosterOverlay({
   poster,
   ready,
@@ -50,13 +66,10 @@ export function LibraryHandoffPosterOverlay({
   ready: boolean
 }) {
   const image = useImageLoaded(poster?.src)
-  const [mounted, setMounted] = useState(poster !== null)
+  // The poster whose fade-out finished; a different poster shows again.
+  const [dismissed, setDismissed] = useState<LibraryHandoffPoster | null>(null)
 
-  useEffect(() => {
-    setMounted(poster !== null)
-  }, [poster])
-
-  if (!poster || !mounted) return null
+  if (!poster || dismissed === poster) return null
 
   const visible = !ready
   const showImage = Boolean(poster.src && image.loaded)
@@ -65,7 +78,7 @@ export function LibraryHandoffPosterOverlay({
     <div
       aria-hidden
       onTransitionEnd={() => {
-        if (ready) setMounted(false)
+        if (ready) setDismissed(poster)
       }}
       className={cn(
         "pointer-events-none absolute inset-0 z-30 overflow-hidden rounded-md bg-black",

@@ -20,7 +20,7 @@ import {
 import { cn } from "@alloy/ui/lib/utils"
 import { PlusIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
 import { useId, useMemo } from "react"
-import type { Dispatch, ReactNode, SetStateAction } from "react"
+import type { ReactNode } from "react"
 
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 
@@ -47,32 +47,32 @@ const LADDER_TABLE_CLASS =
   "@[49rem]:grid-cols-[7rem_6rem_5rem_7rem_minmax(10rem,1fr)_5.5rem_2rem] @[49rem]:items-center"
 
 export function TranscodingLadder({
-  form,
+  values,
   validation,
-  setForm,
+  setTiers,
 }: {
-  form: TranscodingForm
+  values: TranscodingForm
   validation: ReturnType<typeof validateForm>
-  setForm: Dispatch<SetStateAction<TranscodingForm>>
+  setTiers: (update: (tiers: LadderTier[]) => LadderTier[]) => void
 }) {
   const tierNames = useMemo(
     () =>
       deriveRenditionNames(
-        form.tiers.map((tier) => ({
+        values.tiers.map((tier) => ({
           height: tier.height,
           fps: tier.maxFps,
-          codec: tier.codec ?? form.videoCodec,
+          codec: tier.codec ?? values.videoCodec,
         })),
       ),
-    [form.tiers, form.videoCodec],
+    [values.tiers, values.videoCodec],
   )
-  const ogIndex = effectiveOgTierIndex(form.tiers)
+  const ogIndex = effectiveOgTierIndex(values.tiers)
   const ogRadioName = useId()
 
   function addTier() {
-    setForm((current) => {
-      if (current.tiers.length >= 6) return current
-      const height = nextTierHeight(current.tiers)
+    setTiers((tiers) => {
+      if (tiers.length >= 6) return tiers
+      const height = nextTierHeight(tiers)
       const tier: LadderTier = {
         id: newTierId(),
         height,
@@ -81,40 +81,30 @@ export function TranscodingLadder({
         codec: null,
         og: false,
       }
-      return {
-        ...current,
-        tiers: sortTiers([...current.tiers, tier]),
-      }
+      return sortTiers([...tiers, tier])
     })
   }
 
   function updateTier(index: number, patch: Partial<LadderTier>) {
-    setForm((current) => ({
-      ...current,
-      tiers: current.tiers.map((tier, tierIndex) =>
+    setTiers((tiers) =>
+      tiers.map((tier, tierIndex) =>
         tierIndex === index ? { ...tier, ...patch } : tier,
       ),
-    }))
+    )
   }
 
   function removeTier(index: number) {
-    setForm((current) => {
-      if (current.tiers.length <= 1) return current
-      return {
-        ...current,
-        tiers: current.tiers.filter((_, tierIndex) => tierIndex !== index),
-      }
-    })
+    setTiers((tiers) =>
+      tiers.length <= 1
+        ? tiers
+        : tiers.filter((_, tierIndex) => tierIndex !== index),
+    )
   }
 
   function setOgTier(index: number) {
-    setForm((current) => ({
-      ...current,
-      tiers: current.tiers.map((tier, tierIndex) => ({
-        ...tier,
-        og: tierIndex === index,
-      })),
-    }))
+    setTiers((tiers) =>
+      tiers.map((tier, tierIndex) => ({ ...tier, og: tierIndex === index })),
+    )
   }
 
   return (
@@ -129,7 +119,7 @@ export function TranscodingLadder({
           type="button"
           variant="secondary"
           onClick={addTier}
-          disabled={form.tiers.length >= 6}
+          disabled={values.tiers.length >= 6}
         >
           <PlusIcon />
           {t("Add tier")}
@@ -139,7 +129,7 @@ export function TranscodingLadder({
       <div className="border-border @container overflow-hidden rounded-lg border">
         <LadderHeader />
         <div className="divide-border divide-y">
-          {form.tiers.map((tier, index) => (
+          {values.tiers.map((tier, index) => (
             // Below the table width a tier is a card: its name and row
             // controls on one line, then the fields. A phone gives the codec
             // its own line; a wider panel fits it beside the numbers.
@@ -182,7 +172,7 @@ export function TranscodingLadder({
               />
               <LadderCodecField
                 value={tier.codec}
-                defaultCodec={form.videoCodec}
+                defaultCodec={values.videoCodec}
                 error={validation.rows[index]?.codec}
                 className="col-span-full @xl:col-span-1"
                 onChange={(codec) => updateTier(index, { codec })}
@@ -199,7 +189,7 @@ export function TranscodingLadder({
                   variant="ghost"
                   size="icon"
                   onClick={() => removeTier(index)}
-                  disabled={form.tiers.length <= 1}
+                  disabled={values.tiers.length <= 1}
                   aria-label={t("Remove tier")}
                   className="-mr-2.5 @[49rem]:mr-0"
                 >

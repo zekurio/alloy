@@ -1,7 +1,7 @@
 import { ColorPicker } from "@alloy/ui/components/color-picker"
 import { Input } from "@alloy/ui/components/input"
 import { cn } from "@alloy/ui/lib/utils"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import type { ReactNode } from "react"
 
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i
@@ -39,8 +39,12 @@ export function HexColorInput({
   children?: ReactNode
 }) {
   const [draft, setDraft] = useState(value)
-
-  useEffect(() => setDraft(value), [value])
+  // A new value from outside (a picker, a reset) replaces whatever is typed.
+  const [syncedValue, setSyncedValue] = useState(value)
+  if (value !== syncedValue) {
+    setSyncedValue(value)
+    setDraft(value)
+  }
 
   function updateDraft(next: string) {
     setDraft(next)

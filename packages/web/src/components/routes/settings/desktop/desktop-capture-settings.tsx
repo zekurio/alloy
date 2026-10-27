@@ -29,7 +29,6 @@ const CAPTURE_ERROR_SCOPES: readonly RecordingErrorScope[] = [
   "folder",
   "restart",
   "sounds",
-  "displays",
 ]
 
 function DesktopCaptureSettings() {

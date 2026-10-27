@@ -24,20 +24,16 @@ export function GameHeader({ game }: { game: GameDetail }) {
 }
 
 function GameHeroBanner({ game }: { game: GameDetail }) {
-  const [failedHeaderUrls, setFailedHeaderUrls] = useState<readonly string[]>(
-    [],
-  )
-  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null)
+  // Image URLs that failed to load, so a game with new artwork retries it.
+  const [failedUrls, setFailedUrls] = useState<readonly string[]>([])
   const headerUrl =
-    game.heroUrl && !failedHeaderUrls.includes(game.heroUrl)
-      ? game.heroUrl
-      : null
+    game.heroUrl && !failedUrls.includes(game.heroUrl) ? game.heroUrl : null
   const logoUrl =
-    game.logoUrl && failedLogoUrl !== game.logoUrl ? game.logoUrl : null
+    game.logoUrl && !failedUrls.includes(game.logoUrl) ? game.logoUrl : null
   const year = releaseYear(game.releaseDate)
   const name = gameDisplayName(game)
-  const onHeaderError = useCallback((url: string) => {
-    setFailedHeaderUrls((previous) =>
+  const onImageError = useCallback((url: string) => {
+    setFailedUrls((previous) =>
       previous.includes(url) ? previous : [...previous, url],
     )
   }, [])
@@ -60,7 +56,7 @@ function GameHeroBanner({ game }: { game: GameDetail }) {
           aria-hidden
           className="absolute inset-0 size-full object-cover"
           decoding="async"
-          onError={() => onHeaderError(game.heroUrl ?? headerUrl)}
+          onError={() => onImageError(headerUrl)}
         />
       ) : null}
       <div
@@ -76,7 +72,7 @@ function GameHeroBanner({ game }: { game: GameDetail }) {
                 src={logoUrl}
                 name={name}
                 variant="header"
-                onError={() => setFailedLogoUrl(logoUrl)}
+                onError={() => onImageError(logoUrl)}
               />
             ) : (
               <h1

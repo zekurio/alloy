@@ -14,8 +14,8 @@ import {
 } from "@alloy/ui/components/dialog"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Input } from "@alloy/ui/components/input"
+import { useForm, useStore } from "@tanstack/react-form"
 import { CircleAlertIcon, UploadIcon, VideoIcon } from "lucide-react"
-import { useState } from "react"
 
 import { GameCombobox } from "@/components/game/game-combobox"
 import { fileExtensionLabel } from "@/components/upload/new-clip-helpers"
@@ -31,35 +31,9 @@ export function ImportClipDetailsDialog({
 }: {
   action: ImportClipAction
 }) {
-  const { staged, committing: pending, error } = action
-  // The pick the dialog shows. It outlives `staged` so the summary and form
-  // stay put while the dialog animates closed. The dialog stays mounted
-  // between picks, so a new pick resets the form in the same render that
-  // shows it, rather than an effect leaving the last pick's values up for a
-  // frame. The host gives every staged copy a fresh id, so the id tells a
-  // new pick (even of the same file) from a new object for the same one.
-  const [shown, setShown] = useState(staged)
-  const [title, setTitle] = useState(staged?.title ?? "")
-  const [game, setGame] = useState<GameRow | null>(null)
-  const [submitted, setSubmitted] = useState(false)
-  if (staged !== null && staged !== shown) {
-    setShown(staged)
-    if (staged.id !== shown?.id) {
-      setTitle(staged.title ?? "")
-      setGame(null)
-      setSubmitted(false)
-    }
-  }
-
-  const normalizedTitle = normalizeClipTitle(title)
-  const titleInvalid = submitted && normalizedTitle.length === 0
-  const gameInvalid = submitted && game === null
-
-  const submit = () => {
-    setSubmitted(true)
-    if (pending || normalizedTitle.length === 0 || !game) return
-    void action.commit({ title: normalizedTitle, game })
-  }
+  // `shown` outlives `staged` so the summary and form stay put while the
+  // dialog animates closed.
+  const { staged, shown } = action
 
   const onOpenChange = (open: boolean) => {
     if (!open) void action.discard()
@@ -74,89 +48,170 @@ export function ImportClipDetailsDialog({
             {t("Add details before the file enters your library.")}
           </DialogDescription>
         </DialogHeader>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            submit()
-          }}
-        >
-          <DialogBody className="flex flex-col gap-4">
-            {shown ? <StagedImportSummary staged={shown} /> : null}
-
-            <label className="flex flex-col gap-2">
-              <span className="text-foreground-muted text-xs font-semibold">
-                {t("Title")}
-              </span>
-              <Input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                maxLength={CLIP_TITLE_MAX}
-                disabled={pending}
-                aria-invalid={titleInvalid || undefined}
-                placeholder={t("Untitled")}
-              />
-              {titleInvalid ? (
-                <span className="text-destructive text-xs">
-                  {t("Add a title to import this clip.")}
-                </span>
-              ) : null}
-            </label>
-
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor="import-clip-game"
-                className="text-foreground-muted text-xs font-semibold"
-              >
-                {t("Game")}
-              </label>
-              <GameCombobox
-                id="import-clip-game"
-                value={game}
-                onChange={setGame}
-                disabled={pending}
-                invalid={gameInvalid}
-                required
-                placeholder={t("Search game...")}
-                className="w-full"
-                inputClassName="w-full"
-              />
-              {gameInvalid ? (
-                <span className="text-destructive text-xs">
-                  {t("Pick a game to import this clip.")}
-                </span>
-              ) : null}
-            </div>
-            {error ? (
-              <Callout tone="destructive" className="text-xs">
-                <CircleAlertIcon />
-                <span>{error}</span>
-              </Callout>
-            ) : null}
-          </DialogBody>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={pending}
-              onClick={() => onOpenChange(false)}
-            >
-              {t("Cancel")}
-            </Button>
-            <FeedbackButton
-              type="submit"
-              variant="primary"
-              disabled={pending}
-              state={pending ? "pending" : error ? "error" : "idle"}
-              pendingLabel={t("Importing...")}
-              errorLabel={t("Try again")}
-            >
-              <UploadIcon />
-              {t("Import clip")}
-            </FeedbackButton>
-          </DialogFooter>
-        </form>
+        {/* The host gives every staged copy a fresh id, so the id tells a new
+            pick (even of the same file) from a new object for the same one:
+            only a new pick starts the form over. */}
+        {shown ? (
+          <ImportClipForm
+            key={shown.id}
+            staged={shown}
+            action={action}
+            onCancel={() => onOpenChange(false)}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
+  )
+}
+
+type ImportClipValues = {
+  title: string
+  game: GameRow | null
+}
+
+function ImportClipForm({
+  staged,
+  action,
+  onCancel,
+}: {
+  staged: RecordingLibraryStagedImport
+  action: ImportClipAction
+  onCancel: () => void
+}) {
+  const { committing: pending, error } = action
+  const defaultValues: ImportClipValues = {
+    title: staged.title ?? "",
+    game: null,
+  }
+  const form = useForm({
+    defaultValues,
+    onSubmit: ({ value }) => {
+      if (pending || !value.game) return
+      void action.commit({
+        title: normalizeClipTitle(value.title),
+        game: value.game,
+      })
+    },
+  })
+  // Missing fields are flagged once the user tries to import, not before.
+  const submitted = useStore(
+    form.store,
+    (state) => state.submissionAttempts > 0,
+  )
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        void form.handleSubmit()
+      }}
+    >
+      <DialogBody className="flex flex-col gap-4">
+        <StagedImportSummary staged={staged} />
+
+        <form.Field
+          name="title"
+          validators={{
+            onChange: ({ value }) =>
+              normalizeClipTitle(value).length === 0
+                ? t("Add a title to import this clip.")
+                : undefined,
+          }}
+        >
+          {(field) => {
+            const invalid = submitted && !field.state.meta.isValid
+            return (
+              <label className="flex flex-col gap-2">
+                <span className="text-foreground-muted text-xs font-semibold">
+                  {t("Title")}
+                </span>
+                <Input
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onBlur={field.handleBlur}
+                  maxLength={CLIP_TITLE_MAX}
+                  disabled={pending}
+                  aria-invalid={invalid || undefined}
+                  placeholder={t("Untitled")}
+                />
+                {invalid ? (
+                  <span className="text-destructive text-xs">
+                    {t("Add a title to import this clip.")}
+                  </span>
+                ) : null}
+              </label>
+            )
+          }}
+        </form.Field>
+
+        <form.Field
+          name="game"
+          validators={{
+            onChange: ({ value }) =>
+              value === null
+                ? t("Pick a game to import this clip.")
+                : undefined,
+          }}
+        >
+          {(field) => {
+            const invalid = submitted && !field.state.meta.isValid
+            return (
+              <div className="flex flex-col gap-2">
+                <label
+                  htmlFor="import-clip-game"
+                  className="text-foreground-muted text-xs font-semibold"
+                >
+                  {t("Game")}
+                </label>
+                <GameCombobox
+                  id="import-clip-game"
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                  disabled={pending}
+                  invalid={invalid}
+                  required
+                  placeholder={t("Search game...")}
+                  className="w-full"
+                  inputClassName="w-full"
+                />
+                {invalid ? (
+                  <span className="text-destructive text-xs">
+                    {t("Pick a game to import this clip.")}
+                  </span>
+                ) : null}
+              </div>
+            )
+          }}
+        </form.Field>
+        {error ? (
+          <Callout tone="destructive" className="text-xs">
+            <CircleAlertIcon />
+            <span>{error}</span>
+          </Callout>
+        ) : null}
+      </DialogBody>
+      <DialogFooter>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={pending}
+          onClick={onCancel}
+        >
+          {t("Cancel")}
+        </Button>
+        <FeedbackButton
+          type="submit"
+          variant="primary"
+          disabled={pending}
+          state={pending ? "pending" : error ? "error" : "idle"}
+          pendingLabel={t("Importing...")}
+          errorLabel={t("Try again")}
+        >
+          <UploadIcon />
+          {t("Import clip")}
+        </FeedbackButton>
+      </DialogFooter>
+    </form>
   )
 }
 

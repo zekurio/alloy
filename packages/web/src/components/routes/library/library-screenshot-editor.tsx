@@ -1,10 +1,12 @@
 import { clipSourceFileUrl, type ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { useEffect, useState } from "react"
+import { useMutation } from "@tanstack/react-query"
+import { useState } from "react"
 
 import {
   DEFAULT_SCREENSHOT_EDIT,
   exportScreenshot,
+  type ScreenshotEdit,
 } from "@/components/media/screenshot-edit"
 import { ScreenshotEditor } from "@/components/media/screenshot-editor"
 import { useUpdateClipImageMutation } from "@/lib/clip-queries"
@@ -18,44 +20,56 @@ export function useLibraryScreenshotEdit({
   row: ClipRow
   disabled: boolean
 }) {
-  const [edit, setEdit] = useState(DEFAULT_SCREENSHOT_EDIT)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const mutation = useUpdateClipImageMutation()
-  useEffect(() => {
-    setEdit(DEFAULT_SCREENSHOT_EDIT)
-    setError(null)
-  }, [row.id, row.sourceVersion])
+  const sourceVersion = row.sourceVersion
+  // An edit belongs to the image it was made on; new source bytes start over.
+  const [draft, setDraft] = useState({
+    sourceVersion,
+    edit: DEFAULT_SCREENSHOT_EDIT,
+  })
+  const edit =
+    draft.sourceVersion === sourceVersion ? draft.edit : DEFAULT_SCREENSHOT_EDIT
+  const setEdit = (next: ScreenshotEdit) =>
+    setDraft({ sourceVersion, edit: next })
+  const imageMutation = useUpdateClipImageMutation()
   const mediaUrl = clipSourceFileUrl(
     row.id,
     apiOrigin(),
-    row.sourceVersion ?? undefined,
+    sourceVersion ?? undefined,
   )
-  const changed =
-    JSON.stringify(edit) !== JSON.stringify(DEFAULT_SCREENSHOT_EDIT)
-  const save = async () => {
-    if (disabled || saving || !changed || !row.sourceVersion) return false
-    setSaving(true)
-    setError(null)
-    try {
+  const saveMutation = useMutation({
+    mutationFn: async (input: {
+      edit: ScreenshotEdit
+      sourceVersion: string
+    }) => {
       const response = await fetch(mediaUrl)
       if (!response.ok) throw new Error(t("Couldn't open image"))
       const source = new File([await response.blob()], "screenshot.png", {
         type: "image/png",
       })
-      const file = await exportScreenshot(source, edit)
-      await mutation.mutateAsync({
+      const file = await exportScreenshot(source, input.edit)
+      await imageMutation.mutateAsync({
         clipId: row.id,
         file,
-        sourceVersion: row.sourceVersion,
+        sourceVersion: input.sourceVersion,
       })
+    },
+  })
+  const saving = saveMutation.isPending
+  const error =
+    saveMutation.error &&
+    saveMutation.variables?.sourceVersion === sourceVersion
+      ? errorMessage(saveMutation.error, t("Couldn't save changes"))
+      : null
+  const changed =
+    JSON.stringify(edit) !== JSON.stringify(DEFAULT_SCREENSHOT_EDIT)
+  const save = async () => {
+    if (disabled || saving || !changed || !sourceVersion) return false
+    try {
+      await saveMutation.mutateAsync({ edit, sourceVersion })
       setEdit(DEFAULT_SCREENSHOT_EDIT)
       return true
-    } catch (cause) {
-      setError(errorMessage(cause, t("Couldn't save changes")))
+    } catch {
       return false
-    } finally {
-      setSaving(false)
     }
   }
   return { edit, setEdit, mediaUrl, changed, saving, error, save }

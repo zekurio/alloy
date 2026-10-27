@@ -15,10 +15,10 @@ import {
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
 import { Link, useRouterState } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
-import { useAppSearch } from "@/components/search/app-search"
+import { useAppSearchStore } from "@/components/search/app-search"
 import { SearchResultsPopover } from "@/components/search/search-results-popover"
 import { alloyWindowChrome } from "@/lib/desktop"
 
@@ -26,10 +26,10 @@ import { DesktopWindowControls } from "./desktop-window-controls"
 import { UserMenu } from "./user-menu"
 
 export function HomeHeader() {
-  const { query, setQuery, clear, setOpen } = useAppSearch()
+  const query = useAppSearchStore((state) => state.query)
+  const { setQuery, clear, setOpen } = useAppSearchStore.getState()
   const inputRef = useRef<HTMLInputElement>(null)
   const desktop = alloyWindowChrome()
-  const closeSearch = useCallback(() => setOpen(false), [setOpen])
 
   const onKeyDown = useCallback((event: KeyboardEvent) => {
     if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") {
@@ -79,7 +79,7 @@ export function HomeHeader() {
         onFocus={() => {
           if (query.trim().length > 0) setOpen(true)
         }}
-        onInteractOutside={closeSearch}
+        onInteractOutside={() => setOpen(false)}
         onChange={(event) => {
           setQuery(event.target.value)
         }}
@@ -151,42 +151,48 @@ function useHeaderNavigationHistory() {
     },
   })
 
-  // index -> the key last seen at that position. A push/replace lands a new
-  // key (truncating everything ahead); a back/forward restores a known key.
-  const keysByIndexRef = useRef(new Map<number, string>())
-  const topIndexRef = useRef(entry.index)
-  const [availability, setAvailability] = useState({
-    canGoBack: false,
-    canGoForward: false,
-  })
-
-  useEffect(() => {
-    const keysByIndex = keysByIndexRef.current
-    if (keysByIndex.get(entry.index) !== entry.key) {
-      // New entry here (push or replace): it discards any forward history, so
-      // this position becomes the top of the stack.
-      keysByIndex.set(entry.index, entry.key)
-      for (const seenIndex of keysByIndex.keys()) {
-        if (seenIndex > entry.index) keysByIndex.delete(seenIndex)
-      }
-      topIndexRef.current = entry.index
-    }
-
-    setAvailability({
-      canGoBack: entry.index > 0,
-      canGoForward: entry.index < topIndexRef.current,
-    })
-  }, [entry.index, entry.key])
+  const [stack, setStack] = useState(() =>
+    recordHistoryEntry(EMPTY_HISTORY, entry.index, entry.key),
+  )
+  const current = recordHistoryEntry(stack, entry.index, entry.key)
+  if (current !== stack) setStack(current)
 
   return {
-    ...availability,
-    goBack: useCallback(() => {
+    canGoBack: entry.index > 0,
+    canGoForward: entry.index < current.top,
+    goBack: () => {
       if (entry.index > 0) window.history.back()
-    }, [entry.index]),
-    goForward: useCallback(() => {
-      if (entry.index < topIndexRef.current) window.history.forward()
-    }, [entry.index]),
+    },
+    goForward: () => {
+      if (entry.index < current.top) window.history.forward()
+    },
   }
+}
+
+/** The key last seen at each history index, and the newest index. */
+type HistoryStack = {
+  keysByIndex: ReadonlyMap<number, string>
+  top: number
+}
+
+const EMPTY_HISTORY: HistoryStack = { keysByIndex: new Map(), top: 0 }
+
+/**
+ * A back/forward restores a known key at its index. A push or replace lands a
+ * new key, which discards any forward history, so that index becomes the top.
+ */
+function recordHistoryEntry(
+  stack: HistoryStack,
+  index: number,
+  key: string,
+): HistoryStack {
+  if (stack.keysByIndex.get(index) === key) return stack
+  const keysByIndex = new Map<number, string>()
+  for (const [seenIndex, seenKey] of stack.keysByIndex) {
+    if (seenIndex < index) keysByIndex.set(seenIndex, seenKey)
+  }
+  keysByIndex.set(index, key)
+  return { keysByIndex, top: index }
 }
 
 function HeaderNavigationButton({

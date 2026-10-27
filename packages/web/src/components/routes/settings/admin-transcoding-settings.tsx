@@ -18,9 +18,10 @@ import {
   SelectValue,
 } from "@alloy/ui/components/select"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
+import { useForm, useStore } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { RefreshCwIcon, TriangleAlertIcon } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 
 import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
 import { TranscodingLadder } from "@/components/routes/settings/admin-transcoding-ladder"
@@ -55,7 +56,6 @@ export function TranscodingSettingsContent({
   config: AdminRuntimeConfig
 }) {
   const saved = config.transcoding
-  const [form, setForm] = useState<TranscodingForm>(() => formFromConfig(saved))
   const saveTranscoding = useAdminConfigMutation(
     api.admin.updateTranscodingConfig,
   )
@@ -65,52 +65,51 @@ export function TranscodingSettingsContent({
   const capabilitiesQuery = useQuery(adminTranscodingCapabilitiesQueryOptions())
   const capabilities = capabilitiesQuery.data ?? null
 
-  // The saved config is the source of truth: reset the draft whenever the
-  // server hands back a new one (after a save it may be normalized/clamped).
-  useEffect(() => {
-    setForm(formFromConfig(saved))
-  }, [saved])
+  // The saved config is the source of truth: the form adopts a new one while
+  // untouched, and a save resets it to what the server normalized/clamped.
+  const form = useForm({
+    defaultValues: formFromConfig(saved),
+    onSubmit: async ({ value, formApi }) => {
+      const result = validateForm(value, capabilities)
+      if (!result.valid) {
+        throw new Error(
+          result.message ?? t("Fix the invalid settings before saving."),
+        )
+      }
+      const updated = await saveTranscoding.mutateAsync({
+        videoCodec: value.videoCodec,
+        hardwareAcceleration: value.hardwareAcceleration,
+        vaapiDevice: value.vaapiDevice.trim(),
+        quality: value.quality,
+        audioBitrateKbps: value.audioBitrateKbps,
+        // Rows stay put while being edited; they settle into order on save.
+        tiers: sortTiers(value.tiers).map((tier) => {
+          const config: RenditionTierConfig = {
+            height: tier.height,
+            maxFps: tier.maxFps,
+            maxrateKbps: tier.maxrateKbps,
+          }
+          if (tier.codec) config.codec = tier.codec
+          if (tier.og) config.og = true
+          return config
+        }),
+      })
+      formApi.reset(formFromConfig(updated.transcoding), {
+        keepDefaultValues: true,
+      })
+    },
+  })
+  const values = useStore(form.store, (state) => state.values)
 
   const validation = useMemo(
-    () => validateForm(form, capabilities),
-    [form, capabilities],
+    () => validateForm(values, capabilities),
+    [values, capabilities],
   )
-  const dirty = useMemo(() => !formsEqual(form, saved), [form, saved])
+  const dirty = useMemo(() => !formsEqual(values, saved), [values, saved])
   const selectedProbe =
-    form.hardwareAcceleration === "none" || !capabilities
+    values.hardwareAcceleration === "none" || !capabilities
       ? null
-      : findProbe(capabilities, form.videoCodec, form.hardwareAcceleration)
-
-  async function save() {
-    if (saving || !dirty) return
-    if (!validation.valid) {
-      throw new Error(
-        validation.message ?? t("Fix the invalid settings before saving."),
-      )
-    }
-    await saveTranscoding.mutateAsync({
-      videoCodec: form.videoCodec,
-      hardwareAcceleration: form.hardwareAcceleration,
-      vaapiDevice: form.vaapiDevice.trim(),
-      quality: form.quality,
-      audioBitrateKbps: form.audioBitrateKbps,
-      // Rows stay put while being edited; they settle into order on save.
-      tiers: sortTiers(form.tiers).map((tier) => {
-        const config: RenditionTierConfig = {
-          height: tier.height,
-          maxFps: tier.maxFps,
-          maxrateKbps: tier.maxrateKbps,
-        }
-        if (tier.codec) config.codec = tier.codec
-        if (tier.og) config.og = true
-        return config
-      }),
-    })
-  }
-
-  function discard() {
-    setForm(formFromConfig(saved))
-  }
+      : findProbe(capabilities, values.videoCodec, values.hardwareAcceleration)
 
   async function reDetect() {
     const next = await api.admin.fetchTranscodingCapabilities({
@@ -119,13 +118,7 @@ export function TranscodingSettingsContent({
     queryClient.setQueryData(adminKeys.transcodingCapabilities(), next)
   }
 
-  useSettingsSaveBar({
-    dirty,
-    saving,
-    valid: validation.valid,
-    save,
-    discard,
-  })
+  useSettingsSaveBar(form, { dirty, saving, valid: validation.valid })
 
   return (
     <Section>
@@ -192,11 +185,11 @@ export function TranscodingSettingsContent({
                   "Default codec for every rendition. Individual tiers in the ladder can override it.",
                 )}
                 id="transcoding-codec"
-                value={form.videoCodec}
+                value={values.videoCodec}
                 options={TRANSCODE_VIDEO_CODECS}
                 getOptionLabel={(codec) => VIDEO_CODEC_LABELS[codec]}
                 onChange={(videoCodec) =>
-                  setForm((prev) => ({ ...prev, videoCodec }))
+                  form.setFieldValue("videoCodec", videoCodec)
                 }
               />
 
@@ -209,21 +202,19 @@ export function TranscodingSettingsContent({
                 align="start"
                 stack
                 footer={
-                  <HardwareAccelerationNote probe={selectedProbe} form={form} />
+                  <HardwareAccelerationNote
+                    probe={selectedProbe}
+                    form={values}
+                  />
                 }
               >
                 <Select
-                  value={form.hardwareAcceleration}
+                  value={values.hardwareAcceleration}
                   onValueChange={(value) => {
                     const accel = HARDWARE_ACCELERATIONS.find(
                       (option) => option === value,
                     )
-                    if (accel) {
-                      setForm((prev) => ({
-                        ...prev,
-                        hardwareAcceleration: accel,
-                      }))
-                    }
+                    if (accel) form.setFieldValue("hardwareAcceleration", accel)
                   }}
                 >
                   <SelectTrigger
@@ -232,7 +223,11 @@ export function TranscodingSettingsContent({
                     className="w-full @lg:w-56"
                   >
                     <SelectValue>
-                      {HARDWARE_ACCELERATION_LABELS[form.hardwareAcceleration]}
+                      {
+                        HARDWARE_ACCELERATION_LABELS[
+                          values.hardwareAcceleration
+                        ]
+                      }
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent align="end">
@@ -240,7 +235,7 @@ export function TranscodingSettingsContent({
                       const probe =
                         accel === "none" || !capabilities
                           ? null
-                          : findProbe(capabilities, form.videoCodec, accel)
+                          : findProbe(capabilities, values.videoCodec, accel)
                       const unavailable =
                         accel !== "none" &&
                         capabilities !== null &&
@@ -260,7 +255,7 @@ export function TranscodingSettingsContent({
                 </Select>
               </SettingRow>
 
-              {form.hardwareAcceleration === "vaapi" ? (
+              {values.hardwareAcceleration === "vaapi" ? (
                 <SettingRow
                   title={t("VA-API device")}
                   description={t(
@@ -273,12 +268,9 @@ export function TranscodingSettingsContent({
                   <div className="flex w-full flex-col gap-1.5 @lg:w-56">
                     <Input
                       id="transcoding-vaapi-device"
-                      value={form.vaapiDevice}
+                      value={values.vaapiDevice}
                       onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          vaapiDevice: event.target.value,
-                        }))
+                        form.setFieldValue("vaapiDevice", event.target.value)
                       }
                       placeholder="/dev/dri/renderD128"
                       aria-invalid={
@@ -304,20 +296,20 @@ export function TranscodingSettingsContent({
                   "Stereo AAC bitrate applied to every rendition.",
                 )}
                 id="transcoding-audio"
-                value={form.audioBitrateKbps}
+                value={values.audioBitrateKbps}
                 options={AUDIO_BITRATES}
                 getOptionLabel={(kbps) => t("{kbps} kbps", { kbps })}
                 onChange={(audioBitrateKbps) =>
-                  setForm((prev) => ({ ...prev, audioBitrateKbps }))
+                  form.setFieldValue("audioBitrateKbps", audioBitrateKbps)
                 }
               />
             </SettingRows>
           </SettingsSubsection>
 
           <TranscodingLadder
-            form={form}
+            values={values}
             validation={validation}
-            setForm={setForm}
+            setTiers={(update) => form.setFieldValue("tiers", update)}
           />
 
           <p className="text-foreground-dim text-xs">

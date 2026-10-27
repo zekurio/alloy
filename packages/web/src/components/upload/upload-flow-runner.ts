@@ -8,6 +8,12 @@ import { randomId } from "@/lib/random-id"
 import type { PublishPayload } from "./new-clip-helpers"
 import type { ActiveUpload } from "./upload-queue-mapping"
 
+/** One run of an upload: reads its latest entry and writes changes back. */
+export interface UploadAttempt {
+  current: () => ActiveUpload
+  update: (change: Partial<ActiveUpload>) => void
+}
+
 export async function deleteUploadClipBestEffort(
   clipId: string,
   reason: string,
@@ -39,13 +45,11 @@ export async function markUploadFailedBestEffort(
 
 export async function startUpload(
   payload: PublishPayload,
-  entry: ActiveUpload,
-  bump: () => void,
+  attempt: UploadAttempt,
   invalidateClips: () => void,
 ): Promise<{ clipId: string; completion: Promise<void> }> {
-  const localClipId = entry.clipId ?? randomId()
-  entry.clipId = localClipId
-  bump()
+  const localClipId = attempt.current().clipId ?? randomId()
+  attempt.update({ clipId: localClipId })
 
   const initiate = await api.clips.initiate({
     clientClipId: localClipId,
@@ -71,11 +75,9 @@ export async function startUpload(
   })
   const { clipId } = initiate
 
-  entry.clipId = clipId
-  entry.serverClipCreated = true
-  entry.abort.signal.throwIfAborted()
-  entry.status = "uploading"
-  bump()
+  attempt.update({ clipId, serverClipCreated: true })
+  attempt.current().abort.signal.throwIfAborted()
+  attempt.update({ status: "uploading" })
   void invalidateClips()
   if (payload.localCaptureId) {
     void linkLocalCaptureToClip(
@@ -87,15 +89,14 @@ export async function startUpload(
 
   return {
     clipId,
-    completion: completeUpload(payload, initiate, entry, bump, invalidateClips),
+    completion: completeUpload(payload, initiate, attempt, invalidateClips),
   }
 }
 
 async function completeUpload(
   payload: PublishPayload,
   initiate: Awaited<ReturnType<typeof api.clips.initiate>>,
-  entry: ActiveUpload,
-  bump: () => void,
+  attempt: UploadAttempt,
   invalidateClips: () => void,
 ): Promise<void> {
   const { clipId } = initiate
@@ -104,14 +105,11 @@ async function completeUpload(
     initiate.ticket,
     payload.file,
     (loaded, total) => {
-      entry.bytesLoaded = loaded
-      entry.bytesTotal = total
-      bump()
+      attempt.update({ bytesLoaded: loaded, bytesTotal: total })
     },
-    entry.abort.signal,
+    attempt.current().abort.signal,
   )
-  entry.status = "finalizing"
-  bump()
+  attempt.update({ status: "finalizing" })
 
   await api.clips.finalize(clipId)
   void invalidateClips()

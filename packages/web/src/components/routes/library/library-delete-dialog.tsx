@@ -1,7 +1,7 @@
 import { t } from "@alloy/i18n"
 import { Checkbox } from "@alloy/ui/components/checkbox"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import type { RecordingLibraryItem } from "@/lib/desktop"
 
@@ -27,14 +27,17 @@ export function DeleteServerBackedDialog({
   localItem: RecordingLibraryItem | null
   onConfirm: (deleteLocal: boolean) => void
 }) {
-  const hasLocalItem = localItem !== null
-  const [deleteLocal, setDeleteLocal] = useState(hasLocalItem)
-
-  // Keyed on presence, not identity: a library refresh while the dialog is
-  // open must not re-tick a checkbox the user cleared.
-  useEffect(() => {
-    if (open) setDeleteLocal(hasLocalItem)
-  }, [hasLocalItem, open])
+  // The user's pick for this opening of the dialog; each opening starts over
+  // from the default. Unpicked, it follows whether a local copy exists, so a
+  // library refresh while open never re-ticks a checkbox the user cleared.
+  const [choice, setChoice] = useState<{
+    open: boolean
+    deleteLocal: boolean | null
+  }>({ open, deleteLocal: null })
+  if (choice.open !== open) {
+    setChoice({ open, deleteLocal: open ? null : choice.deleteLocal })
+  }
+  const deleteLocal = choice.deleteLocal ?? localItem !== null
 
   return (
     <ConfirmDeleteDialog
@@ -55,7 +58,9 @@ export function DeleteServerBackedDialog({
         <label className="flex cursor-pointer items-center gap-2.5 text-sm">
           <Checkbox
             checked={deleteLocal}
-            onCheckedChange={(checked) => setDeleteLocal(checked === true)}
+            onCheckedChange={(checked) =>
+              setChoice({ open, deleteLocal: checked === true })
+            }
             disabled={pending}
           />
           <span className="text-foreground-muted">

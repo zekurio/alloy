@@ -7,7 +7,7 @@ import { useEffect } from "react"
 import { OAuthSignIn } from "@/components/routes/login/oauth-sign-in"
 import { signUpProviders } from "@/lib/auth-access"
 import { authClient } from "@/lib/auth-client"
-import { useRedirectIfAuthed } from "@/lib/auth-hooks"
+import { useSignedOut } from "@/lib/auth-hooks"
 import { usePasskeySupport } from "@/lib/passkey-support"
 
 import { PasskeySignUpForm } from "./passkey-sign-up-form"
@@ -92,7 +92,7 @@ export function SignUpForm({
 }
 
 export function SignUpPageInner({ config }: SignUpPageInnerProps) {
-  const canRender = useRedirectIfAuthed("/")
+  const canRender = useSignedOut()
   const { supported: passkeySupported, ready: passkeyReady } =
     usePasskeySupport()
 

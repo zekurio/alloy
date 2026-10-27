@@ -32,15 +32,18 @@ import {
   SearchIcon,
   XIcon,
 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 
 import { mobileSurfaceCloseButtonClassName } from "@/components/app/mobile-close-button"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
+import { useDesktopQuery } from "@/lib/use-desktop-query"
 
 import { RuleGroup } from "./desktop-capture-game-rules"
-import { useDesktopRecording } from "./desktop-recording-context"
+import { useDesktopRecordingPanel } from "./desktop-recording-context"
 
 type RuleMode = "allow" | "deny"
+
+const NO_PROCESSES: RecordingGameProcess[] = []
 
 export function AllowedGamesSection({
   settings,
@@ -51,13 +54,26 @@ export function AllowedGamesSection({
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
 }) {
-  const { listGameProcesses, errors } = useDesktopRecording()
-  const error = errors.games
+  const listGameProcesses = useDesktopRecordingPanel(
+    (state) => state.listGameProcesses,
+  )
+  const error = useDesktopRecordingPanel((state) => state.errors.games)
   const [pickerMode, setPickerMode] = useState<RuleMode | null>(null)
-  const [processes, setProcesses] = useState<RecordingGameProcess[]>([])
   const [query, setQuery] = useState("")
-  const [loadingProcesses, setLoadingProcesses] = useState(false)
   const pickerOpen = pickerMode !== null
+  // Loads when the picker opens with no processes listed yet, and keeps a
+  // loaded list for later opens until a refresh. `listGameProcesses` reports
+  // failures through the recording context and resolves to an empty list, so
+  // this never rejects.
+  const {
+    data: processes = NO_PROCESSES,
+    loading: loadingProcesses,
+    refetch: reloadProcesses,
+  } = useDesktopQuery(
+    ["recording", "game-processes"],
+    pickerOpen ? listGameProcesses : null,
+    { reloadWhenEnabled: (loaded) => !loaded?.length },
+  )
 
   const selectedAllowKeys = useMemo(
     () => new Set(settings.allowedGames.map(allowedGameKey)),
@@ -75,22 +91,6 @@ export function AllowedGamesSection({
       processMatchesQuery(process, trimmedQuery),
     )
   }, [processes, query])
-
-  // `listGameProcesses` reports failures through the recording context and
-  // resolves to an empty list, so this never rejects.
-  const loadProcesses = useCallback(async () => {
-    setLoadingProcesses(true)
-    try {
-      setProcesses(await listGameProcesses())
-    } finally {
-      setLoadingProcesses(false)
-    }
-  }, [listGameProcesses])
-
-  useEffect(() => {
-    if (!pickerOpen || processes.length > 0) return
-    void loadProcesses()
-  }, [loadProcesses, pickerOpen, processes.length])
 
   async function addGame(game: RecordingAllowedGame, mode: RuleMode) {
     if (mode === "allow") {
@@ -216,7 +216,7 @@ export function AllowedGamesSection({
                 disabled={loadingProcesses}
                 title={t("Refresh")}
                 aria-label={t("Refresh processes")}
-                onClick={() => void loadProcesses()}
+                onClick={reloadProcesses}
               >
                 {loadingProcesses ? (
                   <Spinner />

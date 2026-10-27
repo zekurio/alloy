@@ -8,6 +8,8 @@ import {
   useState,
 } from "react"
 import type { MouseEventHandler } from "react"
+import { useStore } from "zustand"
+import { useShallow } from "zustand/react/shallow"
 
 import { errorMessage } from "@/lib/error-message"
 import { usePlayerVolume } from "@/lib/player-volume"
@@ -37,8 +39,8 @@ import {
   ChromeBar,
   ChromeShell,
   LoadOverlay,
-  type LoadStatus,
 } from "./video-player-shell"
+import { createPlayerStore, PlayerStoreProvider } from "./video-player-store"
 import { readPlaybackClock } from "./video-player-timeline"
 import { VideoFrame } from "./video-player-video"
 import { isInterruptedPlayRequest, mediaErrorMessage } from "./video-source"
@@ -54,7 +56,6 @@ export function PlayerCore({
   controls,
   autoPlay,
   loop,
-  initialMuted,
   initialTime,
   className,
   maxDisplayHeight,
@@ -70,13 +71,13 @@ export function PlayerCore({
   chromeSize = "default",
   shortcutBounds,
   enableHorizontalSeekShortcuts = true,
-  playbackRate: playbackRateProp,
   playbackRange,
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
 }: PlayerCoreProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const [store] = useState(createPlayerStore)
   const {
     src: mediaUrl,
     mediaKey,
@@ -86,46 +87,29 @@ export function PlayerCore({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const fullscreenContainer = useFullscreenContainer(containerRef)
   const isFullscreen = fullscreenContainer !== null
-  const playerVolume = usePlayerVolume()
-  const initialPlayerVolumeRef = useRef(playerVolume)
-  const playingRef = useRef(false)
-  const volumeRef = useRef(playerVolume.volume)
-  const mutedRef = useRef(initialMuted || playerVolume.muted)
-  const initialMutedPropRef = useRef(initialMuted)
-  const lastTimeRef = useRef(0)
+  const { volume, muted } = usePlayerVolume()
   const playRequestIdRef = useRef(0)
   const rangeEndedRef = useRef(false)
-
-  const [status, setStatus] = useState<LoadStatus>({ kind: "loading" })
-  const [buffering, setBuffering] = useState(false)
   const bufferingTimerRef = useRef<number | null>(null)
-  const [duration, setDuration] = useState(0)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [bufferedEnd, setBufferedEnd] = useState(0)
-  const [playing, setPlaying] = useState(false)
-  const [volume, setVolumeState] = useState(playerVolume.volume)
-  const [muted, setMutedState] = useState(initialMuted || playerVolume.muted)
-  const { hasRenderedFrame, markFrameRendered, resetRenderedFrame } =
-    useRenderedFrame(onFrameReady)
-  const [playbackRate, setPlaybackRate] = useState(playbackRateProp)
-  // The poster stands in for the media until the viewer's own frame is on
-  // screen — playback starting, or a seek they asked for. The first decoded
-  // frame is the media's opening frame, so uncovering it while the video is
-  // still parked at the start swaps one still for another and reads as the
-  // clip having two thumbnails.
-  const [posterHeld, setPosterHeld] = useState(true)
+
+  // The clock (currentTime, duration, bufferedEnd), chrome visibility and
+  // playback rate are read by the chrome bar itself, so ticking them doesn't
+  // re-render the player.
+  const { status, buffering, playing, hasRenderedFrame, posterHeld } = useStore(
+    store,
+    useShallow((state) => ({
+      status: state.status,
+      buffering: state.buffering,
+      playing: state.playing,
+      hasRenderedFrame: state.hasRenderedFrame,
+      posterHeld: state.posterHeld,
+    })),
+  )
+  const markFrameRendered = useRenderedFrame(store, onFrameReady)
   const isCoarsePointer = useMediaQuery("(pointer: coarse)")
 
-  useEffect(() => {
-    setPosterHeld(true)
-  }, [identity])
-
-  const {
-    chromeVisible,
-    setChromeVisible,
-    scheduleChromeHide,
-    clearChromeHideTimer,
-  } = useVideoChromeVisibility(isCoarsePointer)
+  const { setChromeVisible, scheduleChromeHide, clearChromeHideTimer } =
+    useVideoChromeVisibility(store, isCoarsePointer)
 
   const onTimeUpdateRef = useRef(onTimeUpdate)
   const onPlayingChangeRef = useRef(onPlayingChange)
@@ -182,35 +166,34 @@ export function PlayerCore({
   const syncTime = useCallback(() => {
     const video = videoRef.current
     if (!video) return
-    const nextDuration = readDuration()
     const nextTime = readCurrentTime()
-    lastTimeRef.current = nextTime
-    setCurrentTime(nextTime)
-    setDuration(nextDuration)
+    store.setState({ currentTime: nextTime, duration: readDuration() })
     onTimeUpdateRef.current?.(nextTime)
     checkPlayThreshold(video)
-  }, [checkPlayThreshold, readCurrentTime, readDuration])
+  }, [checkPlayThreshold, readCurrentTime, readDuration, store])
 
   const syncBuffered = useCallback(() => {
     const video = videoRef.current
     if (!video || video.buffered.length === 0) {
-      setBufferedEnd(0)
+      store.setState({ bufferedEnd: 0 })
       return
     }
-    setBufferedEnd(
-      readPlaybackClock(video, playbackRange, durationHint).toPlaybackTime(
-        video.buffered.end(video.buffered.length - 1),
-      ),
-    )
-  }, [playbackRange, durationHint])
+    store.setState({
+      bufferedEnd: readPlaybackClock(
+        video,
+        playbackRange,
+        durationHint,
+      ).toPlaybackTime(video.buffered.end(video.buffered.length - 1)),
+    })
+  }, [playbackRange, durationHint, store])
 
   const clearBuffering = useCallback(() => {
     if (bufferingTimerRef.current !== null) {
       window.clearTimeout(bufferingTimerRef.current)
       bufferingTimerRef.current = null
     }
-    setBuffering(false)
-  }, [])
+    store.setState({ buffering: false })
+  }, [store])
 
   // `waiting`/`stalled` fire spuriously while paused and on keyframe-aligned
   // seeks; only a stall during intended playback should surface the spinner,
@@ -221,9 +204,9 @@ export function PlayerCore({
     if (bufferingTimerRef.current !== null) return
     bufferingTimerRef.current = window.setTimeout(() => {
       bufferingTimerRef.current = null
-      setBuffering(true)
+      store.setState({ buffering: true })
     }, 200)
-  }, [])
+  }, [store])
 
   useEffect(() => {
     return () => {
@@ -232,13 +215,16 @@ export function PlayerCore({
     }
   }, [])
 
-  const setPlayingState = useCallback((next: boolean) => {
-    if (playingRef.current === next) return
-    playingRef.current = next
-    if (next) setPosterHeld(false)
-    setPlaying(next)
-    onPlayingChangeRef.current?.(next)
-  }, [])
+  const setPlayingState = useCallback(
+    (next: boolean) => {
+      if (store.getState().playing === next) return
+      store.setState(
+        next ? { playing: true, posterHeld: false } : { playing: false },
+      )
+      onPlayingChangeRef.current?.(next)
+    },
+    [store],
+  )
 
   const reportError = useCallback(() => {
     // The engine may recover by stepping down one playable quality tier;
@@ -250,12 +236,12 @@ export function PlayerCore({
     clearBuffering()
     setPlayingState(false)
     if (onPlaybackErrorRef.current) {
-      setStatus({ kind: "ready" })
+      store.setState({ status: { kind: "ready" } })
       onPlaybackErrorRef.current(message)
     } else {
-      setStatus({ kind: "error", message })
+      store.setState({ status: { kind: "error", message } })
     }
-  }, [clearBuffering, onMediaError, setPlayingState, syncTime])
+  }, [clearBuffering, onMediaError, setPlayingState, store, syncTime])
 
   const playInternal = useCallback(
     async (reportBlocked = true) => {
@@ -264,8 +250,7 @@ export function PlayerCore({
       const clock = readPlaybackClock(video, playbackRange, durationHint)
       if (clock.duration > 0 && clock.currentTime >= clock.duration - 0.01) {
         video.currentTime = clock.toMediaTime(0)
-        lastTimeRef.current = 0
-        setCurrentTime(0)
+        store.setState({ currentTime: 0 })
       }
       rangeEndedRef.current = false
       const requestId = playRequestIdRef.current + 1
@@ -282,14 +267,14 @@ export function PlayerCore({
         if (!reportBlocked) return
         const message = errorMessage(err, t("Playback failed"))
         if (onPlaybackErrorRef.current) {
-          setStatus({ kind: "ready" })
+          store.setState({ status: { kind: "ready" } })
           onPlaybackErrorRef.current(message)
         } else {
-          setStatus({ kind: "error", message })
+          store.setState({ status: { kind: "error", message } })
         }
       }
     },
-    [playbackRange, durationHint],
+    [playbackRange, durationHint, store],
   )
 
   const pauseInternal = useCallback(() => {
@@ -298,7 +283,7 @@ export function PlayerCore({
   }, [])
 
   const seekInternal = useCallback(
-    (targetSec: number, keepPlaying: boolean = playingRef.current) => {
+    (targetSec: number, keepPlaying: boolean = store.getState().playing) => {
       const video = videoRef.current
       if (!video) return
       const clock = readPlaybackClock(video, playbackRange, durationHint)
@@ -314,8 +299,7 @@ export function PlayerCore({
       )
       video.currentTime = clock.toMediaTime(clamped)
       rangeEndedRef.current = dur > 0 && clamped >= dur - 0.01
-      setPosterHeld(false)
-      setCurrentTime(clamped)
+      store.setState({ posterHeld: false, currentTime: clamped })
       onTimeUpdateRef.current?.(clamped)
       if (keepPlaying) void playInternal()
     },
@@ -325,84 +309,47 @@ export function PlayerCore({
       playInternal,
       shortcutBounds?.end,
       shortcutBounds?.start,
+      store,
     ],
   )
 
+  // Volume changes from other players or tabs land through the shared store.
   useEffect(() => {
-    if (initialMutedPropRef.current === initialMuted) return
-    initialMutedPropRef.current = initialMuted
-    mutedRef.current = initialMuted
-    setMutedState(initialMuted)
-    const video = videoRef.current
-    if (video) video.muted = initialMuted
-  }, [initialMuted])
-
-  useEffect(() => {
-    if (initialPlayerVolumeRef.current === playerVolume) return
-    volumeRef.current = playerVolume.volume
-    mutedRef.current = playerVolume.muted
-    setVolumeState(playerVolume.volume)
-    setMutedState(playerVolume.muted)
-    const video = videoRef.current
-    if (!video) return
-    video.volume = playerVolume.volume
-    video.muted = playerVolume.muted
-  }, [playerVolume])
-
-  useEffect(() => {
-    volumeRef.current = volume
-    mutedRef.current = muted
     const video = videoRef.current
     if (!video) return
     video.volume = volume
     video.muted = muted
   }, [muted, volume])
 
-  useEffect(() => {
-    setPlaybackRate(playbackRateProp)
-  }, [playbackRateProp])
-
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
-    video.playbackRate = playbackRate
-  }, [playbackRate])
-
   useFrameLoop(playing, syncTime)
 
   const {
     keyCommand,
+    setPlaybackRate,
     setVolume,
     finishVolumeChange,
     toggleFullscreen,
     toggleMute,
     togglePlay,
   } = useVideoPlayerControls({
+    store,
     containerRef,
-    duration,
     getCurrentTime: readCurrentTime,
     getDuration: readDuration,
     isCoarsePointer,
-    isFullscreen,
-    mutedRef,
     pauseInternal,
     playerRef,
     playInternal,
     seekInternal,
     setChromeVisible,
-    setMutedState,
-    setPlaybackRate,
-    setVolumeState,
     shortcutBounds,
     videoRef,
-    volumeRef,
   })
 
   const { activatePlayer, focusPlayerContainer } = useActiveVideoPlayer({
     autoPlay,
     controls,
     containerRef,
-    clearChromeHideTimer,
     enableHorizontalSeekShortcuts,
     keyCommand,
   })
@@ -425,36 +372,27 @@ export function PlayerCore({
     isCoarsePointer,
     playing,
     scheduleChromeHide,
+    setChromeVisible,
   ])
 
   const handleLoadedMetadata = useSourceLoading({
+    store,
     videoRef,
     identity,
     mediaKey,
     playbackRange,
     durationHint,
-    playbackRate,
     initialTime,
     autoPlay,
     isCoarsePointer,
-    volumeRef,
-    mutedRef,
-    playingRef,
-    lastTimeRef,
     playRequestIdRef,
     rangeEndedRef,
-    setStatus,
-    setDuration,
-    setCurrentTime,
-    setBufferedEnd,
     setPlayingState,
     clearBuffering,
     clearChromeHideTimer,
-    setChromeVisible,
     syncBuffered,
     playInternal,
     markFrameRendered,
-    resetRenderedFrame,
   })
   const { handleTimeUpdate, handleEnded } = usePlaybackEnd({
     videoRef,
@@ -472,14 +410,15 @@ export function PlayerCore({
     handlePointerMove: handleChromePointerMove,
     handlePointerLeave: handleChromePointerLeave,
   } = useVideoChromePointerHandlers({
+    store,
     clearChromeHideTimer,
     isCoarsePointer,
-    playingRef,
     scheduleChromeHide,
     setChromeVisible,
   })
 
   const handleControlledVideoClick = useControlledVideoClick({
+    store,
     clearChromeHideTimer,
     isCoarsePointer,
     onVideoClick,
@@ -551,56 +490,54 @@ export function PlayerCore({
   }
 
   return (
-    <ChromeShell
-      containerRef={containerRef}
-      className={className}
-      aspectRatio={aspectRatio}
-      maxDisplayHeight={maxDisplayHeight}
-      playing={playing}
-      onPointerDown={activatePlayer}
-      onPointerMove={handleChromePointerMove}
-      onPointerLeave={handleChromePointerLeave}
-      onFocus={activatePlayer}
-      isFullscreen={isFullscreen}
-      onKeyCommand={keyCommand}
-      enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
-      bar={
-        <ChromeBar
-          containerRef={containerRef}
-          fullscreenContainer={fullscreenContainer}
-          isCoarsePointer={isCoarsePointer}
-          playing={playing}
-          duration={duration}
-          currentTime={currentTime}
-          bufferedEnd={bufferedEnd}
-          visible={chromeVisible}
-          muted={muted}
-          volume={volume}
-          size={chromeSize}
-          onTogglePlay={togglePlay}
-          onToggleMute={toggleMute}
-          onVolumeChange={setVolume}
-          onVolumeChangeEnd={finishVolumeChange}
-          onSeek={(seconds) => seekInternal(seconds)}
-          onToggleFullscreen={toggleFullscreen}
-          qualityOptions={qualityOptions}
-          selectedQualityId={selectedQualityId}
-          onSelectQuality={(id) => {
-            syncTime()
-            onSelectQuality?.(id)
-          }}
-          playbackRate={playbackRate}
-          onPlaybackRateChange={setPlaybackRate}
-        />
-      }
-    >
-      {renderVideo(handleControlledVideoClick)}
+    <PlayerStoreProvider value={store}>
+      <ChromeShell
+        containerRef={containerRef}
+        className={className}
+        aspectRatio={aspectRatio}
+        maxDisplayHeight={maxDisplayHeight}
+        playing={playing}
+        onPointerDown={activatePlayer}
+        onPointerMove={handleChromePointerMove}
+        onPointerLeave={handleChromePointerLeave}
+        onFocus={activatePlayer}
+        isFullscreen={isFullscreen}
+        onKeyCommand={keyCommand}
+        enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
+        bar={
+          <ChromeBar
+            containerRef={containerRef}
+            fullscreenContainer={fullscreenContainer}
+            isCoarsePointer={isCoarsePointer}
+            muted={muted}
+            volume={volume}
+            size={chromeSize}
+            onTogglePlay={togglePlay}
+            onToggleMute={toggleMute}
+            onVolumeChange={setVolume}
+            onVolumeChangeEnd={finishVolumeChange}
+            onSeek={(seconds) => seekInternal(seconds)}
+            onToggleFullscreen={toggleFullscreen}
+            qualityOptions={qualityOptions}
+            selectedQualityId={selectedQualityId}
+            onSelectQuality={(id) => {
+              syncTime()
+              onSelectQuality?.(id)
+            }}
+            onPlaybackRateChange={setPlaybackRate}
+          />
+        }
+      >
+        {renderVideo(handleControlledVideoClick)}
 
-      <LoadOverlay
-        status={status}
-        buffering={buffering || switchingRendition}
-        loadingLabel={switchingRendition ? t("Loading quality...") : undefined}
-      />
-    </ChromeShell>
+        <LoadOverlay
+          status={status}
+          buffering={buffering || switchingRendition}
+          loadingLabel={
+            switchingRendition ? t("Loading quality...") : undefined
+          }
+        />
+      </ChromeShell>
+    </PlayerStoreProvider>
   )
 }

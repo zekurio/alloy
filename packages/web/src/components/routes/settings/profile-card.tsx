@@ -13,7 +13,6 @@ import { Section, SectionContent } from "@alloy/ui/components/section"
 import { cn } from "@alloy/ui/lib/utils"
 import { useForm, useStore } from "@tanstack/react-form"
 import { CircleAlertIcon, ImageIcon, Pencil } from "lucide-react"
-import { useEffect } from "react"
 import type { ReactNode } from "react"
 
 import type { useClickAnchor } from "@/hooks/use-click-anchor"
@@ -31,10 +30,7 @@ import { displayName, userAvatar, UserBanner } from "@/lib/user-display"
 
 import { MediaEditOverlay, type MediaKind } from "./profile-media-controls"
 import { ProfileTextField } from "./profile-text-field"
-import {
-  useSettingsSaveBar,
-  useSettingsSaveState,
-} from "./settings-save-context"
+import { useSettingsSave, useSettingsSaveBar } from "./settings-save-context"
 import { useProfileMedia } from "./use-profile-media"
 
 type ProfileCardProps = {
@@ -110,7 +106,7 @@ export function ProfileCard({
   }
   const form = useForm({
     defaultValues: initialIdentity,
-    onSubmit: async ({ value }) => {
+    onSubmit: async ({ value, formApi }) => {
       const patch = profileIdentityPatch(value, initialIdentity)
       if (Object.keys(patch).length === 0) {
         return
@@ -118,16 +114,12 @@ export function ProfileCard({
 
       const { error } = await authClient.updateUser(patch)
       if (error) throw new Error(errorMessage(error, t("Couldn't save")))
+      // Clear the touched state but keep the defaults, so the form adopts the
+      // refreshed session values once they arrive instead of flashing back.
+      formApi.reset(value, { keepDefaultValues: true })
       void refreshAfterWrite("profile", media.refreshProfile)
     },
   })
-
-  useEffect(() => {
-    form.reset({
-      username: initialUsername,
-      displayName: initialDisplayName,
-    })
-  }, [form, initialUsername, initialDisplayName])
 
   // Media (avatar, banner) applies as soon as it uploads; only the identity
   // fields go through the dialog's unified save bar.
@@ -136,14 +128,12 @@ export function ProfileCard({
   )
   const identitySaving = useStore(form.store, (state) => state.isSubmitting)
   const identityValid = useStore(form.store, (state) => state.canSubmit)
-  useSettingsSaveBar({
+  useSettingsSaveBar(form, {
     dirty: identityDirty,
     saving: identitySaving,
     valid: identityValid,
-    save: () => form.handleSubmit(),
-    discard: () => form.reset(),
   })
-  const { saveAll } = useSettingsSaveState()
+  const saveAll = useSettingsSave((state) => state.saveAll)
 
   // A clickable region in the live profile preview. When the element already
   // has an image, clicking opens the change/remove menu; otherwise it opens the

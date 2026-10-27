@@ -4,7 +4,7 @@ import { t } from "@alloy/i18n"
 import { Callout } from "@alloy/ui/components/callout"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { List, ListItem } from "@alloy/ui/components/list"
-import { useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import {
   CircleAlertIcon,
@@ -12,7 +12,7 @@ import {
   LinkIcon,
   UserKeyIcon,
 } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { authClient, useSession } from "@/lib/auth-client"
@@ -103,14 +103,7 @@ function useLinkedAccountActions({
 }) {
   const queryClient = useQueryClient()
   const { refetch: refetchSession } = useSession()
-  const [linkingProviderId, setLinkingProviderId] = useState<string | null>(
-    null,
-  )
-  const [unlinkingId, setUnlinkingId] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<{
-    target: string
-    message: string
-  } | null>(null)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
 
   useEffect(() => {
     if (consumeCurrentQueryParam(OAUTH_LINKED_QUERY_KEY) !== "1") return
@@ -124,10 +117,9 @@ function useLinkedAccountActions({
         await router.invalidate()
       } catch (cause) {
         if (active) {
-          setActionError({
-            target: "refresh",
-            message: errorMessage(cause, t("Couldn't refresh linked accounts")),
-          })
+          setRefreshError(
+            errorMessage(cause, t("Couldn't refresh linked accounts")),
+          )
         }
       }
     })()
@@ -137,11 +129,8 @@ function useLinkedAccountActions({
     }
   }, [refetchSession, refresh, router])
 
-  const onLink = useCallback(
-    async (provider: Provider) => {
-      if (linkingProviderId) return
-      setActionError(null)
-      setLinkingProviderId(provider.providerId)
+  const link = useMutation({
+    mutationFn: async (provider: Provider) => {
       try {
         const { error } = await authClient.oauth2.link({
           providerId: provider.providerId,
@@ -149,100 +138,80 @@ function useLinkedAccountActions({
             currentUrlWithQueryParam(OAUTH_LINKED_QUERY_KEY, "1") ??
             authCallbackUrl(`/settings?${OAUTH_LINKED_QUERY_KEY}=1`),
         })
-        if (error) {
-          reportAuthFlowFailure(
-            "OAuth link",
-            t("Couldn't start link flow"),
-            error,
-          )
-          setActionError({
-            target: provider.providerId,
-            message: isAuthAttemptCancellation(error)
-              ? t("Auth attempt cancelled.")
-              : errorMessage(error, t("Couldn't start link flow")),
-          })
-          setLinkingProviderId(null)
-        }
+        if (error) throw error
       } catch (cause) {
         reportAuthFlowFailure(
           "OAuth link",
           t("Couldn't start link flow"),
           cause,
         )
-        setActionError({
-          target: provider.providerId,
-          message: isAuthAttemptCancellation(cause)
+        throw new Error(
+          isAuthAttemptCancellation(cause)
             ? t("Auth attempt cancelled.")
             : errorMessage(cause, t("Couldn't start link flow")),
-        })
-        setLinkingProviderId(null)
+        )
       }
     },
-    [linkingProviderId],
-  )
+  })
 
-  const onUnlink = useCallback(
-    async (account: LinkedAccount) => {
-      if (unlinkingId) return
+  const unlink = useMutation({
+    mutationFn: async (account: LinkedAccount) => {
       if (!canRemoveAccount(account, accounts, config, hasPasskeySignIn)) {
-        setActionError({
-          target: account.id,
-          message: t(
+        throw new Error(
+          t(
             "This is your last enabled sign-in method. Link another before removing it.",
           ),
-        })
-        return
-      }
-      setActionError(null)
-      setUnlinkingId(account.id)
-      try {
-        const { error } = await authClient.unlinkAccount({
-          providerId: account.providerId,
-          accountId: account.accountId,
-        })
-        if (error) {
-          setActionError({
-            target: account.id,
-            message: errorMessage(error, t("Couldn't unlink")),
-          })
-          return
-        }
-        // The unlink saved; drop the row now and let the refetch catch up
-        // without turning a refresh failure into "Couldn't unlink".
-        queryClient.setQueryData<LinkedAccount[]>(
-          authKeys.accounts(),
-          (current) => current?.filter((entry) => entry.id !== account.id),
         )
-        void refreshAfterWrite("linked accounts", async () => {
-          await refresh()
-          await router.invalidate()
-        })
-      } catch (cause) {
-        setActionError({
-          target: account.id,
-          message: errorMessage(cause, t("Couldn't unlink")),
-        })
-      } finally {
-        setUnlinkingId(null)
       }
+      const { error } = await authClient.unlinkAccount({
+        providerId: account.providerId,
+        accountId: account.accountId,
+      })
+      if (error) throw new Error(errorMessage(error, t("Couldn't unlink")))
+      // The unlink saved; drop the row now and let the refetch catch up
+      // without turning a refresh failure into "Couldn't unlink".
+      queryClient.setQueryData<LinkedAccount[]>(
+        authKeys.accounts(),
+        (current) => current?.filter((entry) => entry.id !== account.id),
+      )
+      void refreshAfterWrite("linked accounts", async () => {
+        await refresh()
+        await router.invalidate()
+      })
     },
-    [
-      accounts,
-      config,
-      hasPasskeySignIn,
-      queryClient,
-      refresh,
-      router,
-      unlinkingId,
-    ],
-  )
+  })
+
+  // A successful link stays busy: the page is about to leave for the provider.
+  const linking = link.isPending || link.isSuccess
+
+  // One error slot: starting either action clears the other's failure.
+  const actionError = link.error
+    ? { target: link.variables?.providerId ?? "", message: link.error.message }
+    : unlink.error
+      ? {
+          target: unlink.variables?.id ?? "",
+          message: errorMessage(unlink.error, t("Couldn't unlink")),
+        }
+      : refreshError
+        ? { target: "refresh", message: refreshError }
+        : null
 
   return {
-    linkingProviderId,
-    unlinkingId,
+    linkingProviderId: linking ? (link.variables?.providerId ?? null) : null,
+    unlinkingId: unlink.isPending ? unlink.variables.id : null,
     actionError,
-    onLink,
-    onUnlink,
+    onLink: (provider: Provider) => {
+      if (linking) return
+      unlink.reset()
+      setRefreshError(null)
+      link.mutate(provider)
+    },
+    onUnlink: (account: LinkedAccount) => {
+      if (unlink.isPending) return
+      link.reset()
+      setRefreshError(null)
+      unlink.mutate(account)
+    },
   }
 }
 

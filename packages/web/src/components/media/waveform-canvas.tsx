@@ -1,6 +1,6 @@
 import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useSyncExternalStore } from "react"
 
 import type { MediaWaveformStatus } from "@/lib/media-waveform"
 
@@ -119,32 +119,48 @@ export function WaveformCanvas({
   )
 }
 
+let themeRevision = 0
+let themeObserver: MutationObserver | null = null
+const themeRevisionListeners = new Set<() => void>()
+
 /**
  * Canvas paints pixels, so it can't follow a palette swap through CSS the way
- * elements do. Returns a revision the paint effect depends on: a theme change
- * either swaps the attributes on the root or replaces the stylesheet overrides
- * that accents and presets write into the head.
+ * elements do. A theme change either swaps the attributes on the root or
+ * replaces the stylesheet overrides that accents, presets and the editor's
+ * live preview write into the head; one observer serves every canvas.
  */
-function useThemeRevision(): number {
-  const [revision, setRevision] = useState(0)
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setRevision((current) => current + 1)
+function subscribeThemeRevision(listener: () => void): () => void {
+  themeRevisionListeners.add(listener)
+  if (!themeObserver) {
+    themeObserver = new MutationObserver(() => {
+      themeRevision += 1
+      for (const notify of themeRevisionListeners) notify()
     })
-    observer.observe(document.documentElement, {
+    themeObserver.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class"],
     })
-    observer.observe(document.head, {
+    themeObserver.observe(document.head, {
       childList: true,
       characterData: true,
       subtree: true,
     })
-    return () => observer.disconnect()
-  }, [])
+  }
+  return () => {
+    themeRevisionListeners.delete(listener)
+    if (themeRevisionListeners.size > 0) return
+    themeObserver?.disconnect()
+    themeObserver = null
+  }
+}
 
-  return revision
+function readThemeRevision(): number {
+  return themeRevision
+}
+
+/** A revision the paint effect depends on, bumped by each theme change. */
+function useThemeRevision(): number {
+  return useSyncExternalStore(subscribeThemeRevision, readThemeRevision)
 }
 
 function clampMs(value: number, durationMs: number): number {

@@ -8,11 +8,13 @@ import { Callout } from "@alloy/ui/components/callout"
 import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
-import { useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { CircleAlertIcon, InfoIcon } from "lucide-react"
-import { useState } from "react"
 
-import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
+import {
+  useAdminConfigMutation,
+  useRefreshAuthConfig,
+} from "@/components/routes/settings/admin-config-context"
 import { EnvManagedNote } from "@/components/routes/settings/admin-env-note"
 import {
   SettingsSections,
@@ -21,7 +23,6 @@ import {
 import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
-import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
 
 import { OAuthProviderSettings } from "./admin-auth-provider-settings"
 import type { ProviderIconUpload } from "./admin-auth-provider-utils"
@@ -71,37 +72,43 @@ export function AuthSettingsContent({
     { authConfigChanged: true },
   )
   const pendingToggle = toggle.isPending ? toggle.variables.key : null
-  const [providerPending, setProviderPending] = useState(false)
-  const [providerError, setProviderError] = useState<string | null>(null)
-
-  async function saveProviders(
-    providers: AdminOAuthProviderInput[],
-    iconUpload?: ProviderIconUpload,
-  ) {
-    if (providerPending) return false
-    setProviderError(null)
-    setProviderPending(true)
-    try {
+  const refreshAuthConfig = useRefreshAuthConfig()
+  const providersMutation = useMutation({
+    mutationFn: async ({
+      providers,
+      iconUpload,
+    }: {
+      providers: AdminOAuthProviderInput[]
+      iconUpload?: ProviderIconUpload
+    }) => {
       // Apply the list update before the icon upload so a failed upload still
       // leaves the saved provider list visible (with the error shown).
       const updated = await api.admin.updateOAuthProviders(providers)
       queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
-      publishRuntimeConfigUpdate({ authConfigChanged: true })
+      refreshAuthConfig()
       if (iconUpload) {
         const withIcon = await api.admin.uploadOAuthProviderIcon(
           iconUpload.providerId,
           iconUpload.file,
         )
         queryClient.setQueryData(adminKeys.runtimeConfig(), withIcon)
-        publishRuntimeConfigUpdate({ authConfigChanged: true })
+        refreshAuthConfig()
       }
-      return true
-    } catch (cause) {
-      setProviderError(errorMessage(cause, t("Couldn't save OAuth providers")))
-      return false
-    } finally {
-      setProviderPending(false)
-    }
+    },
+  })
+  const providerError = providersMutation.error
+    ? errorMessage(providersMutation.error, t("Couldn't save OAuth providers"))
+    : null
+
+  async function saveProviders(
+    providers: AdminOAuthProviderInput[],
+    iconUpload?: ProviderIconUpload,
+  ) {
+    if (providersMutation.isPending) return false
+    return providersMutation.mutateAsync({ providers, iconUpload }).then(
+      () => true,
+      () => false,
+    )
   }
 
   return (
@@ -147,7 +154,7 @@ export function AuthSettingsContent({
 
           <OAuthProviderSettings
             config={config}
-            pending={providerPending}
+            pending={providersMutation.isPending}
             error={providerError}
             onSave={saveProviders}
           />

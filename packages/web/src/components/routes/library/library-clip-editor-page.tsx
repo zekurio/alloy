@@ -4,7 +4,7 @@ import { AppMain } from "@alloy/ui/components/app-shell"
 import { Card } from "@alloy/ui/components/card"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
-import { useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { VideoOffIcon } from "lucide-react"
 import { useCallback, useState } from "react"
@@ -29,7 +29,10 @@ import {
 import type { RecordingLibraryItem } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 
-import { ClipEditorDetails } from "./library-clip-editor-details"
+import {
+  ClipEditorDetails,
+  useClipRowMetadataDraft,
+} from "./library-clip-editor-details"
 import {
   ClipEditorStage,
   useClipEditorMedia,
@@ -163,14 +166,14 @@ function ClipEditorBody({
     handoffPoster: media.handoffPoster,
   })
 
-  const [detailsDirty, setDetailsDirty] = useState(false)
+  const metadata = useClipRowMetadataDraft(row)
   const mediaDirty =
     row.mediaKind === "image" ? screenshot.changed : canTrim && trimChanged
 
   useLibraryEditorShortcuts({
     prevEntry,
     nextEntry,
-    hasUnsavedEdits: detailsDirty || mediaDirty,
+    hasUnsavedEdits: metadata.dirty || mediaDirty,
     onDelete: () => {
       if (canManage) deleteFlow.openDialog()
     },
@@ -211,7 +214,7 @@ function ClipEditorBody({
           ? errorMessage(trimMutation.error, t("Couldn't trim the clip"))
           : null,
     onSaveMedia: row.mediaKind === "image" ? screenshot.save : handleSaveTrim,
-    onDirtyChange: setDetailsDirty,
+    metadata,
   }
 
   return (
@@ -320,9 +323,13 @@ function useServerBackedClipDelete({
   const librarySearch = useLibrarySearch()
   const queryClient = useQueryClient()
   const deleteMutation = useDeleteClipMutation()
+  // The local copy is cleaned up once the server delete lands.
+  const localDeleteMutation = useMutation({
+    mutationFn: finishLocalClipDelete,
+    networkMode: "always",
+  })
   const [open, setOpen] = useState(false)
-  const [deletingLocal, setDeletingLocal] = useState(false)
-  const pending = deleteMutation.isPending || deletingLocal
+  const pending = deleteMutation.isPending || localDeleteMutation.isPending
 
   const finishDelete = useCallback(
     async ({
@@ -379,11 +386,10 @@ function useServerBackedClipDelete({
           onSuccess: async () => {
             const keptLocalItem = localItem && !deleteLocal ? localItem : null
             if (localItem) {
-              await finishLocalClipDelete({
+              await localDeleteMutation.mutateAsync({
                 deleteLocal,
                 localItem,
                 serverId: row.id,
-                setDeletingLocal,
               })
             }
             await finishDelete({ keptLocalItem })
@@ -391,7 +397,7 @@ function useServerBackedClipDelete({
         },
       )
     },
-    [deleteMutation, finishDelete, localItem, row.id],
+    [deleteMutation, finishDelete, localDeleteMutation, localItem, row.id],
   )
 
   return {

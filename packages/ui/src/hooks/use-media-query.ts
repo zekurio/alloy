@@ -1,26 +1,38 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useSyncExternalStore } from "react"
 
-export function useMediaQuery(query: string): boolean {
-  // Initialize synchronously so the first render already reflects the
-  // viewport — an effect-only update would flash the non-matching layout.
-  const [matches, setMatches] = useState(
-    () => canMatchMedia() && window.matchMedia(query).matches,
-  )
+const mediaQueryLists = new Map<string, MediaQueryList>()
 
-  useEffect(() => {
-    if (!canMatchMedia()) return
-    const mql = window.matchMedia(query)
-    const onChange = () => setMatches(mql.matches)
-    mql.addEventListener("change", onChange)
-    setMatches(mql.matches)
-    return () => mql.removeEventListener("change", onChange)
-  }, [query])
-
-  return matches
+function mediaQueryList(query: string): MediaQueryList | null {
+  if (!globalThis.window?.matchMedia) return null
+  let mql = mediaQueryLists.get(query)
+  if (!mql) {
+    mql = window.matchMedia(query)
+    mediaQueryLists.set(query, mql)
+  }
+  return mql
 }
 
-function canMatchMedia() {
-  return Boolean(globalThis.window?.matchMedia)
+function noMatch() {
+  return false
+}
+
+export function useMediaQuery(query: string): boolean {
+  // Read synchronously so the first render already reflects the viewport;
+  // an effect-only update would flash the non-matching layout.
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const mql = mediaQueryList(query)
+      mql?.addEventListener("change", onChange)
+      return () => mql?.removeEventListener("change", onChange)
+    },
+    [query],
+  )
+  const getSnapshot = useCallback(
+    () => mediaQueryList(query)?.matches ?? false,
+    [query],
+  )
+
+  return useSyncExternalStore(subscribe, getSnapshot, noMatch)
 }

@@ -2,6 +2,7 @@ import type { PublicAuthConfig, PublicAuthProvider } from "@alloy/api"
 import { message, t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
+import { useMutation } from "@tanstack/react-query"
 import { useLocation, useNavigate, useRouter } from "@tanstack/react-router"
 import { LinkIcon } from "lucide-react"
 import { useState } from "react"
@@ -66,7 +67,6 @@ function OAuthLinkSignIn({
   // This page, link param included, so signing in comes back to confirm.
   const returnTo = useLocation({ select: (location) => location.href })
   const [reactivationRequired, setReactivationRequired] = useState(false)
-  const [pending, setPending] = useState(false)
   const { ready: passkeyReady, supported: passkeySupported } =
     usePasskeySupport()
   const displayName = provider.displayName
@@ -79,32 +79,35 @@ function OAuthLinkSignIn({
     ),
   }
 
-  async function onCreateAccount() {
-    if (pending) return
-    setPending(true)
-    try {
+  const createAccount = useMutation({
+    // Resolves true once the server is creating the account and redirecting.
+    mutationFn: async () => {
       const { error } = await authClient.oauth2.pending.signUp()
-      if (!error) return
+      if (!error) return true
       toastAuthAttemptFailure(
         "OAuth sign-up",
         message("OAuth sign-in failed"),
         error,
       )
-    } catch (cause) {
+      return false
+    },
+    onError: (cause) =>
       toastAuthAttemptFailure(
         "OAuth sign-up",
         message("OAuth sign-in failed"),
         cause,
-      )
-    }
-    setPending(false)
-    // The server refuses while signed in, e.g. from another tab, so refresh
-    // the session to show the link step. A failed attempt may also have used
-    // up the pending sign-in.
-    await completeAuthSessionFlow({
-      invalidateRouter: () => router.invalidate(),
-    })
-  }
+      ),
+    onSettled: (created) => {
+      if (created) return
+      // The server refuses while signed in, e.g. from another tab, so refresh
+      // the session to show the link step. A failed attempt may also have
+      // used up the pending sign-in.
+      void completeAuthSessionFlow({
+        invalidateRouter: () => router.invalidate(),
+      })
+    },
+  })
+  const pending = createAccount.isPending || createAccount.data === true
 
   return (
     <>
@@ -141,7 +144,9 @@ function OAuthLinkSignIn({
                 type="button"
                 className="text-foreground hover:text-accent font-medium underline-offset-4 hover:underline disabled:opacity-50"
                 disabled={pending}
-                onClick={onCreateAccount}
+                onClick={() => {
+                  if (!pending) createAccount.mutate()
+                }}
               >
                 {t("Create a new account")}
               </button>
@@ -169,43 +174,49 @@ function OAuthLinkConfirm({
 }) {
   const navigate = useNavigate()
   const router = useRouter()
-  const [pending, setPending] = useState(false)
   const displayName = provider.displayName
-
-  async function onLink() {
-    if (pending) return
-    setPending(true)
-    try {
+  const confirm = useMutation({
+    // Resolves true once the browser is leaving this page.
+    mutationFn: async (choice: "link" | "skip") => {
+      if (choice === "skip") {
+        // It expires on its own, so leaving it behind is harmless.
+        const { error } = await authClient.oauth2.pending
+          .discard()
+          .catch((cause: unknown) => ({ error: cause }))
+        if (error)
+          clientLogger.warn(
+            "[auth] Discarding pending OAuth link failed.",
+            error,
+          )
+        // The target may be a server path such as the desktop handshake.
+        if (redirectTo) window.location.assign(redirectTo)
+        else void navigate({ to: "/", replace: true })
+        return true
+      }
       // Goes back to where the OAuth sign-in started.
       const { error } = await authClient.oauth2.pending.link()
-      if (!error) return
+      if (!error) return true
       toastAuthAttemptFailure(
         "OAuth link",
         message("Couldn't link account"),
         error,
       )
-    } catch (cause) {
+      return false
+    },
+    onError: (cause) =>
       toastAuthAttemptFailure(
         "OAuth link",
         message("Couldn't link account"),
         cause,
-      )
-    }
-    setPending(false)
-    // A failed attempt may have used up the pending sign-in.
-    await router.invalidate()
-  }
-
-  async function onSkip() {
-    if (pending) return
-    setPending(true)
-    const { error } = await authClient.oauth2.pending.discard()
-    // It expires on its own, so leaving it behind is harmless.
-    if (error)
-      clientLogger.warn("[auth] Discarding pending OAuth link failed.", error)
-    // The target may be a server path such as the desktop handshake.
-    if (redirectTo) window.location.assign(redirectTo)
-    else void navigate({ to: "/", replace: true })
+      ),
+    onSettled: (leaving) => {
+      // A failed attempt may have used up the pending sign-in.
+      if (!leaving) void router.invalidate()
+    },
+  })
+  const pending = confirm.isPending || confirm.data === true
+  const run = (choice: "link" | "skip") => {
+    if (!pending) confirm.mutate(choice)
   }
 
   return (
@@ -232,7 +243,7 @@ function OAuthLinkConfirm({
           size="lg"
           className="w-full gap-3"
           disabled={pending}
-          onClick={onLink}
+          onClick={() => run("link")}
         >
           <LinkIcon className="size-4" />
           {pending
@@ -245,7 +256,7 @@ function OAuthLinkConfirm({
           size="lg"
           className="w-full"
           disabled={pending}
-          onClick={onSkip}
+          onClick={() => run("skip")}
         >
           {t("Not now")}
         </Button>

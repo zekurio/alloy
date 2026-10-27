@@ -14,7 +14,6 @@ interface ActiveVideoPlayerOptions {
   autoPlay: boolean
   controls: boolean
   containerRef: RefObject<HTMLDivElement | null>
-  clearChromeHideTimer: () => void
   enableHorizontalSeekShortcuts: boolean
   keyCommand: VideoKeyCommand
 }
@@ -23,7 +22,6 @@ export function useActiveVideoPlayer({
   autoPlay,
   controls,
   containerRef,
-  clearChromeHideTimer,
   enableHorizontalSeekShortcuts,
   keyCommand,
 }: ActiveVideoPlayerOptions) {
@@ -64,12 +62,12 @@ export function useActiveVideoPlayer({
     }
   }, [autoPlay, controls, playerId])
 
+  // Players activated by pointer or focus aren't covered by the effect above.
   useEffect(() => {
     return () => {
       if (activeVideoPlayerId === playerId) activeVideoPlayerId = null
-      clearChromeHideTimer()
     }
-  }, [clearChromeHideTimer, playerId])
+  }, [playerId])
 
   return { activatePlayer, focusPlayerContainer }
 }

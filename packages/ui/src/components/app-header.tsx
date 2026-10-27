@@ -5,7 +5,7 @@ import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { mergeRefs } from "@alloy/ui/lib/merge-refs"
 import { cn } from "@alloy/ui/lib/utils"
 import { Maximize2Icon, MinusIcon, SearchIcon, XIcon } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
 function AppHeader({ className, ...props }: ComponentProps<"header">) {
@@ -227,19 +227,12 @@ function AppHeaderSearch({
   )
 }
 
-function useIsMacPlatform() {
-  const [isMac, setIsMac] = useState(false)
-  useEffect(() => {
-    if (!globalThis.navigator) return
-    const platform = navigator.platform ?? ""
-    setIsMac(/mac|iphone|ipad|ipod/i.test(platform))
-  }, [])
-  return isMac
+function isMacPlatform() {
+  return /mac|iphone|ipad|ipod/i.test(globalThis.navigator?.platform ?? "")
 }
 
 function DefaultSearchHint() {
-  const isMac = useIsMacPlatform()
-  return isMac ? "⌘K" : t("Ctrl K")
+  return isMacPlatform() ? "⌘K" : t("Ctrl K")
 }
 
 /**

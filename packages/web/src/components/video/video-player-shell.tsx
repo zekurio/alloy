@@ -17,6 +17,7 @@ import {
   shouldHandleVideoShortcut,
   type VideoKeyCommand,
 } from "./video-keyboard"
+import type { LoadStatus } from "./video-player-store"
 
 export { ChromeBar } from "./video-player-chrome"
 
@@ -26,10 +27,7 @@ export {
   type VideoKeyCommand,
 } from "./video-keyboard"
 
-export type LoadStatus =
-  | { kind: "loading" }
-  | { kind: "ready" }
-  | { kind: "error"; message: string }
+export type { LoadStatus } from "./video-player-store"
 
 export function BareShell({
   containerRef,

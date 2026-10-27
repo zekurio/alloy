@@ -27,6 +27,7 @@ import {
 import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav"
+import { loadLibraryEditorPage } from "@/components/routes/library/load-library-editor-page"
 import { SETTINGS_OVERVIEW_SECTION } from "@/components/routes/settings/settings-categories"
 import { SettingsDialog } from "@/components/routes/settings/settings-dialog"
 import { AppSearchProvider } from "@/components/search/app-search"
@@ -39,11 +40,6 @@ import { useOpenClipDialog } from "@/lib/clip-navigation"
 import { alloyDesktop } from "@/lib/desktop"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { useOpenSettings } from "@/lib/use-open-settings"
-
-const loadLibraryEditorPage = async () => {
-  const module = await import("@/components/routes/library/library-editor-page")
-  return { default: module.LibraryEditorPage }
-}
 
 const LibraryEditorPage = lazy(loadLibraryEditorPage)
 
@@ -183,11 +179,6 @@ function AppShellContent({ session }: { session: boolean }) {
   })
   const uploadEditorOpen = webUploadAction.selected !== null
   const editorOpen = libraryEditorOpen || uploadEditorOpen
-  // Fetch the editor while the picked file is still being probed.
-  const preparingUpload = webUploadAction.picking
-  useEffect(() => {
-    if (preparingUpload) void loadLibraryEditorPage().catch(() => {})
-  }, [preparingUpload])
 
   // The page comes back exactly as it was left when the editor closes; fade
   // it in rather than snapping it over the editor's last frame.

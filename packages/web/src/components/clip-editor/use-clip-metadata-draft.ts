@@ -1,5 +1,6 @@
 import type { GameRow, UserSearchResult } from "@alloy/api"
-import { useState } from "react"
+import { useForm, useStore } from "@tanstack/react-form"
+import { useMemo } from "react"
 
 import {
   CLIP_DESCRIPTION_MAX,
@@ -34,20 +35,44 @@ export interface ClipMetadataBaseline {
  * Owns the clip-metadata draft: the editable fields plus the normalized values,
  * validation, and per-field dirty tracking every editor recomputes by hand.
  *
- * `initial` seeds the fields once; editors remount per clip (keyed by id), so a
- * new clip re-seeds naturally without a reset effect. `baseline` is read every
- * render for dirty tracking — omit it for the upload flow, which has nothing to
- * compare against and only needs the normalized values and validation.
+ * The fields live in a TanStack form seeded from `initial`; editors remount per
+ * clip (keyed by id), so a new clip re-seeds naturally without a reset effect.
+ * The form adopts a changed `initial` only while nothing is touched, and
+ * compares it deeply, so callers may rebuild `initial` every render. `baseline`
+ * is read every render for dirty tracking — omit it for the upload flow, which
+ * has nothing to compare against and only needs the normalized values and
+ * validation.
  */
 export function useClipMetadataDraft(
   initial: ClipMetadataDraftValues,
   baseline?: ClipMetadataBaseline,
 ) {
-  const [title, setTitle] = useState(initial.title)
-  const [description, setDescription] = useState(initial.description)
-  const [game, setGame] = useState(initial.game)
-  const [mentions, setMentions] = useState(initial.mentions)
-  const [tags, setTags] = useState(initial.tags)
+  const form = useForm({ defaultValues: initial })
+  const values = useStore(form.store, (state) => state.values)
+  const gameTouched = useStore(
+    form.store,
+    (state) => state.fieldMeta.game?.isTouched ?? false,
+  )
+  const { title, description, mentions, tags } = values
+  // A game the user hasn't picked keeps following `initial` after other edits,
+  // so a capture's game lookup that resolves mid-edit still lands. Matching by
+  // id keeps the value referentially stable, which the game combobox needs.
+  const game =
+    gameTouched || (values.game?.id ?? null) === (initial.game?.id ?? null)
+      ? values.game
+      : initial.game
+  const setters = useMemo(
+    () => ({
+      setTitle: (value: string) => form.setFieldValue("title", value),
+      setDescription: (value: string) =>
+        form.setFieldValue("description", value),
+      setGame: (value: GameRow | null) => form.setFieldValue("game", value),
+      setMentions: (value: UserSearchResult[]) =>
+        form.setFieldValue("mentions", value),
+      setTags: (value: string[]) => form.setFieldValue("tags", value),
+    }),
+    [form],
+  )
 
   const normalizedTitle = normalizeClipTitle(title)
   const normalizedDescription = normalizeClipDescription(description)
@@ -78,16 +103,12 @@ export function useClipMetadataDraft(
     tagsChanged
 
   return {
+    ...setters,
     title,
-    setTitle,
     description,
-    setDescription,
     game,
-    setGame,
     mentions,
-    setMentions,
     tags,
-    setTags,
     normalizedTitle,
     normalizedDescription,
     mentionIds,
@@ -101,6 +122,8 @@ export function useClipMetadataDraft(
     dirty,
   }
 }
+
+export type ClipMetadataDraft = ReturnType<typeof useClipMetadataDraft>
 
 function sameIdSet(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false

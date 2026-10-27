@@ -10,7 +10,8 @@ import {
   type ThemeAppearance,
 } from "@alloy/ui/lib/theme-colors"
 import { cn } from "@alloy/ui/lib/utils"
-import { useEffect, useRef, useState } from "react"
+import { useForm, useStore } from "@tanstack/react-form"
+import { useEffect, useEffectEvent } from "react"
 
 import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
@@ -46,30 +47,32 @@ export function AdminAccentSettings({
   config: AdminRuntimeConfig
 }) {
   const saved = config.appearance.accentColors
-  const [draft, setDraft] = useState<ThemeAccents>(saved)
-  const savedRef = useRef(saved)
   const saveAccents = useAdminConfigMutation(
     (accentColors: ThemeAccents) =>
       api.admin.updateAppearanceConfig({ accentColors }),
     { authConfigChanged: true },
   )
+  // The form adopts a refetched pair only while untouched, so edits survive
+  // a refetch.
+  const form = useForm({
+    defaultValues: saved,
+    onSubmit: async ({ value, formApi }) => {
+      const updated = await saveAccents.mutateAsync(value)
+      formApi.reset(updated.appearance.accentColors, {
+        keepDefaultValues: true,
+      })
+    },
+  })
+  const draft = useStore(form.store, (state) => state.values)
 
-  useEffect(() => {
-    savedRef.current = saved
-    setDraft(saved)
-    // A refetch hands over a new object with the same colors.
-  }, [saved.light, saved.dark])
   useEffect(() => setServerThemeAccents(draft), [draft])
   // Leaving without saving drops the preview.
-  useEffect(() => () => setServerThemeAccents(savedRef.current), [])
+  const restoreSaved = useEffectEvent(() => setServerThemeAccents(saved))
+  useEffect(() => () => restoreSaved(), [])
 
-  useSettingsSaveBar({
+  useSettingsSaveBar(form, {
     dirty: draft.light !== saved.light || draft.dark !== saved.dark,
     saving: saveAccents.isPending,
-    save: async () => {
-      await saveAccents.mutateAsync(draft)
-    },
-    discard: () => setDraft(saved),
   })
 
   const accent = (appearance: ThemeAppearance) =>
@@ -104,12 +107,13 @@ export function AdminAccentSettings({
                 aria-label={name}
                 title={name}
                 aria-pressed={selected}
-                onClick={() =>
-                  setDraft({
-                    light: storedAccent("light", preset.light),
-                    dark: storedAccent("dark", preset.dark),
-                  })
-                }
+                onClick={() => {
+                  form.setFieldValue(
+                    "light",
+                    storedAccent("light", preset.light),
+                  )
+                  form.setFieldValue("dark", storedAccent("dark", preset.dark))
+                }}
                 className={cn(
                   "ring-offset-background size-7 rounded-full ring-offset-2 outline-offset-4 transition-shadow",
                   selected
@@ -143,10 +147,10 @@ export function AdminAccentSettings({
                 }
                 hexInput
                 onValueChange={(color) =>
-                  setDraft((current) => ({
-                    ...current,
-                    [appearance]: storedAccent(appearance, color),
-                  }))
+                  form.setFieldValue(
+                    appearance,
+                    storedAccent(appearance, color),
+                  )
                 }
               />
             </div>

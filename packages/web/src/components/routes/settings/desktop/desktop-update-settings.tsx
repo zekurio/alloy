@@ -3,6 +3,7 @@ import { Button } from "@alloy/ui/components/button"
 import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Spinner } from "@alloy/ui/components/spinner"
+import { useMutation } from "@tanstack/react-query"
 import { DownloadIcon, RefreshCcwIcon, SearchIcon } from "lucide-react"
 import { useState } from "react"
 
@@ -10,21 +11,50 @@ import { alloyDesktop } from "@/lib/desktop"
 import { useDesktopUpdateState } from "@/lib/desktop-updates"
 import { errorMessage } from "@/lib/error-message"
 
-type Phase = "idle" | "checking" | "downloading" | "installing"
+type UpdateAction = "checking" | "downloading" | "installing"
+
+const ACTION_FAILURES = {
+  checking: t("Couldn't check for updates."),
+  downloading: t("Couldn't download the update."),
+  installing: t("Couldn't restart to update."),
+} satisfies Record<UpdateAction, string>
 
 export function DesktopUpdateSettings() {
   const desktop = alloyDesktop()
   const updateState = useDesktopUpdateState()
-  const [phase, setPhase] = useState<Phase>("idle")
   const [restartDialogOpen, setRestartDialogOpen] = useState(false)
-  const [actionMessage, setActionMessage] = useState<{
-    tone: "success" | "error"
-    text: string
-  } | null>(null)
+  // Resolves to the confirmation shown on the check button, if any.
+  const action = useMutation({
+    networkMode: "always",
+    mutationFn: async (next: UpdateAction): Promise<string | null> => {
+      if (!desktop) return null
+      const updates = desktop.updates
+      if (next === "installing") {
+        await updates.restartToInstall()
+        return null
+      }
+      if (next === "downloading") {
+        await updates.downloadUpdate()
+        return null
+      }
+      const state = await updates.checkForUpdates()
+      return state.status === "idle" ? t("No updates found.") : null
+    },
+  })
 
   if (!desktop) return null
-  const updates = desktop.updates
 
+  // A successful install restarts the app, so it stays "installing".
+  const phase: UpdateAction | "idle" = action.isPending
+    ? action.variables
+    : action.isSuccess && action.variables === "installing"
+      ? "installing"
+      : "idle"
+  const actionError =
+    action.isError && action.variables
+      ? errorMessage(action.error, ACTION_FAILURES[action.variables])
+      : null
+  const actionSuccess = action.data ?? null
   const checkBusy = phase === "checking" || updateState.status === "checking"
   const downloadBusy =
     phase === "downloading" || updateState.status === "downloading"
@@ -32,52 +62,6 @@ export function DesktopUpdateSettings() {
     !updateState.supported ||
     phase !== "idle" ||
     (updateState.status !== "idle" && updateState.status !== "available")
-
-  async function runAction(
-    next: Exclude<Phase, "idle">,
-    action: () => Promise<void>,
-    fallbackError: string,
-  ) {
-    setActionMessage(null)
-    setPhase(next)
-    try {
-      await action()
-      // A successful install restarts the app, so it stays "installing".
-      if (next !== "installing") setPhase("idle")
-    } catch (cause) {
-      setActionMessage({
-        tone: "error",
-        text: errorMessage(cause, fallbackError),
-      })
-      setPhase("idle")
-    }
-  }
-
-  const restartToInstall = () =>
-    runAction(
-      "installing",
-      () => updates.restartToInstall(),
-      t("Couldn't restart to update."),
-    )
-  const downloadUpdate = () =>
-    runAction(
-      "downloading",
-      async () => {
-        await updates.downloadUpdate()
-      },
-      t("Couldn't download the update."),
-    )
-  const checkForUpdates = () =>
-    runAction(
-      "checking",
-      async () => {
-        const state = await updates.checkForUpdates()
-        if (state.status === "idle") {
-          setActionMessage({ tone: "success", text: t("No updates found.") })
-        }
-      },
-      t("Couldn't check for updates."),
-    )
 
   return (
     <SettingRow
@@ -88,9 +72,9 @@ export function DesktopUpdateSettings() {
           : t("Check for and install desktop app updates.")
       }
       footer={
-        actionMessage?.tone === "error" ? (
+        actionError ? (
           <p role="alert" className="text-destructive text-xs">
-            {actionMessage.text}
+            {actionError}
           </p>
         ) : null
       }
@@ -121,7 +105,7 @@ export function DesktopUpdateSettings() {
           size="sm"
           disabled={phase !== "idle"}
           aria-busy={downloadBusy}
-          onClick={() => void downloadUpdate()}
+          onClick={() => action.mutate("downloading")}
         >
           {downloadBusy ? (
             <>
@@ -143,7 +127,7 @@ export function DesktopUpdateSettings() {
           disabled={checkDisabled}
           aria-busy={checkBusy || downloadBusy}
           aria-live="polite"
-          onClick={() => void checkForUpdates()}
+          onClick={() => action.mutate("checking")}
         >
           {checkBusy ? (
             <>
@@ -158,9 +142,7 @@ export function DesktopUpdateSettings() {
           ) : (
             <>
               <SearchIcon className="size-3.5" />
-              {actionMessage?.tone === "success"
-                ? actionMessage.text
-                : t("Check for updates")}
+              {actionSuccess ?? t("Check for updates")}
             </>
           )}
         </Button>
@@ -169,7 +151,7 @@ export function DesktopUpdateSettings() {
         open={restartDialogOpen}
         onOpenChange={(open) => {
           setRestartDialogOpen(open)
-          if (!open && actionMessage?.tone === "error") setActionMessage(null)
+          if (!open && action.isError) action.reset()
         }}
         title={t("Install the update and restart Alloy?")}
         description={t(
@@ -178,8 +160,8 @@ export function DesktopUpdateSettings() {
         confirmLabel={t("Install and restart")}
         pendingLabel={t("Installing...")}
         pending={phase === "installing"}
-        error={actionMessage?.tone === "error" ? actionMessage.text : null}
-        onConfirm={() => void restartToInstall()}
+        error={actionError}
+        onConfirm={() => action.mutate("installing")}
       />
     </SettingRow>
   )

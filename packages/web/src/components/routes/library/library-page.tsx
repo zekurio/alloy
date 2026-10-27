@@ -33,7 +33,7 @@ import {
 } from "@/components/clip/sort-dropdown"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { GameIcon } from "@/components/game/game-icon"
-import { useAppSearch } from "@/components/search/app-search"
+import { useDeferredSearchQuery } from "@/components/search/app-search"
 import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import type { QueueItem } from "@/components/upload/upload-queue-types"
 import { useSession } from "@/lib/auth-client"
@@ -109,7 +109,7 @@ function LibraryContent({
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { deferredQuery } = useAppSearch()
+  const deferredQuery = useDeferredSearchQuery()
   const [groupKey, setGroupKey] = useState<string | null>(null)
   const { queue } = useUploadQueue()
   // Without the desktop native API there are no local captures and the source

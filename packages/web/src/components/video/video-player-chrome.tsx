@@ -2,11 +2,12 @@ import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
-import { memo, useEffect, useState } from "react"
+import { memo } from "react"
 import type { RefObject } from "react"
 
 import { isFullscreenSupported } from "@/lib/fullscreen"
 
+import { usePlayerState } from "./video-player-store"
 import type { QualityOption } from "./video-player-types"
 import { VideoScrubber } from "./video-scrubber"
 import { VideoSettingsMenu } from "./video-settings-menu"
@@ -22,16 +23,12 @@ const videoChromeCompactIconClass = "size-11"
 
 type ChromeBarSize = "default" | "compact"
 
+/** Playback state comes from the enclosing player's store. */
 export function ChromeBar({
   size = "default",
   containerRef,
   fullscreenContainer,
   isCoarsePointer,
-  visible = true,
-  playing,
-  duration,
-  currentTime,
-  bufferedEnd,
   muted,
   volume,
   onTogglePlay,
@@ -43,7 +40,6 @@ export function ChromeBar({
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
-  playbackRate,
   onPlaybackRateChange,
 }: {
   size?: ChromeBarSize
@@ -51,11 +47,6 @@ export function ChromeBar({
   /** The player container while it is the fullscreen element, else null. */
   fullscreenContainer: HTMLDivElement | null
   isCoarsePointer: boolean
-  visible?: boolean
-  playing: boolean
-  duration: number
-  currentTime: number
-  bufferedEnd: number
   muted: boolean
   volume: number
   onTogglePlay: () => void
@@ -67,27 +58,16 @@ export function ChromeBar({
   qualityOptions?: QualityOption[]
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
-  playbackRate: number
   onPlaybackRateChange: (rate: number) => void
 }) {
-  const [fullscreenSupported, setFullscreenSupported] = useState(false)
+  const visible = usePlayerState((state) => state.chromeVisible)
   const isFullscreen = fullscreenContainer !== null
-
-  useEffect(() => {
-    setFullscreenSupported(isFullscreenSupported())
-  }, [])
 
   return (
     <>
       {isCoarsePointer && !visible ? (
         <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30">
-          <ChromeTimeline
-            currentTime={currentTime}
-            duration={duration}
-            bufferedEnd={bufferedEnd}
-            onSeek={onSeek}
-            variant="edge"
-          />
+          <ChromeTimeline onSeek={onSeek} variant="edge" />
         </div>
       ) : null}
 
@@ -109,7 +89,6 @@ export function ChromeBar({
         >
           <ChromeLeadingControls
             size={size}
-            playing={playing}
             muted={muted}
             volume={volume}
             isCoarsePointer={isCoarsePointer}
@@ -120,9 +99,6 @@ export function ChromeBar({
           />
 
           <ChromeTimeline
-            currentTime={currentTime}
-            duration={duration}
-            bufferedEnd={bufferedEnd}
             onSeek={onSeek}
             variant="translucent"
             expandHitArea={isCoarsePointer}
@@ -133,13 +109,12 @@ export function ChromeBar({
             popoverContainer={containerRef}
             sheetContainer={fullscreenContainer}
             isCoarsePointer={isCoarsePointer}
-            fullscreenSupported={fullscreenSupported}
+            fullscreenSupported={isFullscreenSupported()}
             isFullscreen={isFullscreen}
             onToggleFullscreen={onToggleFullscreen}
             qualityOptions={qualityOptions}
             selectedQualityId={selectedQualityId}
             onSelectQuality={onSelectQuality}
-            playbackRate={playbackRate}
             onPlaybackRateChange={onPlaybackRateChange}
           />
         </div>
@@ -150,7 +125,6 @@ export function ChromeBar({
 
 const ChromeLeadingControls = memo(function ChromeLeadingControls({
   size,
-  playing,
   muted,
   volume,
   isCoarsePointer,
@@ -160,7 +134,6 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
   onVolumeChangeEnd,
 }: {
   size: ChromeBarSize
-  playing: boolean
   muted: boolean
   volume: number
   isCoarsePointer: boolean
@@ -169,6 +142,8 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
   onVolumeChange: (v: number) => void
   onVolumeChangeEnd: () => void
 }) {
+  const playing = usePlayerState((state) => state.playing)
+
   return (
     <>
       <Button
@@ -206,21 +181,19 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
   )
 })
 
+/** The only part of the player that re-renders with the playback clock. */
 const ChromeTimeline = memo(function ChromeTimeline({
-  currentTime,
-  duration,
-  bufferedEnd,
   onSeek,
   variant,
   expandHitArea,
 }: {
-  currentTime: number
-  duration: number
-  bufferedEnd: number
   onSeek: (sec: number) => void
   variant: "translucent" | "edge"
   expandHitArea?: boolean
 }) {
+  const currentTime = usePlayerState((state) => state.currentTime)
+  const duration = usePlayerState((state) => state.duration)
+  const bufferedEnd = usePlayerState((state) => state.bufferedEnd)
   const scrubber = (
     <VideoScrubber
       currentTime={currentTime}
@@ -246,7 +219,6 @@ const ChromeTrailingControls = memo(function ChromeTrailingControls({
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
-  playbackRate,
   onPlaybackRateChange,
 }: {
   size: ChromeBarSize
@@ -259,9 +231,10 @@ const ChromeTrailingControls = memo(function ChromeTrailingControls({
   qualityOptions: QualityOption[] | undefined
   selectedQualityId: string | undefined
   onSelectQuality: ((qualityId: string) => void) | undefined
-  playbackRate: number
   onPlaybackRateChange: (rate: number) => void
 }) {
+  const playbackRate = usePlayerState((state) => state.playbackRate)
+
   return (
     <>
       <VideoSettingsMenu

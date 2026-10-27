@@ -47,6 +47,7 @@ import {
   type ThemeVariant,
 } from "@alloy/ui/lib/theme-presets"
 import { cn } from "@alloy/ui/lib/utils"
+import { useMutation } from "@tanstack/react-query"
 import {
   CopyIcon,
   DownloadIcon,
@@ -88,21 +89,13 @@ export function ThemeSettings() {
   const [editor, setEditor] = useState<ThemeEditorSeed | null>(null)
   const [importing, setImporting] = useState(false)
   const [deleting, setDeleting] = useState<CustomTheme | null>(null)
-  const [deletePending, setDeletePending] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const deleteTheme = useMutation({
+    mutationFn: deleteAccountTheme,
+    onSuccess: () => setDeleting(null),
+  })
 
-  async function confirmDelete() {
-    if (!deleting) return
-    setDeletePending(true)
-    setDeleteError(null)
-    try {
-      await deleteAccountTheme(deleting.id)
-      setDeleting(null)
-    } catch (cause) {
-      setDeleteError(errorMessage(cause, t("Couldn't delete theme")))
-    } finally {
-      setDeletePending(false)
-    }
+  function confirmDelete() {
+    if (deleting) deleteTheme.mutate(deleting.id)
   }
 
   function openEditor(seed: Omit<ThemeEditorSeed, "session">) {
@@ -188,7 +181,7 @@ export function ThemeSettings() {
         onOpenChange={(next) => {
           if (next) return
           setDeleting(null)
-          setDeleteError(null)
+          deleteTheme.reset()
         }}
         title={t("Delete theme?")}
         description={t(
@@ -197,9 +190,13 @@ export function ThemeSettings() {
         )}
         confirmLabel={t("Delete theme")}
         pendingLabel={t("Deleting…")}
-        pending={deletePending}
-        error={deleteError}
-        onConfirm={() => void confirmDelete()}
+        pending={deleteTheme.isPending}
+        error={
+          deleteTheme.error
+            ? errorMessage(deleteTheme.error, t("Couldn't delete theme"))
+            : null
+        }
+        onConfirm={confirmDelete}
       />
     </>
   )

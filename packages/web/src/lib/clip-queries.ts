@@ -157,14 +157,13 @@ export function flattenUserClipPages(
 }
 
 export function useUploadQueueQuery({ enabled }: { enabled: boolean }) {
-  const stream = useUploadQueueStream({ enabled })
-  const query = useQuery({
+  useUploadQueueStream({ enabled })
+  return useQuery({
     queryKey: clipKeys.queue(),
     queryFn: async (): Promise<QueueClip[]> => [],
     enabled: false,
     staleTime: Infinity,
   })
-  return { ...query, stream }
 }
 
 export function useUpdateClipMutation() {

@@ -1,6 +1,7 @@
 import type { AdminRuntimeConfig } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useRouter } from "@tanstack/react-router"
 import { createContext, useContext, useMemo } from "react"
 import type { ReactNode } from "react"
 
@@ -9,7 +10,7 @@ import {
   adminRuntimeConfigQueryOptions,
 } from "@/lib/admin-query-keys"
 import { errorMessage } from "@/lib/error-message"
-import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
+import { invalidateAuthConfig } from "@/lib/session-suspense"
 
 interface AdminConfigContextValue {
   config: AdminRuntimeConfig | null
@@ -58,13 +59,26 @@ export function useAdminConfigMutation<TVariables>(
   { authConfigChanged = false }: { authConfigChanged?: boolean } = {},
 ) {
   const queryClient = useQueryClient()
+  const refreshAuthConfig = useRefreshAuthConfig()
   return useMutation({
     mutationFn,
     onSuccess: (updated) => {
       queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
-      if (authConfigChanged) publishRuntimeConfigUpdate({ authConfigChanged })
+      if (authConfigChanged) refreshAuthConfig()
     },
   })
+}
+
+/**
+ * Drops the cached public auth config and reloads the routes, so sign-in
+ * options and browse guards follow a saved change right away.
+ */
+export function useRefreshAuthConfig(): () => void {
+  const router = useRouter()
+  return () => {
+    invalidateAuthConfig()
+    void router.invalidate()
+  }
 }
 
 export type { AdminConfigContextValue }

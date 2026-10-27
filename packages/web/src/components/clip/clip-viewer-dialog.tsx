@@ -37,6 +37,18 @@ import { MobileClipViewerBody } from "./clip-viewer-mobile"
 import { useClipRetry } from "./use-clip-retry"
 import { useClipViewerDelete } from "./use-clip-viewer-delete"
 
+/**
+ * The clip, its row and the list on screen. They outlive `clipId` so the
+ * viewer keeps its content, arrows included, while it animates closed.
+ */
+type ShownClip = {
+  clipId: string | null
+  row: ClipRow | undefined
+  list: ReturnType<typeof useActiveClipList>
+}
+
+const NOTHING_SHOWN: ShownClip = { clipId: null, row: undefined, list: null }
+
 interface ClipViewerDialogProps {
   /** Current dialog target. `null` keeps the viewer open. */
   clipId: string | null
@@ -55,27 +67,32 @@ export function ClipViewerDialog({
   // the desktop grid/sidebar layout hasn't kicked in yet.
   const isDesktop = useMediaQuery("(min-width: 1024px)")
   const open = clipId !== null
-  // The clip, its row and the list on screen. They outlive `clipId` so the
-  // viewer keeps its content, arrows included, while it animates closed.
-  // The query itself follows `clipId`, so a clip deleted from the viewer
-  // isn't refetched (and found missing) during the close.
-  const [shownClipId, setShownClipId] = useState(clipId)
-  if (clipId !== null && clipId !== shownClipId) setShownClipId(clipId)
+  // The query follows `clipId`, not the held clip, so a clip deleted from the
+  // viewer isn't refetched (and found missing) during the close.
   const query = useClipQuery(clipId ?? "")
-  const [shownRow, setShownRow] = useState(query.data)
-  if (open && query.data !== undefined && query.data !== shownRow) {
-    setShownRow(query.data)
-  }
-  const row = open ? query.data : shownRow
   const activeList = useActiveClipList()
-  const [shownList, setShownList] = useState(activeList)
-  // Closing clears the active list a render before `clipId` clears, so a
-  // null list while open must not replace the one held for the close.
-  if (open && activeList !== null && activeList !== shownList) {
-    setShownList(activeList)
+  const [shown, setShown] = useState<ShownClip>(() => ({
+    clipId,
+    row: query.data,
+    list: activeList,
+  }))
+  const held: ShownClip = {
+    clipId: clipId ?? shown.clipId,
+    row: open && query.data !== undefined ? query.data : shown.row,
+    // Closing clears the active list a render before `clipId` clears, so a
+    // null list while open must not replace the one held for the close.
+    list: open && activeList !== null ? activeList : shown.list,
   }
-  const viewerClipId = clipId ?? shownClipId
-  const list = activeList ?? shownList
+  if (
+    held.clipId !== shown.clipId ||
+    held.row !== shown.row ||
+    held.list !== shown.list
+  ) {
+    setShown(held)
+  }
+  const row = open ? query.data : shown.row
+  const viewerClipId = held.clipId
+  const list = activeList ?? shown.list
 
   const closeViewer = useCallback(() => {
     setActiveClipList(null)
@@ -135,9 +152,7 @@ export function ClipViewerDialog({
       }}
       onOpenChangeComplete={(nextOpen) => {
         if (nextOpen) return
-        setShownClipId(null)
-        setShownRow(undefined)
-        setShownList(null)
+        setShown(NOTHING_SHOWN)
       }}
     >
       {viewerClipId !== null ? (

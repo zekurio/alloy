@@ -7,26 +7,22 @@ import { useState } from "react"
 
 import {
   clampZoom,
-  type ImageZoomOffset,
+  type ImageZoomView,
   useImageZoomInteractions,
 } from "./image-zoom-interactions"
 
 export function useImageZoom(onPinchStart?: () => void) {
-  const [zoom, setZoom] = useState(1)
-  const [offset, setOffset] = useState<ImageZoomOffset>({ x: 0, y: 0 })
+  const [view, setView] = useState<ImageZoomView>({
+    zoom: 1,
+    offset: { x: 0, y: 0 },
+  })
+  const { zoom, offset } = view
   const { viewportRef, contentRef, startPan, movePan, endPan } =
-    useImageZoomInteractions({
-      zoom,
-      offset,
-      setZoom,
-      setOffset,
-      onPinchStart,
-    })
+    useImageZoomInteractions({ view, setView, onPinchStart })
   return {
     zoom,
     changeZoom: (next: number) => {
-      setZoom(clampZoom(next))
-      setOffset({ x: 0, y: 0 })
+      setView({ zoom: clampZoom(next), offset: { x: 0, y: 0 } })
     },
     viewportRef,
     contentRef,

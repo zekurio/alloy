@@ -11,9 +11,9 @@ import {
 } from "@alloy/ui/components/alert-dialog"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
+import { useMutation } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { CircleAlertIcon } from "lucide-react"
-import { useState } from "react"
 
 import { api } from "@/lib/api"
 import { authClient } from "@/lib/auth-client"
@@ -85,6 +85,12 @@ export function SignInReactivationPrompt({
 
 type DialogAction = "reactivate" | "sign-out"
 
+type DialogRun = {
+  action: DialogAction
+  task: () => Promise<void>
+  fallback: string
+}
+
 /**
  * Offers reactivation plus one way out: `onDismiss` while signing in, or
  * `signOut` for a session that is already disabled and cannot just close it.
@@ -100,27 +106,25 @@ function AccountReactivationDialog({
   reactivate: () => Promise<void>
   signOut?: () => Promise<void>
 }) {
-  const [pending, setPending] = useState<DialogAction | null>(null)
-  const [error, setError] = useState<{
-    action: DialogAction
-    message: string
-  } | null>(null)
+  // One mutation for both buttons, so either action locks the other out.
+  const attempt = useMutation({
+    mutationFn: ({ task }: DialogRun) => task(),
+  })
+  const pending = attempt.isPending ? attempt.variables.action : null
+  const error = attempt.isError
+    ? {
+        action: attempt.variables.action,
+        message: errorMessage(attempt.error, attempt.variables.fallback),
+      }
+    : null
 
-  async function run(
+  function run(
     action: DialogAction,
     task: () => Promise<void>,
     fallback: string,
   ) {
     if (pending) return
-    setError(null)
-    setPending(action)
-    try {
-      await task()
-    } catch (cause) {
-      setError({ action, message: errorMessage(cause, fallback) })
-    } finally {
-      setPending(null)
-    }
+    attempt.mutate({ action, task, fallback })
   }
 
   return (
@@ -156,9 +160,7 @@ function AccountReactivationDialog({
             <Button
               variant="outline"
               disabled={pending !== null}
-              onClick={() =>
-                void run("sign-out", signOut, t("Couldn't sign out"))
-              }
+              onClick={() => run("sign-out", signOut, t("Couldn't sign out"))}
             >
               {pending === "sign-out" ? t("Signing out…") : t("Sign out")}
             </Button>
@@ -166,11 +168,7 @@ function AccountReactivationDialog({
           <AlertDialogAction
             onClick={(event) => {
               event.preventDefault()
-              void run(
-                "reactivate",
-                reactivate,
-                t("Couldn't reactivate account"),
-              )
+              run("reactivate", reactivate, t("Couldn't reactivate account"))
             }}
             disabled={pending !== null}
           >

@@ -10,7 +10,10 @@ import {
   TokenAuthMethodField,
   ToggleField,
 } from "./admin-auth-provider-fields"
-import type { ProviderDraft } from "./admin-auth-provider-utils"
+import type {
+  ProviderDraft,
+  SetProviderDraftField,
+} from "./admin-auth-provider-utils"
 import { callbackURLForProvider } from "./admin-auth-provider-utils"
 
 export function OAuthProviderForm({
@@ -28,7 +31,7 @@ export function OAuthProviderForm({
   authBaseURL: string
   advancedOpen: boolean
   onAdvancedOpenChange: (open: boolean) => void
-  onChange: (next: Partial<ProviderDraft>) => void
+  onChange: SetProviderDraftField
 }) {
   return (
     <>
@@ -38,7 +41,7 @@ export function OAuthProviderForm({
           editingProviderId={editingProviderId}
           label={t("Provider ID")}
           value={draft.providerId}
-          onChange={(providerId) => onChange({ providerId })}
+          onChange={(providerId) => onChange("providerId", providerId)}
           maxLength={64}
           pattern="[a-z0-9-]+"
           required
@@ -50,7 +53,7 @@ export function OAuthProviderForm({
           editingProviderId={editingProviderId}
           label={t("Display name")}
           value={draft.displayName}
-          onChange={(displayName) => onChange({ displayName })}
+          onChange={(displayName) => onChange("displayName", displayName)}
           maxLength={64}
           required
         />
@@ -63,7 +66,7 @@ export function OAuthProviderForm({
           editingProviderId={editingProviderId}
           label={t("Client ID")}
           value={draft.clientId}
-          onChange={(clientId) => onChange({ clientId })}
+          onChange={(clientId) => onChange("clientId", clientId)}
           required
         />
         <ProviderTextField
@@ -71,7 +74,7 @@ export function OAuthProviderForm({
           editingProviderId={editingProviderId}
           label={t("Client secret")}
           value={draft.clientSecret}
-          onChange={(clientSecret) => onChange({ clientSecret })}
+          onChange={(clientSecret) => onChange("clientSecret", clientSecret)}
           type="password"
           placeholder={
             editingProviderId && clientSecretSet ? t("Unchanged") : undefined
@@ -83,14 +86,14 @@ export function OAuthProviderForm({
           editingProviderId={editingProviderId}
           label={t("Discovery URL")}
           value={draft.discoveryUrl}
-          onChange={(discoveryUrl) => onChange({ discoveryUrl })}
+          onChange={(discoveryUrl) => onChange("discoveryUrl", discoveryUrl)}
           type="url"
         />
         <ToggleField
           label={t("Enabled")}
           description={t("Allow users to sign in with this provider.")}
           checked={draft.enabled}
-          onCheckedChange={(enabled) => onChange({ enabled })}
+          onCheckedChange={(enabled) => onChange("enabled", enabled)}
         />
         <ToggleField
           label={t("Create accounts")}
@@ -98,7 +101,9 @@ export function OAuthProviderForm({
             "Create an account the first time someone signs in with this provider. When off, only users who already linked it can sign in.",
           )}
           checked={draft.allowSignUp}
-          onCheckedChange={(allowSignUp) => onChange({ allowSignUp })}
+          onCheckedChange={(allowSignUp) =>
+            onChange("allowSignUp", allowSignUp)
+          }
         />
       </div>
 
@@ -143,7 +148,7 @@ function AdvancedProviderFields({
 }: {
   draft: ProviderDraft
   editingProviderId: string | null
-  onChange: (next: Partial<ProviderDraft>) => void
+  onChange: SetProviderDraftField
 }) {
   return (
     <div className="border-border grid gap-4 border-t p-3 md:grid-cols-2">
@@ -152,7 +157,9 @@ function AdvancedProviderFields({
         editingProviderId={editingProviderId}
         label={t("Authorization URL")}
         value={draft.authorizationUrl}
-        onChange={(authorizationUrl) => onChange({ authorizationUrl })}
+        onChange={(authorizationUrl) =>
+          onChange("authorizationUrl", authorizationUrl)
+        }
         type="url"
       />
       <ProviderTextField
@@ -160,7 +167,7 @@ function AdvancedProviderFields({
         editingProviderId={editingProviderId}
         label={t("Token URL")}
         value={draft.tokenUrl}
-        onChange={(tokenUrl) => onChange({ tokenUrl })}
+        onChange={(tokenUrl) => onChange("tokenUrl", tokenUrl)}
         type="url"
       />
       <ProviderTextField
@@ -168,7 +175,7 @@ function AdvancedProviderFields({
         editingProviderId={editingProviderId}
         label={t("User info URL")}
         value={draft.userInfoUrl}
-        onChange={(userInfoUrl) => onChange({ userInfoUrl })}
+        onChange={(userInfoUrl) => onChange("userInfoUrl", userInfoUrl)}
         type="url"
       />
       <ProviderTextField
@@ -176,13 +183,15 @@ function AdvancedProviderFields({
         editingProviderId={editingProviderId}
         label={t("Scopes")}
         value={draft.scopes}
-        onChange={(scopes) => onChange({ scopes })}
+        onChange={(scopes) => onChange("scopes", scopes)}
         description={t("Separate scopes with spaces.")}
       />
       <TokenAuthMethodField
         id={providerFieldId("token-auth", editingProviderId)}
         value={draft.tokenAuthMethod}
-        onChange={(tokenAuthMethod) => onChange({ tokenAuthMethod })}
+        onChange={(tokenAuthMethod) =>
+          onChange("tokenAuthMethod", tokenAuthMethod)
+        }
       />
       <ToggleField
         label={t("PKCE")}
@@ -190,42 +199,42 @@ function AdvancedProviderFields({
           "Secure the authorization flow with Proof Key for Code Exchange.",
         )}
         checked={draft.pkce}
-        onCheckedChange={(pkce) => onChange({ pkce })}
+        onCheckedChange={(pkce) => onChange("pkce", pkce)}
       />
       <ProviderTextField
         fieldId="uid-claim"
         editingProviderId={editingProviderId}
         label={t("UID claim")}
         value={draft.uidClaim}
-        onChange={(uidClaim) => onChange({ uidClaim })}
+        onChange={(uidClaim) => onChange("uidClaim", uidClaim)}
       />
       <ProviderTextField
         fieldId="username-claim"
         editingProviderId={editingProviderId}
         label={t("Username claim")}
         value={draft.usernameClaim}
-        onChange={(usernameClaim) => onChange({ usernameClaim })}
+        onChange={(usernameClaim) => onChange("usernameClaim", usernameClaim)}
       />
       <ProviderTextField
         fieldId="avatar-claim"
         editingProviderId={editingProviderId}
         label={t("Avatar claim")}
         value={draft.avatarClaim}
-        onChange={(avatarClaim) => onChange({ avatarClaim })}
+        onChange={(avatarClaim) => onChange("avatarClaim", avatarClaim)}
       />
       <ProviderTextField
         fieldId="quota-claim"
         editingProviderId={editingProviderId}
         label={t("Quota claim")}
         value={draft.quotaClaim}
-        onChange={(quotaClaim) => onChange({ quotaClaim })}
+        onChange={(quotaClaim) => onChange("quotaClaim", quotaClaim)}
       />
       <ProviderTextField
         fieldId="role-claim"
         editingProviderId={editingProviderId}
         label={t("Role claim")}
         value={draft.roleClaim}
-        onChange={(roleClaim) => onChange({ roleClaim })}
+        onChange={(roleClaim) => onChange("roleClaim", roleClaim)}
       />
     </div>
   )

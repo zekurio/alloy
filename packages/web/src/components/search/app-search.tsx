@@ -1,70 +1,58 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useDeferredValue,
-  useMemo,
-  useState,
-} from "react"
+import { useDeferredValue, useEffect } from "react"
 import type { ReactNode } from "react"
+import { create } from "zustand"
 
-import { useDebouncedValue } from "@/lib/use-debounced-value"
+const SEARCH_DEBOUNCE_MS = 180
 
-type AppSearchContextValue = {
+type AppSearchState = {
   query: string
-  /** `query` debounced, deferred, and trimmed for network-backed search. */
-  deferredQuery: string
+  /** `query` once it has held still for {@link SEARCH_DEBOUNCE_MS}. */
+  debouncedQuery: string
+  open: boolean
   setQuery: (next: string) => void
   clear: () => void
-  open: boolean
   setOpen: (open: boolean) => void
+  reset: () => void
 }
 
-const AppSearchContext = createContext<AppSearchContextValue | null>(null)
+/** The header search box, shared by the header, its results and the library. */
+export const useAppSearchStore = create<AppSearchState>()((set) => {
+  let debounceTimer: ReturnType<typeof setTimeout> | undefined
 
-export function AppSearchProvider({ children }: { children: ReactNode }) {
-  const [query, setQueryState] = useState("")
-  const [open, setOpen] = useState(false)
-  const debouncedQuery = useDebouncedValue(query, 180)
-  const deferredQueryRaw = useDeferredValue(debouncedQuery)
-  const deferredQuery = useMemo(
-    () => deferredQueryRaw.trim(),
-    [deferredQueryRaw],
-  )
-
-  const setQuery = useCallback((next: string) => {
-    setQueryState(next)
-    if (next.length > 0) setOpen(true)
-  }, [])
-
-  const clear = useCallback(() => {
-    setQueryState("")
-    setOpen(false)
-  }, [])
-
-  const value = useMemo(
-    () => ({
-      query,
-      deferredQuery,
-      setQuery,
-      clear,
-      open,
-      setOpen,
-    }),
-    [query, deferredQuery, setQuery, clear, open],
-  )
-
-  return (
-    <AppSearchContext.Provider value={value}>
-      {children}
-    </AppSearchContext.Provider>
-  )
-}
-
-export function useAppSearch() {
-  const value = useContext(AppSearchContext)
-  if (!value) {
-    throw new Error("useAppSearch must be used inside AppSearchProvider")
+  const updateQuery = (query: string, open?: boolean) => {
+    set(open === undefined ? { query } : { query, open })
+    clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(
+      () => set({ debouncedQuery: query }),
+      SEARCH_DEBOUNCE_MS,
+    )
   }
-  return value
+
+  return {
+    query: "",
+    debouncedQuery: "",
+    open: false,
+    setQuery: (next) => updateQuery(next, next.length > 0 ? true : undefined),
+    clear: () => updateQuery("", false),
+    setOpen: (open) => set({ open }),
+    reset: () => {
+      clearTimeout(debounceTimer)
+      set({ query: "", debouncedQuery: "", open: false })
+    },
+  }
+})
+
+/** The search query debounced, deferred, and trimmed for network search. */
+export function useDeferredSearchQuery(): string {
+  const debouncedQuery = useAppSearchStore((state) => state.debouncedQuery)
+  return useDeferredValue(debouncedQuery).trim()
+}
+
+/**
+ * Scopes the search to an app shell: a shell that mounts again, e.g. after
+ * signing out, starts with an empty search box.
+ */
+export function AppSearchProvider({ children }: { children: ReactNode }) {
+  useEffect(() => () => useAppSearchStore.getState().reset(), [])
+  return children
 }

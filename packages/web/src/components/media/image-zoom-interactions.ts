@@ -10,14 +10,15 @@ import {
 
 export type ImageZoomOffset = { x: number; y: number }
 
+/** Zoom and pan change together, so they live in one state. */
+export type ImageZoomView = { zoom: number; offset: ImageZoomOffset }
+
 type Gesture = { distance: number; zoom: number }
 type Drag = { id: number; x: number; y: number; offset: ImageZoomOffset }
 
 type ZoomState = {
-  zoom: number
-  offset: ImageZoomOffset
-  setZoom: Dispatch<SetStateAction<number>>
-  setOffset: Dispatch<SetStateAction<ImageZoomOffset>>
+  view: ImageZoomView
+  setView: Dispatch<SetStateAction<ImageZoomView>>
   onPinchStart?: () => void
 }
 
@@ -46,10 +47,8 @@ export function useImageZoomInteractions(state: ZoomState) {
 }
 
 function useImageZoomGestureState({
-  zoom,
-  offset,
-  setZoom,
-  setOffset,
+  view: { zoom, offset },
+  setView,
   onPinchStart,
 }: ZoomState): ZoomRefs {
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -62,17 +61,9 @@ function useImageZoomGestureState({
       const viewport = viewportRef.current
       const content = contentRef.current
       if (!viewport || !content) return
-      const nextZoom = zoomAtPoint(
-        viewport,
-        content,
-        zoom,
-        offset,
-        next,
-        clientX,
-        clientY,
+      setView(
+        zoomAtPoint(viewport, content, zoom, offset, next, clientX, clientY),
       )
-      setOffset(nextZoom.offset)
-      setZoom(nextZoom.zoom)
     },
   )
   const wheelZoom = useEffectEvent((event: WheelEvent) => {
@@ -123,9 +114,8 @@ function useImageZoomGestureState({
 }
 
 function useImageZoomPan({
-  zoom,
-  offset,
-  setOffset,
+  view: { zoom, offset },
+  setView,
   viewportRef,
   contentRef,
   pinching,
@@ -165,7 +155,7 @@ function useImageZoomPan({
         0,
         (content.offsetHeight * zoom - viewport.clientHeight) / 2,
       )
-      setOffset({
+      const nextOffset = {
         x: Math.max(
           -maxX,
           Math.min(maxX, start.offset.x + event.clientX - start.x),
@@ -174,7 +164,8 @@ function useImageZoomPan({
           -maxY,
           Math.min(maxY, start.offset.y + event.clientY - start.y),
         ),
-      })
+      }
+      setView((current) => ({ ...current, offset: nextOffset }))
     },
     endPan,
   }

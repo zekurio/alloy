@@ -6,12 +6,12 @@ import {
   AvatarImage,
 } from "@alloy/ui/components/avatar"
 import { Chip } from "@alloy/ui/components/chip"
+import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { cn } from "@alloy/ui/lib/utils"
 import { AtSignIcon, ChevronRightIcon, HashIcon, XIcon } from "lucide-react"
 import {
   forwardRef,
   useCallback,
-  useEffect,
   useId,
   useMemo,
   useRef,
@@ -25,6 +25,7 @@ import type {
   RefObject,
 } from "react"
 
+import { useActiveOption } from "@/hooks/use-active-option"
 import { useSession } from "@/lib/auth-client"
 import { sanitizeTag } from "@/lib/clip-fields"
 import { useTagSearchQuery } from "@/lib/tag-queries"
@@ -38,39 +39,43 @@ export function useOutsideDismiss<T extends HTMLElement>(
   onDismiss: () => void,
   ignoreTarget?: (target: Element) => boolean,
 ) {
-  useEffect(() => {
-    if (!enabled) return
-
-    const handlePointerDown = (event: PointerEvent) => {
+  useDocumentEvent(
+    "pointerdown",
+    (event) => {
       const target = event.target
       if (!(target instanceof Element)) return
       if (ref.current?.contains(target)) return
       if (ignoreTarget?.(target)) return
       onDismiss()
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown)
-    return () => document.removeEventListener("pointerdown", handlePointerDown)
-  }, [enabled, ignoreTarget, onDismiss, ref])
+    },
+    undefined,
+    enabled,
+  )
 }
 
 function useInlinePicker() {
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState("")
-  const inputRef = useRef<HTMLInputElement>(null)
+  // `null` while the picker shows its chip; the typed text while it is open.
+  const [draftState, setDraftState] = useState<string | null>(null)
+  const open = draftState !== null
+  const draft = draftState ?? ""
+  const inputRef = useRef<HTMLInputElement | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   const debouncedDraft = useDebouncedValue(draft, 200)
 
-  const close = useCallback(() => {
-    setOpen(false)
-    setDraft("")
+  // The input only mounts while the picker is open, so attaching it is the
+  // moment to focus it.
+  const attachInput = useCallback((input: HTMLInputElement | null) => {
+    inputRef.current = input
+    input?.focus()
+  }, [])
+  const setOpen = useCallback((next: boolean) => {
+    setDraftState(next ? "" : null)
+  }, [])
+  const setDraft = useCallback((next: string) => {
+    setDraftState((current) => (current === null ? current : next))
   }, [])
 
-  useOutsideDismiss(rootRef, open, close)
-
-  useEffect(() => {
-    if (open) inputRef.current?.focus()
-  }, [open])
+  useOutsideDismiss(rootRef, open, () => setOpen(false))
 
   return {
     open,
@@ -79,30 +84,9 @@ function useInlinePicker() {
     setDraft,
     setOpen,
     inputRef,
+    attachInput,
     rootRef,
   }
-}
-
-/**
- * Highlighted option for a picker's suggestion list. The highlight returns to
- * the top whenever the options change; `navigated` records whether the user
- * has moved it with the arrow keys since then.
- */
-function useActiveOption(options: readonly unknown[]) {
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [navigated, setNavigated] = useState(false)
-
-  useEffect(() => {
-    setActiveIndex(0)
-    setNavigated(false)
-  }, [options])
-
-  const move = (step: 1 | -1) => {
-    setNavigated(true)
-    setActiveIndex((index) => (index + step + options.length) % options.length)
-  }
-
-  return { activeIndex, navigated, move }
 }
 
 function pickerOptionId(listboxId: string, index: number): string {
@@ -350,8 +334,16 @@ function PeopleSearchPopover({
 }) {
   const { data: session } = useSession()
   const viewerId = session?.user?.id ?? null
-  const { open, draft, debouncedDraft, setDraft, setOpen, inputRef, rootRef } =
-    useInlinePicker()
+  const {
+    open,
+    draft,
+    debouncedDraft,
+    setDraft,
+    setOpen,
+    inputRef,
+    attachInput,
+    rootRef,
+  } = useInlinePicker()
   const searchQuery = useUserSearchQuery(debouncedDraft)
   const listboxId = useId()
 
@@ -409,10 +401,9 @@ function PeopleSearchPopover({
               if (event.key === "Escape") {
                 event.preventDefault()
                 setOpen(false)
-                setDraft("")
               }
             }}
-            inputRef={inputRef}
+            inputRef={attachInput}
             placeholder={t("Search people...")}
             disabled={disabled}
             label={t("Search people")}
@@ -522,8 +513,16 @@ function HashtagInputPopover({
   onChange: (tags: string[]) => void
   disabled: boolean
 }) {
-  const { open, draft, debouncedDraft, setDraft, setOpen, inputRef, rootRef } =
-    useInlinePicker()
+  const {
+    open,
+    draft,
+    debouncedDraft,
+    setDraft,
+    setOpen,
+    inputRef,
+    attachInput,
+    rootRef,
+  } = useInlinePicker()
   const searchQuery = useTagSearchQuery(debouncedDraft)
   const listboxId = useId()
 
@@ -602,10 +601,9 @@ function HashtagInputPopover({
               if (e.key === "Escape") {
                 e.preventDefault()
                 setOpen(false)
-                setDraft("")
               }
             }}
-            inputRef={inputRef}
+            inputRef={attachInput}
             placeholder={t("Add hashtag...")}
             disabled={disabled}
             label={t("Add hashtag")}

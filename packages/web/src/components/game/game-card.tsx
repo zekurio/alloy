@@ -31,9 +31,11 @@ type GameCardProps = {
 
 function GameCardBody({ game, name }: { game: GameCardData; name: string }) {
   const hero = useImageLoaded(game.heroUrl)
-  const [logoFailed, setLogoFailed] = useState(false)
+  // Scoped to the URL, so a card reused for another game retries its logo.
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null)
   const heroSrc = hero.status === "error" ? null : game.heroUrl
-  const logoSrc = game.logoUrl && !logoFailed ? game.logoUrl : null
+  const logoSrc =
+    game.logoUrl && failedLogoUrl !== game.logoUrl ? game.logoUrl : null
 
   return (
     <>
@@ -69,7 +71,7 @@ function GameCardBody({ game, name }: { game: GameCardData; name: string }) {
             name={name}
             variant="card"
             loading="lazy"
-            onError={() => setLogoFailed(true)}
+            onError={() => setFailedLogoUrl(logoSrc)}
           />
         ) : (
           <span

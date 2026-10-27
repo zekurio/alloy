@@ -1,7 +1,7 @@
 import type { PublicAuthProvider } from "@alloy/api"
 import type { OAuthSignInAccount } from "@alloy/contracts"
 import { message, t } from "@alloy/i18n"
-import { useState } from "react"
+import { useMutation } from "@tanstack/react-query"
 
 import { OAuthButton } from "@/components/auth/oauth-button"
 import { authClient } from "@/lib/auth-client"
@@ -19,12 +19,9 @@ export function OAuthSignIn({
   redirectTo,
   account,
 }: OAuthSignInProps) {
-  const [pending, setPending] = useState(false)
-
-  async function onOAuth() {
-    if (pending) return
-    setPending(true)
-    try {
+  const signIn = useMutation({
+    // Resolves true once the browser is on its way to the provider.
+    mutationFn: async () => {
       const { error } = await authClient.signIn.oauth2({
         providerId: provider.providerId,
         callbackURL: authCallbackUrl(redirectTo ?? "/"),
@@ -36,17 +33,17 @@ export function OAuthSignIn({
           message("OAuth sign-in failed"),
           error,
         )
-        setPending(false)
       }
-    } catch (cause) {
+      return !error
+    },
+    onError: (cause) =>
       toastAuthAttemptFailure(
         "OAuth sign-in",
         message("OAuth sign-in failed"),
         cause,
-      )
-      setPending(false)
-    }
-  }
+      ),
+  })
+  const pending = signIn.isPending || signIn.data === true
 
   return (
     <OAuthButton
@@ -58,7 +55,9 @@ export function OAuthSignIn({
       pendingLabel={pending ? t("Redirecting…") : undefined}
       className="w-full"
       disabled={pending}
-      onClick={onOAuth}
+      onClick={() => {
+        if (!pending) signIn.mutate()
+      }}
     />
   )
 }
