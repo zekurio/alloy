@@ -3,7 +3,7 @@
 //! Device ids are node names, which obs-pipewire-audio-capture's device
 //! sources reconnect to: a sink for an output, a source for an input.
 //! Applications are playback streams, identified for its application capture
-//! by binary or, for Wine, by application name.
+//! by binary or, for Wine and shared Electron, by application name.
 
 use std::{
     collections::HashMap,
@@ -13,6 +13,7 @@ use std::{
 };
 
 use super::{
+    desktop_entries::desktop_application,
     games::unwrapped_executable,
     pipewire::{Client, Graph, Meter, Node, NodeClass},
 };
@@ -80,9 +81,11 @@ fn playback_streams(graph: &Graph) -> impl Iterator<Item = &Node> {
 }
 
 /// How a playback stream is identified. PipeWire's application capture
-/// matches its target against the stream's binary or application name. Wine
-/// streams all report the Wine loader as their binary but name the Windows
-/// program, so they are matched by name.
+/// matches its target against the stream's binary or application name.
+/// Streams from a runtime that hosts many programs report the runtime as
+/// their binary but name the program, so they are matched by name: Wine's
+/// loader for Windows programs, and `electron` for apps that run on a shared
+/// Electron, as Nix packages them.
 struct StreamApplication {
     id: String,
     target: String,
@@ -92,11 +95,10 @@ struct StreamApplication {
 }
 
 fn stream_application(node: &Node) -> Option<StreamApplication> {
-    let wine = node
-        .binary
-        .as_deref()
-        .is_none_or(|binary| binary.starts_with("wine"));
-    let (target, executable) = if wine {
+    let by_name = node.binary.as_deref().is_none_or(|binary| {
+        binary.starts_with("wine") || unwrapped_executable(binary.to_string()) == "electron"
+    });
+    let (target, executable) = if by_name {
         let name = node.application_name.clone()?;
         (name.clone(), name)
     } else {
@@ -138,21 +140,33 @@ pub(in crate::agent) fn audio_applications() -> Vec<RecordingAudioApplicationSel
         if applications.iter().any(|known| known.id == application.id) {
             continue;
         }
-        let name = user_facing_process_name(ProcessDisplayName {
-            path: None,
-            preferred: application.name.as_deref(),
-            title: None,
-            executable: Some(&application.executable),
-            fallback: Some(&application.executable),
-            preserve_preferred: false,
-        })
-        .unwrap_or_else(|| application.executable.clone());
+        let desktop = desktop_application(
+            application.process_id,
+            &[
+                application.executable.as_str(),
+                application.name.as_deref().unwrap_or_default(),
+            ],
+        );
+        let name = desktop
+            .as_ref()
+            .and_then(|desktop| desktop.name.clone())
+            .or_else(|| {
+                user_facing_process_name(ProcessDisplayName {
+                    path: None,
+                    preferred: application.name.as_deref(),
+                    title: None,
+                    executable: Some(&application.executable),
+                    fallback: Some(&application.executable),
+                    preserve_preferred: false,
+                })
+            })
+            .unwrap_or_else(|| application.executable.clone());
         applications.push(RecordingAudioApplicationSelection {
             id: application.id,
             name,
             window: application.target,
             executable: Some(application.executable),
-            icon_url: None,
+            icon_url: desktop.and_then(|desktop| desktop.icon_url),
             process_id: application.process_id,
             enabled: false,
             volume: 100,

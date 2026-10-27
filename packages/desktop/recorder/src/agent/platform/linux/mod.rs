@@ -3,6 +3,7 @@
 //! level meters from PipeWire.
 
 mod audio;
+mod desktop_entries;
 mod displays;
 mod games;
 mod gpus;
