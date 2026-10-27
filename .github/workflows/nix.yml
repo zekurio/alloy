@@ -1,9 +1,10 @@
 name: nix
 
 # Runs only when packaging-relevant inputs change. `nix/package.nix` builds the
-# server and web from `packages/**` and the root `public/` directory, and the
-# turbo build in checks does not run the Nix derivation, so those inputs are
-# listed here. The desktop packages are not part of that derivation.
+# server and web from `packages/**` and the root `public/` directory, and
+# `nix/desktop.nix` builds the desktop app from `packages/desktop/**` and the
+# Cargo workspace. The turbo build in checks does not run the Nix derivations,
+# so those inputs are listed here.
 on:
   pull_request:
     paths:

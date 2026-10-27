@@ -6,6 +6,7 @@
   stdenvNoCC,
   rustPlatform,
   makeWrapper,
+  writeShellScriptBin,
   makeDesktopItem,
   copyDesktopItems,
   nodejs_24,
@@ -91,9 +92,27 @@ let
   # the encoders, instead. Other vendors' EGL libraries, like NVIDIA's, stay
   # ahead of it.
   systemDrivers = "/run/opengl-driver";
+  driverVariables = lib.concatStringsSep " " [
+    "__EGL_VENDOR_LIBRARY_FILENAMES"
+    "LD_LIBRARY_PATH"
+    "LIBGL_DRIVERS_PATH"
+    "GBM_BACKENDS_PATH"
+    "LIBVA_DRIVERS_PATH"
+  ];
+  # Electron opens links and folders with xdg-open. This one comes first on
+  # the path and puts back what the fallback replaced, so the browser or file
+  # manager it starts keeps the system's drivers.
+  xdgOpen = writeShellScriptBin "xdg-open" ''
+    unset ${driverVariables}
+    eval "''${ALLOY_SYSTEM_DRIVER_ENV-}"
+    unset ALLOY_SYSTEM_DRIVER_ENV
+    PATH=''${PATH#"''${0%/*}:"}
+    exec xdg-open "$@"
+  '';
   driverFallback = ''
     if ! { [ -e ${systemDrivers}/lib/libEGL_mesa.so.0 ] \
       && LD_PRELOAD=${systemDrivers}/lib/libEGL_mesa.so.0 ${lib.getExe' coreutils "true"} 2>/dev/null; }; then
+      export ALLOY_SYSTEM_DRIVER_ENV="$(declare -p ${driverVariables} 2>/dev/null)"
       vendors=
       for vendor in ${systemDrivers}/share/glvnd/egl_vendor.d/*.json; do
         case $vendor in
@@ -106,6 +125,7 @@ let
       export LIBGL_DRIVERS_PATH=${mesa}/lib/dri
       export GBM_BACKENDS_PATH=${mesa}/lib/gbm:${systemDrivers}/lib/gbm
       export LIBVA_DRIVERS_PATH=${mesa}/lib/dri:${intel-media-driver}/lib/dri:${systemDrivers}/lib/dri
+      export PATH=${xdgOpen}/bin:$PATH
     fi
   '';
 in

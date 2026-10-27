@@ -12,11 +12,12 @@ let
 
   # Built from the system's nixpkgs rather than the flake's: Electron and
   # libobs load the system's graphics drivers, which need a glibc at least as
-  # new as the one they were built with.
+  # new as the one they were built with. The pnpm dependencies still come
+  # from the flake, whose fetcher their hash is checked against.
   alloy-obs-runtime = pkgs.callPackage "${self}/nix/obs-runtime.nix" { };
   defaultPackage = pkgs.callPackage "${self}/nix/desktop.nix" {
     inherit alloy-obs-runtime;
-    inherit (pkgs.callPackage "${self}/nix/package.nix" { }) pnpmDeps;
+    inherit (self.packages.${pkgs.stdenv.hostPlatform.system}.alloy) pnpmDeps;
   };
 in
 {
