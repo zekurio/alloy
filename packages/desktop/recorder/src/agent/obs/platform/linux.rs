@@ -276,46 +276,52 @@ pub(in crate::agent) fn platform_modules() -> &'static [ObsModuleSpec] {
     ]
 }
 
-/// The display connection libobs renders through, opened once per process
-/// and kept for its lifetime, since libobs only borrows it.
-pub(in crate::agent) struct NixDisplay {
+/// The display connection one libobs run renders through. libobs only
+/// borrows it, and it is closed once that run has shut down: libobs 32's
+/// Wayland hotkeys never destroy their registry, seat and keyboard proxies,
+/// so a connection shared with the next run would hand an event queued for
+/// them to freed memory during its startup. Each run gets its own.
+pub(in crate::agent) struct DisplayConnection {
     pub(in crate::agent) platform: c_int,
-    pub(in crate::agent) display: *mut c_void,
-}
-
-struct DisplayConnection {
-    platform: c_int,
     /// The `wl_display` or Xlib `Display` pointer.
-    display: usize,
+    pub(in crate::agent) display: *mut c_void,
+    disconnect: Disconnect,
     _library: Library,
 }
 
-/// Only a connection that opened is kept: the session may not be up yet when
-/// the agent starts, so the next OBS start tries again.
-static DISPLAY_CONNECTION: Mutex<Option<DisplayConnection>> = Mutex::new(None);
-static GLIB_MAIN_LOOP: Once = Once::new();
-
-/// Connects libobs to the session and starts the GLib main loop the
-/// screen-sharing portal answers on. Call with libobs loaded: its own
-/// dependencies provide the Wayland, X11 and GLib libraries opened here.
-pub(in crate::agent) fn prepare_display_session() -> Result<NixDisplay, String> {
-    start_glib_main_loop();
-    let mut connection = DISPLAY_CONNECTION
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    if connection.is_none() {
-        *connection = Some(connect_display()?);
-    }
-    let connection = connection.as_ref().expect("connected above");
-    Ok(NixDisplay {
-        platform: connection.platform,
-        display: connection.display as *mut c_void,
-    })
+enum Disconnect {
+    Wayland(unsafe extern "C" fn(*mut c_void)),
+    X11(unsafe extern "C" fn(*mut c_void) -> c_int),
 }
 
-fn connect_display() -> Result<DisplayConnection, String> {
-    // SAFETY: each library is loaded once and kept with the connection; the
-    // calls take no arguments beyond a null display name.
+// SAFETY: the connection is only used by libobs's threads while it runs, and
+// closed once from the thread that shut libobs down.
+unsafe impl Send for DisplayConnection {}
+
+impl Drop for DisplayConnection {
+    fn drop(&mut self) {
+        // SAFETY: the pointer came from the matching connect call, and the
+        // libobs run that borrowed it has shut down.
+        unsafe {
+            match self.disconnect {
+                Disconnect::Wayland(disconnect) => disconnect(self.display),
+                Disconnect::X11(close) => {
+                    close(self.display);
+                }
+            }
+        }
+    }
+}
+
+static GLIB_MAIN_LOOP: Once = Once::new();
+
+/// Connects a libobs run to the session and starts the GLib main loop the
+/// screen-sharing portal answers on. Call with libobs loaded: its own
+/// dependencies provide the Wayland, X11 and GLib libraries opened here.
+pub(in crate::agent) fn open_display_session() -> Result<DisplayConnection, String> {
+    start_glib_main_loop();
+    // SAFETY: each library is kept with its connection; the calls take no
+    // arguments beyond a null display name.
     unsafe {
         match display_session() {
             Some(DisplaySession::Wayland) => {
@@ -323,13 +329,16 @@ fn connect_display() -> Result<DisplayConnection, String> {
                     .map_err(|error| format!("Could not load libwayland-client: {error}"))?;
                 let connect: unsafe extern "C" fn(*const c_char) -> *mut c_void =
                     load_symbol(&library, b"wl_display_connect\0")?;
+                let disconnect: unsafe extern "C" fn(*mut c_void) =
+                    load_symbol(&library, b"wl_display_disconnect\0")?;
                 let display = connect(std::ptr::null());
                 if display.is_null() {
                     return Err("Could not connect to the Wayland display.".into());
                 }
                 Ok(DisplayConnection {
                     platform: OBS_NIX_PLATFORM_WAYLAND,
-                    display: display as usize,
+                    display,
+                    disconnect: Disconnect::Wayland(disconnect),
                     _library: library,
                 })
             }
@@ -340,6 +349,8 @@ fn connect_display() -> Result<DisplayConnection, String> {
                     load_symbol(&library, b"XInitThreads\0")?;
                 let open: unsafe extern "C" fn(*const c_char) -> *mut c_void =
                     load_symbol(&library, b"XOpenDisplay\0")?;
+                let close: unsafe extern "C" fn(*mut c_void) -> c_int =
+                    load_symbol(&library, b"XCloseDisplay\0")?;
                 // libobs uses the display from its graphics thread.
                 init_threads();
                 let display = open(std::ptr::null());
@@ -348,7 +359,8 @@ fn connect_display() -> Result<DisplayConnection, String> {
                 }
                 Ok(DisplayConnection {
                     platform: OBS_NIX_PLATFORM_X11_EGL,
-                    display: display as usize,
+                    display,
+                    disconnect: Disconnect::X11(close),
                     _library: library,
                 })
             }

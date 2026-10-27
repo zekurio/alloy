@@ -124,6 +124,10 @@ pub(in crate::agent) struct LibObs {
     // shuts OBS down before the DLL unloads, also when a later startup step
     // failed and the caller returned early.
     started: AtomicBool,
+    /// The display connection of the current run, closed after it shuts
+    /// down.
+    #[cfg(target_os = "linux")]
+    display: std::sync::Mutex<Option<super::platform::DisplayConnection>>,
     pub(in crate::agent) obs_startup:
         unsafe extern "C" fn(*const c_char, *const c_char, *const c_char) -> bool,
     pub(in crate::agent) obs_initialized: unsafe extern "C" fn() -> bool,
@@ -462,6 +466,8 @@ impl LibObs {
             bfree: load_symbol(&library, b"bfree\0")?,
             _library: library,
             started: AtomicBool::new(false),
+            #[cfg(target_os = "linux")]
+            display: std::sync::Mutex::new(None),
         })
     }
 
@@ -479,9 +485,13 @@ impl LibObs {
         // and reads the platform during startup.
         #[cfg(target_os = "linux")]
         {
-            let session = super::platform::prepare_display_session()?;
-            (self.obs_set_nix_platform)(session.platform);
-            (self.obs_set_nix_platform_display)(session.display);
+            let connection = super::platform::open_display_session()?;
+            (self.obs_set_nix_platform)(connection.platform);
+            (self.obs_set_nix_platform_display)(connection.display);
+            *self
+                .display
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(connection);
         }
         let locale = c"en-US";
         if !(self.obs_startup)(locale.as_ptr(), ptr::null(), ptr::null()) {
@@ -506,6 +516,14 @@ impl LibObs {
         if self.started.swap(false, Ordering::AcqRel) && (self.obs_initialized)() {
             (self.obs_shutdown)();
         }
+        // Closed only after libobs let go of it; see `DisplayConnection`.
+        #[cfg(target_os = "linux")]
+        drop(
+            self.display
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .take(),
+        );
     }
 
     unsafe fn add_paths(&self, runtime_dir: Option<&Path>) {
