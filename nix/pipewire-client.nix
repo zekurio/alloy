@@ -59,7 +59,14 @@ stdenvNoCC.mkDerivation {
     done
     cp ${pipewire}/share/pipewire/client.conf $out/share/pipewire/
     chmod -R u+w $out
-    find $out -type f -exec sed -i "s|${pipewire}|$out|g" {} +
+    # A path of another length, as from a renamed PipeWire, would shift the
+    # bytes after it and corrupt the libraries.
+    pipewire=${pipewire}
+    if [ ''${#out} -ne ''${#pipewire} ]; then
+      echo "$out is not as long as $pipewire" >&2
+      exit 1
+    fi
+    find $out -type f -exec sed -i "s|$pipewire|$out|g" {} +
 
     runHook postInstall
   '';
