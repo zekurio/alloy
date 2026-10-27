@@ -12,9 +12,12 @@
 {
   lib,
   stdenvNoCC,
+  callPackage,
   obs-studio,
   obs-studio-plugins,
   pipewire,
+  util-linux,
+  libvpl,
   patchelf,
   removeReferencesTo,
 }:
@@ -33,6 +36,17 @@ let
   plugins = [
     obs-studio-plugins.obs-vkcapture
     obs-studio-plugins.obs-pipewire-audio-capture
+  ];
+  pipewireClient = callPackage ./pipewire-client.nix { };
+  # What the runtime takes files from, and must not refer to: OBS; util-linux,
+  # of which libobs links only libuuid; libvpl, of which obs-qsv11 needs only
+  # the library, not the examples and sample videos that are most of it; and
+  # PipeWire, whose client stands in for it.
+  replaced = [
+    obs-studio
+    (lib.getLib util-linux)
+    libvpl
+    pipewire
   ];
 in
 stdenvNoCC.mkDerivation {
@@ -72,23 +86,27 @@ stdenvNoCC.mkDerivation {
       cp $plugin/lib/obs-plugins/*.so $out/lib/obs-plugins/
       cp -r $plugin/share/obs/obs-plugins/. $out/share/obs/obs-plugins/
     done
-    ln -s ${lib.getLib pipewire}/lib/libpipewire-0.3.so.0 $out/lib/
+    ln -s ${pipewireClient}/lib/libpipewire-0.3.so.0 $out/lib/
+    cp -P ${lib.getLib util-linux}/lib/libuuid.so.1* ${libvpl}/lib/libvpl.so.2* $out/lib/
     chmod -R u+w $out
 
-    # The modules find libobs through OBS's own lib folder; point them at
-    # this one, and drop OBS's compiled-in paths, which the recorder
-    # replaces with this prefix's.
+    # The files find libobs and the libraries above in their packages'
+    # folders; point them at this one, and drop OBS's compiled-in paths,
+    # which the recorder replaces with this prefix's.
     for file in $out/lib/*.so.* $out/lib/obs-plugins/*.so $out/bin/*; do
       [ -L "$file" ] && continue
       rpath=$(patchelf --print-rpath "$file")
-      patchelf --set-rpath "''${rpath//"${obs-studio}/lib"/$out/lib}" "$file"
-      remove-references-to -t ${obs-studio} "$file"
+      for package in ${lib.escapeShellArgs replaced}; do
+        rpath=''${rpath//"$package/lib"/$out/lib}
+      done
+      patchelf --set-rpath "$rpath" "$file"
+      remove-references-to ${lib.concatMapStringsSep " " (package: "-t ${package}") replaced} "$file"
     done
 
     runHook postInstall
   '';
 
-  disallowedReferences = [ obs-studio ];
+  disallowedReferences = replaced;
 
   meta = {
     description = "OBS runtime for the Alloy desktop recorder";
