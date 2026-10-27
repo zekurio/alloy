@@ -356,6 +356,14 @@ export async function initializeConfigStore(): Promise<void> {
   // longer move a provider's sign-up setting.
   if (storedProviders.some((provider) => provider.allowSignUp === undefined)) {
     await writeSetting("oauthProviders", providers)
+    const signUp = providers
+      .filter((provider) => provider.allowSignUp)
+      .map((provider) => provider.providerId)
+    if (signUp.length > 0) {
+      logger.warn(
+        `OAuth providers ${signUp.join(", ")} keep creating accounts now that sign-up is a per-provider setting. Turning off open registrations no longer stops them; turn off Create accounts on each provider instead.`,
+      )
+    }
   }
   oauthProvidersSetting = deepFreeze(providers)
   oauthClientSecretsSetting = deepFreeze(

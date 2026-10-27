@@ -9,7 +9,7 @@ import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
 import { useQueryClient } from "@tanstack/react-query"
-import { CircleAlertIcon } from "lucide-react"
+import { CircleAlertIcon, InfoIcon } from "lucide-react"
 import { useState } from "react"
 
 import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
@@ -120,6 +120,7 @@ export function AuthSettingsContent({
                 <AuthToggleRow
                   key={item.key}
                   item={item}
+                  description={toggleDescription(item, config)}
                   checked={config[item.key]}
                   locked={config.authLocks[item.key]}
                   pending={pendingToggle === item.key}
@@ -130,6 +131,7 @@ export function AuthSettingsContent({
                 />
               ))}
             </SettingRows>
+            <SignUpProvidersNotice config={config} />
             {toggle.error ? (
               <Callout tone="destructive" className="mt-3 text-xs">
                 <CircleAlertIcon />
@@ -155,14 +157,55 @@ export function AuthSettingsContent({
   )
 }
 
+/**
+ * Env-managed providers without allow_sign_up still follow open
+ * registrations, since the server can't save a value for them.
+ */
+function toggleDescription(
+  item: (typeof AUTH_TOGGLES)[number],
+  config: AdminRuntimeConfig,
+): string {
+  if (item.key !== "openRegistrations" || !config.authLocks.oauthProviders) {
+    return item.description
+  }
+  return t(
+    "Let anyone create an account with a passkey. Env-managed OAuth providers without allow_sign_up also follow this setting.",
+  )
+}
+
+/**
+ * Open registrations no longer closes OAuth sign-up, so say which providers
+ * still create accounts while it is off.
+ */
+function SignUpProvidersNotice({ config }: { config: AdminRuntimeConfig }) {
+  if (config.openRegistrations) return null
+  const names = config.oauthProviders
+    .filter((provider) => provider.enabled && provider.allowSignUp)
+    .map((provider) => provider.displayName)
+  if (names.length === 0) return null
+  return (
+    <Callout tone="info" className="mt-3 text-xs">
+      <InfoIcon />
+      <span>
+        {t(
+          "Open registrations is off, but {providers} still create accounts on first sign-in. Turn off Create accounts on a provider to stop it.",
+          { providers: names.join(", ") },
+        )}
+      </span>
+    </Callout>
+  )
+}
+
 function AuthToggleRow({
   item,
+  description,
   checked,
   locked,
   pending,
   onChange,
 }: {
   item: (typeof AUTH_TOGGLES)[number]
+  description: string
   checked: boolean
   locked: boolean
   pending: boolean
@@ -174,11 +217,11 @@ function AuthToggleRow({
       description={
         locked ? (
           <>
-            {item.description}
+            {description}
             <EnvManagedNote envName={item.envName} />
           </>
         ) : (
-          item.description
+          description
         )
       }
       align="start"
