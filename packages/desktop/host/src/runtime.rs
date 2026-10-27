@@ -21,6 +21,9 @@ use crate::capture_library::{
     media,
     poster::{POSTER_WAIT, wait_for_poster},
 };
+use crate::global_shortcuts::{
+    BindRequest, GlobalShortcuts, ShortcutRequest, ShortcutsState, xdg_trigger,
+};
 use crate::logging::logged;
 use crate::recording_host::{
     PlayNotificationSoundRequest, RecorderHost, RecorderHostOptions, RecordingCapture,
@@ -63,6 +66,12 @@ pub struct RuntimeOptions {
 /// Receives the events for the selected server window.
 pub type EventSink = Arc<dyn Fn(Value) + Send + Sync>;
 
+/// What the desktop shows for each global shortcut, in the user's language.
+pub struct ShortcutDescriptions {
+    pub clip: String,
+    pub screenshot: String,
+}
+
 pub struct LibraryRuntime {
     pub library: CaptureLibrary,
     pub files: CaptureHttpServer,
@@ -93,6 +102,9 @@ pub struct DesktopRuntime {
     /// Taken before the library serves anything. Cache files written before
     /// it belong to an earlier session.
     started_at: SystemTime,
+    /// The clip and screenshot shortcuts the desktop binds where the
+    /// recorder has no key hook.
+    shortcuts: GlobalShortcuts,
 }
 
 impl DesktopRuntime {
@@ -206,6 +218,7 @@ impl DesktopRuntime {
             startup_error: Mutex::new(startup_error),
             output_swept: watch::Sender::new(false),
             started_at,
+            shortcuts: GlobalShortcuts::new(),
         });
         runtime.start_events();
         Ok(runtime)
@@ -250,6 +263,50 @@ impl DesktopRuntime {
                 runtime.report_error(cause.to_string()).await;
             }
         });
+    }
+
+    /// Asks the desktop to bind the clip and screenshot shortcuts, suggesting
+    /// the saved hotkeys. Linux only; Windows hooks them in the recorder.
+    pub async fn start_shortcuts(
+        self: &Arc<Self>,
+        app_id: String,
+        descriptions: ShortcutDescriptions,
+    ) -> ShortcutsState {
+        if !self.shortcuts.state().supported {
+            return self.shortcuts.state();
+        }
+        let hotkeys = self.recorder.get_settings().await.hotkeys.clone();
+        let weak = Arc::downgrade(self);
+        let on_activated = Arc::new(move |id: &str| {
+            if let (Some(runtime), Some(action)) = (weak.upgrade(), CaptureAction::parse(id)) {
+                runtime.trigger(action);
+            }
+        });
+        let weak = Arc::downgrade(self);
+        let on_state = Arc::new(move |state: &ShortcutsState| {
+            if let Some(runtime) = weak.upgrade() {
+                runtime.emit(json!({ "type": "shortcuts", "state": state }));
+            }
+        });
+        self.shortcuts
+            .bind(BindRequest {
+                app_id,
+                shortcuts: vec![
+                    ShortcutRequest {
+                        id: "clip",
+                        description: descriptions.clip,
+                        preferred_trigger: xdg_trigger(&hotkeys.clip),
+                    },
+                    ShortcutRequest {
+                        id: "screenshot",
+                        description: descriptions.screenshot,
+                        preferred_trigger: xdg_trigger(&hotkeys.screenshot),
+                    },
+                ],
+                on_activated,
+                on_state,
+            })
+            .await
     }
 
     fn start_events(self: &Arc<Self>) {
@@ -507,6 +564,7 @@ impl DesktopRuntime {
     pub async fn shutdown(&self) -> Result<(), String> {
         let _selection = self.selection_lock.lock().await;
         self.select_server_locked(None).await?;
+        self.shortcuts.shutdown().await;
         let stopped = self.recorder.shutdown().await;
         let libraries = self
             .libraries
@@ -595,6 +653,12 @@ impl DesktopRuntime {
                 to_value(self.recorder.restart().await.map_err(error)?)
             }
             "recording.getStatus" => to_value(self.recorder.get_status().await),
+            "recording.getShortcuts" => to_value(self.shortcuts.state()),
+            "recording.bindShortcuts" => to_value(self.shortcuts.rebind().await?),
+            "recording.configureShortcuts" => {
+                self.shortcuts.configure().await?;
+                Ok(Value::Null)
+            }
             "recording.getStorageInfo" => {
                 to_value(self.recorder.storage_info().await.map_err(error)?)
             }

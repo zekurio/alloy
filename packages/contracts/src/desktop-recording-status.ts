@@ -16,6 +16,7 @@ import type {
 } from "./desktop-recording-config"
 import type { RecordingGame } from "./desktop-recording-games"
 import type { RecordingLibraryDownload } from "./desktop-recording-library"
+import type { DesktopShortcutsState } from "./desktop-shortcuts"
 
 /**
  * What a recorder can do, as it reports in `RecordingStatus.capabilities`.
@@ -186,3 +187,4 @@ export type RecordingEvent =
   | { type: "error"; error: string; status: RecordingStatus }
   | { type: "audio-levels"; levels: RecordingAudioLevel[] }
   | { type: "library-download"; download: RecordingLibraryDownload }
+  | { type: "shortcuts"; state: DesktopShortcutsState }

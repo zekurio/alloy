@@ -89,6 +89,9 @@ const RECORDING_METHODS = [
   "listNotificationSounds",
   "openNotificationSoundsFolder",
   "previewNotificationSound",
+  "getShortcuts",
+  "bindShortcuts",
+  "configureShortcuts",
 ] as const satisfies readonly Exclude<
   keyof AlloyDesktopRecordingApi,
   "onEvent"

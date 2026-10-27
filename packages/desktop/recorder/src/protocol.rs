@@ -27,8 +27,8 @@ pub const RECORDER_CAPABILITIES: &[&str] = &[
 ];
 
 /// Linux leaves out `hotkeys`: Wayland gives applications no global key hook,
-/// so binding the shortcuts through the GlobalShortcuts portal is left to the
-/// desktop shell.
+/// so the desktop host binds the shortcuts through the GlobalShortcuts portal
+/// (`global_shortcuts.rs`).
 #[cfg(not(windows))]
 pub const RECORDER_CAPABILITIES: &[&str] = &[
     "screenshots",

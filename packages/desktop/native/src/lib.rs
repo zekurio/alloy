@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 
 use alloy_desktop::login::BrowserLogin;
 use alloy_desktop::preferences::{DesktopWindowState, PreferencesStore};
-use alloy_desktop::runtime::{CaptureAction, DesktopRuntime, RuntimeOptions};
+use alloy_desktop::runtime::{CaptureAction, DesktopRuntime, RuntimeOptions, ShortcutDescriptions};
 use alloy_desktop::server::{Server, server_origin};
 use napi::bindgen_prelude::*;
 use napi::threadsafe_function::{
@@ -372,6 +372,20 @@ impl Runtime {
         let inner = Arc::clone(&self.inner);
         napi::bindgen_prelude::within_runtime_if_available(move || inner.trigger(action));
         Ok(())
+    }
+
+    /// Asks the desktop to bind the clip and screenshot shortcuts, in the
+    /// background: the desktop may show a dialog first. `app_id` names the
+    /// app to the portal; the descriptions are shown in its dialog. Does
+    /// nothing where the recorder hooks the keys itself.
+    #[napi]
+    pub fn start_shortcuts(&self, app_id: String, clip: String, screenshot: String) {
+        let inner = Arc::clone(&self.inner);
+        napi::bindgen_prelude::spawn(async move {
+            inner
+                .start_shortcuts(app_id, ShortcutDescriptions { clip, screenshot })
+                .await;
+        });
     }
 
     /// Stops the recorder and media work. Rejects if the recorder did not

@@ -98,11 +98,8 @@ builds a matching prefix with every plugin below and libpipewire.
   `build-agent.mjs` links it. Protocol output goes to a private copy of
   stdout, since the helper prints to the stdout it inherits.
 - The agent registers no hotkeys, since Wayland gives applications no global
-  key hook. It leaves `hotkeys` out of `capabilities`, and the web hides the
-  hotkey fields. Binding the shortcuts through the GlobalShortcuts portal is
-  left to the shell, which does not do it yet; until then, a desktop
-  environment shortcut can run the app with `--action clip` or
-  `--action screenshot`.
+  key hook. It leaves `hotkeys` out of `capabilities`, and the host binds the
+  shortcuts instead; see [Global shortcuts on Linux](#global-shortcuts-on-linux).
 
 The agent, libobs, and the graphics drivers must share one glibc. On NixOS,
 build them from the same nixpkgs as the system. Games need obs-vkcapture's
@@ -190,6 +187,25 @@ by a few releases. Media tools come from `PATH` unless `ALLOY_FFMPEG` and
 `ALLOY_FFPROBE` point elsewhere. Folders follow XDG: data in
 `~/.local/share/dev.zekurio.alloy`, caches in `~/.cache/dev.zekurio.alloy`,
 the browser profile in `~/.config/dev.zekurio.alloy`.
+
+### Global shortcuts on Linux
+
+`host/src/global_shortcuts.rs` binds the clip and screenshot shortcuts through
+the desktop's GlobalShortcuts portal; the Windows recorder hooks the keys
+itself. At startup the shell passes the app id (`dev.zekurio.alloy`) and the
+translated descriptions. The host registers the id with
+`org.freedesktop.host.portal.Registry`, since the portal refuses an app
+without one and a terminal start has none, then creates a session and binds
+`clip` and `screenshot` with the saved hotkeys as preferred triggers.
+
+The desktop asks the user only for shortcut ids it hasn't seen, so binding on
+every start is silent after the first. From then on the desktop owns the keys:
+the settings show its trigger descriptions, and **Change shortcuts** opens its
+own settings (`ConfigureShortcuts`, portal version 2). A press saves a clip or
+a screenshot through the same path as `--action`. Without the portal (GNOME
+before 48, most wlroots compositors) the settings say so, and a desktop
+shortcut that runs the app with `--action clip` or `--action screenshot` is
+the fallback.
 
 ## Build and check
 

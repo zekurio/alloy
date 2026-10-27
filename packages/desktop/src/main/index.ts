@@ -1,4 +1,4 @@
-import { detectLocale, setClientLocale } from "@alloy/i18n"
+import { detectLocale, setClientLocale, t } from "@alloy/i18n"
 import { app, dialog, Menu } from "electron"
 import { z } from "zod"
 
@@ -114,6 +114,13 @@ async function start(
     (event) => host.sendToRemote(RECORDING_EVENT_CHANNEL, event),
   )
   host.runtime.start()
+  // Linux binds these through the desktop's shortcut portal, which shows the
+  // descriptions in its own dialog and settings.
+  host.runtime.startShortcuts(
+    APP_IDENTIFIER,
+    t("Save a clip"),
+    t("Take a screenshot"),
+  )
 
   app.on("before-quit", (event) => {
     if (host.quitting) return

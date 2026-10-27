@@ -8,6 +8,7 @@ import { toast } from "@alloy/ui/lib/toast"
 
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 
+import { GlobalShortcutsSection } from "./desktop-global-shortcuts"
 import { recorderSupports } from "./desktop-recording-capabilities"
 import { HotkeyInput } from "./hotkey-input"
 
@@ -22,24 +23,9 @@ export function HotkeysSection({
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
 }) {
-  // Where the recorder has no key hook (Linux), the desktop environment binds
-  // the shortcuts through the GlobalShortcuts portal and the user changes
-  // them in its own settings; the saved hotkeys are only a first suggestion.
-  if (!recorderSupports(status, "hotkeys")) {
-    return (
-      <SettingsSubsection id="hotkeys" title={t("Hotkeys")}>
-        <p className="text-foreground-dim text-xs">
-          {t(
-            "Your desktop owns the clip and screenshot shortcuts. Change them in its keyboard settings. If it has no shortcut portal, bind {clip} and {screenshot} there instead.",
-            {
-              clip: "alloy-desktop --action clip",
-              screenshot: "alloy-desktop --action screenshot",
-            },
-          )}
-        </p>
-      </SettingsSubsection>
-    )
-  }
+  // Where the recorder has no key hook (Linux), the desktop binds the
+  // shortcuts and owns their keys.
+  if (!recorderSupports(status, "hotkeys")) return <GlobalShortcutsSection />
 
   return (
     <SettingsSubsection id="hotkeys" title={t("Hotkeys")}>
