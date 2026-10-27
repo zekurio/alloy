@@ -185,7 +185,11 @@ need. The host hands the agent `resources/obs-runtime`, or
 system's OBS. devenv provides Rust, `pkg-config`, and ALSA for the addon. The
 Electron binary npm downloads does not run on NixOS, so devenv sets
 `ELECTRON_EXEC_PATH` to nixpkgs' Electron, which can trail the pinned version
-by a few releases. Media tools come from `PATH` unless `ALLOY_FFMPEG` and
+by a few releases. On NixOS, Electron and the recorder load the system's
+graphics drivers, so both need a glibc at least as new as the system's. When
+devenv's nixpkgs is older, Electron logs `MESA-LOADER ... GLIBC_2.xx not found`
+and renders in software, so point `ELECTRON_EXEC_PATH` at your system's
+nixpkgs Electron and `ALLOY_RECORDER_PATH` at an agent built with it. Media tools come from `PATH` unless `ALLOY_FFMPEG` and
 `ALLOY_FFPROBE` point elsewhere. Folders follow XDG: data in
 `~/.local/share/dev.zekurio.alloy`, caches in `~/.cache/dev.zekurio.alloy`,
 the browser profile in `~/.config/dev.zekurio.alloy`.
@@ -199,6 +203,19 @@ translated descriptions. The host registers the id with
 `org.freedesktop.host.portal.Registry`, since the portal refuses an app
 without one and a terminal start has none, then creates a session and binds
 `clip` and `screenshot` with the saved hotkeys as preferred triggers.
+
+The registry only accepts an id whose desktop entry is installed. Packages
+ship `dev.zekurio.alloy.desktop`; for `pnpm desktop:dev`, add one to
+`~/.local/share/applications`. GLib only takes an entry whose `Exec` program
+exists, so give it a real path:
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=Alloy
+Exec=/bin/sh -c "cd ~/src/alloy && pnpm desktop:dev"
+NoDisplay=true
+```
 
 The desktop asks the user only for shortcut ids it hasn't seen, so binding on
 every start is silent after the first. From then on the desktop owns the keys:

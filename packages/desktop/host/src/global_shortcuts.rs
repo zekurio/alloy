@@ -18,10 +18,11 @@ use serde::Serialize;
 const UNAVAILABLE: &str = "Your desktop doesn't offer global shortcuts.";
 #[cfg(target_os = "linux")]
 const FAILED: &str = "Couldn't set up the shortcuts with your desktop.";
-/// The portal knows no app id for us: no launcher scope, and no registry.
+/// The portal knows no app id for us. Registering one only works when a
+/// desktop entry of that name is installed, which packages ship and a
+/// development run has to add.
 #[cfg(target_os = "linux")]
-const UNIDENTIFIED: &str =
-    "Your desktop couldn't tell which app is asking. Start Alloy from its launcher.";
+const UNIDENTIFIED: &str = "Your desktop couldn't identify Alloy. It needs Alloy's desktop entry, dev.zekurio.alloy.desktop.";
 #[cfg(target_os = "linux")]
 const SESSION_ENDED: &str = "Your desktop stopped the shortcuts. Set them up again.";
 #[cfg(target_os = "linux")]

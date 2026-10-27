@@ -563,8 +563,8 @@ export const DESKTOP_MESSAGES = {
     "Ohne Tastenkürzel-Portal lege stattdessen {clip} und {screenshot} in den Tastatureinstellungen deines Desktops fest.",
   "You can capture up to {count} audio sources at once.":
     "Du kannst bis zu {count} Audioquellen gleichzeitig aufnehmen.",
-  "Your desktop couldn't tell which app is asking. Start Alloy from its launcher.":
-    "Dein Desktop konnte nicht erkennen, welche App fragt. Starte Alloy über seinen Starter.",
+  "Your desktop couldn't identify Alloy. It needs Alloy's desktop entry, dev.zekurio.alloy.desktop.":
+    "Dein Desktop konnte Alloy nicht erkennen. Er braucht Alloys Desktop-Eintrag dev.zekurio.alloy.desktop.",
   "Your desktop doesn't offer global shortcuts.":
     "Dein Desktop bietet keine globalen Tastenkürzel an.",
   "Your desktop owns these keys. Change them in its keyboard settings.":
