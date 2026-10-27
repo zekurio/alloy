@@ -5,6 +5,7 @@ import {
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
+  type OAuthProviderConfig,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 
@@ -26,6 +27,9 @@ const OAuthProviderBaseSchema = t.object({
   clientId: t.string().min(1),
   scopes: t.array(t.string().min(1)).optional(),
   enabled: t.boolean().$default(true),
+  // Absent on providers saved before sign-up was a per-provider setting; the
+  // config store fills it from open registrations (see withSignUpDefault).
+  allowSignUp: t.boolean().optional(),
   buttonColor: HexColorSchema.optional(),
   buttonTextColor: HexColorSchema.optional(),
   // Absolute URL (ingested or filtered before reaching browsers) or an
@@ -135,3 +139,21 @@ export const OAuthProvidersSchema = t
 export type OAuthProviderSubmission = t.infer<
   typeof OAuthProviderSubmissionSchema
 >
+
+/** A parsed provider whose `allowSignUp` may predate the setting. */
+export type StoredOAuthProvider = t.infer<typeof OAuthProvidersSchema>[number]
+
+/**
+ * Resolve providers saved before sign-up was a per-provider setting. They
+ * created accounts exactly when open registrations was on, so that value
+ * keeps their behaviour.
+ */
+export function withSignUpDefault(
+  providers: readonly StoredOAuthProvider[],
+  openRegistrations: boolean,
+): OAuthProviderConfig[] {
+  return providers.map((provider) => ({
+    ...provider,
+    allowSignUp: provider.allowSignUp ?? openRegistrations,
+  }))
+}

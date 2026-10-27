@@ -11,8 +11,6 @@ export const ADMIN_MESSAGES = {
   Administration: "Administration",
   Advanced: "Erweitert",
   "Alloy default": "Alloy-Standard",
-  "Allow new users to create accounts on this server.":
-    "Erlaube neuen Nutzern, Konten auf diesem Server zu erstellen.",
   "Allow users to sign in with this provider.":
     "Erlaube Nutzern, sich mit diesem Anbieter anzumelden.",
   "Announce published clips to Discord or your own endpoint.":
@@ -76,6 +74,9 @@ export const ADMIN_MESSAGES = {
   "Couldn't update backdrop": "Hintergrund konnte nicht aktualisiert werden",
   "Couldn't update user": "Nutzer konnte nicht aktualisiert werden",
   "Couldn't update webhook": "Webhook konnte nicht aktualisiert werden",
+  "Create accounts": "Konten erstellen",
+  "Create an account the first time someone signs in with this provider. When off, only users who already linked it can sign in.":
+    "Erstelle ein Konto, wenn sich jemand zum ersten Mal mit diesem Anbieter anmeldet. Ist dies aus, können sich nur Nutzer anmelden, die ihn bereits verknüpft haben.",
   "Create the admin account": "Admin-Konto erstellen",
   "Create user": "Nutzer erstellen",
   "Customizations stop automatic SteamGridDB updates for this game.":
@@ -166,6 +167,8 @@ export const ADMIN_MESSAGES = {
     "Leer lassen, um das aktuelle Secret zu behalten.",
   "Leave empty to use the theme color.":
     "Leer lassen, um die Theme-Farbe zu verwenden.",
+  "Let anyone create an account with a passkey. OAuth providers have their own Create accounts setting.":
+    "Erlaube allen, ein Konto mit einem Passkey zu erstellen. OAuth-Anbieter haben ihre eigene Einstellung „Konten erstellen“.",
   "Link preview": "Link-Vorschau",
   "Loading quality settings": "Qualitätseinstellungen werden geladen",
   "Loading quality...": "Qualität wird geladen...",

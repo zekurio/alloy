@@ -330,6 +330,8 @@ export type AdminRuntimeConfig = t.infer<typeof AdminRuntimeConfigSchema>
 export interface PublicAuthProvider {
   providerId: string
   displayName: string
+  /** Whether signing in with this provider can create a new account. */
+  allowSignUp: boolean
   buttonColor?: string
   buttonTextColor?: string
   iconUrl?: string

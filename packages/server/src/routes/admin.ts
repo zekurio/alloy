@@ -194,11 +194,22 @@ export const adminRoute = new Hono()
         const secret = submission.clientSecret?.trim()
         if (secret) newSecrets[submission.providerId] = secret
       }
+      // A submission without allowSignUp keeps the saved value; a new
+      // provider only signs in existing users until the admin opts in.
+      const saved = configStore.get("oauthProviders")
       const submitted = submissions.map(
         ({
           clientSecret: _clientSecret,
           ...provider
-        }: OAuthProviderSubmission) => provider,
+        }: OAuthProviderSubmission) => ({
+          ...provider,
+          allowSignUp:
+            provider.allowSignUp ??
+            saved.find(
+              (existing) => existing.providerId === provider.providerId,
+            )?.allowSignUp ??
+            false,
+        }),
       )
 
       // External icon source URLs are downloaded into managed asset storage

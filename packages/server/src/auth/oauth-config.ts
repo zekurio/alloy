@@ -28,6 +28,7 @@ export function getPublicProviders(): PublicAuthProvider[] {
   return getEnabledProviderConfigs().map((provider) => ({
     providerId: provider.providerId,
     displayName: provider.displayName,
+    allowSignUp: provider.allowSignUp,
     buttonColor: provider.buttonColor,
     buttonTextColor: provider.buttonTextColor,
     // Browsers only ever receive same-origin managed icon paths. External

@@ -4,13 +4,15 @@ import {
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
-  type OAuthProviderConfig,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { isLoopbackHostname } from "@alloy/env"
 import { loadDotenv } from "@alloy/env/node"
 
-import { OAuthProvidersSchema } from "./config/oauth-schema"
+import {
+  OAuthProvidersSchema,
+  type StoredOAuthProvider,
+} from "./config/oauth-schema"
 import { parseServerEnvRaw, storageConfigFromRaw } from "./env-runtime-schema"
 import {
   resolveFfmpegPath,
@@ -31,7 +33,7 @@ if (process.env.NODE_ENV !== "production") {
 type EnvSource = Record<string, string | undefined>
 
 type ParsedSocialProviders = {
-  oauthProviders: OAuthProviderConfig[]
+  oauthProviders: StoredOAuthProvider[]
   oauthClientSecrets: Record<string, string>
 }
 
@@ -77,6 +79,7 @@ const AllauthOidcAppSettingsSchema = t.object({
   fetch_userinfo: t.boolean().optional(),
   auth_params: AuthParamsSchema,
   enabled: t.boolean().optional(),
+  allow_sign_up: t.boolean().optional(),
   icon_url: t.string().trim().url().optional(),
   button_color: t.string().trim().optional(),
   button_text_color: t.string().trim().optional(),
@@ -138,6 +141,7 @@ function parseSocialProviders(raw: string | undefined): ParsedSocialProviders {
       clientId: app.client_id,
       scopes: settings.scope ?? parsed.data.openid_connect?.SCOPE,
       enabled: settings.enabled ?? true,
+      allowSignUp: settings.allow_sign_up,
       buttonColor: settings.button_color,
       buttonTextColor: settings.button_text_color,
       iconUrl: settings.icon_url,

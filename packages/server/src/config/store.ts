@@ -24,7 +24,7 @@ import {
 } from "@alloy/server/storage/deletion-store"
 import { eq, inArray } from "drizzle-orm"
 
-import { OAuthProvidersSchema } from "./oauth-schema"
+import { OAuthProvidersSchema, withSignUpDefault } from "./oauth-schema"
 
 const logger = createLogger("config-store")
 
@@ -84,16 +84,25 @@ type Listener = (
 ) => void
 const listeners = new Set<Listener>()
 
+function effectiveOpenRegistrations(): boolean {
+  return env.authEnv.openRegistrations ?? authSetting.openRegistrations
+}
+
 function buildRuntimeConfig(): RuntimeConfig {
+  const openRegistrations = effectiveOpenRegistrations()
+  // Env providers can't be rewritten, so one without allow_sign_up keeps
+  // following open registrations.
+  const envProviders = env.authEnv.oauthProviders
   return {
     runtimeConfigVersion: RUNTIME_CONFIG_VERSION,
-    openRegistrations:
-      env.authEnv.openRegistrations ?? authSetting.openRegistrations,
+    openRegistrations,
     setupComplete: setupSetting.setupComplete,
     passkeyEnabled: env.authEnv.passkeyEnabled ?? authSetting.passkeyEnabled,
     requireAuthToBrowse:
       env.authEnv.requireAuthToBrowse ?? authSetting.requireAuthToBrowse,
-    oauthProviders: env.authEnv.oauthProviders ?? [...oauthProvidersSetting],
+    oauthProviders: envProviders
+      ? withSignUpDefault(envProviders, openRegistrations)
+      : [...oauthProvidersSetting],
     limits: env.limits,
     uploadLimits: uploadLimitsSetting,
     storage: env.storage,
@@ -167,7 +176,11 @@ export async function setOAuthProviders(
     )
   }
 
-  const nextProviders = OAuthProvidersSchema.parse(providers)
+  // Callers resolve allowSignUp, so the fallback is never used.
+  const nextProviders = withSignUpDefault(
+    OAuthProvidersSchema.parse(providers),
+    false,
+  )
   const nextSecrets: Record<string, string> = {}
   for (const provider of nextProviders) {
     const incoming = secrets[provider.providerId]
@@ -334,9 +347,17 @@ export async function initializeConfigStore(): Promise<void> {
   )
   setupSetting = deepFreeze(SetupSettingSchema.parse(setupValue ?? {}))
   authSetting = deepFreeze(AuthTogglesSchema.parse(authValue ?? {}))
-  oauthProvidersSetting = deepFreeze(
-    OAuthProvidersSchema.parse(oauthProvidersValue ?? []),
+  const storedProviders = OAuthProvidersSchema.parse(oauthProvidersValue ?? [])
+  const providers = withSignUpDefault(
+    storedProviders,
+    effectiveOpenRegistrations(),
   )
+  // Save the resolved value once, so later open-registration changes no
+  // longer move a provider's sign-up setting.
+  if (storedProviders.some((provider) => provider.allowSignUp === undefined)) {
+    await writeSetting("oauthProviders", providers)
+  }
+  oauthProvidersSetting = deepFreeze(providers)
   oauthClientSecretsSetting = deepFreeze(
     t.record(t.string(), t.string()).parse(oauthClientSecretsValue ?? {}),
   )

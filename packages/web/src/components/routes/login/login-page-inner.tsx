@@ -9,6 +9,7 @@ import { LogInIcon } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
 
 import { SignInReactivationPrompt } from "@/components/account/reactivate-account-prompt"
+import { canSignUp } from "@/lib/auth-access"
 import { authClient } from "@/lib/auth-client"
 import { useLoginRedirect } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
@@ -52,10 +53,8 @@ export function LoginForm({
   /** Replaces the sign-up prompt below the sign-in methods. */
   footer?: ReactNode
 }) {
-  const { providers, openRegistrations, passkeyEnabled } = config
+  const { providers, passkeyEnabled } = config
   const showPasskeySignIn = passkeyReady && passkeyEnabled && passkeySupported
-  const canSignUp =
-    openRegistrations && (passkeyEnabled || providers.length > 0)
 
   return (
     <>
@@ -94,7 +93,7 @@ export function LoginForm({
 
       {footer !== undefined ? (
         footer
-      ) : canSignUp ? (
+      ) : canSignUp(config) ? (
         <p className="text-foreground-muted mt-6 text-center text-sm">
           {t("Don't have an account?")}{" "}
           <Link

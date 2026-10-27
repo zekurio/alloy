@@ -36,7 +36,9 @@ const AUTH_TOGGLES: {
   {
     key: "openRegistrations",
     label: t("Open registrations"),
-    description: t("Allow new users to create accounts on this server."),
+    description: t(
+      "Let anyone create an account with a passkey. OAuth providers have their own Create accounts setting.",
+    ),
     envName: "ALLOY_OPEN_REGISTRATIONS",
   },
   {

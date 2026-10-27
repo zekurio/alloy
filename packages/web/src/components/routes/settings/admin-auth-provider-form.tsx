@@ -92,6 +92,14 @@ export function OAuthProviderForm({
           checked={draft.enabled}
           onCheckedChange={(enabled) => onChange({ enabled })}
         />
+        <ToggleField
+          label={t("Create accounts")}
+          description={t(
+            "Create an account the first time someone signs in with this provider. When off, only users who already linked it can sign in.",
+          )}
+          checked={draft.allowSignUp}
+          onCheckedChange={(allowSignUp) => onChange({ allowSignUp })}
+        />
       </div>
 
       <SignInButtonFields

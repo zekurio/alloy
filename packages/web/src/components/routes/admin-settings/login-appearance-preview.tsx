@@ -20,6 +20,7 @@ import { useMemo, useState } from "react"
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { LoginForm } from "@/components/routes/login/login-page-inner"
 import { SignUpForm } from "@/components/routes/sign-up/sign-up-page-inner"
+import { canSignUp } from "@/lib/auth-access"
 
 type AuthPreviewMode = "login" | "sign-up"
 
@@ -43,6 +44,7 @@ function toPublicAuthConfig(
       .map((provider) => ({
         providerId: provider.providerId,
         displayName: provider.displayName,
+        allowSignUp: provider.allowSignUp,
         buttonColor: provider.buttonColor,
         buttonTextColor: provider.buttonTextColor,
         iconUrl: publicOAuthProviderIconUrl(provider.iconUrl),
@@ -205,11 +207,7 @@ export function LoginAppearancePreview({
 
   // Mirror the real sign-up page guard: with no sign-up methods the form would
   // render empty, so disable the sign-up preview entirely.
-  const canSignUp =
-    authConfig.openRegistrations &&
-    (authConfig.passkeyEnabled || authConfig.providers.length > 0)
-
-  const previewMode = canSignUp ? mode : "login"
+  const previewMode = canSignUp(authConfig) ? mode : "login"
 
   return (
     <div className="flex flex-col gap-4">
@@ -222,7 +220,7 @@ export function LoginAppearancePreview({
         <ModeToggle
           mode={previewMode}
           onChange={setMode}
-          signUpDisabled={!canSignUp}
+          signUpDisabled={!canSignUp(authConfig)}
         />
       </div>
 

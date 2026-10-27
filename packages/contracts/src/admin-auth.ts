@@ -95,6 +95,8 @@ const OAuthProviderConfigFields = {
   clientId: NonEmptyStringSchema,
   scopes: t.array(t.string()).optional(),
   enabled: t.boolean(),
+  /** Create an account on the first sign-in of an unlinked identity. */
+  allowSignUp: t.boolean(),
   buttonColor: t.string().optional(),
   buttonTextColor: t.string().optional(),
   iconUrl: OAuthProviderIconUrlSchema,
