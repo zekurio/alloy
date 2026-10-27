@@ -88,13 +88,16 @@ impl ScreenshotBindings {
             (self.ortho)(0.0, width as f32, 0.0, height as f32, -100.0, 100.0);
             (self.blend_push)();
             (self.blend)(1, 0);
-            // Draw the source as a scene draws an item. Otherwise
+            // On Linux, draw the source as a scene draws an item. Otherwise
             // obs-vkcapture asks OBS to decode the game's frame from sRGB,
             // which OBS's OpenGL renderer can't do for a dmabuf, and the
-            // screenshot comes out washed out.
-            let linear_srgb = (self.set_linear_srgb)(true);
+            // screenshot comes out washed out. Windows keeps the draw its HDR
+            // conversion was checked with.
+            let linear_srgb = (!cfg!(windows)).then(|| (self.set_linear_srgb)(true));
             (self.render)(source);
-            (self.set_linear_srgb)(linear_srgb);
+            if let Some(previous) = linear_srgb {
+                (self.set_linear_srgb)(previous);
+            }
             (self.blend_pop)();
             (self.end)(target);
             (self.stage)(staging, (self.texture)(target));
