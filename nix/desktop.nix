@@ -45,8 +45,8 @@ let
   repository = lib.fileset.fromSource source;
 
   # The recorder sidecar and the Node-API addon, from one workspace build.
-  native = rustPlatform.buildRustPackage {
-    pname = "alloy-desktop-native";
+  rust = rustPlatform.buildRustPackage {
+    pname = "alloy-desktop-rust";
     inherit version;
     src = lib.fileset.toSource {
       root = ../.;
@@ -176,8 +176,8 @@ stdenvNoCC.mkDerivation {
     install -Dm644 ${source}/packages/desktop/package.json "$app/package.json"
     install -Dm644 ${source}/public/logo.png "$out/lib/alloy-desktop/public/logo.png"
 
-    install -Dm755 ${native}/lib/liballoy_desktop_native.so "$resources/native/alloy-desktop.node"
-    install -Dm755 ${native}/bin/alloy-agent "$resources/agent/alloy-agent"
+    install -Dm755 ${rust}/lib/liballoy_desktop_native.so "$resources/native/alloy-desktop.node"
+    install -Dm755 ${rust}/bin/alloy-agent "$resources/agent/alloy-agent"
     ln -s ${alloy-obs-runtime}/bin/obs-ffmpeg-mux "$resources/agent/obs-ffmpeg-mux"
     # The host hands the agent this folder; it loads libobs, its plugins and
     # libpipewire from there.
@@ -196,7 +196,7 @@ stdenvNoCC.mkDerivation {
   '';
 
   passthru = {
-    inherit electron native shell;
+    inherit electron rust shell;
   };
 
   meta = {

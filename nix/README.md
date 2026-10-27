@@ -22,10 +22,12 @@ lives separately in `devenv.nix`.
   When the recorder opens another module, add it to the runtime's list. Build
   it from the same nixpkgs as the system, since libobs loads the system's
   graphics drivers.
-- `desktop.nix` builds `.#alloy-desktop`: the recorder and the native addon
-  from one Cargo build, the Electron bundles from the server package's pnpm
-  dependencies, the OBS runtime, FFmpeg, and the `dev.zekurio.alloy` desktop
-  entry. It ships no graphics drivers; those come from the system.
+- `desktop.nix` builds `.#alloy-desktop`, an Electron app: the recorder and
+  the Node-API addon from one Cargo build (`alloy-desktop-rust`), the Electron
+  bundles from the server package's pnpm dependencies (`alloy-desktop-shell`),
+  the OBS runtime, FFmpeg, and the `dev.zekurio.alloy` desktop entry. It ships
+  no graphics drivers; those come from the system. `nix flake check` doesn't
+  build it; the `nix desktop` workflow does when its inputs change.
 - `electron.nix` fetches the Electron release `packages/desktop/package.json`
   pins, for the desktop package and the devenv shell.
 - `pipewire-client.nix` copies the PipeWire client that OBS and Electron load
@@ -140,9 +142,11 @@ build.
 pnpm verify
 nix flake check
 nix build .#alloy
-nix build .#alloy-desktop
 devenv test
 ```
+
+After changing the desktop app, its Cargo workspace, or the Nix files and
+nixpkgs pin it builds from, also run `nix build .#alloy-desktop`.
 
 `devenv test` builds the shell, runs the entry hook and checks that it produced
 `.env` and a reachable Postgres. CI runs it when the devenv files change.
