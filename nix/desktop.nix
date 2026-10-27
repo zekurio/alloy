@@ -15,6 +15,9 @@
   alsa-lib,
   glib,
   electron,
+  mesa,
+  intel-media-driver,
+  coreutils,
   ffmpeg-headless,
   alloy-obs-runtime,
   # The server package's dependency fetch: one workspace lockfile, one hash.
@@ -80,6 +83,31 @@ let
   };
 
   appId = "dev.zekurio.alloy";
+
+  # Electron and libobs load the graphics drivers in /run/opengl-driver,
+  # which need a glibc at least as new as the one they were built with. When
+  # the system's Mesa doesn't load with this package's glibc, or there is
+  # none, the loaders use this package's Mesa, and Intel's VA-API driver for
+  # the encoders, instead. Other vendors' EGL libraries, like NVIDIA's, stay
+  # ahead of it.
+  systemDrivers = "/run/opengl-driver";
+  driverFallback = ''
+    if ! { [ -e ${systemDrivers}/lib/libEGL_mesa.so.0 ] \
+      && LD_PRELOAD=${systemDrivers}/lib/libEGL_mesa.so.0 ${lib.getExe' coreutils "true"} 2>/dev/null; }; then
+      vendors=
+      for vendor in ${systemDrivers}/share/glvnd/egl_vendor.d/*.json; do
+        case $vendor in
+          */50_mesa.json) ;;
+          *) if [ -e "$vendor" ]; then vendors=$vendors$vendor:; fi ;;
+        esac
+      done
+      export __EGL_VENDOR_LIBRARY_FILENAMES=$vendors${mesa}/share/glvnd/egl_vendor.d/50_mesa.json
+      export LD_LIBRARY_PATH=${mesa}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+      export LIBGL_DRIVERS_PATH=${mesa}/lib/dri
+      export GBM_BACKENDS_PATH=${mesa}/lib/gbm:${systemDrivers}/lib/gbm
+      export LIBVA_DRIVERS_PATH=${mesa}/lib/dri:${intel-media-driver}/lib/dri:${systemDrivers}/lib/dri
+    fi
+  '';
 in
 stdenvNoCC.mkDerivation {
   pname = "alloy-desktop";
@@ -151,6 +179,7 @@ stdenvNoCC.mkDerivation {
 
     makeWrapper ${lib.getExe electron} "$out/bin/alloy-desktop" \
       --add-flags "$app" \
+      --run ${lib.escapeShellArg driverFallback} \
       --set-default ALLOY_FFMPEG ${lib.getExe' ffmpeg-headless "ffmpeg"} \
       --set-default ALLOY_FFPROBE ${lib.getExe' ffmpeg-headless "ffprobe"}
 

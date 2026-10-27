@@ -22,7 +22,8 @@ lives separately in `devenv.nix`.
 - `desktop.nix` builds `.#alloy-desktop`: the recorder and the native addon
   from one Cargo build, the Electron bundles from the server package's pnpm
   dependencies, nixpkgs' Electron, the OBS runtime, FFmpeg, and the
-  `dev.zekurio.alloy` desktop entry.
+  `dev.zekurio.alloy` desktop entry, with Mesa and Intel's VA-API driver for
+  when the system's graphics drivers don't load.
 - `desktop-module.nix` (`nixosModules.desktop`) defines
   `programs.alloy-desktop`, which builds the app from the system's nixpkgs
   and sets up game capture.
@@ -55,21 +56,25 @@ obs-vkcapture's Vulkan layer and `OBS_VKCAPTURE=1` for games:
 }
 ```
 
-Without the module, install the package from the system's nixpkgs:
+Without the module, install the package. Built from the system's nixpkgs, it
+uses the system's graphics drivers as they are, but builds locally:
 
 ```sh
-nix profile install github:zekurio/alloy#alloy-desktop --override-input nixpkgs nixpkgs
+nix profile add github:zekurio/alloy#alloy-desktop --override-input nixpkgs nixpkgs
+# or from the flake's pinned nixpkgs, which Cachix has built:
+nix profile add github:zekurio/alloy#alloy-desktop
 ```
 
 What the package can't do on its own:
 
-- **Match the system's graphics drivers.** Electron and libobs load the
+- **Always use the system's graphics drivers.** Electron and libobs load the
   drivers in `/run/opengl-driver`, which need a glibc at least as new as the
-  one they were built with. A package from the flake's pinned nixpkgs has an
-  older glibc whenever the system is newer: Electron then renders in software
-  (`MESA-LOADER ... GLIBC_2.xx not found`) and the recorder can't start OBS.
-  Build it from the system's nixpkgs, with the module or
-  `--override-input nixpkgs nixpkgs`, which also means building it locally.
+  one they were built with. When the flake's pinned nixpkgs is older than the
+  system's, the app falls back to the Mesa and Intel VA-API driver it ships
+  with. Those cover AMD and Intel GPUs, for rendering and encoding, but can
+  trail the system's driver releases. NVIDIA's own EGL library still loads
+  first, though that path is untested. Build from the system's nixpkgs, with
+  the module or `--override-input nixpkgs nixpkgs`, to skip the fallback.
 - **Capture games.** obs-vkcapture's layer has to load in the game, through
   `hardware.graphics.extraPackages` and `OBS_VKCAPTURE=1` in the game's
   environment, which a package can't change. The module sets both; otherwise,
