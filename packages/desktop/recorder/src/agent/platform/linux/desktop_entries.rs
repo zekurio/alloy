@@ -29,6 +29,25 @@ const INDEX_TTL: Duration = Duration::from_secs(60);
 const CACHE_LIMIT: usize = 512;
 const MAX_DESKTOP_ENTRY_BYTES: u64 = 64 * 1024;
 const MAX_PROCESS_DEPTH: usize = 64;
+/// Interpreters and launchers, in any version. An entry whose `Exec` starts
+/// one runs some other program, so processes running it aren't its app.
+const LAUNCHERS: &[&str] = &[
+    "bash",
+    "dash",
+    "electron",
+    "flatpak",
+    "gtk-launch",
+    "java",
+    "mono",
+    "node",
+    "perl",
+    "python",
+    "ruby",
+    "sh",
+    "wine",
+    "xdg-open",
+    "zsh",
+];
 
 static INDEX: Mutex<Option<Index>> = Mutex::new(None);
 
@@ -308,7 +327,9 @@ fn icon_bases(data_dirs: &[PathBuf]) -> Vec<PathBuf> {
 
 /// Every application's desktop entry, those shown in menus first, as a
 /// helper's entry often starts the same program. An id found in an earlier
-/// data directory hides the same id in later ones.
+/// data directory hides the same id in later ones. A program that several
+/// menu entries start, as a browser starts its web apps or Steam its games,
+/// names none of them.
 fn desktop_entries(data_dirs: &[PathBuf]) -> Vec<DesktopEntry> {
     let mut seen = HashSet::new();
     let mut entries = Vec::new();
@@ -325,6 +346,24 @@ fn desktop_entries(data_dirs: &[PathBuf]) -> Vec<DesktopEntry> {
         }
     }
     entries.sort_by_key(|entry| entry.no_display);
+    let mut menu_programs = HashMap::<String, usize>::new();
+    for entry in entries.iter().filter(|entry| !entry.no_display) {
+        if let Some(program) = &entry.program {
+            *menu_programs
+                .entry(program.to_ascii_lowercase())
+                .or_default() += 1;
+        }
+    }
+    for entry in &mut entries {
+        let shared = entry.program.as_ref().is_some_and(|program| {
+            menu_programs
+                .get(&program.to_ascii_lowercase())
+                .is_some_and(|&count| count > 1)
+        });
+        if shared {
+            entry.program = None;
+        }
+    }
     entries
 }
 
@@ -374,15 +413,16 @@ fn desktop_entry(id: String, path: &Path) -> Option<DesktopEntry> {
 }
 
 /// The program an `Exec` line starts, by file name, past `env` and its
-/// assignments.
+/// assignments. None for an interpreter or launcher.
 fn exec_program(exec: &str) -> Option<String> {
     let mut words = exec.split_whitespace().map(|word| word.trim_matches('"'));
     let mut program = words.next()?;
     if Path::new(program).file_name()? == "env" {
         program = words.find(|word| !word.contains('=') && !word.starts_with('-'))?;
     }
-    let name = Path::new(program).file_name()?.to_str()?;
-    Some(unwrapped_executable(name.to_string()))
+    let name = unwrapped_executable(Path::new(program).file_name()?.to_str()?.to_string());
+    let unversioned = name.trim_end_matches(|c: char| c.is_ascii_digit() || c == '.');
+    (!LAUNCHERS.contains(&unversioned)).then_some(name)
 }
 
 /// The icon theme the desktop uses, then the themes it inherits from, depth
