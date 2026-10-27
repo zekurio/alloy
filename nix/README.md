@@ -28,6 +28,10 @@ lives separately in `devenv.nix`.
   entry. It ships no graphics drivers; those come from the system.
 - `electron.nix` fetches the Electron release `packages/desktop/package.json`
   pins, for the desktop package and the devenv shell.
+- `pipewire-client.nix` copies the PipeWire client that OBS and Electron load
+  out of nixpkgs' PipeWire, without the daemon's plugins and the GStreamer,
+  Bluetooth, and Python they bring in. A client logs the modules and SPA
+  plugins it can't load; add any it needs to the lists there.
 - `desktop-module.nix` (`nixosModules.desktop`) defines
   `programs.alloy-desktop`, which builds the app from the system's nixpkgs
   and sets up game capture.

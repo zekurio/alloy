@@ -5,6 +5,7 @@
 {
   lib,
   stdenv,
+  callPackage,
   fetchurl,
   unzip,
   makeWrapper,
@@ -18,7 +19,6 @@
   gdk-pixbuf,
   glib,
   gtk3,
-  gtk4,
   libdrm,
   libgbm,
   libGL,
@@ -40,9 +40,8 @@
   nss,
   pango,
   pciutils,
-  pipewire,
   speechd-minimal,
-  systemd,
+  systemdMinimal,
   vulkan-loader,
 }:
 
@@ -51,7 +50,9 @@ let
 
   # Electron loads some of these by name at run time, so they go on its run
   # path rather than being found from what it links. Without libva, Chromium
-  # decodes video in software and can't play HEVC clips at all.
+  # decodes video in software and can't play HEVC clips at all. Electron
+  # links GTK 3 and doesn't load GTK 4, even with --gtk-version=4. libudev
+  # comes from the minimal systemd that D-Bus already brings in.
   libraryPath = lib.makeLibraryPath [
     alsa-lib
     at-spi2-atk
@@ -62,7 +63,6 @@ let
     gdk-pixbuf
     glib
     gtk3
-    gtk4
     libdrm
     libgbm
     libGL
@@ -84,11 +84,18 @@ let
     nss
     pango
     pciutils
-    pipewire
+    (callPackage ./pipewire-client.nix { })
     speechd-minimal
     stdenv.cc.cc
-    systemd
+    systemdMinimal
     vulkan-loader
+  ];
+
+  # Chromium's UI strings, in the languages Alloy ships: `electronLanguages`
+  # in packages/desktop/electron-builder.yml.
+  languages = [
+    "en-US"
+    "de"
   ];
 in
 stdenv.mkDerivation {
@@ -109,7 +116,6 @@ stdenv.mkDerivation {
   buildInputs = [
     glib
     gtk3
-    gtk4
   ];
 
   dontUnpack = true;
@@ -120,7 +126,10 @@ stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
     mkdir -p $out/libexec/electron
-    unzip -d $out/libexec/electron $src
+    unzip -d $out/libexec/electron $src -x 'locales/*'
+    unzip -d $out/libexec/electron $src ${
+      lib.escapeShellArgs (map (language: "locales/${language}.pak") languages)
+    }
     chmod u-x $out/libexec/electron/*.so*
     runHook postInstall
   '';
