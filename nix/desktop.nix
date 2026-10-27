@@ -64,6 +64,17 @@ let
     )
   )) (lib.fileset.fileFilter (file: file.hasExt "md") ../packages);
   repository = lib.fileset.fromSource source;
+  # The app's manifest and the logo, which the installed app reads from the
+  # repository's layout.
+  appFiles = lib.fileset.toSource {
+    root = ../.;
+    fileset = lib.fileset.intersection repository (
+      lib.fileset.unions [
+        ../packages/desktop/package.json
+        ../public/logo.png
+      ]
+    );
+  };
 
   # The recorder sidecar and the Node-API addon, from one workspace build.
   rust = rustPlatform.buildRustPackage {
@@ -194,8 +205,8 @@ stdenvNoCC.mkDerivation {
     mkdir -p "$resources/agent" "$resources/native"
 
     cp -R ${shell} "$app/out"
-    install -Dm644 ${source}/packages/desktop/package.json "$app/package.json"
-    install -Dm644 ${source}/public/logo.png "$out/lib/alloy-desktop/public/logo.png"
+    install -Dm644 ${appFiles}/packages/desktop/package.json "$app/package.json"
+    install -Dm644 ${appFiles}/public/logo.png "$out/lib/alloy-desktop/public/logo.png"
 
     install -Dm755 ${rust}/lib/liballoy_desktop_native.so "$resources/native/alloy-desktop.node"
     install -Dm755 ${rust}/bin/alloy-agent "$resources/agent/alloy-agent"
@@ -204,7 +215,7 @@ stdenvNoCC.mkDerivation {
     # libpipewire from there.
     ln -s ${alloy-obs-runtime} "$resources/obs-runtime"
 
-    install -Dm644 ${source}/public/logo.png \
+    install -Dm644 ${appFiles}/public/logo.png \
       "$out/share/icons/hicolor/512x512/apps/${appId}.png"
 
     makeWrapper ${lib.getExe electron} "$out/bin/alloy-desktop" \
