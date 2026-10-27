@@ -419,8 +419,9 @@ pub struct RecordingStatus {
     pub telemetry: Option<RecordingTelemetry>,
     pub message: Option<String>,
     /// What the recorder can do, the `capabilities` of the version handshake.
-    /// The web hides the controls for what is missing. Empty in a status the
-    /// host assembled without a recorder.
+    /// The web hides the controls for what is missing. A status the host
+    /// assembles without a recorder carries the set its recorder is built
+    /// with.
     #[serde(default)]
     pub capabilities: Vec<String>,
 }

@@ -1727,7 +1727,9 @@ fn prepare_discord_detection_cache(path: &Path) -> Result<(), RecorderHostError>
 }
 
 fn start_discord_detection_refresh(inner: &Arc<Inner>) {
-    if inner.discord_cache_path.is_none()
+    // Only the recorders on Windows and Linux read the catalog.
+    if !cfg!(any(windows, target_os = "linux"))
+        || inner.discord_cache_path.is_none()
         || inner.discord_refresh_started.swap(true, Ordering::AcqRel)
     {
         return;

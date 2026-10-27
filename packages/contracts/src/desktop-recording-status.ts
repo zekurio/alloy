@@ -154,9 +154,9 @@ export interface RecordingStatus {
   telemetry: RecordingTelemetry | null
   message: string | null
   /**
-   * The recorder's `RecordingCapability` names. Empty until the agent has
-   * reported in, and absent on hosts from before it was reported; the UI
-   * treats both as the full set.
+   * The recorder's `RecordingCapability` names. Until the agent reports in,
+   * the host sends the set its recorder is built with. Hosts from before this
+   * field omit it, and the UI treats a missing or empty list as the full set.
    */
   capabilities?: string[]
 }
