@@ -88,8 +88,8 @@ struct Inner {
     /// ask to bind again while the app quits or installs an update, and that
     /// must not open a session for a stopped runtime.
     stopped: AtomicBool,
-    /// Set while a bind the user asked for runs; see `bind_again`.
-    user_bind: AtomicBool,
+    /// Held while a bind the user asked for runs; see `bind_again`.
+    user_bind: tokio::sync::Mutex<()>,
     #[cfg(target_os = "linux")]
     session: tokio::sync::Mutex<Option<portal::Binding>>,
     /// Bumped by every bind and by shutdown. A bind still waiting on the
@@ -121,7 +121,7 @@ impl GlobalShortcuts {
                 }),
                 request: Mutex::new(None),
                 stopped: AtomicBool::new(false),
-                user_bind: AtomicBool::new(false),
+                user_bind: tokio::sync::Mutex::new(()),
                 #[cfg(target_os = "linux")]
                 session: tokio::sync::Mutex::new(None),
                 #[cfg(target_os = "linux")]
@@ -160,19 +160,17 @@ impl GlobalShortcuts {
 
     /// Binds again for the settings' **Set up again**. A bind already
     /// running, the user's or the app's, is kept rather than replaced, since
-    /// replacing it would close the desktop's dialog under the user. The swap
-    /// makes two quick calls start one bind.
+    /// replacing it would close the desktop's dialog under the user. The lock
+    /// makes two quick calls start one bind, and is released even when the
+    /// call is dropped.
     pub async fn bind_again(&self) -> Result<ShortcutsState, String> {
-        if self.inner.user_bind.swap(true, Ordering::SeqCst) {
+        let Ok(_user_bind) = self.inner.user_bind.try_lock() else {
+            return Ok(self.state());
+        };
+        if self.state().binding {
             return Ok(self.state());
         }
-        let result = if self.state().binding {
-            Ok(self.state())
-        } else {
-            self.rebind().await
-        };
-        self.inner.user_bind.store(false, Ordering::SeqCst);
-        result
+        self.rebind().await
     }
 
     /// Opens the desktop's settings for the shortcuts.
@@ -354,6 +352,7 @@ mod portal {
     };
     use futures_util::StreamExt;
     use tokio::{task::JoinHandle, time::timeout};
+    use tokio_util::task::AbortOnDropHandle;
 
     use super::{
         BindRequest, BoundShortcut, CONFIGURE_FAILED, FAILED, Inner, NOT_BOUND, SESSION_ENDED,
@@ -594,31 +593,6 @@ mod portal {
         let mut activated = proxy.receive_activated().await?;
         let mut changed = proxy.receive_shortcuts_changed().await?;
 
-        // Signals arrive for every session on the connection, including an
-        // earlier one the portal hasn't closed yet; only this one's count.
-        let ours = move |path: &str| own == path;
-        let on_activated = Arc::clone(&request.on_activated);
-        let activations = tokio::spawn({
-            let ours = ours.clone();
-            async move {
-                while let Some(activation) = activated.next().await {
-                    if ours(activation.session_handle().as_str()) {
-                        on_activated(activation.shortcut_id());
-                    }
-                }
-            }
-        });
-        let weak = Arc::downgrade(inner);
-        let changes = tokio::spawn(async move {
-            while let Some(change) = changed.next().await {
-                if !ours(change.session_handle().as_str()) {
-                    continue;
-                }
-                let Some(inner) = weak.upgrade() else { return };
-                let shortcuts = bound_shortcuts(change.shortcuts());
-                inner.update(|state| state.shortcuts = shortcuts);
-            }
-        });
         // The portal ends the session when it restarts or the desktop
         // revokes it. Binding again needs the user, through the settings.
         // The stream borrows the session, so the task holds it too.
@@ -626,7 +600,7 @@ mod portal {
         let session = Arc::clone(session);
         let ended = Arc::clone(ended);
         let (subscribed, ready) = tokio::sync::oneshot::channel();
-        let ends = tokio::spawn(async move {
+        let ends = AbortOnDropHandle::new(tokio::spawn(async move {
             let Ok(mut closed) = session.receive_closed().await else {
                 return;
             };
@@ -659,13 +633,40 @@ mod portal {
                 state.configurable = false;
                 state.error = Some(SESSION_ENDED.into());
             });
-        });
+        }));
         // The stream borrows the session, so the task subscribes; waiting
-        // for it means a close during the dialog is never missed.
+        // for it means a close during the dialog is never missed. A setup
+        // that times out here drops the handle, which aborts the task.
         if ready.await.is_err() {
             log::warn!("global shortcuts: could not watch for the session to end");
         }
-        Ok(vec![activations, changes, ends])
+
+        // Signals arrive for every session on the connection, including an
+        // earlier one the portal hasn't closed yet; only this one's count.
+        let ours = move |path: &str| own == path;
+        let on_activated = Arc::clone(&request.on_activated);
+        let activations = tokio::spawn({
+            let ours = ours.clone();
+            async move {
+                while let Some(activation) = activated.next().await {
+                    if ours(activation.session_handle().as_str()) {
+                        on_activated(activation.shortcut_id());
+                    }
+                }
+            }
+        });
+        let weak = Arc::downgrade(inner);
+        let changes = tokio::spawn(async move {
+            while let Some(change) = changed.next().await {
+                if !ours(change.session_handle().as_str()) {
+                    continue;
+                }
+                let Some(inner) = weak.upgrade() else { return };
+                let shortcuts = bound_shortcuts(change.shortcuts());
+                inner.update(|state| state.shortcuts = shortcuts);
+            }
+        });
+        Ok(vec![activations, changes, ends.detach()])
     }
 
     pub(super) async fn configure(inner: &Arc<Inner>) -> Result<(), String> {
