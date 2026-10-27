@@ -319,10 +319,14 @@ mod portal {
 
     /// How long registering, opening a session and listening may take.
     const SETUP_TIMEOUT: Duration = Duration::from_secs(10);
+    /// How long closing a session or opening the desktop's settings may
+    /// take. Quitting waits on the close, so a stalled portal can't hold it.
+    const CALL_TIMEOUT: Duration = Duration::from_secs(3);
 
     /// A bound session and the tasks following its signals.
     pub(super) struct Binding {
-        proxy: GlobalShortcuts,
+        /// Shared with `configure`, which calls it outside the session lock.
+        proxy: Arc<GlobalShortcuts>,
         /// Shared with the task that watches for the session to end.
         session: Arc<Session<GlobalShortcuts>>,
         listeners: Vec<JoinHandle<()>>,
@@ -333,7 +337,8 @@ mod portal {
             for listener in &self.listeners {
                 listener.abort();
             }
-            let _ = self.session.close().await;
+            // Best effort: the portal also ends it when the app exits.
+            let _ = timeout(CALL_TIMEOUT, self.session.close()).await;
         }
     }
 
@@ -455,7 +460,7 @@ mod portal {
             }
         };
         Ok(Binding {
-            proxy,
+            proxy: Arc::new(proxy),
             session,
             listeners,
         })
@@ -535,16 +540,29 @@ mod portal {
     }
 
     pub(super) async fn configure(inner: &Arc<Inner>) -> Result<(), String> {
-        let session = inner.session.lock().await;
-        let binding = session.as_ref().ok_or(NOT_BOUND)?;
-        binding
-            .proxy
-            .configure_shortcuts(&binding.session, None, ConfigureShortcutsOptions::default())
-            .await
-            .map_err(|error| {
+        // The call runs outside the lock, so shutdown and binds don't wait
+        // behind it.
+        let (proxy, session) = {
+            let session = inner.session.lock().await;
+            let binding = session.as_ref().ok_or(NOT_BOUND)?;
+            (Arc::clone(&binding.proxy), Arc::clone(&binding.session))
+        };
+        let configured = timeout(
+            CALL_TIMEOUT,
+            proxy.configure_shortcuts(&session, None, ConfigureShortcutsOptions::default()),
+        )
+        .await;
+        match configured {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(error)) => {
                 log::warn!("global shortcuts: configure failed: {error}");
-                CONFIGURE_FAILED.to_string()
-            })
+                Err(CONFIGURE_FAILED.into())
+            }
+            Err(_) => {
+                log::warn!("global shortcuts: the portal did not open its settings");
+                Err(CONFIGURE_FAILED.into())
+            }
+        }
     }
 
     fn bound_shortcuts(shortcuts: &[Shortcut]) -> Vec<BoundShortcut> {
