@@ -275,8 +275,9 @@ pub fn xdg_trigger(hotkey: &str) -> Option<String> {
     )
 }
 
-/// The xkbcommon keysym name for a key as the settings store it, the
-/// browser's `KeyboardEvent.key`.
+/// The xkbcommon keysym name for a key as the settings store it: the
+/// browser's `KeyboardEvent.key`, with letters uppercased and the space bar
+/// as `Space`.
 fn keysym(key: &str) -> Option<String> {
     let mut chars = key.chars();
     if let (Some(single), None) = (chars.next(), chars.next()) {

@@ -416,7 +416,10 @@ pub(in crate::agent) fn display_capture_source(
             restore_token: stored_restore_token(),
         }),
         Some(DisplaySession::X11) => Ok(DisplayCaptureSource::X11Screen(
-            x11_screen_index(settings.selected_display_id.trim()).unwrap_or(0),
+            x11_screen_index(settings.selected_display_id.trim()).unwrap_or_else(|| {
+                eprintln!("[{SIDE_CAR_NAME}] xrandr listed no monitors; recording X11 screen 0");
+                0
+            }),
         )),
         None => Err("Display capture needs a Wayland or X11 session.".into()),
     }
