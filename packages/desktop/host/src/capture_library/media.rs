@@ -614,7 +614,8 @@ pub async fn finalize_capture(library: &CaptureLibrary, capture: &mut CaptureRec
     capture.size_bytes = tokio::fs::metadata(&filename)
         .await
         .ok()
-        .map(|value| value.len());
+        .map(|value| value.len())
+        .or(capture.size_bytes);
     capture.duration_ms = probe_file(library, &filename)
         .await
         .ok()
