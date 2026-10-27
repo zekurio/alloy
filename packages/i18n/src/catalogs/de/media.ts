@@ -350,10 +350,6 @@ export const MEDIA_MESSAGES = {
   view: "Aufruf",
   views: "Aufrufe",
   "{count} failed": "{count} fehlgeschlagen",
-  "{count} file couldn't be imported.":
-    "{count} Datei konnte nicht importiert werden.",
-  "{count} files couldn't be imported.":
-    "{count} Dateien konnten nicht importiert werden.",
   "{count} game": "{count} Spiel",
   "{count} games": "{count} Spiele",
   "{count} item": "{count} Element",

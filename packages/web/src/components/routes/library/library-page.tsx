@@ -42,7 +42,7 @@ import {
   userClipsInfiniteQueryOptions,
   warmClipDetailCache,
 } from "@/lib/clip-queries"
-import { alloyDesktop, type AlloyTauriDesktop } from "@/lib/desktop"
+import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
 import {
   type LibrarySort,
   type LibrarySource,
@@ -102,7 +102,7 @@ function LibraryContent({
   source,
   media,
 }: {
-  desktop: AlloyTauriDesktop | null
+  desktop: AlloyDesktop | null
   sort: LibrarySort
   source: LibrarySource
   media: MediaFilter
@@ -239,7 +239,7 @@ function useLibraryContentModel({
   groupKey,
   sort,
 }: {
-  desktop: AlloyTauriDesktop | null
+  desktop: AlloyDesktop | null
   media: MediaFilter
   source: LibrarySource
   query: string

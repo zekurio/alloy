@@ -8,8 +8,7 @@ native work is in Rust:
   every call against the calling window and its selected server.
 - `src/preload/`: `connect.ts` gives the bundled connect screen
   (`src/connect/`) its commands; `server.ts` installs the native bridge for
-  the selected server's web app as `window.alloyTauriDesktop`, bridge
-  contract 1, the name the Tauri host used, so one web build works with both.
+  the selected server's web app as `window.alloyDesktop`, bridge contract 1.
 - `host/` (`alloy-desktop`): the recorder client, the capture library and its
   loopback media server, downloads, server checks, browser sign-in,
   preferences, update signature checks, and the host log. It knows nothing
@@ -132,8 +131,8 @@ pnpm --filter @alloy/desktop test:native
 ```
 
 Builds bundle the recorder, OBS, FFmpeg, and the addon as extra resources;
-`electron-builder.yml` lists them, and `nsis/installer.nsh` adds the login item
-handling and the move from the Tauri build (see `.github/RELEASING.md`).
+`electron-builder.yml` lists them, and `nsis/installer.nsh` removes the login
+item and transient data on uninstall.
 `test:native` runs the host's integration tests. Unit tests have been removed;
 E2E testing is not configured yet. A successful build does not validate
 recording or playback. For affected flows, check on Windows:
@@ -146,24 +145,22 @@ recording or playback. For affected flows, check on Windows:
   the selected display and replay buffer stay unchanged.
 - H.264, HEVC, and AV1 playback, seeking, editing, export, and upload.
 - Thumbnails and BlurHash placeholders for new clips, screenshots, imports,
-  and downloads, and for captures saved by an older build.
-- Installer setup over a Tauri install, updates, and uninstall.
+  and downloads.
+- Installer setup, updates, and uninstall.
 
 For cookie changes, test HTTPS on a registrable domain and loopback. The shell
 sets the session cookie host-only at `/`, as the server does, so after login
 only a host-only `alloy_session` cookie should remain and survive restart,
-including a forced restart of Windows. A session from an older app
-(`alloy_refresh`) must restore without a new sign-in. Forgetting the server
-must clear its profile, and opening the connect screen from the login page
-must remove every session cookie, including legacy names and stale path
-variants. Never log or screenshot token values.
+including a forced restart of Windows. Forgetting the server must clear its
+profile, and opening the connect screen from the login page must remove every
+session cookie, including stale path variants. Never log or screenshot token
+values.
 
 ## Storage and logs
 
 - `%APPDATA%\dev.zekurio.alloy`: settings, saved servers, and capture manifest.
 - `%LOCALAPPDATA%\dev.zekurio.alloy`: caches, temporary media, the browser
-  profiles in `electron\`, and `logs\alloy-desktop.log`. The Tauri build's
-  WebView2 profiles (`EBWebView\`, `webviews\`) are no longer used.
+  profiles in `electron\`, and `logs\alloy-desktop.log`.
 - `%LOCALAPPDATA%\Programs\alloy`: the app.
 - `%USERPROFILE%\Videos\Alloy`: default recordings folder.
 - `%TEMP%\Alloy\replay`: default replay buffer.

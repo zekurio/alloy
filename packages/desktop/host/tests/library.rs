@@ -368,12 +368,10 @@ async fn staged_image_import_commits_with_safe_path() {
     let source = temp.path().join("picked screenshot.png");
     // A valid PNG header is enough for staging when ffprobe is unavailable.
     fs::write(&source, b"\x89PNG\r\n\x1a\n").await.unwrap();
-    let staged = library.stage_files(std::slice::from_ref(&source)).await;
-    assert_eq!(staged.failed.len(), 0);
-    assert_eq!(staged.staged.len(), 1);
+    let staged = library.stage_file(&source).await.unwrap();
     let id = library
         .commit_staged(CommitImport {
-            id: staged.staged[0].id.clone(),
+            id: staged.id.clone(),
             title: "Picked screenshot".to_string(),
             game_name: None,
             game_icon_url: None,
@@ -399,15 +397,14 @@ async fn imports_copy_nothing_until_they_are_committed() {
     for path in [&first, &second] {
         fs::write(path, b"\x89PNG\r\n\x1a\n").await.unwrap();
     }
-    let staged = library
-        .stage_files(&[first.clone(), second.clone()])
-        .await
-        .staged;
-    assert_eq!(staged.len(), 2);
+    let staged = [
+        library.stage_file(&first).await.unwrap(),
+        library.stage_file(&second).await.unwrap(),
+    ];
     // Staging probes the picks where they are: nothing lands in the cache,
     // so a pick the renderer never commits costs no disk.
-    let cache = temp.path().join("cache");
-    assert!(!cache.join("recording-library-imports").exists());
+    let mut cached = fs::read_dir(temp.path().join("cache")).await.unwrap();
+    assert!(cached.next_entry().await.unwrap().is_none());
     library.discard_staged(&staged[1].id).await.unwrap();
     assert!(second.is_file());
 
@@ -435,13 +432,10 @@ async fn imports_copy_nothing_until_they_are_committed() {
     assert_eq!(names, vec!["First.png".to_string()]);
 
     // A pick that disappeared before its commit is gone for good.
-    let gone = library
-        .stage_files(std::slice::from_ref(&second))
-        .await
-        .staged;
+    let gone = library.stage_file(&second).await.unwrap();
     fs::remove_file(&second).await.unwrap();
     let commit = CommitImport {
-        id: gone[0].id.clone(),
+        id: gone.id.clone(),
         title: "Second".to_string(),
         game_name: None,
         game_icon_url: None,
@@ -474,12 +468,6 @@ async fn startup_sweeps_what_interrupted_jobs_left() {
     let thumbnails = library.thumbnail_path(&id).unwrap();
     let export = library.export_path(&id, "export-id-12345678").unwrap();
     fs::create_dir_all(export.parent().unwrap()).await.unwrap();
-    let staged_copy = temp
-        .path()
-        .join("cache/recording-library-imports/old-import.mp4");
-    fs::create_dir_all(staged_copy.parent().unwrap())
-        .await
-        .unwrap();
     let leftovers = [
         clips.join("Downloaded clip.mp4.part"),
         clips.join("clip.concat.txt"),
@@ -489,7 +477,6 @@ async fn startup_sweeps_what_interrupted_jobs_left() {
         thumbnails.join(".poster.0f6b8c1e-7a1d-4a8e-9f00-3c1b2a4d5e6f.tmp.jpg"),
         export.clone(),
         export.with_file_name(".render.0f6b8c1e-7a1d-4a8e-9f00-3c1b2a4d5e6f.tmp.mp4"),
-        staged_copy,
     ];
     // Files that only look alike: someone else's partial download and a
     // dot file that is not ours.
@@ -574,7 +561,7 @@ async fn pruning_drops_cache_folders_without_a_capture() {
     fs::create_dir_all(export.parent().unwrap()).await.unwrap();
     fs::write(&export, b"render").await.unwrap();
     // Cache folders whose capture is gone: the file they described was
-    // deleted outside the app, or by an older build that left them behind.
+    // deleted outside the app.
     let orphan_thumbnails = temp
         .path()
         .join("cache/recording-thumbnails/gone-id-123456");
@@ -1385,8 +1372,7 @@ async fn ffmpeg_exports_and_finalizes_recordings() {
     library.release_export(&result.id).await.unwrap();
     assert!(!first_export.exists());
     assert!(library.find_export_path(&result.id).is_err());
-    // A second release, or one from an older build that never leased the
-    // render, changes nothing.
+    // A second release changes nothing.
     library.release_export(&result.id).await.unwrap();
     assert!(second_export.is_file());
 
@@ -2007,13 +1993,6 @@ async fn posters_carry_a_blur_hash_into_the_snapshot() {
         .find(|item| item.kind == CaptureKind::Screenshot)
         .unwrap()
         .id;
-    // A thumbnail an older build cached is replaced by the poster.
-    let legacy = library
-        .thumbnail_path(&video_id)
-        .unwrap()
-        .join("generated.jpg");
-    fs::create_dir_all(legacy.parent().unwrap()).await.unwrap();
-    fs::write(&legacy, b"legacy").await.unwrap();
     assert!(
         library
             .snapshot()
@@ -2034,7 +2013,6 @@ async fn posters_carry_a_blur_hash_into_the_snapshot() {
 
     let jpeg = fs::read(&poster).await.unwrap();
     assert_eq!(jpeg_size(&jpeg), (320, 180));
-    assert!(!legacy.exists());
     // The rejected black frames leave nothing behind.
     let mut files = std::fs::read_dir(poster.parent().unwrap())
         .unwrap()

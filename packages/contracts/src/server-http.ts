@@ -100,10 +100,10 @@ export const ServerInfoSchema = t.looseObject({
   version: InformationalVersionSchema,
   httpContracts: t.array(PositiveSafeIntegerSchema),
   /**
-   * Desktop bridge contracts (`window.alloyTauriDesktop`) understood by the
-   * server-hosted web app. The names date from the Tauri host.
+   * Desktop bridge contracts (`window.alloyDesktop`) understood by the
+   * server-hosted web app.
    */
-  desktopTauriBridgeContracts: t.array(PositiveSafeIntegerSchema),
+  desktopBridgeContracts: t.array(PositiveSafeIntegerSchema),
   capabilities: DesktopHttpCapabilitiesSchema,
   uploadLimits: UploadLimitsSchema.$default(DEFAULT_UPLOAD_LIMITS),
 })

@@ -5,18 +5,6 @@ import type { SessionToken } from "./native"
 
 /** The cookie that carries an Alloy session. */
 const SESSION_COOKIE = "alloy_session"
-/**
- * Cookies from before sessions stopped rotating. An upgraded server still
- * accepts the refresh cookie as the session token until the web app's next
- * session check replaces it with `SESSION_COOKIE`.
- */
-const LEGACY_ACCESS_COOKIE = "alloy_access"
-const LEGACY_REFRESH_COOKIE = "alloy_refresh"
-const SESSION_COOKIES = [
-  SESSION_COOKIE,
-  LEGACY_ACCESS_COOKIE,
-  LEGACY_REFRESH_COOKIE,
-]
 /** How long after a session cookie changes the cookie store is written out. */
 const COOKIE_FLUSH_DELAY_MS = 100
 
@@ -28,10 +16,9 @@ function isUnexpired(cookie: Cookie): boolean {
 }
 
 /**
- * Whether the profile kept a session from an earlier sign-in. A legacy
- * `alloy_refresh` cookie also counts: an upgraded server accepts it as the
- * session token and replaces it once the web app loads. Nothing is checked
- * over the network, so a server that is briefly unreachable is no sign-out.
+ * Whether the profile kept a session from an earlier sign-in. Nothing is
+ * checked over the network, so a server that is briefly unreachable is no
+ * sign-out.
  */
 export async function hasSavedSession(
   session: Session,
@@ -40,8 +27,7 @@ export async function hasSavedSession(
   const cookies = await session.cookies.get({ url: `${origin}/` })
   return cookies.some(
     (cookie) =>
-      (cookie.name === SESSION_COOKIE ||
-        cookie.name === LEGACY_REFRESH_COOKIE) &&
+      cookie.name === SESSION_COOKIE &&
       cookie.value !== "" &&
       isUnexpired(cookie),
   )
@@ -83,7 +69,7 @@ export async function storeSessionToken(
 
 /**
  * Removes every Alloy session cookie for the server's host: host-only and
- * domain-scoped copies, legacy names, and stale path variants.
+ * domain-scoped copies and stale path variants.
  */
 export async function clearSessionCookies(
   session: Session,
@@ -94,7 +80,7 @@ export async function clearSessionCookies(
     const cookies = await session.cookies.get({ domain: host })
     for (const cookie of cookies) {
       const domain = cookie.domain?.replace(/^\./, "")
-      if (domain !== host || !SESSION_COOKIES.includes(cookie.name)) continue
+      if (domain !== host || cookie.name !== SESSION_COOKIE) continue
       await session.cookies.remove(
         `${origin}${cookie.path ?? "/"}`,
         cookie.name,
@@ -107,21 +93,14 @@ export async function clearSessionCookies(
   await flushCookies(session)
 }
 
-/**
- * The `Cookie` header for clip downloads from the selected server. Never the
- * legacy refresh cookie: a server from before sessions stopped rotating
- * would spend it on this request, and the window would keep the spent token.
- */
+/** The `Cookie` header for clip downloads from the selected server. */
 export async function sessionCookieHeader(
   session: Session,
   origin: string,
 ): Promise<string> {
   const cookies = await session.cookies.get({ url: `${origin}/` })
   return cookies
-    .filter(
-      (cookie) =>
-        cookie.name === SESSION_COOKIE || cookie.name === LEGACY_ACCESS_COOKIE,
-    )
+    .filter((cookie) => cookie.name === SESSION_COOKIE)
     .map((cookie) => `${cookie.name}=${cookie.value}`)
     .join("; ")
 }
@@ -138,7 +117,7 @@ export function watchSessionCookies(session: Session): void {
   watched.add(session)
   let timer: ReturnType<typeof setTimeout> | null = null
   session.cookies.on("changed", (_event, cookie) => {
-    if (!SESSION_COOKIES.includes(cookie.name)) return
+    if (cookie.name !== SESSION_COOKIE) return
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
       timer = null

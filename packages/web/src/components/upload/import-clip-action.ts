@@ -1,5 +1,5 @@
 import type { GameRow } from "@alloy/api"
-import { t, tp } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -7,10 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { refreshLibrarySnapshotCache } from "@/components/routes/library/library-data"
 import { clientLogger } from "@/lib/client-log"
 import { normalizeClipTitle } from "@/lib/clip-fields"
-import type {
-  AlloyTauriDesktop,
-  RecordingLibraryStagedImport,
-} from "@/lib/desktop"
+import type { AlloyDesktop, RecordingLibraryStagedImport } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 
 export interface ImportClipAction {
@@ -25,7 +22,7 @@ export interface ImportClipAction {
 }
 
 export function useImportClipAction(
-  desktop: AlloyTauriDesktop | null,
+  desktop: AlloyDesktop | null,
 ): ImportClipAction {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -41,8 +38,7 @@ export function useImportClipAction(
   // receives afterwards, is discarded rather than left to the host.
   const mountedRef = useRef(true)
   const stagedRef = useRef<RecordingLibraryStagedImport | null>(null)
-  // A commit in flight owns its pick: older hosts delete the staged copy
-  // on discard, which would fail the commit.
+  // A commit in flight owns its pick: discarding it would fail the commit.
   const committingIdRef = useRef<string | null>(null)
   useEffect(() => {
     stagedRef.current = staged
@@ -65,33 +61,14 @@ export function useImportClipAction(
     setError(null)
     setPicking(true)
     try {
-      const result = await desktop.recording.importLibraryFiles()
-      if (result.canceled) return
-      // One pick is imported. An older host may stage every file of a
-      // multi-select, and a host whose caller is gone keeps the pick.
-      const [next, ...rest] = result.staged
-      const unused = mountedRef.current ? rest : result.staged
-      for (const extra of unused) discardQuietly(desktop, extra.id)
-      if (!mountedRef.current) return
-      if (result.failed.length > 0) {
-        const [first] = result.failed
-        setError(
-          result.failed.length === 1
-            ? t("{fileName}: {error}", {
-                error: first.error,
-                fileName: first.fileName,
-              })
-            : tp(
-                result.failed.length,
-                "{count} file couldn't be imported.",
-                "{count} files couldn't be imported.",
-                {
-                  count: result.failed.length,
-                },
-              ),
-        )
+      const next = await desktop.recording.importLibraryFile()
+      if (!next) return
+      // A pick whose caller is gone is not kept.
+      if (!mountedRef.current) {
+        discardQuietly(desktop, next.id)
+        return
       }
-      if (next) setStaged(next)
+      setStaged(next)
     } catch (cause) {
       setError(errorMessage(cause, t("Could not import clip.")))
     } finally {
@@ -174,6 +151,6 @@ export function useImportClipAction(
   }
 }
 
-function discardQuietly(desktop: AlloyTauriDesktop, id: string): void {
+function discardQuietly(desktop: AlloyDesktop, id: string): void {
   void desktop.recording.discardStagedLibraryImport(id).catch(() => {})
 }

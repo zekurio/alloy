@@ -277,8 +277,8 @@ export function showSettings(host: Host): void {
 }
 
 /**
- * A mounted web app opens its settings through its router. Older web builds,
- * and pages outside the app layout, fall back to navigating there.
+ * A mounted web app opens its settings through its router. Pages outside the
+ * app layout fall back to navigating there.
  */
 export function openSettings(window: BrowserWindow): Promise<void> {
   return window.webContents

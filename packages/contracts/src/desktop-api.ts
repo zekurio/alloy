@@ -4,11 +4,11 @@ import type {
   RecordingLibraryDownloadRequest,
   RecordingLibraryExport,
   RecordingLibraryExportRequest,
-  RecordingLibraryFilesImportResult,
   RecordingLibraryImportResult,
   RecordingLibraryMetaPatch,
   RecordingLibraryMetaUpdateResult,
   RecordingLibrarySnapshot,
+  RecordingLibraryStagedImport,
   RecordingLibraryTrimUpdate,
 } from "./desktop-recording-library"
 import type {
@@ -47,10 +47,9 @@ export interface AlloyDesktopRecordingApi {
   /**
    * Gives back an export once its bytes have been read. The host deletes a
    * render nobody holds any more; a whole-capture export has nothing to
-   * delete. Absent on older hosts, which keep renders until the next export
-   * of the same capture.
+   * delete.
    */
-  releaseLibraryExport?(id: string): Promise<void>
+  releaseLibraryExport(id: string): Promise<void>
   /** Persists draft upload metadata for a capture across app restarts. */
   updateLibraryCapture(
     patch: RecordingLibraryMetaPatch,
@@ -66,11 +65,11 @@ export interface AlloyDesktopRecordingApi {
   /** Moves a capture's file to the OS trash and forgets its metadata. */
   deleteLibraryCapture(id: string): Promise<void>
   /**
-   * Opens a native picker and stages the chosen media file. Current hosts
-   * pick one file and stage it by reference; older hosts allow several and
-   * copy each one, so callers discard any staged file they do not commit.
+   * Opens a native picker and stages the chosen media file by reference.
+   * Resolves null if the picker was dismissed and rejects with a user-facing
+   * message if the file cannot be imported.
    */
-  importLibraryFiles(): Promise<RecordingLibraryFilesImportResult>
+  importLibraryFile(): Promise<RecordingLibraryStagedImport | null>
   /** Copies a staged picked file into the capture library. */
   commitStagedLibraryImport(
     request: RecordingLibraryCommitStagedImportRequest,
@@ -91,8 +90,7 @@ export interface AlloyDesktopRecordingApi {
   onEvent(listener: (event: RecordingEvent) => void): () => void
   /**
    * Opens a native folder picker and makes the chosen folder the capture
-   * folder; returns it, or null if cancelled. Older hosts only return the
-   * path, so callers save it with `setSettings` when the settings lack it.
+   * folder; returns it, or null if cancelled.
    */
   selectOutputFolder(): Promise<string | null>
   /** Returns running processes that can be added to the game allow list. */

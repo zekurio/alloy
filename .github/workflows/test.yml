@@ -88,7 +88,7 @@ jobs:
 
       - name: check browser artifact
         run: |
-          grep -R -q "alloyTauriDesktop" packages/web/dist
+          grep -R -q "alloyDesktop" packages/web/dist
 
       # The shell bundles need no Rust; the desktop workflow builds the addon.
       - name: build desktop shell
@@ -100,4 +100,4 @@ jobs:
         run: |
           test -f packages/desktop/out/renderer/index.html
           test -f packages/desktop/out/main/index.cjs
-          grep -q "alloyTauriDesktop" packages/desktop/out/preload/server.cjs
+          grep -q "alloyDesktop" packages/desktop/out/preload/server.cjs

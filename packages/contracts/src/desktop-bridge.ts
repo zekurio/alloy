@@ -1,4 +1,4 @@
-import { TAURI_DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
+import { DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
 
 import type {
   AlloyDesktopRecordingApi,
@@ -10,25 +10,23 @@ import { isStringValue } from "./object"
 import { t } from "./schema"
 
 /** Returned by the local connection screen and the in-app server switch. */
-export const DesktopTauriConnectResultSchema = t.object({
+export const DesktopConnectResultSchema = t.object({
   serverUrl: t.url(),
 })
 
-export type DesktopTauriConnectResult = t.infer<
-  typeof DesktopTauriConnectResultSchema
->
+export type DesktopConnectResult = t.infer<typeof DesktopConnectResultSchema>
 
 /**
  * The desktop host rejects native commands with a user-facing error message.
  * Only strings qualify; `t.string()` alone would coerce `null` or a number
  * into one.
  */
-export const DesktopTauriErrorSchema = t.preprocess(
+export const DesktopErrorMessageSchema = t.preprocess(
   (value) => (isStringValue(value) ? value : undefined),
   t.string().trim().min(1),
 )
 
-export const DesktopTauriSavedServersSchema = t
+export const DesktopSavedServersSchema = t
   .array(
     t.object({
       serverUrl: t.url(),
@@ -45,30 +43,27 @@ export const DesktopTauriSavedServersSchema = t
  * rejects with a user-facing message on failure. A successful `switchTo`
  * replaces the calling window with the new server's window.
  */
-export interface AlloyTauriDesktopServerApi {
-  switchTo(url: string): Promise<DesktopTauriConnectResult>
+export interface AlloyDesktopServerApi {
+  switchTo(url: string): Promise<DesktopConnectResult>
   list(): Promise<DesktopSavedServer[]>
   current(): Promise<string>
   forget(url: string): Promise<DesktopSavedServer[]>
 }
 
 /** Native operations granted to the selected server's web app. */
-export interface AlloyTauriDesktop {
-  bridgeContract: typeof TAURI_DESKTOP_BRIDGE_CONTRACT_1
+export interface AlloyDesktop {
+  bridgeContract: typeof DESKTOP_BRIDGE_CONTRACT_1
   minimizeWindow(): Promise<void>
   toggleMaximizeWindow(): Promise<void>
   closeWindow(): Promise<void>
   openConnect(): Promise<void>
   openSettings(): Promise<void>
-  /** Handles native settings requests without reloading. Absent on older hosts. */
-  onOpenSettings?(listener: () => void): () => void
-  /**
-   * Opens the host's log directory. Rejects if logging could not start.
-   * Absent on older contract-1 hosts.
-   */
-  openLogsFolder?(): Promise<void>
+  /** Handles native settings requests without reloading. */
+  onOpenSettings(listener: () => void): () => void
+  /** Opens the host's log directory. Rejects if logging could not start. */
+  openLogsFolder(): Promise<void>
   reloadApp(): Promise<void>
-  servers: AlloyTauriDesktopServerApi
+  servers: AlloyDesktopServerApi
   recording: AlloyDesktopRecordingApi
   updates: AlloyDesktopUpdatesApi
   autostart: AlloyDesktopAutostartApi

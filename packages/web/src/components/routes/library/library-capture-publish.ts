@@ -21,7 +21,7 @@ import type {
 } from "@/components/upload/upload-flow-context"
 import { prepareWebUploadPayload } from "@/components/upload/web-upload-action"
 import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
-import type { AlloyTauriDesktop } from "@/lib/desktop"
+import type { AlloyDesktop } from "@/lib/desktop"
 
 import type { LibraryItemView } from "./library-data"
 
@@ -29,7 +29,7 @@ const ACCEPTED_EXPORT_TYPES = new Set<AcceptedContentType>(["video/mp4"])
 
 type CapturePublishInput = {
   screenshotEdit?: ScreenshotEdit
-  desktop: AlloyTauriDesktop
+  desktop: AlloyDesktop
   item: LibraryItemView
   trim: { startMs: number; endMs: number }
   /** Already normalized and non-empty. */
@@ -101,9 +101,8 @@ async function prepareCapturePublishPayload(
   } finally {
     // The blob holds the bytes from here on, whether or not the upload
     // succeeds; retries reuse it. The host may delete its render now.
-    // Hosts that predate the release keep it until the next export.
     void input.desktop.recording
-      .releaseLibraryExport?.(exported.id)
+      .releaseLibraryExport(exported.id)
       .catch(() => {})
   }
   throwIfAborted(signal)
@@ -156,8 +155,7 @@ function exportedMedia(
 function exportTrim(
   exported: RecordingLibraryExport,
 ): { startMs: number; endMs: number } | null {
-  const startMs = exported.trimStartMs ?? null
-  const endMs = exported.trimEndMs ?? null
+  const { trimStartMs: startMs, trimEndMs: endMs } = exported
   if (startMs === null || endMs === null) return null
   return { startMs, endMs }
 }

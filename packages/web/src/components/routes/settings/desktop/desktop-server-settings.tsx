@@ -1,6 +1,6 @@
 import { DESKTOP_HTTP_CONTRACT_1 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { TAURI_DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
+import { DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
 import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
@@ -70,7 +70,7 @@ export function DesktopAppPanel() {
           <DesktopUpdateSettings />
         </SettingRows>
       </SettingsSubsection>
-      {desktop?.openLogsFolder ? (
+      {desktop ? (
         <SettingsSubsection id="diagnostics" title={t("Diagnostics")}>
           <SettingRows>
             <DesktopLogSettings />
@@ -503,6 +503,6 @@ function sameServerTarget(left: string | null, right: string): boolean {
 function savedCompatibility(server: DesktopSavedServer): boolean {
   return (
     server.httpContract === DESKTOP_HTTP_CONTRACT_1 &&
-    server.bridgeContract === TAURI_DESKTOP_BRIDGE_CONTRACT_1
+    server.bridgeContract === DESKTOP_BRIDGE_CONTRACT_1
   )
 }

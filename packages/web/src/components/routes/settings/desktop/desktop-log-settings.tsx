@@ -11,7 +11,7 @@ export function DesktopLogSettings() {
   const desktop = alloyDesktop()
   const { feedback, run } = useActionFeedback()
 
-  if (!desktop?.openLogsFolder) return null
+  if (!desktop) return null
   const openLogsFolder = desktop.openLogsFolder
   const opening = feedback.state === "pending"
 

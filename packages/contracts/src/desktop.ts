@@ -1,5 +1,5 @@
 export * from "./desktop-api"
 export * from "./desktop-autostart"
 export * from "./desktop-recording"
-export * from "./desktop-tauri"
+export * from "./desktop-bridge"
 export * from "./desktop-update"

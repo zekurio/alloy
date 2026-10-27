@@ -201,9 +201,7 @@ pub struct ExportRequest {
     pub id: String,
     pub segments: Vec<ExportSegment>,
     /// The caller uploads the export with the trim it reports, so the export
-    /// may cover more than the selection. Older web builds leave it out and
-    /// get an exact cut.
-    #[serde(default)]
+    /// may cover more than the selection.
     pub allow_server_trim: bool,
 }
 
@@ -241,21 +239,6 @@ pub struct StagedImport {
     pub duration_ms: Option<u64>,
     pub width: Option<u32>,
     pub height: Option<u32>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ImportFailure {
-    pub file_name: String,
-    pub error: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FilesImportResult {
-    pub staged: Vec<StagedImport>,
-    pub failed: Vec<ImportFailure>,
-    pub canceled: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

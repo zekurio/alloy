@@ -7,7 +7,7 @@ use url::{Host, Url};
 use crate::logging::logged;
 
 pub const HTTP_CONTRACT_1: u64 = 1;
-pub const TAURI_BRIDGE_CONTRACT_1: u64 = 1;
+pub const BRIDGE_CONTRACT_1: u64 = 1;
 /// The largest contract ID the renderer's JSON numbers carry exactly.
 pub const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 const MAX_JSON_BODY: usize = 64 * 1024;
@@ -48,10 +48,8 @@ impl Server {
             || info.version.trim().is_empty()
             || !valid_ids(&info.http_contracts)
             || !info.http_contracts.contains(&HTTP_CONTRACT_1)
-            || !valid_ids(&info.desktop_tauri_bridge_contracts)
-            || !info
-                .desktop_tauri_bridge_contracts
-                .contains(&TAURI_BRIDGE_CONTRACT_1)
+            || !valid_ids(&info.desktop_bridge_contracts)
+            || !info.desktop_bridge_contracts.contains(&BRIDGE_CONTRACT_1)
             || info.capabilities.auth.desktop_auth != 1
             || info.capabilities.auth.session_cookies != 1
             || info.capabilities.transport.json != 1
@@ -171,7 +169,7 @@ struct ServerInfo {
     version: String,
     product: String,
     http_contracts: Vec<u64>,
-    desktop_tauri_bridge_contracts: Vec<u64>,
+    desktop_bridge_contracts: Vec<u64>,
     capabilities: Capabilities,
 }
 

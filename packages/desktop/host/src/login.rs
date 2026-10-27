@@ -19,11 +19,6 @@ const MAX_TOKEN_BODY: usize = 64 * 1024;
 /// The cookie that carries an Alloy session. Sessions do not rotate, so a copy
 /// stays valid until the session is signed out or expires.
 pub const SESSION_COOKIE: &str = "alloy_session";
-/// Cookies from before sessions stopped rotating. An upgraded server still
-/// accepts the refresh cookie as the session token until the web app's next
-/// session check replaces it with `SESSION_COOKIE`.
-pub const LEGACY_ACCESS_COOKIE: &str = "alloy_access";
-pub const LEGACY_REFRESH_COOKIE: &str = "alloy_refresh";
 
 /// The token from a desktop sign-in. The shell writes it into the selected
 /// server window's cookie store as a host-only `SESSION_COOKIE`, the same
@@ -147,28 +142,21 @@ impl BrowserLogin {
     }
 }
 
-/// Servers from before sessions stopped rotating answer with an access and
-/// refresh pair instead, which this host no longer injects.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TokenResponse {
-    session_token: Option<String>,
-    cookie_expires_at: Option<String>,
+    session_token: String,
+    cookie_expires_at: String,
 }
 
 impl TryFrom<TokenResponse> for SessionToken {
     type Error = String;
 
     fn try_from(response: TokenResponse) -> Result<Self, Self::Error> {
-        let (Some(token), Some(cookie_expires_at)) =
-            (response.session_token, response.cookie_expires_at)
-        else {
-            return Err("Update the Alloy server to sign in with this version of Alloy.".into());
-        };
-        validate_token(&token)?;
+        validate_token(&response.session_token)?;
         Ok(Self {
-            token,
-            cookie_expires_at: parse_expiry(&cookie_expires_at)?,
+            cookie_expires_at: parse_expiry(&response.cookie_expires_at)?,
+            token: response.session_token,
         })
     }
 }

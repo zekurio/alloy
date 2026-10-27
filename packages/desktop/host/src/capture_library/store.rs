@@ -16,9 +16,9 @@ use crate::capture_library::paths::{
 };
 use crate::capture_library::poster::{PosterFailures, discard_poster};
 use crate::capture_library::types::{
-    CaptureKind, CaptureManifest, CaptureRecord, CaptureSource, CommitImport, FilesImportResult,
-    GameGuess, ImportFailure, LibraryGroup, LibraryItem, LibrarySnapshot, MANIFEST_VERSION,
-    ManifestEntry, MetaPatch, StagedImport, TrimUpdate, collection_for,
+    CaptureKind, CaptureManifest, CaptureRecord, CaptureSource, CommitImport, GameGuess,
+    LibraryGroup, LibraryItem, LibrarySnapshot, MANIFEST_VERSION, ManifestEntry, MetaPatch,
+    StagedImport, TrimUpdate, collection_for,
 };
 use crate::capture_library::work::MediaWork;
 
@@ -76,12 +76,6 @@ impl CaptureLibraryConfig {
         self.user_data_folder.join("recording-library.json")
     }
 
-    /// Where older builds copied every picked file before the user confirmed
-    /// an import. Imports now stage by reference, so this only gets swept.
-    fn imports_folder(&self) -> PathBuf {
-        self.cache_folder.join("recording-library-imports")
-    }
-
     fn thumbnails_folder(&self) -> PathBuf {
         self.cache_folder.join("recording-thumbnails")
     }
@@ -136,7 +130,8 @@ struct ExportLease {
 
 impl ExportLease {
     /// Whether the render must be kept for a renderer that is still reading
-    /// it. Older web builds never release, so their leases expire.
+    /// it. A renderer that reloads or crashes never releases, so leases
+    /// expire.
     fn protects(&self) -> bool {
         self.holders > 0 && self.since.elapsed() < EXPORT_LEASE_TTL
     }
@@ -162,14 +157,12 @@ impl CaptureLibrary {
         Ok(library)
     }
 
-    /// Empties the cache of what earlier sessions left: every export render
-    /// and the copies older builds staged for imports. A renderer reads a
-    /// render right after asking for it, so no render outlives the session
-    /// that made it. The host runs this once at startup, before the library
-    /// serves anything, so nothing it removes is in use.
+    /// Empties the cache of the export renders earlier sessions left. A
+    /// renderer reads a render right after asking for it, so no render
+    /// outlives the session that made it. The host runs this once at startup,
+    /// before the library serves anything, so nothing it removes is in use.
     pub fn sweep_cache_leftovers(&self) {
         let _ = fs::remove_dir_all(self.inner.config.exports_folder());
-        let _ = fs::remove_dir_all(self.inner.config.imports_folder());
     }
 
     /// Removes the posters earlier sessions were still writing when they
@@ -423,9 +416,9 @@ impl CaptureLibrary {
     /// [`release_export`]: Self::release_export
     pub(crate) fn lease_export(&self, capture_id: &str, export_id: &str) {
         let mut leases = self.export_leases();
-        // Older web builds never release, so expired leases go here rather
-        // than pile up for the session. A late release of one is a no-op, and
-        // its render goes with the next export of the capture or at startup.
+        // Leases a renderer never released expire here rather than pile up
+        // for the session. A late release of one is a no-op, and its render
+        // goes with the next export of the capture or at startup.
         leases.retain(|_, lease| lease.protects());
         let lease = leases
             .entry(export_id.to_string())
@@ -440,8 +433,8 @@ impl CaptureLibrary {
 
     /// Gives back one lease on a render. The last release deletes the
     /// render: the renderer holds the bytes it uploads, so nothing reads the
-    /// file again. Ids without a lease, such as a whole-capture export or a
-    /// render an older build made, are ignored. The capture's exports folder
+    /// file again. Ids without a lease, such as a whole-capture export, are
+    /// ignored. The capture's exports folder
     /// stays, since a concurrent export may be about to write into it; the
     /// startup sweep removes it.
     pub async fn release_export(&self, export_id: &str) -> Result<()> {
@@ -857,31 +850,12 @@ impl CaptureLibrary {
         self.media_path(id)
     }
 
-    /// Records picked files for import. Nothing is copied yet: the file is
+    /// Records a picked file for import. Nothing is copied yet: the file is
     /// probed where it is, and `commit_staged` copies it into the library
     /// once the user confirms.
-    pub async fn stage_files(&self, paths: &[PathBuf]) -> FilesImportResult {
+    pub async fn stage_file(&self, source: &Path) -> Result<StagedImport> {
         self.forget_stale_staged();
-        let mut staged = Vec::new();
-        let mut failed = Vec::new();
-        for source in paths {
-            match self.stage_one(source).await {
-                Ok(value) => staged.push(value),
-                Err(error) => failed.push(ImportFailure {
-                    file_name: source
-                        .file_name()
-                        .and_then(|value| value.to_str())
-                        .unwrap_or("file")
-                        .to_string(),
-                    error: error.to_string(),
-                }),
-            }
-        }
-        FilesImportResult {
-            staged,
-            failed,
-            canceled: paths.is_empty(),
-        }
+        self.stage_one(source).await
     }
 
     pub async fn commit_staged(&self, request: CommitImport) -> Result<String> {

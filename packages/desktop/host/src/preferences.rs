@@ -10,7 +10,7 @@ use std::{
     },
 };
 
-use crate::server::{HTTP_CONTRACT_1, MAX_SAFE_INTEGER, TAURI_BRIDGE_CONTRACT_1, server_origin};
+use crate::server::{BRIDGE_CONTRACT_1, HTTP_CONTRACT_1, MAX_SAFE_INTEGER, server_origin};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use url::Url;
@@ -116,7 +116,7 @@ impl PreferencesStore {
                     last_connected_at: now_rfc3339(),
                     server_version: Some(server_version.to_owned()),
                     http_contract: HTTP_CONTRACT_1,
-                    bridge_contract: TAURI_BRIDGE_CONTRACT_1,
+                    bridge_contract: BRIDGE_CONTRACT_1,
                 },
             );
             servers.truncate(MAX_SAVED_SERVERS);
