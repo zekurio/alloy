@@ -51,9 +51,12 @@ fn node_devices() -> Vec<NodeDevice> {
 
 /// Each render node's label, in adapter order.
 pub(in crate::agent) fn render_node_labels() -> Vec<String> {
+    let database = PCI_ID_DATABASES
+        .iter()
+        .find_map(|path| fs::read_to_string(path).ok());
     node_devices()
         .into_iter()
-        .map(|node| gpu_label(node.vendor, node.product))
+        .map(|node| gpu_label(node.vendor, node.product, database.as_deref()))
         .collect()
 }
 
@@ -72,14 +75,17 @@ fn pci_id(value: &str) -> Option<u16> {
 /// The vendor and, when a PCI ID database knows it, the model, for example
 /// `Intel DG2 [Arc A380]`. The vendor names match what encoder selection
 /// looks for.
-fn gpu_label(vendor: u16, product: Option<u16>) -> String {
+fn gpu_label(vendor: u16, product: Option<u16>, database: Option<&str>) -> String {
     let vendor_name = match vendor {
         0x8086 => "Intel",
         0x1002 => "AMD",
         0x10de => "NVIDIA",
         _ => "GPU",
     };
-    match product.and_then(|product| pci_device_name(vendor, product)) {
+    match product
+        .zip(database)
+        .and_then(|(product, database)| pci_device_name(database, vendor, product))
+    {
         Some(model) => format!("{vendor_name} {model}"),
         None => format!("{vendor_name} {vendor:04x}:{:04x}", product.unwrap_or(0)),
     }
@@ -87,10 +93,7 @@ fn gpu_label(vendor: u16, product: Option<u16>) -> String {
 
 /// Looks the device up in `pci.ids`: a vendor line at column 0, then its
 /// devices indented by one tab.
-fn pci_device_name(vendor: u16, product: u16) -> Option<String> {
-    let database = PCI_ID_DATABASES
-        .iter()
-        .find_map(|path| fs::read_to_string(path).ok())?;
+fn pci_device_name(database: &str, vendor: u16, product: u16) -> Option<String> {
     let vendor_prefix = format!("{vendor:04x}  ");
     let device_prefix = format!("\t{product:04x}  ");
     let mut lines = database.lines();

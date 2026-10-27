@@ -90,6 +90,9 @@ struct Inner {
     /// press saves one capture. Shutdown and configure don't take it.
     #[cfg(target_os = "linux")]
     binds: tokio::sync::Mutex<()>,
+    /// Wakes a bind waiting on the desktop's dialog once it is superseded.
+    #[cfg(target_os = "linux")]
+    superseded: tokio::sync::Notify,
 }
 
 impl Default for GlobalShortcuts {
@@ -113,6 +116,8 @@ impl GlobalShortcuts {
                 generation: std::sync::atomic::AtomicU64::new(0),
                 #[cfg(target_os = "linux")]
                 binds: tokio::sync::Mutex::new(()),
+                #[cfg(target_os = "linux")]
+                superseded: tokio::sync::Notify::new(),
             }),
         }
     }
@@ -147,13 +152,14 @@ impl GlobalShortcuts {
     }
 
     /// Ends the session, so the desktop stops reporting the shortcuts. A
-    /// bind still waiting on the desktop's dialog is not waited for; it
-    /// closes its session once the dialog answers, or when the app exits.
+    /// bind still waiting on the desktop's dialog stops waiting and closes
+    /// its session.
     pub async fn shutdown(&self) {
         #[cfg(target_os = "linux")]
         {
             use std::sync::atomic::Ordering;
             self.inner.generation.fetch_add(1, Ordering::SeqCst);
+            self.inner.superseded.notify_waiters();
             let binding = self.inner.session.lock().await.take();
             if let Some(binding) = binding {
                 binding.close().await;
@@ -291,7 +297,10 @@ fn keysym(key: &str) -> Option<String> {
 
 #[cfg(target_os = "linux")]
 mod portal {
-    use std::sync::{Arc, atomic::Ordering};
+    use std::{
+        sync::{Arc, atomic::Ordering},
+        time::Duration,
+    };
 
     use ashpd::{
         AppID, Error, PortalError,
@@ -301,12 +310,15 @@ mod portal {
         },
     };
     use futures_util::StreamExt;
-    use tokio::task::JoinHandle;
+    use tokio::{task::JoinHandle, time::timeout};
 
     use super::{
         BindRequest, BoundShortcut, CONFIGURE_FAILED, FAILED, Inner, NOT_BOUND, SESSION_ENDED,
         UNAVAILABLE, UNIDENTIFIED,
     };
+
+    /// How long registering, opening a session and listening may take.
+    const SETUP_TIMEOUT: Duration = Duration::from_secs(10);
 
     /// A bound session and the tasks following its signals.
     pub(super) struct Binding {
@@ -326,9 +338,17 @@ mod portal {
     }
 
     pub(super) async fn bind(inner: &Arc<Inner>, request: BindRequest) {
-        let _bind = inner.binds.lock().await;
+        // A newer bind or a shutdown supersedes one still waiting on the
+        // desktop's dialog: it stops waiting and closes its session, which
+        // closes the dialog too.
         let generation = inner.generation.fetch_add(1, Ordering::SeqCst) + 1;
-        // One session at a time, so a pressed key saves one capture.
+        inner.superseded.notify_waiters();
+        // One bind at a time, so two sessions never listen at once and a
+        // press saves one capture.
+        let _bind = inner.binds.lock().await;
+        if inner.generation.load(Ordering::SeqCst) != generation {
+            return;
+        }
         let previous = inner.session.lock().await.take();
         if let Some(previous) = previous {
             previous.close().await;
@@ -337,43 +357,71 @@ mod portal {
             state.binding = true;
             state.error = None;
         });
-        // The lock isn't held while the desktop's dialog waits on the user,
-        // so shutdown, configure and a newer bind don't wait with it.
-        let opened = open(inner, &request).await;
+
+        let binding = match timeout(SETUP_TIMEOUT, prepare(inner, &request)).await {
+            Ok(Ok(binding)) => binding,
+            Ok(Err(message)) => return fail(inner, message),
+            Err(_) => {
+                log::warn!("global shortcuts: the portal did not answer");
+                return fail(inner, FAILED);
+            }
+        };
+        // The dialog waits on the user, so it has no timeout.
+        let asked = tokio::select! {
+            asked = ask(&binding, &request) => asked,
+            () = superseded(inner, generation) => {
+                binding.close().await;
+                return;
+            }
+        };
+        let shortcuts = match asked {
+            Ok(shortcuts) => shortcuts,
+            Err(message) => {
+                binding.close().await;
+                return fail(inner, message);
+            }
+        };
         let mut session = inner.session.lock().await;
         if inner.generation.load(Ordering::SeqCst) != generation {
             drop(session);
-            if let Ok((binding, _)) = opened {
-                binding.close().await;
-            }
+            binding.close().await;
             return;
         }
-        match opened {
-            Ok((binding, shortcuts)) => {
-                let configurable = binding.proxy.version() >= 2;
-                *session = Some(binding);
-                drop(session);
-                inner.update(|state| {
-                    state.binding = false;
-                    state.shortcuts = shortcuts;
-                    state.configurable = configurable;
-                });
+        let configurable = binding.proxy.version() >= 2;
+        *session = Some(binding);
+        drop(session);
+        inner.update(|state| {
+            state.binding = false;
+            state.shortcuts = shortcuts;
+            state.configurable = configurable;
+        });
+    }
+
+    fn fail(inner: &Inner, message: &str) {
+        inner.update(|state| {
+            state.binding = false;
+            state.shortcuts.clear();
+            state.configurable = false;
+            state.error = Some(message.into());
+        });
+    }
+
+    /// Resolves once a newer bind or a shutdown has started.
+    async fn superseded(inner: &Inner, generation: u64) {
+        loop {
+            let notified = inner.superseded.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+            if inner.generation.load(Ordering::SeqCst) != generation {
+                return;
             }
-            Err(error) => {
-                inner.update(|state| {
-                    state.binding = false;
-                    state.shortcuts.clear();
-                    state.configurable = false;
-                    state.error = Some(error.into());
-                });
-            }
+            notified.await;
         }
     }
 
-    async fn open(
-        inner: &Arc<Inner>,
-        request: &BindRequest,
-    ) -> Result<(Binding, Vec<BoundShortcut>), &'static str> {
+    /// Registers the app, opens a session and starts listening: quick calls
+    /// that only a hung portal holds up.
+    async fn prepare(inner: &Arc<Inner>, request: &BindRequest) -> Result<Binding, &'static str> {
         // Portals scope shortcuts to an app id, and an app started from a
         // terminal has none. Registering fails harmlessly when the app is
         // already identified: by a launcher's scope, by a sandbox, or after a
@@ -406,12 +454,19 @@ mod portal {
                 return Err(message);
             }
         };
-        let binding = Binding {
+        Ok(Binding {
             proxy,
             session,
             listeners,
-        };
+        })
+    }
 
+    /// Binds the shortcuts in the session. The desktop may show a dialog
+    /// first.
+    async fn ask(
+        binding: &Binding,
+        request: &BindRequest,
+    ) -> Result<Vec<BoundShortcut>, &'static str> {
         let shortcuts: Vec<NewShortcut> = request
             .shortcuts
             .iter()
@@ -426,15 +481,11 @@ mod portal {
             .await
             .and_then(|request| request.response());
         match response {
-            Ok(bound) => Ok((binding, bound_shortcuts(bound.shortcuts()))),
+            Ok(bound) => Ok(bound_shortcuts(bound.shortcuts())),
             // Declined. KDE still keeps them without keys, so the user can
             // assign keys in its settings later.
-            Err(Error::Response(ResponseError::Cancelled)) => Ok((binding, Vec::new())),
-            Err(error) => {
-                let message = failure(&error);
-                binding.close().await;
-                Err(message)
-            }
+            Err(Error::Response(ResponseError::Cancelled)) => Ok(Vec::new()),
+            Err(error) => Err(failure(&error)),
         }
     }
 
