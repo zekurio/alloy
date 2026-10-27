@@ -31,21 +31,91 @@ its game identity for replays saved during the post-close grace period.
 The host imports `recorder/src/{types,protocol,settings,names}.rs`. Keep these
 platform-neutral and keep the JSON wire types in `types.rs`.
 
-The Windows-only process lives under `recorder/src/agent/`:
+The agent process lives under `recorder/src/agent/`:
 
 - `runtime.rs` dispatches requests and publishes status snapshots.
-- `recorder/` owns capture state, output lifetime, replay files, and screenshots.
-  Its state is private; the runtime calls its configure, status, tick, save, and
-  shutdown methods.
-- `obs/` loads libobs and configures sources and encoders. FFI declarations live
-  in `obs/bindings.rs`; it does not depend on recorder state.
-- `platform/` handles Windows discovery, game matching, COM, audio metering, and
-  hotkeys. It does not depend on the recorder or libobs.
-- `events.rs` writes protocol events; `time.rs` holds shared timestamp helpers.
+- `recorder/` owns capture state, output lifetime, replay files, and
+  screenshots. Its state is private; the runtime calls its configure, status,
+  tick, save, and shutdown methods.
+- `obs/` loads libobs and configures sources and encoders. FFI declarations
+  live in `obs/bindings.rs`; `obs/platform/` holds each platform's source ids,
+  module list, and runtime layout. It does not depend on recorder state.
+- `platform/` discovers games, displays, GPUs, and audio, meters audio levels,
+  and hooks hotkeys: Win32, WASAPI, and COM on Windows, `/proc`, sysfs, and
+  PipeWire in `platform/linux/`. It does not depend on the recorder or
+  libobs.
+- `game_matching.rs` matches processes against the Discord catalog and the
+  allow and deny lists. `quality.rs` resolves resolution, frame rate, and
+  bitrate.
+- `events.rs` owns the protocol output; `time.rs` holds shared timestamp
+  helpers.
 
 Use Rust modules and explicit imports, not textual `include!` files or a shared
 import prelude. Keep implementation types private to their owning module unless
 a caller needs them.
+
+### Linux recorder
+
+The agent loads libobs from `ALLOY_OBS_RUNTIME_DIR`, an installed prefix with
+`lib/libobs.so.0`, `lib/obs-plugins`, and `share/obs`, or from the system. It
+opens only the modules it needs, and only ones built with the libobs it
+loaded: from that prefix and beside its libobs, or, with the system's libobs,
+from beside it, `OBS_PLUGINS_PATH`, the system, or
+`~/.config/obs-studio/plugins`. `nix build .#alloy-obs-runtime`
+builds a matching prefix with every plugin below and libpipewire.
+
+- Game capture uses
+  [obs-vkcapture](https://github.com/nowrep/obs-vkcapture), which captures
+  Vulkan and OpenGL games directly on Wayland and X11. A game only connects
+  when its Vulkan loader finds the layer and `OBS_VKCAPTURE=1` is set in its
+  environment; OpenGL games need the `obs-gamecapture` wrapper. The source
+  matches the name the layer reports: the Wine program's `comm` (its
+  executable, cut to 15 bytes) for Proton games, the executable's file name
+  for native ones. A game that sends no frames within two minutes falls back
+  to display capture. Only one process can host obs-vkcapture at a time, so
+  OBS Studio with the plugin and Alloy exclude each other.
+- Display capture on Wayland goes through the screen-sharing portal (OBS's
+  `linux-pipewire`). The dialog asks once; the portal's restore token is kept
+  in the agent state folder, so later sessions reopen the chosen screen. The
+  agent runs a GLib main loop for the portal's D-Bus replies. The buffer waits
+  for the dialog as long as it takes. If the user cancels it, which OBS only
+  logs, the buffer stops and the dialog doesn't reopen until the settings
+  change or the agent restarts. On X11 it captures a RandR monitor with OBS's
+  `linux-capture`, listed through `xrandr`.
+- Audio goes through PipeWire with
+  [obs-pipewire-audio-capture](https://github.com/dimtpap/obs-pipewire-audio-capture),
+  which the agent requires, since OBS has no PipeWire audio of its own.
+  Devices are keyed by node name, a sink for an output and a source for an
+  input; the plugin reconnects to that name whenever the node appears, and
+  follows the default device for `default`. Applications are matched by
+  binary or, for Wine, by the application name Wine reports. The agent loads
+  libpipewire like libobs, from the runtime prefix or the system, to list
+  devices, defaults, and applications and to meter their levels. The plugin
+  connects to a device once its node reports `audio.channels`; hardware
+  devices always do, but a virtual sink made for testing needs it set.
+- GPUs are DRM render nodes; the selected one is the VAAPI device. OBS's
+  NVENC and QSV encoders work as on Windows.
+- `ffmpeg_muxer` and `replay_buffer` start OBS's `obs-ffmpeg-mux` from the
+  agent's folder, so it has to be installed beside `alloy-agent`;
+  `build-agent.mjs` links it. Protocol output goes to a private copy of
+  stdout, since the helper prints to the stdout it inherits.
+- The agent registers no hotkeys, since Wayland gives applications no global
+  key hook. It leaves `hotkeys` out of `capabilities`, and the host binds the
+  shortcuts instead; see [Global shortcuts on Linux](#global-shortcuts-on-linux).
+
+The agent, libobs, and the graphics drivers must share one glibc. On NixOS,
+build them from the same nixpkgs as the system. Games need obs-vkcapture's
+layer, 32-bit too for 32-bit games, and the variable:
+
+```nix
+{
+  hardware.graphics.extraPackages = [ pkgs.obs-studio-plugins.obs-vkcapture ];
+  hardware.graphics.extraPackages32 = [
+    pkgs.pkgsi686Linux.obs-studio-plugins.obs-vkcapture
+  ];
+  environment.sessionVariables.OBS_VKCAPTURE = "1";
+}
+```
 
 ## Capture library media work
 
@@ -82,9 +152,10 @@ starts its tools through `work.rs`, never through its own `Command`:
 
 ## Run
 
-Requires Node 24, the pinned pnpm version, and Rust. Recording and the
-installer also need Windows with the C++ build tools. Start a compatible Alloy
-server, then run from the repository root:
+Requires Node 24, the pinned pnpm version, and Rust. The installer also needs
+Windows with the C++ build tools; recording works on Windows and on Linux (see
+[Linux](#linux)). Start a compatible Alloy server, then run from the
+repository root:
 
 ```sh
 pnpm install
@@ -92,7 +163,7 @@ pnpm desktop:obs:install --version 32.1.2   # Windows only
 pnpm desktop:dev
 ```
 
-`desktop:dev` stages the recorder and FFmpeg on Windows, builds the addon,
+`desktop:dev` builds the recorder, stages FFmpeg on Windows, builds the addon,
 downloads Electron if needed, and starts the shell with the connect screen
 served by Vite. Changes to the main process or preloads restart the app.
 
@@ -107,18 +178,53 @@ only on loopback; other servers require HTTPS.
 
 ### Linux
 
-The shell runs on Linux for development; Linux recording (through OBS, as on
-Windows) and packages come later, so until then the recorder reports itself
-missing. The host hands the agent `resources/obs-runtime`, or
+The shell runs and records on Linux for development; packages come later. See
+[Linux recorder](#linux-recorder) for the OBS runtime and the plugins games
+need. The host hands the agent `resources/obs-runtime`, or
 `ALLOY_OBS_RUNTIME_DIR` when set; without libobs there, the agent uses the
-system's OBS. devenv provides Rust,
-`pkg-config`, and ALSA for the addon. The Electron binary npm downloads does
-not run on NixOS, so devenv sets `ELECTRON_EXEC_PATH` to nixpkgs' Electron,
-which can trail the pinned version by a few releases. Media tools come from
-`PATH` unless `ALLOY_FFMPEG` and `ALLOY_FFPROBE` point elsewhere. Folders follow
-XDG: data in `~/.local/share/dev.zekurio.alloy`, caches in
-`~/.cache/dev.zekurio.alloy`, the browser profile in
-`~/.config/dev.zekurio.alloy`.
+system's OBS. devenv provides Rust, `pkg-config`, and ALSA for the addon. The
+Electron binary npm downloads does not run on NixOS, so devenv sets
+`ELECTRON_EXEC_PATH` to nixpkgs' Electron, which can trail the pinned version
+by a few releases. On NixOS, Electron and the recorder load the system's
+graphics drivers, so both need a glibc at least as new as the system's. When
+devenv's nixpkgs is older, Electron logs `MESA-LOADER ... GLIBC_2.xx not found`
+and renders in software, so point `ELECTRON_EXEC_PATH` at your system's
+nixpkgs Electron and `ALLOY_RECORDER_PATH` at an agent built with it. Media tools come from `PATH` unless `ALLOY_FFMPEG` and
+`ALLOY_FFPROBE` point elsewhere. Folders follow XDG: data in
+`~/.local/share/dev.zekurio.alloy`, caches in `~/.cache/dev.zekurio.alloy`,
+the browser profile in `~/.config/dev.zekurio.alloy`.
+
+### Global shortcuts on Linux
+
+`host/src/global_shortcuts.rs` binds the clip and screenshot shortcuts through
+the desktop's GlobalShortcuts portal; the Windows recorder hooks the keys
+itself. At startup the shell passes the app id (`dev.zekurio.alloy`) and the
+translated descriptions. The host registers the id with
+`org.freedesktop.host.portal.Registry`, since the portal refuses an app
+without one and a terminal start has none, then creates a session and binds
+`clip` and `screenshot` with the saved hotkeys as preferred triggers.
+
+The registry only accepts an id whose desktop entry is installed. Packages
+ship `dev.zekurio.alloy.desktop`; for `pnpm desktop:dev`, add one to
+`~/.local/share/applications`. GLib only takes an entry whose `Exec` program
+exists, so give it a real path:
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=Alloy
+Exec=/bin/sh -c "cd ~/src/alloy && pnpm desktop:dev"
+NoDisplay=true
+```
+
+The desktop asks the user only for shortcut ids it hasn't seen, so binding on
+every start is silent after the first. From then on the desktop owns the keys:
+the settings show its trigger descriptions, and **Change shortcuts** opens its
+own settings (`ConfigureShortcuts`, portal version 2). A press saves a clip or
+a screenshot through the same path as `--action`. Without the portal (GNOME
+before 48, most wlroots compositors) the settings say so, and a desktop
+shortcut that runs the app with `--action clip` or `--action screenshot` is
+the fallback.
 
 ## Build and check
 

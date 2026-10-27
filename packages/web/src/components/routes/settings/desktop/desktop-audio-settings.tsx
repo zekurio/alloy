@@ -41,6 +41,7 @@ import {
   useAudioLevels,
 } from "./desktop-audio-levels"
 import { OptionSelect } from "./desktop-option-select"
+import { recorderSupports } from "./desktop-recording-capabilities"
 import {
   DesktopRecordingNotice,
   useDesktopRecording,
@@ -88,6 +89,9 @@ export function DesktopAudioSettings() {
   const controlsDisabled = busy
   const sourceLimitReached =
     enabledAudioSourceCount(settings) >= RECORDING_MAX_AUDIO_SOURCES
+  // gpu-screen-recorder mixes the sources into one track at their system
+  // levels, so the Linux recorder has no per-source volume to apply.
+  const volumeControl = recorderSupports(status, "audio-volume")
 
   return (
     <SettingsSections>
@@ -115,6 +119,13 @@ export function DesktopAudioSettings() {
             />
           </SettingRow>
         </SettingRows>
+        {volumeControl ? null : (
+          <p className="text-foreground-dim text-xs">
+            {t(
+              "Selected sources are mixed into one track. Set their levels in the system sound settings.",
+            )}
+          </p>
+        )}
       </SettingsSubsection>
 
       {settings.audioMode === "devices" ? (
@@ -124,6 +135,7 @@ export function DesktopAudioSettings() {
           busy={controlsDisabled}
           save={save}
           levels={levels}
+          volumeControl={volumeControl}
           sourceLimitReached={sourceLimitReached}
         />
       ) : (
@@ -134,6 +146,7 @@ export function DesktopAudioSettings() {
             busy={controlsDisabled}
             save={save}
             levels={levels}
+            volumeControl={volumeControl}
             sourceLimitReached={sourceLimitReached}
           />
           {/* Microphones aren't application streams, so input devices stay
@@ -145,6 +158,7 @@ export function DesktopAudioSettings() {
             save={save}
             levels={levels}
             kinds={["input"]}
+            volumeControl={volumeControl}
             sourceLimitReached={sourceLimitReached}
           />
         </>
@@ -160,6 +174,7 @@ function AudioDeviceList({
   save,
   levels,
   kinds,
+  volumeControl,
   sourceLimitReached,
 }: {
   devices: RecordingAudioDeviceView[]
@@ -169,6 +184,8 @@ function AudioDeviceList({
   levels: ReadonlyMap<string, number> | null
   /** Restricts the rendered device groups (e.g. input-only in apps mode). */
   kinds?: RecordingAudioDeviceKind[]
+  /** Whether the recorder applies a per-source volume. */
+  volumeControl: boolean
   /** Whether enabling another source would exceed the recorder's channel limit. */
   sourceLimitReached: boolean
 }) {
@@ -228,6 +245,7 @@ function AudioDeviceList({
                   available={device.available}
                   level={deviceLevel(levels, device)}
                   busy={busy}
+                  volumeControl={volumeControl}
                   sourceLimitReached={sourceLimitReached}
                   onRemove={
                     device.available
@@ -270,6 +288,7 @@ function AudioApplicationList({
   busy,
   save,
   levels,
+  volumeControl,
   sourceLimitReached,
 }: {
   applications: RecordingAudioApplicationSelection[]
@@ -277,6 +296,8 @@ function AudioApplicationList({
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
   levels: ReadonlyMap<string, number> | null
+  /** Whether the recorder applies a per-source volume. */
+  volumeControl: boolean
   /** Whether enabling another source would exceed the recorder's channel limit. */
   sourceLimitReached: boolean
 }) {
@@ -305,6 +326,7 @@ function AudioApplicationList({
             available
             level={applicationLevel(levels, application)}
             busy={busy}
+            volumeControl={volumeControl}
             sourceLimitReached={sourceLimitReached}
             onChange={(patch) =>
               void save({
@@ -359,6 +381,7 @@ function AudioRow({
   available,
   level,
   busy,
+  volumeControl,
   sourceLimitReached,
   onRemove,
   onChange,
@@ -373,6 +396,8 @@ function AudioRow({
   /** Live linear peak 0..1 pre-volume, or null when metering is unavailable. */
   level: number | null
   busy: boolean
+  /** Whether the recorder applies a per-source volume; hides the slider otherwise. */
+  volumeControl: boolean
   /** Whether enabling another source would exceed the recorder's channel limit. */
   sourceLimitReached: boolean
   onRemove?: () => void
@@ -437,25 +462,27 @@ function AudioRow({
             <XIcon className="size-4" />
           </Button>
         ) : null}
-        <div className="flex w-36 items-center gap-3 sm:w-52">
-          <Slider
-            min={0}
-            max={100}
-            step={1}
-            {...volumeSlider.sliderProps}
-            disabled={busy || !enabled || !available}
-            className="min-w-0 flex-1"
-          />
-          <span
-            className={cn(
-              "w-9 shrink-0 text-right text-xs tabular-nums transition-opacity",
-              enabled ? "text-foreground-muted" : "text-foreground-faint",
-            )}
-          >
-            {displayVolume}
-            {"%"}
-          </span>
-        </div>
+        {volumeControl ? (
+          <div className="flex w-36 items-center gap-3 sm:w-52">
+            <Slider
+              min={0}
+              max={100}
+              step={1}
+              {...volumeSlider.sliderProps}
+              disabled={busy || !enabled || !available}
+              className="min-w-0 flex-1"
+            />
+            <span
+              className={cn(
+                "w-9 shrink-0 text-right text-xs tabular-nums transition-opacity",
+                enabled ? "text-foreground-muted" : "text-foreground-faint",
+              )}
+            >
+              {displayVolume}
+              {"%"}
+            </span>
+          </div>
+        ) : null}
       </div>
       {level !== null ? (
         <div className="mt-2 flex items-center gap-3">

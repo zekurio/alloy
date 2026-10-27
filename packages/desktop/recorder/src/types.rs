@@ -418,6 +418,12 @@ pub struct RecordingStatus {
     pub available_audio_applications: Vec<RecordingAudioApplicationSelection>,
     pub telemetry: Option<RecordingTelemetry>,
     pub message: Option<String>,
+    /// What the recorder can do, the `capabilities` of the version handshake.
+    /// The web hides the controls for what is missing. A status the host
+    /// assembles without a recorder carries the set its recorder is built
+    /// with.
+    #[serde(default)]
+    pub capabilities: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

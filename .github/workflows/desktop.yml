@@ -1,11 +1,11 @@
 name: desktop
 
-# Windows desktop CI: the native host and addon, the recorder, and the
-# Electron installer. JavaScript and TypeScript, including the shell, is
-# formatted, linted, and typechecked by `checks` on ubuntu (no JS tests exist
-# yet), so shared TS packages and docs do not start a Windows run. Files
-# outside packages/desktop that the Rust tests or the installer build read
-# directly must be listed below.
+# Desktop CI: the native host and addon, the recorder, and the Electron
+# installer on Windows, and the Rust crates on Linux. JavaScript and TypeScript,
+# including the shell, is formatted, linted, and typechecked by `checks` on
+# ubuntu (no JS tests exist yet), so shared TS packages and docs do not start a
+# run. Files outside packages/desktop that the Rust tests or the installer
+# build read directly must be listed below.
 on:
   pull_request:
     branches: [dev]
@@ -131,6 +131,45 @@ jobs:
           $env:PATH = "${{ github.workspace }}/packages/desktop/resources/ffmpeg;$env:PATH"
           cargo test --workspace --all-targets --locked
           exit $LASTEXITCODE
+
+  # The Linux recorder and the host's non-Windows paths are behind `cfg`, so
+  # the Windows job does not compile them. Clippy covers the whole workspace;
+  # the tests run for the recorder, whose Linux code the host tests don't reach.
+  rust-linux:
+    name: check rust on linux
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: set up rust
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: cache cargo artifacts
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: .
+          shared-key: rust-check-linux
+
+      # ALSA for the notification sounds the recorder library plays.
+      - name: install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libasound2-dev
+
+      - name: check rust workspace
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: test recorder
+        run: cargo test --package alloy-agent --all-targets --locked
 
   installer:
     name: build windows installer

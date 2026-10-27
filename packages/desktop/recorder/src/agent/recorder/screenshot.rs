@@ -1,4 +1,6 @@
-use std::{fs, path::Path, ptr};
+#[cfg(windows)]
+use std::ptr;
+use std::{fs, path::Path};
 
 use crate::agent::{
     events::emit_event,
@@ -8,6 +10,35 @@ use crate::types::{RecordingActionResult, RecordingCapture, RecordingCaptureKind
 
 use super::{replay::recording_context_folder, Recorder};
 
+/// Encodes OBS's BGRA pixels as an opaque RGB PNG.
+#[cfg(target_os = "linux")]
+fn write_screenshot_png(
+    path: &Path,
+    pixels: &mut [u8],
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    let (pixels, _) = pixels.as_chunks::<4>();
+    let rgb: Vec<u8> = pixels
+        .iter()
+        .flat_map(|&[blue, green, red, _]| [red, green, blue])
+        .collect();
+    let file = fs::File::create(path).map_err(|error| error.to_string())?;
+    let mut encoder = png::Encoder::new(std::io::BufWriter::new(file), width, height);
+    encoder.set_color(png::ColorType::Rgb);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder
+        .write_header()
+        .map_err(|error| format!("Could not start the screenshot PNG: {error}"))?;
+    writer
+        .write_image_data(&rgb)
+        .map_err(|error| format!("Could not write the screenshot PNG: {error}"))?;
+    writer
+        .finish()
+        .map_err(|error| format!("Could not finish the screenshot PNG: {error}"))
+}
+
+#[cfg(windows)]
 fn write_screenshot_png(
     path: &Path,
     pixels: &mut [u8],

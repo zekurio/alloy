@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdirSync } from "node:fs"
-import { join, resolve } from "node:path"
+import { existsSync, mkdirSync, rmSync, symlinkSync } from "node:fs"
+import { delimiter, join, resolve } from "node:path"
 
 import {
   copyFileIfChanged,
@@ -15,21 +15,31 @@ import {
 } from "./obs-runtime.mjs"
 
 const manifestPath = join(workspaceDir, "Cargo.toml")
-const binaryName = "alloy-agent.exe"
 const requireObsRuntime =
   process.argv.includes("--require-obs-runtime") ||
   process.env.ALLOY_REQUIRE_OBS_RUNTIME === "1"
 const release = process.argv.includes("--release")
 const targetTriple = process.env.CARGO_BUILD_TARGET
+// Both platforms record with OBS. Windows bundles its OBS runtime beside the
+// agent; Linux uses the OBS in ALLOY_OBS_RUNTIME_DIR or the system's.
+const windows = targetTriple
+  ? targetTriple.includes("windows")
+  : process.platform === "win32"
+const linux = targetTriple
+  ? targetTriple.includes("linux")
+  : process.platform === "linux"
+const binaryName = windows ? "alloy-agent.exe" : "alloy-agent"
 
-if (process.platform !== "win32" && !requireObsRuntime && !targetTriple) {
-  console.warn("Skipping alloy-agent build: the native agent is Windows-only.")
+if (!windows && !linux) {
+  console.warn(
+    "Skipping alloy-agent build: the native agent supports Windows and Linux.",
+  )
   ensureResourceDir(agentResourcesDir)
   ensureResourceDir(obsResourcesDir)
   process.exit(0)
 }
 
-const obsRuntimeSource = resolveObsRuntimeSource()
+const obsRuntimeSource = windows ? resolveObsRuntimeSource() : null
 
 const cargoArgs = [
   "build",
@@ -68,9 +78,40 @@ if (!existsSync(builtBinary)) {
 ensureResourceDir(agentResourcesDir)
 copyFileIfChanged(builtBinary, join(agentResourcesDir, binaryName))
 
-stageObsRuntime(obsRuntimeSource)
-stageObsHelpers()
-pruneObsRuntime()
+if (windows) {
+  stageObsRuntime(obsRuntimeSource)
+  stageObsHelpers()
+  pruneObsRuntime()
+} else {
+  ensureResourceDir(obsResourcesDir)
+  linkObsMuxHelper()
+}
+
+/** OBS starts its muxer helper from the running executable's folder, so the
+ * Linux agent needs `obs-ffmpeg-mux` beside it. Links the one from
+ * ALLOY_OBS_RUNTIME_DIR, else the first on PATH. */
+function linkObsMuxHelper() {
+  const helper = "obs-ffmpeg-mux"
+  const candidates = [
+    ...(process.env.ALLOY_OBS_RUNTIME_DIR
+      ? [join(process.env.ALLOY_OBS_RUNTIME_DIR, "bin", helper)]
+      : []),
+    ...(process.env.PATH ?? "")
+      .split(delimiter)
+      .filter(Boolean)
+      .map((directory) => join(directory, helper)),
+  ]
+  const source = candidates.find((candidate) => existsSync(candidate))
+  const destination = join(agentResourcesDir, helper)
+  rmSync(destination, { force: true })
+  if (!source) {
+    console.warn(
+      `${helper} was not found; set ALLOY_OBS_RUNTIME_DIR so the agent can save replays.`,
+    )
+    return
+  }
+  symlinkSync(source, destination)
+}
 
 function resolveObsRuntimeSource() {
   const runtimeDir = process.env.ALLOY_OBS_RUNTIME_DIR

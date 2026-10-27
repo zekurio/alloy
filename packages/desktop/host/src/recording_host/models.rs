@@ -14,7 +14,8 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 pub use alloy_recorder::protocol::{
-    RECORDER_PROTOCOL_VERSION as AGENT_PROTOCOL_VERSION, SIDE_CAR_NAME as AGENT_NAME,
+    RECORDER_CAPABILITIES, RECORDER_PROTOCOL_VERSION as AGENT_PROTOCOL_VERSION,
+    SIDE_CAR_NAME as AGENT_NAME,
 };
 pub use alloy_recorder::types::{
     EventEnvelope, PlayNotificationSoundParams as PlayNotificationSoundRequest,
@@ -125,6 +126,12 @@ pub fn unavailable_status(
         available_audio_applications: settings.audio_applications.clone(),
         telemetry: None,
         message,
+        // The recorder this host would start, so the settings don't show
+        // controls it leaves out while it is down.
+        capabilities: RECORDER_CAPABILITIES
+            .iter()
+            .map(ToString::to_string)
+            .collect(),
     }
 }
 

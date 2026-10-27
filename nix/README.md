@@ -13,6 +13,11 @@ module. The development shell lives separately in `devenv.nix`.
   import it. Do not replace this builder with the moving `pkgs.pnpm` alias.
 - `source.nix` excludes local state and generated artifacts from the build
   source, including nested workspace outputs.
+- `obs-runtime.nix` builds `.#alloy-obs-runtime`, the OBS prefix the Linux
+  desktop recorder loads through `ALLOY_OBS_RUNTIME_DIR`: OBS with
+  obs-vkcapture, obs-pipewire-audio-capture, and libpipewire. Build it from the
+  same nixpkgs as the system, since libobs loads the system's graphics
+  drivers.
 - `module.nix` defines `services.alloy-server`, including PostgreSQL,
   storage, credentials, and systemd hardening.
 - `module-security-test.nix` checks production-mode and HTTPS enforcement,

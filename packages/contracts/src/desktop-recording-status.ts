@@ -16,6 +16,30 @@ import type {
 } from "./desktop-recording-config"
 import type { RecordingGame } from "./desktop-recording-games"
 import type { RecordingLibraryDownload } from "./desktop-recording-library"
+import type { DesktopShortcutsState } from "./desktop-shortcuts"
+
+/**
+ * What a recorder can do, as it reports in `RecordingStatus.capabilities`.
+ * The Windows recorder has all of them. The Linux one leaves out `hotkeys`:
+ * Wayland has no global key hook, so the desktop owns the shortcuts.
+ */
+export const RECORDING_CAPABILITIES = [
+  "screenshots",
+  "game-capture",
+  "display-capture",
+  "displays",
+  "replay-buffer",
+  "game-processes",
+  "audio-devices",
+  "audio-applications",
+  "audio-volume",
+  "audio-levels",
+  "hotkeys",
+  "notification-sounds",
+  "telemetry",
+] as const
+
+export type RecordingCapability = (typeof RECORDING_CAPABILITIES)[number]
 
 /**
  * Live loudness sample for one audio source, emitted by the capture backend
@@ -130,6 +154,12 @@ export interface RecordingStatus {
   availableAudioApplications: RecordingAudioApplicationSelection[]
   telemetry: RecordingTelemetry | null
   message: string | null
+  /**
+   * The recorder's `RecordingCapability` names. Until the agent reports in,
+   * the host sends the set its recorder is built with. Hosts from before this
+   * field omit it, and the UI treats a missing or empty list as the full set.
+   */
+  capabilities?: string[]
 }
 
 export type RecordingEvent =
@@ -157,3 +187,4 @@ export type RecordingEvent =
   | { type: "error"; error: string; status: RecordingStatus }
   | { type: "audio-levels"; levels: RecordingAudioLevel[] }
   | { type: "library-download"; download: RecordingLibraryDownload }
+  | { type: "shortcuts"; state: DesktopShortcutsState }

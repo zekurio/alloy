@@ -91,6 +91,7 @@ export const DESKTOP_MESSAGES = {
   "Captures and clips will appear here.":
     "Aufnahmen und Clips erscheinen hier.",
   Change: "Ändern",
+  "Change shortcuts": "Tastenkürzel ändern",
   "Change startup": "Autostart ändern",
   "Change startup behavior?": "Autostart-Verhalten ändern?",
   "Check for and install desktop app updates.":
@@ -226,6 +227,8 @@ export const DESKTOP_MESSAGES = {
     "Der Desktop-Protokollordner konnte nicht geöffnet werden.",
   "Couldn't open the sounds folder.":
     "Der Sound-Ordner konnte nicht geöffnet werden.",
+  "Couldn't open your desktop's shortcut settings.":
+    "Die Tastenkürzel-Einstellungen deines Desktops ließen sich nicht öffnen.",
   "Couldn't play the sound.": "Der Sound konnte nicht abgespielt werden.",
   "Couldn't remove the local copy": "Lokale Kopie konnte nicht entfernt werden",
   "Couldn't restart Alloy agent.":
@@ -235,6 +238,8 @@ export const DESKTOP_MESSAGES = {
   "Couldn't save recording settings.":
     "Aufnahmeeinstellungen konnten nicht gespeichert werden.",
   "Couldn't scan the library": "Bibliothek konnte nicht gescannt werden",
+  "Couldn't set up the shortcuts with your desktop.":
+    "Die Tastenkürzel ließen sich nicht bei deinem Desktop einrichten.",
   "Couldn't start download": "Download konnte nicht gestartet werden",
   "Couldn't start re-encode": "Neukodierung konnte nicht gestartet werden",
   "Couldn't start the download": "Download konnte nicht gestartet werden",
@@ -392,6 +397,8 @@ export const DESKTOP_MESSAGES = {
   "Press keys…": "Tasten drücken…",
   "Quit Alloy": "Alloy beenden",
   "Reconnecting…": "Verbindung wird wiederhergestellt…",
+  "Record the selected display while an allowed game runs, or all the time, and keep the replay buffer ready.":
+    "Nimmt das ausgewählte Display auf, während ein erlaubtes Spiel läuft oder dauerhaft, und hält den Replay-Puffer bereit.",
   Recording: "Aufnahme",
   "Recording and hotkey behavior may change.":
     "Aufnahme- und Hotkey-Verhalten können sich ändern.",
@@ -432,6 +439,7 @@ export const DESKTOP_MESSAGES = {
   "Reveal in folder": "Im Ordner anzeigen",
   "Running applications outputting audio will appear here.":
     "Laufende Anwendungen, die Audio ausgeben, erscheinen hier.",
+  "Save a clip": "Clip speichern",
   "Save clip": "Clip speichern",
   Saved: "Gespeichert",
   "Saved login data for {serverUrl} will be removed from this device.":
@@ -449,6 +457,8 @@ export const DESKTOP_MESSAGES = {
     "Wähle einen Sound aus dem Ordner für Benachrichtigungssounds aus.",
   "Select the display Alloy should use for desktop capture.":
     "Wähle das Display, das Alloy für die Desktop-Aufnahme verwenden soll.",
+  "Selected sources are mixed into one track. Set their levels in the system sound settings.":
+    "Ausgewählte Quellen werden in eine Tonspur gemischt. Ihre Pegel legst du in den Soundeinstellungen des Systems fest.",
   Server: "Server",
   "Server + Device": "Server + Gerät",
   "Server URL": "Server-URL",
@@ -460,7 +470,9 @@ export const DESKTOP_MESSAGES = {
   "Server window state is unavailable.":
     "Der Zustand des Serverfensters ist nicht verfügbar.",
   Servers: "Server",
+  "Set up again": "Erneut einrichten",
   Shift: "Shift",
+  "Shortcut keys": "Tastenkürzel",
   "Show Alloy": "Alloy anzeigen",
   "Sign-in timed out. Connect again to retry.":
     "Zeitüberschreitung bei der Anmeldung. Verbinde dich erneut, um es noch einmal zu versuchen.",
@@ -478,6 +490,7 @@ export const DESKTOP_MESSAGES = {
   "Switch server": "Server wechseln",
   "Switch to another server before forgetting this one.":
     "Wechsle zu einem anderen Server, bevor du diesen entfernst.",
+  "Take a screenshot": "Screenshot aufnehmen",
   "The Alloy server returned an error.":
     "Der Alloy-Server hat einen Fehler gemeldet.",
   "The capture path is outside the configured output folders.":
@@ -543,8 +556,14 @@ export const DESKTOP_MESSAGES = {
   "Waiting for game": "Warte auf Spiel",
   "Where replay video is kept before a clip is saved.":
     "Wo das Replay-Video aufbewahrt wird, bevor ein Clip gespeichert wird.",
+  "Without a shortcut portal, bind {clip} and {screenshot} in your desktop's keyboard settings instead.":
+    "Ohne Tastenkürzel-Portal lege stattdessen {clip} und {screenshot} in den Tastatureinstellungen deines Desktops fest.",
   "You can capture up to {count} audio sources at once.":
     "Du kannst bis zu {count} Audioquellen gleichzeitig aufnehmen.",
+  "Your desktop owns these keys. Change them in its keyboard settings.":
+    "Diese Tasten verwaltet dein Desktop. Ändere sie in seinen Tastatureinstellungen.",
+  "Your desktop owns these keys. Change them in its settings.":
+    "Diese Tasten verwaltet dein Desktop. Ändere sie in seinen Einstellungen.",
   "ffmpeg not detected": "ffmpeg nicht erkannt",
   fps: "fps",
   "{available} free of {total}": "{available} von {total} frei",

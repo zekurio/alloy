@@ -53,6 +53,8 @@ unsafe extern "C" fn log_to_stderr(
         400 => "debug",
         _ => "unknown",
     };
+    #[cfg(target_os = "linux")]
+    super::platform::observe_obs_log(&message);
     // Unlike eprintln!, this does not panic if the host closes its log pipe.
     let _ = writeln!(io::stderr().lock(), "[obs] {level}: {message}");
 }

@@ -53,6 +53,17 @@ const DISCORD_CONNECT_TIMEOUT: Duration = Duration::from_secs(8);
 // The detectable-applications payload is ~13 MB as of 2026 and keeps growing.
 const DISCORD_MAX_BODY_BYTES: usize = 64 * 1024 * 1024;
 const DISCORD_MAX_ROWS: usize = 100_000;
+#[cfg(windows)]
+const DISCORD_EXECUTABLE_OSES: &[&str] = &["win32"];
+// Linux runs native games and Windows games through Proton.
+#[cfg(not(windows))]
+const DISCORD_EXECUTABLE_OSES: &[&str] = &["win32", "linux"];
+/// Runtimes that start many native Linux games under their own name, such as
+/// LÖVE's `love`. The recorder matches Linux processes by file name, so a
+/// catalog rule for one would claim every game it runs.
+const SHARED_LINUX_RUNTIMES: &[&str] = &[
+    "dotnet", "electron", "godot", "java", "love", "mono", "node", "python", "python3",
+];
 
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1716,7 +1727,8 @@ fn prepare_discord_detection_cache(path: &Path) -> Result<(), RecorderHostError>
 }
 
 fn start_discord_detection_refresh(inner: &Arc<Inner>) {
-    if !cfg!(windows)
+    // Only the recorders on Windows and Linux read the catalog.
+    if !cfg!(any(windows, target_os = "linux"))
         || inner.discord_cache_path.is_none()
         || inner.discord_refresh_started.swap(true, Ordering::AcqRel)
     {
@@ -1848,11 +1860,14 @@ fn trim_discord_detections(payload: Value) -> Result<DiscordDetectionCache, Stri
                 let Some(executable) = raw_executable.as_object() else {
                     continue;
                 };
-                if discord_string(executable.get("os")) != "win32" {
+                let os = discord_string(executable.get("os"));
+                if !DISCORD_EXECUTABLE_OSES.contains(&os.as_str()) {
                     continue;
                 }
                 let key = discord_executable_key(&discord_string(executable.get("name")));
-                if key.is_empty() {
+                if key.is_empty()
+                    || (os == "linux" && SHARED_LINUX_RUNTIMES.contains(&key.as_str()))
+                {
                     continue;
                 }
                 matched_executable = true;

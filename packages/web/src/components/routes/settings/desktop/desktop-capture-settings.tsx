@@ -68,7 +68,12 @@ function DesktopCaptureSettings() {
 
       <AllowedGamesSection settings={settings} busy={busy} save={save} />
 
-      <HotkeysSection settings={settings} busy={busy} save={save} />
+      <HotkeysSection
+        settings={settings}
+        status={status}
+        busy={busy}
+        save={save}
+      />
 
       <NotificationSoundsSection settings={settings} busy={busy} save={save} />
       <ConfirmActionDialog

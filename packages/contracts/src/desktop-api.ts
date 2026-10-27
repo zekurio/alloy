@@ -21,6 +21,7 @@ import type {
   RecordingStatus,
   RecordingStorageInfo,
 } from "./desktop-recording-types"
+import type { DesktopShortcutsState } from "./desktop-shortcuts"
 
 export interface DesktopSavedServer {
   serverUrl: string
@@ -114,4 +115,17 @@ export interface AlloyDesktopRecordingApi {
   previewNotificationSound(
     sound: RecordingNotificationSoundEvent,
   ): Promise<void>
+  /**
+   * The clip and screenshot shortcuts the desktop binds. Changes stream out
+   * as "shortcuts" recording events. Shells from before global shortcuts
+   * lack these three methods.
+   */
+  getShortcuts?(): Promise<DesktopShortcutsState>
+  /** Binds the shortcuts again in a new session, after an error. */
+  bindShortcuts?(): Promise<DesktopShortcutsState>
+  /**
+   * Opens the desktop's settings for the shortcuts. Only when the state is
+   * `configurable`.
+   */
+  configureShortcuts?(): Promise<void>
 }

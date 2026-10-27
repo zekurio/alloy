@@ -35,7 +35,7 @@ use crate::agent::{
     },
     time::{now_iso, system_time_iso, timestamp_millis, unix_millis_to_system_time},
 };
-use crate::protocol::{CONTENT_TYPE_MP4, SIDE_CAR_NAME};
+use crate::protocol::{CONTENT_TYPE_MP4, RECORDER_CAPABILITIES, SIDE_CAR_NAME};
 use crate::types::{
     ConfigureParams, RecordingActionResult, RecordingAudioApplicationSelection,
     RecordingAudioDevice, RecordingBackendState, RecordingBufferStorage, RecordingCapture,
@@ -114,7 +114,9 @@ struct ReplayStartFailure {
     target: Option<String>,
     error: String,
     attempts: u32,
-    retry_at: Instant,
+    /// `None` waits for the user: for a declined screen-sharing dialog,
+    /// which must not reopen on its own.
+    retry_at: Option<Instant>,
 }
 
 #[derive(Clone)]
@@ -181,6 +183,17 @@ fn preserve_capture_dimensions(
 
 impl Recorder {
     pub(super) fn configure(&mut self, params: ConfigureParams) -> Result<RecordingStatus, String> {
+        #[cfg(target_os = "linux")]
+        let params = {
+            let mut params = params;
+            crate::agent::obs::platform::set_agent_state_folder(&params.agent_state_folder);
+            // The host passes the runtime it found; a manual run can name it
+            // in the environment instead.
+            if params.obs_runtime_dir.is_none() {
+                params.obs_runtime_dir = env::var_os("ALLOY_OBS_RUNTIME_DIR").map(PathBuf::from);
+            }
+            params
+        };
         let settings = params.settings;
         hotkeys::configure(&settings);
         let output_folder = if params.output_folder.is_empty() {
@@ -344,6 +357,10 @@ impl Recorder {
             available_audio_applications: self.cached_audio_applications.clone(),
             telemetry,
             message: self.last_error.clone(),
+            capabilities: RECORDER_CAPABILITIES
+                .iter()
+                .map(ToString::to_string)
+                .collect(),
         }
     }
 
@@ -732,12 +749,9 @@ impl Recorder {
         }
 
         let obs = LibObs::load(self.obs_runtime_dir.as_deref())?;
+        let adapter = selected_gpu_adapter(settings, &self.cached_gpus);
         unsafe {
-            obs.start(
-                self.obs_runtime_dir.as_deref(),
-                video_config,
-                selected_gpu_adapter(settings, &self.cached_gpus),
-            )?;
+            obs.start(self.obs_runtime_dir.as_deref(), video_config, adapter, true)?;
             self.available_encoders = obs.enumerate_encoders();
             let hardware_settings = RecordingSettings {
                 encoder: RecordingEncoder::Hardware,
@@ -747,6 +761,7 @@ impl Recorder {
                 &obs,
                 &hardware_settings,
                 &self.available_encoders,
+                adapter,
                 selected_gpu_label(settings, &self.cached_gpus),
             );
         }
@@ -1075,7 +1090,10 @@ impl Recorder {
 
     fn replay_start_waiting(&self, target: Option<&str>) -> bool {
         self.replay_start_failure.as_ref().is_some_and(|failure| {
-            failure.target.as_deref() == target && Instant::now() < failure.retry_at
+            failure.target.as_deref() == target
+                && failure
+                    .retry_at
+                    .is_none_or(|retry_at| Instant::now() < retry_at)
         })
     }
 
@@ -1105,7 +1123,7 @@ impl Recorder {
             target,
             error: error.to_string(),
             attempts,
-            retry_at: Instant::now() + wait,
+            retry_at: Some(Instant::now() + wait),
         });
         report
     }
@@ -1248,6 +1266,10 @@ impl Recorder {
     }
 
     fn refresh_active_output_for_focus(&mut self) -> Result<(), String> {
+        #[cfg(target_os = "linux")]
+        if !self.refresh_display_capture()? {
+            return Ok(());
+        }
         if self.refresh_game_capture_hook()? == GameCaptureHookRefresh::TargetClosed {
             self.clear_closed_active_game();
             self.stop_active_replay_buffer()?;
@@ -1256,6 +1278,48 @@ impl Recorder {
         let status = self.status();
         emit_event(RecordingEvent::Status { status });
         self.refresh_active_source()
+    }
+
+    /// Watches display capture for its first frame and keeps the portal's
+    /// restore token once it has one. Returns whether the buffer still runs:
+    /// without a frame by the deadline (the dialog was dismissed, or the
+    /// portal failed) it stops and retries on the start backoff.
+    #[cfg(target_os = "linux")]
+    fn refresh_display_capture(&mut self) -> Result<bool, String> {
+        let (Some(obs), Some(session)) = (self.obs.as_ref(), self.replay_session.as_ref()) else {
+            return Ok(true);
+        };
+        if session.source_kind != OutputSourceKind::Display {
+            return Ok(true);
+        }
+        let source = session.video_graph.source;
+        // SAFETY: the session's source belongs to this libobs instance.
+        let (width, height) = unsafe { obs.source_size(source) };
+        if width > 0 && height > 0 {
+            // SAFETY: as above; the source is a display capture source.
+            unsafe { crate::agent::obs::platform::remember_display_restore_token(obs, source) };
+            return Ok(true);
+        }
+        // The screen-sharing dialog waits on the user as long as it takes;
+        // only an answer ends the wait. A cancel stops the buffer, and it
+        // stays stopped until the settings change or the agent restarts, so
+        // the dialog never reopens on its own.
+        if !crate::agent::obs::platform::screencast_declined() {
+            return Ok(true);
+        }
+        let settings = self.settings.clone().unwrap_or_default();
+        let target = self.replay_target(&settings);
+        self.stop_active_replay_buffer()?;
+        let error = "Screen sharing was cancelled. Restart the agent or change the display \
+                     settings to choose a screen."
+            .to_string();
+        self.replay_start_failure = Some(ReplayStartFailure {
+            target,
+            error: error.clone(),
+            attempts: 1,
+            retry_at: None,
+        });
+        Err(error)
     }
 
     fn refresh_active_source(&mut self) -> Result<(), String> {

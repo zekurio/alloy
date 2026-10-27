@@ -4,6 +4,7 @@
 //! `alloy-desktop-native` addon; nothing here knows about windows.
 
 pub mod capture_library;
+pub mod global_shortcuts;
 pub mod logging;
 pub mod login;
 pub mod preferences;

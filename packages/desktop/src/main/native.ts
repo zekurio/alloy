@@ -85,6 +85,12 @@ export interface NativeRuntime {
   ): Promise<NativeJson>
   notificationSoundsFolder(event: string): string
   trigger(action: CaptureAction): void
+  /**
+   * Asks the desktop to bind the clip and screenshot shortcuts, in the
+   * background. `appId` names the app to the portal; the descriptions show
+   * in its dialog. Does nothing where the recorder hooks the keys itself.
+   */
+  startShortcuts(appId: string, clip: string, screenshot: string): void
   shutdown(): Promise<void>
   /** Selects `server` again: `shutdown` cleared the selection. */
   resumeAfterFailedUpdate(server: string | null): Promise<void>
