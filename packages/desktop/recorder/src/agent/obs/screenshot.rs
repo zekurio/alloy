@@ -11,6 +11,7 @@ pub(in crate::agent) struct ScreenshotBindings {
     width: unsafe extern "C" fn(*const ObsSource) -> u32,
     height: unsafe extern "C" fn(*const ObsSource) -> u32,
     render: unsafe extern "C" fn(*mut ObsSource),
+    set_linear_srgb: unsafe extern "C" fn(bool) -> bool,
     create: unsafe extern "C" fn(i32, i32) -> *mut c_void,
     destroy: unsafe extern "C" fn(*mut c_void),
     begin: unsafe extern "C" fn(*mut c_void, u32, u32, i32) -> bool,
@@ -39,6 +40,7 @@ impl ScreenshotBindings {
             width: load_symbol(library, b"obs_source_get_width\0")?,
             height: load_symbol(library, b"obs_source_get_height\0")?,
             render: load_symbol(library, b"obs_source_video_render\0")?,
+            set_linear_srgb: load_symbol(library, b"gs_set_linear_srgb\0")?,
             create: load_symbol(library, b"gs_texrender_create\0")?,
             destroy: load_symbol(library, b"gs_texrender_destroy\0")?,
             begin: load_symbol(library, b"gs_texrender_begin_with_color_space\0")?,
@@ -86,7 +88,16 @@ impl ScreenshotBindings {
             (self.ortho)(0.0, width as f32, 0.0, height as f32, -100.0, 100.0);
             (self.blend_push)();
             (self.blend)(1, 0);
+            // On Linux, draw the source as a scene draws an item. Otherwise
+            // obs-vkcapture asks OBS to decode the game's frame from sRGB,
+            // which OBS's OpenGL renderer can't do for a dmabuf, and the
+            // screenshot comes out washed out. Windows keeps the draw its HDR
+            // conversion was checked with.
+            let linear_srgb = (!cfg!(windows)).then(|| (self.set_linear_srgb)(true));
             (self.render)(source);
+            if let Some(previous) = linear_srgb {
+                (self.set_linear_srgb)(previous);
+            }
             (self.blend_pop)();
             (self.end)(target);
             (self.stage)(staging, (self.texture)(target));
