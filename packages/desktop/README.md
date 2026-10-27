@@ -62,7 +62,8 @@ opens only the modules it needs, and only ones built with the libobs it
 loaded: from that prefix and beside its libobs, or, with the system's libobs,
 from beside it, `OBS_PLUGINS_PATH`, the system, or
 `~/.config/obs-studio/plugins`. `nix build .#alloy-obs-runtime`
-builds a matching prefix with every plugin below and libpipewire.
+builds a matching prefix with only those modules, every plugin below, and
+libpipewire.
 
 - Game capture uses
   [obs-vkcapture](https://github.com/nowrep/obs-vkcapture), which captures

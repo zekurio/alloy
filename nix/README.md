@@ -15,10 +15,13 @@ lives separately in `devenv.nix`.
 - `source.nix` excludes local state and generated artifacts from the build
   source, including nested workspace outputs.
 - `obs-runtime.nix` builds `.#alloy-obs-runtime`, the OBS prefix the Linux
-  desktop recorder loads through `ALLOY_OBS_RUNTIME_DIR`: OBS with
-  obs-vkcapture, obs-pipewire-audio-capture, and libpipewire. Build it from the
-  same nixpkgs as the system, since libobs loads the system's graphics
-  drivers.
+  desktop recorder loads through `ALLOY_OBS_RUNTIME_DIR`: libobs with the
+  modules the recorder opens, obs-vkcapture, obs-pipewire-audio-capture, and
+  libpipewire. It copies them out of nixpkgs' OBS, so they come from the
+  binary cache without OBS's UI, browser source, scripting, and VLC source.
+  When the recorder opens another module, add it to the runtime's list. Build
+  it from the same nixpkgs as the system, since libobs loads the system's
+  graphics drivers.
 - `desktop.nix` builds `.#alloy-desktop`: the recorder and the native addon
   from one Cargo build, the Electron bundles from the server package's pnpm
   dependencies, the OBS runtime, FFmpeg, and the `dev.zekurio.alloy` desktop
