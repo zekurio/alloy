@@ -41,7 +41,7 @@ const CodeChallenge = t.string().min(32).max(128).regex(BASE64URL_RE)
 const TokenBody = t.object({
   code: t.string().min(1),
   codeVerifier: t.string().min(32).max(128).regex(BASE64URL_RE),
-  // Older apps omit it.
+  // Absent when the app cannot read the computer name.
   deviceName: t.string().max(256).optional(),
 })
 
@@ -108,8 +108,7 @@ export const authDesktopRoute = new Hono()
     redirect.searchParams.set("code", code)
     redirect.searchParams.set("state", state)
     // Language hint for the desktop app's loopback result page, which has no
-    // access to the web i18n catalog. The desktop parser ignores extra
-    // parameters, so older apps keep working and just stay English.
+    // access to the web i18n catalog.
     redirect.searchParams.set("locale", locale)
     return c.redirect(redirect.toString(), 302)
   })
@@ -135,15 +134,5 @@ export const authDesktopRoute = new Hono()
     const cookieExpiresAt = new Date(
       Date.now() + SESSION_COOKIE_MAX_AGE_SEC * 1000,
     ).toISOString()
-    return c.json({
-      sessionToken: created.token,
-      cookieExpiresAt,
-      // Apps from before sessions stopped rotating inject these as
-      // `alloy_access` and `alloy_refresh`. The refresh cookie is accepted as
-      // the session token, so both carry it.
-      accessToken: created.token,
-      refreshToken: created.token,
-      accessExpiresAt: cookieExpiresAt,
-      refreshExpiresAt: cookieExpiresAt,
-    })
+    return c.json({ sessionToken: created.token, cookieExpiresAt })
   })

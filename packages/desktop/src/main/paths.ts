@@ -3,7 +3,7 @@ import { join } from "node:path"
 
 import { app } from "electron"
 
-/** The bundle identifier the Tauri host used; its folders keep this name. */
+/** The app identifier (`appId` in electron-builder.yml); data folders use it. */
 export const APP_IDENTIFIER = "dev.zekurio.alloy"
 
 export interface AppFolders {
@@ -13,8 +13,8 @@ export interface AppFolders {
    */
   data: string
   /**
-   * Regenerable data: thumbnails, import staging, export renders, recorder
-   * scratch, and detection caches. Never roams.
+   * Regenerable data: thumbnails, export renders, recorder scratch, and
+   * detection caches. Never roams.
    */
   cache: string
   logs: string
@@ -26,11 +26,7 @@ export interface AppFolders {
   nativeRoot: string
 }
 
-/**
- * The folders the Tauri host used, so settings, saved servers, the library,
- * and logs carry over. Chromium's profile is new: the WebView2 profiles under
- * the old `webviews` folder cannot be read by Electron.
- */
+/** Where the app keeps its data, caches, logs, and Chromium profile. */
 export function resolveFolders(): AppFolders {
   const nativeRoot = app.isPackaged
     ? process.resourcesPath

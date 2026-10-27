@@ -9,6 +9,7 @@ const IDLE_STATE: DesktopUpdateState = {
   currentVersion: null,
   version: null,
   lastCheckedAt: null,
+  downloadProgress: null,
 }
 
 let snapshot: DesktopUpdateState = IDLE_STATE
@@ -68,20 +69,14 @@ function subscribe(listener: () => void): () => void {
 
 /**
  * The downloaded share of an update in whole percent while it downloads, or
- * null when the desktop host reports no progress (older hosts never do).
+ * null otherwise.
  */
 export function updateDownloadPercent(
   state: DesktopUpdateState,
 ): number | null {
   if (state.status !== "downloading") return null
   const progress = state.downloadProgress
-  if (
-    progress === null ||
-    progress === undefined ||
-    !Number.isFinite(progress)
-  ) {
-    return null
-  }
+  if (progress === null || !Number.isFinite(progress)) return null
   return Math.round(Math.min(Math.max(progress, 0), 1) * 100)
 }
 

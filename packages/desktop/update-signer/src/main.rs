@@ -1,11 +1,12 @@
 //! Signs a desktop installer with the update key and writes
-//! `<installer>.sig`, base64 of a minisign signature file: the format
-//! `tauri signer sign` wrote, which the app and Tauri builds both check.
+//! `<installer>.sig`, base64 of a minisign signature file, which the app
+//! checks before it installs an update.
 //!
 //! Usage: `alloy-update-signer <installer> <version>`. The key comes from
-//! `UPDATE_SIGNING_KEY` (base64 of the minisign secret key file) and
-//! `UPDATE_SIGNING_KEY_PASSWORD`. The signature must verify against
-//! `ALLOY_UPDATER_PUBLIC_KEY`, the key the release compiles into the app.
+//! `ALLOY_UPDATE_SIGNING_KEY` (base64 of a password-protected minisign secret
+//! key file) and its password from `ALLOY_UPDATE_SIGNING_KEY_PASSWORD`. The
+//! signature must verify against `ALLOY_UPDATER_PUBLIC_KEY`, the key the
+//! release compiles into the app.
 
 use std::env;
 use std::fs::{self, File};
@@ -15,7 +16,7 @@ use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
-use minisign::{PublicKeyBox, SecretKeyBox};
+use minisign::{PublicKeyBox, SecretKey, SecretKeyBox};
 
 fn decode_text(name: &str, value: &str) -> Result<String, String> {
     let bytes = STANDARD
@@ -31,6 +32,18 @@ fn required_env(name: &str) -> Result<String, String> {
         .ok_or_else(|| format!("Set {name}."))
 }
 
+fn secret_key() -> Result<SecretKey, String> {
+    let key = decode_text(
+        "ALLOY_UPDATE_SIGNING_KEY",
+        &required_env("ALLOY_UPDATE_SIGNING_KEY")?,
+    )?;
+    let key = SecretKeyBox::from_string(&key)
+        .map_err(|error| format!("ALLOY_UPDATE_SIGNING_KEY is invalid: {error}"))?;
+    let password = required_env("ALLOY_UPDATE_SIGNING_KEY_PASSWORD")?;
+    key.into_secret_key(Some(password))
+        .map_err(|error| format!("Could not open the update signing key: {error}"))
+}
+
 fn sign(installer: &Path, version: &str) -> Result<(), String> {
     let file_name = installer
         .file_name()
@@ -41,12 +54,7 @@ fn sign(installer: &Path, version: &str) -> Result<(), String> {
         return Err("The file name and version must not contain tabs or newlines.".into());
     }
 
-    let secret_key = decode_text("UPDATE_SIGNING_KEY", &required_env("UPDATE_SIGNING_KEY")?)?;
-    // Like `tauri signer`, an unset password is the empty one.
-    let password = env::var("UPDATE_SIGNING_KEY_PASSWORD").unwrap_or_default();
-    let secret_key = SecretKeyBox::from_string(&secret_key)
-        .and_then(|key| key.into_secret_key(Some(password)))
-        .map_err(|error| format!("Could not open the update signing key: {error}"))?;
+    let secret_key = secret_key()?;
     let public_key = decode_text(
         "ALLOY_UPDATER_PUBLIC_KEY",
         &required_env("ALLOY_UPDATER_PUBLIC_KEY")?,
@@ -70,7 +78,7 @@ fn sign(installer: &Path, version: &str) -> Result<(), String> {
         &secret_key,
         data,
         Some(&trusted_comment),
-        Some("signature from tauri secret key"),
+        Some("signature from the Alloy update key"),
     )
     .map_err(|error| format!("Could not sign {}: {error}", installer.display()))?;
 

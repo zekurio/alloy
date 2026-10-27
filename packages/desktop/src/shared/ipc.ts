@@ -1,7 +1,7 @@
 /**
  * IPC between the Electron main process and the two preload scripts. Both
  * sides ship in the same build, so this is private to the desktop package.
- * The contract the server-hosted web app sees is `AlloyTauriDesktop` in
+ * The contract the server-hosted web app sees is `AlloyDesktop` in
  * `@alloy/contracts/desktop`; the server preload implements it on top of
  * these channels.
  */

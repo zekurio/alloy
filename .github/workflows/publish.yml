@@ -28,9 +28,46 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Proves the update signing setup works before preflight pushes a release
+  # tag: the key opens with its password and matches the public key the app
+  # is built with. Only the signer is built, so no npm code runs beside the
+  # key.
+  signing:
+    name: check update signing
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: set up rust
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with:
+          toolchain: stable
+
+      - name: build update signer
+        run: cargo build --locked --release --package alloy-update-signer --target-dir target/update-signer
+
+      - name: sign a test file
+        env:
+          ALLOY_UPDATE_SIGNING_KEY: ${{ secrets.ALLOY_UPDATE_SIGNING_KEY }}
+          ALLOY_UPDATE_SIGNING_KEY_PASSWORD: ${{ secrets.ALLOY_UPDATE_SIGNING_KEY_PASSWORD }}
+          ALLOY_UPDATER_PUBLIC_KEY: ${{ vars.ALLOY_UPDATER_PUBLIC_KEY }}
+        run: |
+          probe="$RUNNER_TEMP/signing-check.bin"
+          head -c 1024 /dev/urandom > "$probe"
+          target/update-signer/release/alloy-update-signer "$probe" 0.0.0
+
   preflight:
     name: preflight
     if: github.ref == 'refs/heads/dev'
+    needs: [signing]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -265,27 +302,24 @@ jobs:
           }
 
       # Built from Cargo.lock in its own step, so no build script runs while
-      # the signing key is in the environment.
+      # the signing key is in the environment. Optimized, because opening the
+      # password-protected key is deliberately expensive.
       - name: build update signer
-        run: cargo build --locked --package alloy-update-signer --target-dir target/update-signer
+        run: cargo build --locked --release --package alloy-update-signer --target-dir target/update-signer
 
-      # Signs with the minisign key pair the Tauri updater trusted, so the
-      # same signature serves this app's updater and the Tauri builds that
-      # update to it. The signer writes `<installer>.sig` and fails unless the
-      # key pair matches the public key compiled into the app.
+      # Writes `<installer>.sig`, which the app checks before it installs an
+      # update. Fails unless the key pair matches the public key compiled into
+      # the app.
       - name: sign desktop installer
         env:
-          UPDATE_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          UPDATE_SIGNING_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          ALLOY_UPDATE_SIGNING_KEY: ${{ secrets.ALLOY_UPDATE_SIGNING_KEY }}
+          ALLOY_UPDATE_SIGNING_KEY_PASSWORD: ${{ secrets.ALLOY_UPDATE_SIGNING_KEY_PASSWORD }}
           ALLOY_UPDATER_PUBLIC_KEY: ${{ vars.ALLOY_UPDATER_PUBLIC_KEY }}
           RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          if (!$env:UPDATE_SIGNING_KEY) {
-            throw "Configure the update signing key before a release."
-          }
-          & target/update-signer/debug/alloy-update-signer.exe "packages/desktop/release/Alloy-Desktop-$env:RELEASE_VERSION-win-x64-setup.exe" $env:RELEASE_VERSION
+          & target/update-signer/release/alloy-update-signer.exe "packages/desktop/release/Alloy-Desktop-$env:RELEASE_VERSION-win-x64-setup.exe" $env:RELEASE_VERSION
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: prepare desktop release assets
@@ -300,7 +334,6 @@ jobs:
             packages/desktop/release/*-setup.exe.blockmap
             packages/desktop/release/*-setup.exe.sig
             packages/desktop/release/latest.yml
-            packages/desktop/release/latest.json
           if-no-files-found: error
 
   image:
@@ -423,7 +456,6 @@ jobs:
             release-assets/*-setup.exe.blockmap
             release-assets/*-setup.exe.sig
             release-assets/latest.yml
-            release-assets/latest.json
             release-assets/checksums.txt
           fail_on_unmatched_files: true
 

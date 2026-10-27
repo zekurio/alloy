@@ -9,6 +9,4 @@ publish = false
 
 [dependencies]
 base64 = { workspace = true }
-# The minisign line `tauri signer` 2.12 signs with, whose signatures the Tauri
-# builds already accept.
 minisign = "0.9"

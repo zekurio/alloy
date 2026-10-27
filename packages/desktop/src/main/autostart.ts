@@ -3,13 +3,12 @@ import { app } from "electron"
 
 /**
  * The login item passes this, and such a start stays in the tray with no
- * window. The NSIS installer writes the same command.
+ * window.
  */
 export const AUTOSTART_ARGUMENT = "--autostart"
 /**
- * The registry value under `HKCU\...\CurrentVersion\Run`. The Tauri host
- * registered the same name, so an existing choice carries over; the
- * installer points it at the new executable.
+ * The registry value under `HKCU\...\CurrentVersion\Run`. The uninstaller
+ * removes it by this name.
  */
 const LOGIN_ITEM_NAME = "Alloy"
 
@@ -38,8 +37,8 @@ export function launchedAtLogin(argv: readonly string[]): boolean {
 export function getAutostartState(): DesktopAutostartState {
   if (!supported()) return { supported: false, enabled: false }
   // Matched by value name: Electron's `openAtLogin` compares the whole
-  // command line, which differs in quoting from what the installer and the
-  // Tauri host wrote. `enabled` reflects Task Manager's startup toggle.
+  // command line, so a value whose quoting differs would read as off.
+  // `enabled` reflects Task Manager's startup toggle.
   return { supported: true, enabled: loginItem()?.enabled === true }
 }
 

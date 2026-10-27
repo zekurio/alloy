@@ -47,7 +47,7 @@ const UrlArgumentSchema = z.string()
 const ConnectCommandSchema = z.enum(CONNECT_COMMANDS)
 const ShellOperationSchema = z.enum(SHELL_OPERATIONS)
 
-/** Files the import picker offers, as the Tauri host did. */
+/** Files the import picker offers. */
 const IMPORT_EXTENSIONS = [
   "mp4",
   "mkv",
@@ -68,8 +68,8 @@ function stringArgument(args: readonly NativeJson[], index: number): string {
 /**
  * Registers a handler whose failures reach the renderer as their message,
  * which the renderer translates. Electron would otherwise prefix it.
- * Arguments pass through JSON first, as the Tauri host's did, so fields set
- * to `undefined` are dropped rather than rejected.
+ * Arguments pass through JSON first, so fields set to `undefined` are
+ * dropped rather than rejected.
  */
 function handle(
   channel: string,
@@ -316,9 +316,7 @@ async function runRecordingOperation(
       shell.showItemInFolder(path)
       return null
     }
-    case "recording.importLibraryFiles": {
-      // The web app imports one file per pick; the result keeps its list
-      // shape for older web builds.
+    case "recording.importLibraryFile": {
       const options: OpenDialogOptions = {
         properties: ["openFile"],
         filters: [
@@ -330,9 +328,7 @@ async function runRecordingOperation(
         : dialog.showOpenDialog(options))
       requireRemoteSender(host, event)
       const [path] = picked.filePaths
-      if (picked.canceled || !path) {
-        return { staged: [], failed: [], canceled: true }
-      }
+      if (picked.canceled || !path) return null
       return runtime.stageImport(path)
     }
     case "recording.selectOutputFolder": {

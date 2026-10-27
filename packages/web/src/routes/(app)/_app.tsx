@@ -56,7 +56,7 @@ function AppLayout() {
 
   useEffect(() => {
     if (!session) return
-    return alloyDesktop()?.onOpenSettings?.(() => {
+    return alloyDesktop()?.onOpenSettings(() => {
       // Keep an already-open section and its unsaved edits intact.
       if (!settings) openDesktopSettings()
     })

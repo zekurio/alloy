@@ -1,8 +1,8 @@
 import type { AlloyDesktopRecordingApi } from "@alloy/contracts/desktop-api"
+import type { AlloyDesktop } from "@alloy/contracts/desktop-bridge"
 import type { RecordingEvent } from "@alloy/contracts/desktop-recording-types"
-import type { AlloyTauriDesktop } from "@alloy/contracts/desktop-tauri"
 import type { DesktopUpdateState } from "@alloy/contracts/desktop-update"
-import { TAURI_DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
+import { DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron"
 
 import {
@@ -16,11 +16,10 @@ import {
   type ShellOperation,
 } from "../shared/ipc"
 
-// Installs bridge contract 1 for the selected server's web app. The web app
-// reads it from `window.alloyTauriDesktop`, the name the Tauri host used, so
-// one web build works with either desktop host. The main process checks the
-// sender and its origin on every call; this check only keeps the bridge off
-// pages that could never use it.
+// Installs bridge contract 1 for the selected server's web app, which reads
+// it from `window.alloyDesktop`. The main process checks the sender and its
+// origin on every call; this check only keeps the bridge off pages that could
+// never use it.
 
 const selectedOrigin = process.argv
   .find((argument) => argument.startsWith(SELECTED_ORIGIN_ARGUMENT))
@@ -76,7 +75,7 @@ const RECORDING_METHODS = [
   "updateLibraryCapture",
   "setLibraryCaptureTrim",
   "deleteLibraryCapture",
-  "importLibraryFiles",
+  "importLibraryFile",
   "commitStagedLibraryImport",
   "discardStagedLibraryImport",
   "downloadClip",
@@ -103,20 +102,19 @@ function recordingApi(): AlloyDesktopRecordingApi {
     ]),
   )
   // SAFETY: Every method of the contract except `onEvent` is in
-  // RECORDING_METHODS, and the main process returns each one's result type
-  // as the Tauri host did.
+  // RECORDING_METHODS, and the main process returns each one's result type.
   return {
     ...methods,
     onEvent: onRecordingEvent,
   } as AlloyDesktopRecordingApi
 }
 
-function bridge(): AlloyTauriDesktop {
+function bridge(): AlloyDesktop {
   // SAFETY: The main process answers each operation with its contract type.
   const typed = <T>(pending: Promise<NativeJson | undefined>) =>
     pending as Promise<T>
   return {
-    bridgeContract: TAURI_DESKTOP_BRIDGE_CONTRACT_1,
+    bridgeContract: DESKTOP_BRIDGE_CONTRACT_1,
     minimizeWindow: () => shell("minimizeWindow"),
     toggleMaximizeWindow: () => shell("toggleMaximizeWindow"),
     closeWindow: () => shell("closeWindow"),
@@ -160,5 +158,5 @@ if (
   window.top === window &&
   window.location.origin === selectedOrigin
 ) {
-  contextBridge.exposeInMainWorld("alloyTauriDesktop", bridge())
+  contextBridge.exposeInMainWorld("alloyDesktop", bridge())
 }

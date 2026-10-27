@@ -1,8 +1,8 @@
 import type { DesktopSavedServer } from "@alloy/contracts/desktop-api"
 import {
-  DesktopTauriErrorSchema,
-  DesktopTauriSavedServersSchema,
-} from "@alloy/contracts/desktop-tauri"
+  DesktopErrorMessageSchema,
+  DesktopSavedServersSchema,
+} from "@alloy/contracts/desktop-bridge"
 import { initializeClientLocale, t } from "@alloy/i18n"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
 import { Button } from "@alloy/ui/components/button"
@@ -37,7 +37,7 @@ const host = window.alloyConnect
 type ConnectionState = "idle" | "connecting" | "cancelling"
 
 function connectionError(cause: unknown): string {
-  const parsed = DesktopTauriErrorSchema.safeParse(
+  const parsed = DesktopErrorMessageSchema.safeParse(
     cause instanceof Error ? cause.message : cause,
   )
   return parsed.success ? t(parsed.data) : t("Could not reach server.")
@@ -64,9 +64,7 @@ function ConnectScreen() {
     async function loadServers() {
       const revision = serversRevision.current
       try {
-        const saved = DesktopTauriSavedServersSchema.parse(
-          await host.savedServers(),
-        )
+        const saved = DesktopSavedServersSchema.parse(await host.savedServers())
         if (disposed || revision !== serversRevision.current) return
         setServers(saved)
         setUrl((current) => current || saved[0]?.serverUrl || "")
@@ -92,7 +90,7 @@ function ConnectScreen() {
     if (pending) return
     setForgetting(true)
     try {
-      const saved = DesktopTauriSavedServersSchema.parse(
+      const saved = DesktopSavedServersSchema.parse(
         await host.forgetServer(serverUrl),
       )
       serversRevision.current++

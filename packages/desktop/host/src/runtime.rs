@@ -739,17 +739,21 @@ impl DesktopRuntime {
             .map_err(error)
     }
 
-    /// Stages the media file the user picked for import. The result keeps
-    /// the list shape older web builds expect.
+    /// Stages the media file the user picked for import. A file that cannot
+    /// be imported fails with its name and the reason.
     pub async fn stage_import(&self, path: PathBuf) -> Result<Value, String> {
         let library = self.library.read().await.clone();
-        to_value(library.library.stage_files(&[path]).await)
+        let staged = library.library.stage_file(&path).await.map_err(|cause| {
+            let name = path
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "file".into());
+            format!("{name}: {cause}")
+        })?;
+        to_value(&staged)
     }
 
     /// Makes the folder the user picked the capture folder and returns it.
-    /// Web builds before this only reload the settings after the picker
-    /// returns; newer ones save the folder themselves when the settings lack
-    /// it.
     pub async fn set_output_folder(self: &Arc<Self>, folder: PathBuf) -> Result<Value, String> {
         let mut settings = self.recorder.get_settings().await;
         settings.output_folder = folder.to_string_lossy().into_owned();

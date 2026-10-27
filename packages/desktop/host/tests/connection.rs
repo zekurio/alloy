@@ -97,12 +97,7 @@ async fn respond(mut stream: TcpStream, info: Value, received: Arc<Mutex<Option<
             Some(serde_json::from_slice(&request[header_end..header_end + length]).unwrap());
         json!({
             "sessionToken": "test-session-token",
-            "cookieExpiresAt": "2099-01-01T00:00:00Z",
-            // Legacy fields the server keeps for older apps.
-            "accessToken": "test-session-token",
-            "refreshToken": "test-session-token",
-            "accessExpiresAt": "2099-01-01T00:00:00Z",
-            "refreshExpiresAt": "2099-01-01T00:00:00Z"
+            "cookieExpiresAt": "2099-01-01T00:00:00Z"
         })
     }
     .to_string();
@@ -119,12 +114,12 @@ async fn respond(mut stream: TcpStream, info: Value, received: Arc<Mutex<Option<
 }
 
 #[tokio::test]
-async fn selected_server_must_advertise_the_exact_tauri_contract() {
+async fn selected_server_must_advertise_the_exact_bridge_contract() {
     let compatible = mock_server(server_info()).await;
     compatible.server.check().await.unwrap();
 
     let mut info = server_info();
-    info["desktopTauriBridgeContracts"] = json!([2]);
+    info["desktopBridgeContracts"] = json!([2]);
     let incompatible = mock_server(info).await;
     assert!(incompatible.server.check().await.is_err());
 }

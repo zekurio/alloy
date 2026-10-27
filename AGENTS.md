@@ -52,8 +52,8 @@ Leave unrelated working-tree changes alone.
 - Keep OBS in the recorder process. Define sidecar wire types once in
   `packages/desktop/recorder/src/types.rs` and import them in the host.
 - Native commands must validate inputs and the calling window's selected origin.
-  Keep the bridge `window.alloyTauriDesktop` and its contract IDs as they are:
-  the server-hosted web app reads them, and it works with older desktop builds.
+  The server-hosted web app reads the bridge from `window.alloyDesktop` and
+  accepts only its exact contract ID; make breaking bridge changes under a new ID.
   Separate local connection permissions from remote window permissions, and ignore
   unsupported native bridge contracts in browsers.
 - Use same-origin requests with HttpOnly cookies in the server window, not an

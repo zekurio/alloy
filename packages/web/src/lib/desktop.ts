@@ -1,7 +1,7 @@
-import type { AlloyTauriDesktop } from "@alloy/contracts/desktop-tauri"
-import { TAURI_DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
+import type { AlloyDesktop } from "@alloy/contracts/desktop-bridge"
+import { DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
 
-export type { AlloyTauriDesktop } from "@alloy/contracts/desktop-tauri"
+export type { AlloyDesktop } from "@alloy/contracts/desktop-bridge"
 
 // Native and recording-library types live in @alloy/contracts/desktop.
 // Re-export them here so web consumers use one import path.
@@ -23,13 +23,12 @@ export type {
  * build speaks; anything else (a missing, older, or newer bridge) reads as the
  * plain browser build and returns null.
  */
-export function alloyDesktop(): AlloyTauriDesktop | null {
+export function alloyDesktop(): AlloyDesktop | null {
   // SAFETY: The optional host property is checked by the runtime contract ID
   // before it is returned to web code.
-  const host = globalThis as { alloyTauriDesktop?: AlloyTauriDesktop }
-  return host.alloyTauriDesktop?.bridgeContract ===
-    TAURI_DESKTOP_BRIDGE_CONTRACT_1
-    ? host.alloyTauriDesktop
+  const host = globalThis as { alloyDesktop?: AlloyDesktop }
+  return host.alloyDesktop?.bridgeContract === DESKTOP_BRIDGE_CONTRACT_1
+    ? host.alloyDesktop
     : null
 }
 
@@ -44,7 +43,7 @@ export function isNativeDesktop(): boolean {
  * Returns null in a plain browser, so callers fall back to the browser layout.
  */
 export function alloyWindowChrome(): Pick<
-  AlloyTauriDesktop,
+  AlloyDesktop,
   "minimizeWindow" | "toggleMaximizeWindow" | "closeWindow"
 > | null {
   return alloyDesktop()

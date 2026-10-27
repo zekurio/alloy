@@ -147,14 +147,10 @@ export function DesktopRecordingProvider({
     if (!recording) return
     setScopeError("folder", null)
     try {
+      // The host applies the picked folder itself.
       const folder = await recording.selectOutputFolder()
       if (!folder) return
-      // Newer hosts apply the picked folder themselves. Older ones only
-      // return it, so save it through the settings path, which moves the
-      // library and recorder onto it.
-      const current = await recording.getSettings()
-      if (current.outputFolder === folder) confirmSettings(current)
-      else await save({ ...current, outputFolder: folder })
+      confirmSettings(await recording.getSettings())
       setStorageInfo(await recording.getStorageInfo())
     } catch (cause) {
       setScopeError(
@@ -162,7 +158,7 @@ export function DesktopRecordingProvider({
         errorMessage(cause, t("Couldn't change the capture folder.")),
       )
     }
-  }, [recording, save, confirmSettings, setStorageInfo, setScopeError])
+  }, [recording, confirmSettings, setStorageInfo, setScopeError])
 
   const restartBackend = useCallback(async () => {
     if (!recording) return

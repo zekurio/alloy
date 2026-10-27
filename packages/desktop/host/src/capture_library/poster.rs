@@ -85,7 +85,6 @@ pub async fn ensure_poster(library: &CaptureLibrary, id: &str) -> Result<PathBuf
         }
         return Err(error);
     }
-    remove_stale_posters(&output).await;
     Ok(output)
 }
 
@@ -399,24 +398,4 @@ fn blur_hash_components(width: u32, height: u32) -> (u32, u32) {
     let y = x * f64::from(height) / f64::from(width);
     let clamp = |value: f64| (value.floor() as u32 + 1).clamp(1, 9);
     (clamp(x), clamp(y))
-}
-
-/// Drops thumbnails older builds left beside the poster.
-async fn remove_stale_posters(output: &Path) {
-    let Some(folder) = output.parent() else {
-        return;
-    };
-    let Ok(mut entries) = tokio::fs::read_dir(folder).await else {
-        return;
-    };
-    while let Ok(Some(entry)) = entries.next_entry().await {
-        let name = entry.file_name();
-        // Dot-prefixed files are posters still being written.
-        if name == POSTER_FILE || name.to_string_lossy().starts_with('.') {
-            continue;
-        }
-        if entry.file_type().await.is_ok_and(|kind| kind.is_file()) {
-            let _ = tokio::fs::remove_file(entry.path()).await;
-        }
-    }
 }
