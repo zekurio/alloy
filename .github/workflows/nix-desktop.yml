@@ -11,6 +11,8 @@ on:
       - "nix/desktop.nix"
       - "nix/electron.nix"
       - "nix/obs-runtime.nix"
+      # The shell installs the server package's pnpm dependencies.
+      - "nix/package.nix"
       - "nix/pipewire-client.nix"
       - "nix/pnpm.nix"
       - "nix/source.nix"
@@ -23,6 +25,7 @@ on:
       - "flake.lock"
       - "package.json"
       - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/nix-desktop.yml"
       - "!**/*.md"
   workflow_dispatch:
