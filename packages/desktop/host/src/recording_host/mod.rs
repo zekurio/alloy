@@ -1721,8 +1721,7 @@ fn prepare_discord_detection_cache(path: &Path) -> Result<(), RecorderHostError>
 }
 
 fn start_discord_detection_refresh(inner: &Arc<Inner>) {
-    if !cfg!(windows)
-        || inner.discord_cache_path.is_none()
+    if inner.discord_cache_path.is_none()
         || inner.discord_refresh_started.swap(true, Ordering::AcqRel)
     {
         return;

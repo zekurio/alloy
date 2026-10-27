@@ -191,7 +191,8 @@ pub(in crate::agent) const CAPABILITIES: &[&str] = &[
 ];
 
 /// Linux leaves out `hotkeys`: Wayland gives applications no global key hook,
-/// so the desktop host binds the shortcuts through the GlobalShortcuts portal.
+/// so binding the shortcuts through the GlobalShortcuts portal is left to the
+/// desktop shell.
 #[cfg(target_os = "linux")]
 pub(in crate::agent) const CAPABILITIES: &[&str] = &[
     "screenshots",

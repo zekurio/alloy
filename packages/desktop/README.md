@@ -94,7 +94,9 @@ builds a matching prefix with every plugin below and libpulse.
 - The agent registers no hotkeys, since Wayland gives applications no global
   key hook. It leaves `hotkeys` out of `capabilities`, and the web hides the
   hotkey fields. Binding the shortcuts through the GlobalShortcuts portal is
-  left to the shell, which does not do it yet.
+  left to the shell, which does not do it yet; until then, a desktop
+  environment shortcut can run the app with `--action clip` or
+  `--action screenshot`.
 
 The agent, libobs, and the graphics drivers must share one glibc. On NixOS,
 build them from the same nixpkgs as the system. Games need obs-vkcapture's

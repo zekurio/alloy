@@ -20,9 +20,10 @@ pub(in crate::agent) use gpus::{render_node, render_nodes};
 
 use super::DetectedGame;
 
-/// Wayland gives applications no global key hook. The desktop host binds the
-/// clip and screenshot shortcuts through the GlobalShortcuts portal and sends
-/// them as requests, so the agent registers nothing.
+/// Wayland gives applications no global key hook, so the agent registers
+/// nothing. Binding the clip and screenshot shortcuts through the
+/// GlobalShortcuts portal and sending them as requests is left to the desktop
+/// shell.
 pub(in crate::agent) mod hotkeys {
     use crate::types::RecordingSettings;
 

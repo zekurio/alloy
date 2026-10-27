@@ -75,8 +75,8 @@ validation in the PR. Native integration tests and the Nix security test remain.
 3. CI runs formatting, lint, typecheck, and a server/web build. Changes that
    touch Nix files, the lockfile, or the root manifests also run a Nix flake
    check, and devenv changes build the development shell. Desktop changes
-   additionally check the Rust crates and build the Windows installer, and
-   check the recorder on Linux.
+   additionally check the Rust crates on Windows and Linux and build the
+   Windows installer.
 
 Releases are tagged from `dev` by maintainers; see
 [RELEASING.md](RELEASING.md) for the release process.

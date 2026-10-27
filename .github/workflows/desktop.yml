@@ -1,7 +1,7 @@
 name: desktop
 
 # Desktop CI: the native host and addon, the recorder, and the Electron
-# installer on Windows, and the recorder on Linux. JavaScript and TypeScript,
+# installer on Windows, and the Rust crates on Linux. JavaScript and TypeScript,
 # including the shell, is formatted, linted, and typechecked by `checks` on
 # ubuntu (no JS tests exist yet), so shared TS packages and docs do not start a
 # run. Files outside packages/desktop that the Rust tests or the installer
@@ -132,10 +132,11 @@ jobs:
           cargo test --workspace --all-targets --locked
           exit $LASTEXITCODE
 
-  # The Linux recorder is behind `cfg`, so the Windows job does not compile
-  # it. The host does not build on Linux yet, so only the recorder is checked.
-  recorder-linux:
-    name: check recorder on linux
+  # The Linux recorder and the host's non-Windows paths are behind `cfg`, so
+  # the Windows job does not compile them. Clippy covers the whole workspace;
+  # the tests run for the recorder, whose Linux code the host tests don't reach.
+  rust-linux:
+    name: check rust on linux
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -156,16 +157,16 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: .
-          shared-key: recorder-check-linux
+          shared-key: rust-check-linux
 
-      # ALSA for the notification sounds.
+      # ALSA for the notification sounds the recorder library plays.
       - name: install system libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libasound2-dev
 
-      - name: check recorder
-        run: cargo clippy --package alloy-agent --all-targets --locked -- -D warnings
+      - name: check rust workspace
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: test recorder
         run: cargo test --package alloy-agent --all-targets --locked
