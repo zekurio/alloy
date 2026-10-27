@@ -33,11 +33,29 @@
 let
   pnpmPackage = import ./pnpm.nix { inherit pnpm_11; };
 
+  # The Rust and the Electron builds each see only their own files, so a
+  # change to one, or to the server or web app, doesn't rebuild the other.
+  rustFiles = lib.fileset.unions [
+    ../Cargo.toml
+    ../Cargo.lock
+    ../packages/desktop/host
+    ../packages/desktop/native
+    ../packages/desktop/recorder
+    ../packages/desktop/update-signer
+  ];
+  repository = lib.fileset.fromSource source;
+
   # The recorder sidecar and the Node-API addon, from one workspace build.
   native = rustPlatform.buildRustPackage {
     pname = "alloy-desktop-native";
     inherit version;
-    src = source;
+    src = lib.fileset.toSource {
+      root = ../.;
+      # The host plays the notification sounds in assets/.
+      fileset = lib.fileset.intersection repository (
+        lib.fileset.union rustFiles ../packages/desktop/assets
+      );
+    };
     cargoLock.lockFile = ../Cargo.lock;
     cargoBuildFlags = [
       "--package"
@@ -62,7 +80,10 @@ let
   shell = stdenvNoCC.mkDerivation {
     pname = "alloy-desktop-shell";
     inherit version pnpmDeps;
-    src = source;
+    src = lib.fileset.toSource {
+      root = ../.;
+      fileset = lib.fileset.difference repository rustFiles;
+    };
     nativeBuildInputs = [
       nodejs_24
       pnpmPackage
@@ -99,17 +120,25 @@ let
     "GBM_BACKENDS_PATH"
     "LIBVA_DRIVERS_PATH"
   ];
-  # Electron opens links and folders with xdg-open. This one comes first on
-  # the path and puts back what the fallback replaced, so the browser or file
-  # manager it starts keeps the system's drivers.
+  # Electron opens links and folders with xdg-open, and this one comes first
+  # on the path. The browser or file manager it starts gets back what the
+  # driver fallback replaced, and not Electron's CHROME_DESKTOP, which
+  # Chromium-based browsers would take as their own desktop entry.
   xdgOpen = writeShellScriptBin "xdg-open" ''
-    unset ${driverVariables}
-    eval "''${ALLOY_SYSTEM_DRIVER_ENV-}"
-    unset ALLOY_SYSTEM_DRIVER_ENV
-    PATH=''${PATH#"''${0%/*}:"}
+    unset CHROME_DESKTOP
+    if [ -n "''${ALLOY_SYSTEM_DRIVER_ENV+set}" ]; then
+      unset ${driverVariables}
+      eval "$ALLOY_SYSTEM_DRIVER_ENV"
+      unset ALLOY_SYSTEM_DRIVER_ENV
+    fi
+    PATH=:$PATH:
+    PATH=''${PATH//":''${0%/*}:"/:}
+    PATH=''${PATH#:}
+    PATH=''${PATH%:}
     exec xdg-open "$@"
   '';
   driverFallback = ''
+    unset ALLOY_SYSTEM_DRIVER_ENV
     if ! { [ -e ${systemDrivers}/lib/libEGL_mesa.so.0 ] \
       && LD_PRELOAD=${systemDrivers}/lib/libEGL_mesa.so.0 ${lib.getExe' coreutils "true"} 2>/dev/null; }; then
       export ALLOY_SYSTEM_DRIVER_ENV="$(declare -p ${driverVariables} 2>/dev/null)"
@@ -125,7 +154,6 @@ let
       export LIBGL_DRIVERS_PATH=${mesa}/lib/dri
       export GBM_BACKENDS_PATH=${mesa}/lib/gbm:${systemDrivers}/lib/gbm
       export LIBVA_DRIVERS_PATH=${mesa}/lib/dri:${intel-media-driver}/lib/dri:${systemDrivers}/lib/dri
-      export PATH=${xdgOpen}/bin:$PATH
     fi
   '';
 in
@@ -200,6 +228,7 @@ stdenvNoCC.mkDerivation {
     makeWrapper ${lib.getExe electron} "$out/bin/alloy-desktop" \
       --add-flags "$app" \
       --run ${lib.escapeShellArg driverFallback} \
+      --prefix PATH : ${xdgOpen}/bin \
       --set-default ALLOY_FFMPEG ${lib.getExe' ffmpeg-headless "ffmpeg"} \
       --set-default ALLOY_FFPROBE ${lib.getExe' ffmpeg-headless "ffprobe"}
 
