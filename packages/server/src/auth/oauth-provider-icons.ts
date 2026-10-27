@@ -172,8 +172,10 @@ interface WrittenIcon {
   attemptId: string
 }
 
-export type OAuthProviderIconIngestion =
-  | { ok: true; providers: OAuthProviderConfig[]; newIcons: WrittenIcon[] }
+type IconProvider = Pick<OAuthProviderConfig, "providerId" | "iconUrl">
+
+export type OAuthProviderIconIngestion<P extends IconProvider> =
+  | { ok: true; providers: P[]; newIcons: WrittenIcon[] }
   | { ok: false; status: ContentfulStatusCode; error: string }
 
 /**
@@ -185,10 +187,10 @@ export type OAuthProviderIconIngestion =
  * setOAuthProviders call cancels them once the config references the keys. On
  * failure the caller must abandon the ingestion.
  */
-export async function ingestSubmittedOAuthProviderIcons(
-  providers: OAuthProviderConfig[],
-): Promise<OAuthProviderIconIngestion> {
-  const next: OAuthProviderConfig[] = []
+export async function ingestSubmittedOAuthProviderIcons<P extends IconProvider>(
+  providers: P[],
+): Promise<OAuthProviderIconIngestion<P>> {
+  const next: P[] = []
   const newIcons: WrittenIcon[] = []
   for (const provider of providers) {
     const iconUrl = provider.iconUrl

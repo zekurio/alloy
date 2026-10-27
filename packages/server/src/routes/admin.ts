@@ -194,22 +194,11 @@ export const adminRoute = new Hono()
         const secret = submission.clientSecret?.trim()
         if (secret) newSecrets[submission.providerId] = secret
       }
-      // A submission without allowSignUp keeps the saved value; a new
-      // provider only signs in existing users until the admin opts in.
-      const saved = configStore.get("oauthProviders")
       const submitted = submissions.map(
         ({
           clientSecret: _clientSecret,
           ...provider
-        }: OAuthProviderSubmission) => ({
-          ...provider,
-          allowSignUp:
-            provider.allowSignUp ??
-            saved.find(
-              (existing) => existing.providerId === provider.providerId,
-            )?.allowSignUp ??
-            false,
-        }),
+        }: OAuthProviderSubmission) => provider,
       )
 
       // External icon source URLs are downloaded into managed asset storage
@@ -220,10 +209,23 @@ export const adminRoute = new Hono()
 
       try {
         return await withAdminAccessChange(async () => {
+          // A submission without allowSignUp keeps the saved value; a new
+          // provider only signs in existing users until the admin opts in.
+          // Read under the lock, from the list this save replaces.
+          const saved = configStore.get("oauthProviders")
+          const providers = ingestion.providers.map((provider) => ({
+            ...provider,
+            allowSignUp:
+              provider.allowSignUp ??
+              saved.find(
+                (existing) => existing.providerId === provider.providerId,
+              )?.allowSignUp ??
+              false,
+          }))
           const error = await signInConfigError(
             {
               passkeyEnabled: configStore.get("passkeyEnabled"),
-              oauthProviders: ingestion.providers,
+              oauthProviders: providers,
             },
             (providerId) => Object.hasOwn(newSecrets, providerId),
           )
@@ -236,7 +238,7 @@ export const adminRoute = new Hono()
           }
 
           const { queuedIconDeletions } = await setOAuthProviders(
-            ingestion.providers,
+            providers,
             newSecrets,
           )
           if (queuedIconDeletions > 0) wakeStorageDeletionWorker()
