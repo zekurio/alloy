@@ -1,5 +1,3 @@
-import type { IsoDateString } from "@alloy/primitives"
-
 import type {
   RecordingAudioApplicationSelection,
   RecordingAudioDevice,
@@ -17,6 +15,7 @@ import type {
 import type { RecordingGame } from "./desktop-recording-games"
 import type { RecordingLibraryDownload } from "./desktop-recording-library"
 import type { DesktopShortcutsState } from "./desktop-shortcuts"
+import type { IsoDateString } from "./shared"
 
 /**
  * What a recorder can do, as it reports in `RecordingStatus.capabilities`.

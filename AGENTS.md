@@ -15,7 +15,8 @@ Leave unrelated working-tree changes alone.
 - `packages/server`: Hono API server, media pipeline, storage, queues.
 - `packages/db`: Drizzle schema and migrations. `packages/api`: typed web API client.
 - `packages/contracts`: web/server contracts, plus native bridge contracts
-  under `@alloy/contracts/desktop`. `packages/primitives`: shared scalars.
+  under `@alloy/contracts/desktop`. `packages/primitives`: desktop bridge
+  contract IDs.
 - `packages/env`: env parsing and `.env` loading. `packages/logging`: logger.
   `packages/i18n`: English-keyed message catalogs.
 - `packages/desktop`: Electron shell (`src/main`, `src/preload`, and the
@@ -44,10 +45,11 @@ Leave unrelated working-tree changes alone.
 
 ## Boundaries
 
-- Keep shared web/server contracts in `packages/contracts` and shared scalars
-  in `packages/primitives`. Native bridge contracts live in the `desktop-*`
-  modules of `packages/contracts`, exported through `@alloy/contracts/desktop`
-  rather than the root entry point; the server does not import them.
+- Keep shared web/server contracts and scalars in `packages/contracts`, and
+  the bridge contract IDs in `packages/primitives`. Native bridge contracts
+  live in the `desktop-*` modules of `packages/contracts`, exported through
+  `@alloy/contracts/desktop` rather than the root entry point; the server does
+  not import them.
   Validate runtime inputs; use plain TypeScript types otherwise.
 - Keep OBS in the recorder process. Define sidecar wire types once in
   `packages/desktop/recorder/src/types.rs` and import them in the host.
