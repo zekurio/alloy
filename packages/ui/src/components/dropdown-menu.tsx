@@ -1,3 +1,4 @@
+import { POPUP_MOTION_CLASS_NAME } from "@alloy/ui/lib/motion"
 import { cn } from "@alloy/ui/lib/utils"
 import { Menu } from "@base-ui/react/menu"
 import { CheckIcon } from "lucide-react"
@@ -42,7 +43,8 @@ function DropdownMenuContent({
             "z-50 max-h-(--available-height) w-(--anchor-width) min-w-[180px] max-md:min-w-48",
             "overflow-x-hidden overflow-y-auto rounded-md bg-surface-raised p-0.5 text-foreground max-md:rounded-lg max-md:p-1",
             "border border-border-strong shadow-md",
-            "duration-100 outline-none",
+            POPUP_MOTION_CLASS_NAME,
+            "outline-none",
             "data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2",
             "data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2",
             "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95",

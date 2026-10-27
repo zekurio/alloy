@@ -15,7 +15,7 @@ import {
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Input } from "@alloy/ui/components/input"
 import { CircleAlertIcon, UploadIcon, VideoIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { GameCombobox } from "@/components/game/game-combobox"
 import { fileExtensionLabel } from "@/components/upload/new-clip-helpers"
@@ -32,15 +32,24 @@ export function ImportClipDetailsDialog({
   action: ImportClipAction
 }) {
   const { staged, committing: pending, error } = action
-  const [title, setTitle] = useState("")
+  // The pick the dialog shows. It outlives `staged` so the summary and form
+  // stay put while the dialog animates closed. The dialog stays mounted
+  // between picks, so a new pick resets the form in the same render that
+  // shows it, rather than an effect leaving the last pick's values up for a
+  // frame. The host gives every staged copy a fresh id, so the id tells a
+  // new pick (even of the same file) from a new object for the same one.
+  const [shown, setShown] = useState(staged)
+  const [title, setTitle] = useState(staged?.title ?? "")
   const [game, setGame] = useState<GameRow | null>(null)
   const [submitted, setSubmitted] = useState(false)
-
-  useEffect(() => {
-    setTitle(staged?.title ?? "")
-    setGame(null)
-    setSubmitted(false)
-  }, [staged?.id, staged?.title])
+  if (staged !== null && staged !== shown) {
+    setShown(staged)
+    if (staged.id !== shown?.id) {
+      setTitle(staged.title ?? "")
+      setGame(null)
+      setSubmitted(false)
+    }
+  }
 
   const normalizedTitle = normalizeClipTitle(title)
   const titleInvalid = submitted && normalizedTitle.length === 0
@@ -72,7 +81,7 @@ export function ImportClipDetailsDialog({
           }}
         >
           <DialogBody className="flex flex-col gap-4">
-            {staged ? <StagedImportSummary staged={staged} /> : null}
+            {shown ? <StagedImportSummary staged={shown} /> : null}
 
             <label className="flex flex-col gap-2">
               <span className="text-foreground-muted text-xs font-semibold">

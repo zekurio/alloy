@@ -1,7 +1,7 @@
 import { t } from "@alloy/i18n"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { PlusIcon, UploadIcon } from "lucide-react"
-import { Suspense, lazy, useRef } from "react"
+import { Suspense, lazy, useRef, useState } from "react"
 
 import { alloyDesktop } from "@/lib/desktop"
 
@@ -36,6 +36,12 @@ export function GlobalUploadControl({
   const importAction = useImportClipAction(desktop)
   const webUploadAction = useWebUploadActionContext()
   const inputRef = useRef<HTMLInputElement>(null)
+  // Stays mounted after the first pick so the details dialog can animate
+  // closed instead of vanishing the moment the pick is committed or dropped.
+  const [importDialogMounted, setImportDialogMounted] = useState(false)
+  if (importAction.staged !== null && !importDialogMounted) {
+    setImportDialogMounted(true)
+  }
 
   const triggerClassName =
     variant === "header"
@@ -44,10 +50,6 @@ export function GlobalUploadControl({
         ? "size-12 place-self-center rounded-full p-0 [&_svg]:!size-[22px]"
         : "shrink-0"
   const triggerLabel = t("Upload media")
-  const compactFeedbackLabel =
-    variant === "mobile" ? (
-      <span className="sr-only">{t("Working…")}</span>
-    ) : null
   const compactErrorLabel =
     variant === "mobile" ? (
       <span className="sr-only">{t("Try again")}</span>
@@ -63,9 +65,6 @@ export function GlobalUploadControl({
           size="sm"
           disabled={!importAction.available || pending}
           state={pending ? "pending" : importAction.error ? "error" : "idle"}
-          pendingLabel={
-            variant === "mobile" ? compactFeedbackLabel : t("Working…")
-          }
           errorLabel={variant === "header" ? t("Try again") : compactErrorLabel}
           className={triggerClassName}
           title={
@@ -82,7 +81,7 @@ export function GlobalUploadControl({
         >
           <UploadTriggerContent iconOnly={variant === "mobile"} />
         </FeedbackButton>
-        {importAction.staged !== null ? (
+        {importDialogMounted ? (
           <Suspense fallback={null}>
             <ImportClipDetailsDialog action={importAction} />
           </Suspense>
@@ -116,9 +115,6 @@ export function GlobalUploadControl({
           webUploadAction.selected !== null
         }
         state={pending ? "pending" : webUploadAction.error ? "error" : "idle"}
-        pendingLabel={
-          variant === "mobile" ? compactFeedbackLabel : t("Working…")
-        }
         errorLabel={variant === "header" ? t("Try again") : compactErrorLabel}
         title={
           webUploadAction.error ??

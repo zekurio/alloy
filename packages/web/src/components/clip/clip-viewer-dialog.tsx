@@ -13,7 +13,7 @@ import { cssVariables } from "@alloy/ui/lib/css-properties"
 import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { mediaAspectRatio } from "@/components/clip-editor/media-stage"
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
@@ -55,8 +55,27 @@ export function ClipViewerDialog({
   // the desktop grid/sidebar layout hasn't kicked in yet.
   const isDesktop = useMediaQuery("(min-width: 1024px)")
   const open = clipId !== null
+  // The clip, its row and the list on screen. They outlive `clipId` so the
+  // viewer keeps its content, arrows included, while it animates closed.
+  // The query itself follows `clipId`, so a clip deleted from the viewer
+  // isn't refetched (and found missing) during the close.
+  const [shownClipId, setShownClipId] = useState(clipId)
+  if (clipId !== null && clipId !== shownClipId) setShownClipId(clipId)
   const query = useClipQuery(clipId ?? "")
-  const list = useActiveClipList()
+  const [shownRow, setShownRow] = useState(query.data)
+  if (open && query.data !== undefined && query.data !== shownRow) {
+    setShownRow(query.data)
+  }
+  const row = open ? query.data : shownRow
+  const activeList = useActiveClipList()
+  const [shownList, setShownList] = useState(activeList)
+  // Closing clears the active list a render before `clipId` clears, so a
+  // null list while open must not replace the one held for the close.
+  if (open && activeList !== null && activeList !== shownList) {
+    setShownList(activeList)
+  }
+  const viewerClipId = clipId ?? shownClipId
+  const list = activeList ?? shownList
 
   const closeViewer = useCallback(() => {
     setActiveClipList(null)
@@ -64,13 +83,13 @@ export function ClipViewerDialog({
   }, [onClose])
 
   const prev = useMemo(() => {
-    if (!list || !clipId) return null
-    return list.prevOf(clipId)
-  }, [list, clipId])
+    if (!list || !viewerClipId) return null
+    return list.prevOf(viewerClipId)
+  }, [list, viewerClipId])
   const next = useMemo(() => {
-    if (!list || !clipId) return null
-    return list.nextOf(clipId)
-  }, [list, clipId])
+    if (!list || !viewerClipId) return null
+    return list.nextOf(viewerClipId)
+  }, [list, viewerClipId])
 
   const navigateTo = useCallback(
     (entry: ClipListEntry) => {
@@ -114,12 +133,18 @@ export function ClipViewerDialog({
       onOpenChange={(nextOpen) => {
         if (!nextOpen) closeViewer()
       }}
+      onOpenChangeComplete={(nextOpen) => {
+        if (nextOpen) return
+        setShownClipId(null)
+        setShownRow(undefined)
+        setShownList(null)
+      }}
     >
-      {open ? (
-        query.data ? (
+      {viewerClipId !== null ? (
+        row ? (
           !isDesktop ? (
             <MobileClipViewerBody
-              row={query.data}
+              row={row}
               onDeleted={closeViewer}
               prev={prev}
               next={next}
@@ -127,7 +152,7 @@ export function ClipViewerDialog({
             />
           ) : (
             <ClipViewerDialogBody
-              row={query.data}
+              row={row}
               onDeleted={closeViewer}
               prev={prev}
               next={next}
@@ -198,7 +223,7 @@ function ClipViewerDialogBody({
       className={cn(
         // Below lg this branch is normally hidden by MobileClipViewerBody, but
         // we keep a sensible fallback in case the breakpoint check disagrees.
-        "h-auto max-h-[calc(100dvh-32px)] w-[calc(100dvw-32px)] overflow-visible rounded-xl bg-surface transition-[filter,opacity,transform] duration-100",
+        "h-auto max-h-[calc(100dvh-32px)] w-[calc(100dvw-32px)] overflow-visible rounded-xl bg-surface",
         "lg:h-[calc(min(calc(100dvh-var(--clip-modal-margin-y)*2),calc((100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar))/var(--clip-modal-ratio))))]",
         "lg:max-h-[calc(100dvh-var(--clip-modal-margin-y)*2)]",
         "lg:min-h-[min(480px,calc(100dvh-var(--clip-modal-margin-y)*2))]",

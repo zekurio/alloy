@@ -140,6 +140,7 @@ export const SETTINGS_MESSAGES = {
     "Dieses VS-Code-Theme legt keinen Editor-Hintergrund fest.",
   "This isn't valid JSON.": "Das ist kein gültiges JSON.",
   'Unknown theme color "{key}".': "Unbekannte Theme-Farbe „{key}“.",
+  "Unsaved changes": "Ungespeicherte Änderungen",
   "Unsupported theme file version.":
     "Diese Version der Theme-Datei wird nicht unterstützt.",
   "Use the same color scheme and themes everywhere you sign in.":
@@ -152,8 +153,6 @@ export const SETTINGS_MESSAGES = {
   Variants: "Varianten",
   Warning: "Warnung",
   "You have unsaved changes.": "Du hast ungespeicherte Änderungen.",
-  "You have unsaved settings — save or discard them first.":
-    "Du hast ungespeicherte Einstellungen – speicher oder verwirf sie zuerst.",
   "e.g. Aurora": "z. B. Aurora",
   "{appearance} {number}": "{appearance} {number}",
   "{count} variant": "{count} Variante",

@@ -26,6 +26,7 @@ import { ArrowLeftIcon, SearchIcon, XIcon } from "lucide-react"
 import {
   Suspense,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -42,11 +43,11 @@ import {
   SETTINGS_GROUPS,
   useSettingsCategories,
 } from "@/components/routes/settings/settings-categories"
-import { SettingsSaveBar } from "@/components/routes/settings/settings-save-bar"
 import {
   SettingsSaveProvider,
   useSettingsSaveState,
 } from "@/components/routes/settings/settings-save-context"
+import { SettingsSaveHeader } from "@/components/routes/settings/settings-save-header"
 import { searchSettingsCategories } from "@/components/routes/settings/settings-search"
 import { SettingsSectionNav } from "@/components/routes/settings/settings-section-nav"
 import { SettingsSectionsProvider } from "@/components/routes/settings/settings-sections-context"
@@ -84,6 +85,28 @@ export function SettingsPage() {
 }
 
 /**
+ * Fetches the code of every visible lazy panel once the browser is idle, so
+ * opening settings, even straight onto a lazy section from the desktop tray,
+ * renders the panel without a loading fallback.
+ */
+function usePreloadSettingsPanels(categories: SettingsCategory[]) {
+  useEffect(() => {
+    const preload = () => {
+      for (const category of categories) {
+        void category.Panel.preload?.().catch(() => {})
+      }
+    }
+    // Safari has no requestIdleCallback.
+    if ("requestIdleCallback" in window) {
+      const handle = window.requestIdleCallback(preload, { timeout: 3000 })
+      return () => window.cancelIdleCallback(handle)
+    }
+    const timer = setTimeout(preload, 1500)
+    return () => clearTimeout(timer)
+  }, [categories])
+}
+
+/**
  * Leaving with unsaved edits is blocked however it is attempted, including the
  * browser's back button and the back gesture phones use to leave a section.
  */
@@ -103,6 +126,7 @@ function SettingsPageRoot() {
   const categories = useSettingsCategories()
   const [section, setSection] = useState<string | null>(null)
   useBlockUnsavedNavigation()
+  usePreloadSettingsPanels(categories)
 
   if (categories.length === 0) return null
 
@@ -138,6 +162,8 @@ function SettingsDialogRoot({
 
   const { dirty, requestAttention } = useSettingsSaveState()
   useBlockUnsavedNavigation()
+  // Mounted while closed too, so the panels are ready before it first opens.
+  usePreloadSettingsPanels(categories)
 
   const body =
     categories.length > 0 ? (
@@ -241,21 +267,53 @@ function SettingsDialogContent({
   )
 }
 
-/** Title bar for the phone layout: one button, then the title centred. */
+const MOBILE_HEADER_TITLE_CLASS_NAME =
+  "grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center"
+
+/**
+ * Title bar for the phone layout: one button, then the title centred. In a
+ * section it gives way to the unsaved-changes banner while a form is dirty.
+ * The overview has no forms, so it keeps a plain header; otherwise a save
+ * that just finished would cover its title and close button.
+ */
 function SettingsMobileHeader({
   title,
   leading,
+  saveBanner = false,
 }: {
   title: string
   leading: ReactNode
+  saveBanner?: boolean
 }) {
-  return (
-    <header className="border-border bg-background grid h-13 shrink-0 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center border-b px-1">
+  const content = (
+    <>
       <div className="grid place-items-center">{leading}</div>
       <h2 className="text-foreground truncate text-center text-base font-semibold tracking-[var(--tracking-tight)]">
         {title}
       </h2>
-    </header>
+    </>
+  )
+  if (!saveBanner) {
+    return (
+      <header
+        className={cn(
+          "border-border bg-background h-13 shrink-0 border-b px-1",
+          MOBILE_HEADER_TITLE_CLASS_NAME,
+        )}
+      >
+        {content}
+      </header>
+    )
+  }
+  return (
+    <SettingsSaveHeader
+      className="h-13 px-1"
+      titleClassName={MOBILE_HEADER_TITLE_CLASS_NAME}
+      bannerClassName="px-3"
+      compact
+    >
+      {content}
+    </SettingsSaveHeader>
   )
 }
 
@@ -422,6 +480,11 @@ function SettingsSectionView({
   }
   const search = useSettingsSearch(categories)
   const title = active.title ?? active.label
+  // Sections share one scroller; a new one starts at its top rather than
+  // wherever the last one was left.
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 })
+  }, [active.id])
 
   return (
     <SettingsSectionsProvider>
@@ -492,12 +555,14 @@ function SettingsSectionView({
       {/* On a phone a section replaces the menu, so it pushes in over it. */}
       <div className="max-md:animate-in max-md:fade-in-0 max-md:slide-in-from-right-4 flex min-w-0 flex-1 flex-col duration-200 motion-reduce:animate-none">
         {/* Discord-style title bar: the section name stays pinned while the
-            panel below it scrolls. A phone gets the way back to the menu in
-            it; wider layouts have the sidebar for that and get the close
-            button instead. */}
+            panel below it scrolls, and turns into the save banner while
+            edits are unsaved. A phone gets the way back to the menu in it;
+            wider layouts have the sidebar for that and get the close button
+            instead. */}
         {isMobile ? (
           <SettingsMobileHeader
             title={title}
+            saveBanner
             leading={
               <button
                 type="button"
@@ -510,7 +575,10 @@ function SettingsSectionView({
             }
           />
         ) : (
-          <header className="border-border bg-background flex shrink-0 items-center justify-between gap-4 border-b px-10 py-3">
+          <SettingsSaveHeader
+            className="px-10 py-3"
+            titleClassName="flex items-center justify-between gap-4"
+          >
             <h2 className="text-foreground truncate text-xl font-semibold tracking-[var(--tracking-tight)]">
               {title}
             </h2>
@@ -522,7 +590,7 @@ function SettingsSectionView({
                 <XIcon className="size-4" />
               </DialogClose>
             )}
-          </header>
+          </SettingsSaveHeader>
         )}
 
         <ScrollArea
@@ -535,12 +603,17 @@ function SettingsSectionView({
               : "max-md:pb-[max(1.5rem,env(safe-area-inset-bottom))]",
           )}
         >
-          <Suspense fallback={<LoadingState variant="panel" />}>
-            <ActivePanel />
-          </Suspense>
+          {/* Keyed so each section fades in rather than snapping over the
+              last one. */}
+          <div
+            key={active.id}
+            className="animate-in fade-in-0 duration-[var(--duration-base)] motion-reduce:animate-none"
+          >
+            <Suspense fallback={<LoadingState variant="panel" />}>
+              <ActivePanel />
+            </Suspense>
+          </div>
         </ScrollArea>
-
-        <SettingsSaveBar />
       </div>
     </SettingsSectionsProvider>
   )

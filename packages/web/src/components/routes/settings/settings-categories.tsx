@@ -33,7 +33,7 @@ import {
   WebhookIcon,
 } from "lucide-react"
 import { lazy, useMemo, useState } from "react"
-import type { ComponentType, LazyExoticComponent } from "react"
+import type { ComponentType } from "react"
 
 import { ClipAnnouncementRow } from "@/components/routes/settings/clip-announcement-settings"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
@@ -60,7 +60,10 @@ import { alloyDesktop } from "@/lib/desktop"
 
 export type { SettingsGroup } from "@/components/routes/settings/settings-search"
 
-type SettingsPanelComponent = ComponentType | LazyExoticComponent<ComponentType>
+type SettingsPanelComponent = ComponentType & {
+  /** Fetches a lazy panel's code ahead of its first render. */
+  preload?: () => Promise<ComponentType>
+}
 
 export interface SettingsCategory extends SettingsSearchCategory {
   icon: LucideIcon
@@ -73,12 +76,40 @@ export const SETTINGS_GROUPS: { id: SettingsGroup; label: string }[] = [
   { id: "admin", label: t("Administration") },
 ]
 
-/** Loads a panel from its own chunk the first time it opens. */
+/**
+ * A panel in its own chunk. It renders through `lazy` until `preload` has
+ * fetched it, and the loaded component directly after that. Skipping `lazy`
+ * matters: every `lazy` wrapper suspends on its first render even when its
+ * chunk is cached, and React keeps a fallback up for at least 300 ms once it
+ * shows, so a preloaded panel would still flash the spinner.
+ */
 function lazyPanel<TModule>(
   load: () => Promise<TModule>,
   pick: (module: TModule) => ComponentType,
-) {
-  return lazy(async () => ({ default: pick(await load()) }))
+): SettingsPanelComponent {
+  let loaded: ComponentType | null = null
+  let loading: Promise<ComponentType> | null = null
+  const preload = () => {
+    // A failed fetch is forgotten, so a failed idle preload doesn't stop
+    // the panel loading when it opens. A failure while it renders stays
+    // with that `lazy`, as for any other lazy chunk, until a reload.
+    loading ??= load().then(
+      (module) => (loaded = pick(module)),
+      (cause: unknown) => {
+        loading = null
+        throw cause
+      },
+    )
+    return loading
+  }
+  const LazyPanel = lazy(async () => ({ default: await preload() }))
+  function Panel() {
+    // Chosen once per mount: swapping `lazy` for the loaded component later
+    // would remount the panel and drop its edits.
+    const [Component] = useState<ComponentType>(() => loaded ?? LazyPanel)
+    return <Component />
+  }
+  return Object.assign(Panel, { preload })
 }
 
 const loadAdminPanels = () =>

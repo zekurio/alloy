@@ -75,7 +75,6 @@ export const COMMON_MESSAGES = {
   "Try again": "Erneut versuchen",
   "Updating…": "Wird aktualisiert…",
   Use: "Verwenden",
-  "Working…": "Wird verarbeitet…",
   You: "Du",
   of: "von",
   or: "oder",
