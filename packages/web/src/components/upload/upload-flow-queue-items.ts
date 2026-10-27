@@ -1,7 +1,6 @@
 import { type QueueClip } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { useMemo } from "react"
-import type { MutableRefObject } from "react"
 
 import { absoluteClipHref } from "@/lib/app-paths"
 import { removeClipDownload, useClipDownloads } from "@/lib/clip-downloads"
@@ -28,19 +27,17 @@ interface QueueItemHandlers {
 }
 
 export function useUploadQueueItems(
-  queueVersion: number,
-  activeRef: MutableRefObject<Map<string, ActiveUpload>>,
-  retainedThumbsRef: MutableRefObject<Map<string, string>>,
+  active: ReadonlyMap<string, ActiveUpload>,
+  retainedThumbs: ReadonlyMap<string, string>,
   serverQueue: QueueClip[],
   handlers: QueueItemHandlers,
 ): QueueItem[] {
   const downloads = useClipDownloads()
-  const localItems = useLocalQueueItems(queueVersion, activeRef, handlers)
+  const localItems = useLocalQueueItems(active, handlers)
   const serverItems = useServerQueueItems(
-    queueVersion,
     serverQueue,
-    activeRef,
-    retainedThumbsRef,
+    active,
+    retainedThumbs,
     handlers,
   )
   const downloadItems = useDownloadQueueItems(downloads)
@@ -51,13 +48,12 @@ export function useUploadQueueItems(
 }
 
 function useLocalQueueItems(
-  queueVersion: number,
-  activeRef: MutableRefObject<Map<string, ActiveUpload>>,
+  active: ReadonlyMap<string, ActiveUpload>,
   handlers: QueueItemHandlers,
 ) {
   return useMemo(
     () =>
-      Array.from(activeRef.current.values()).map((entry) =>
+      Array.from(active.values()).map((entry) =>
         localToQueueItem(entry, {
           onCancel: () =>
             handlers.cancelRow(entry.localId, entry.clipId ?? null),
@@ -66,20 +62,19 @@ function useLocalQueueItems(
             : undefined,
         }),
       ),
-    [queueVersion, activeRef, handlers.cancelRow, handlers.retryUpload],
+    [active, handlers.cancelRow, handlers.retryUpload],
   )
 }
 
 function useServerQueueItems(
-  queueVersion: number,
   serverQueue: QueueClip[],
-  activeRef: MutableRefObject<Map<string, ActiveUpload>>,
-  retainedThumbsRef: MutableRefObject<Map<string, string>>,
+  active: ReadonlyMap<string, ActiveUpload>,
+  retainedThumbs: ReadonlyMap<string, string>,
   handlers: QueueItemHandlers,
 ) {
   return useMemo(() => {
     const localClipIds = new Set(
-      Array.from(activeRef.current.values())
+      Array.from(active.values())
         .map((entry) => entry.clipId)
         .filter((clipId): clipId is string => Boolean(clipId)),
     )
@@ -111,15 +106,14 @@ function useServerQueueItems(
                   handlers.dismiss(row.id)
                 }
               : undefined,
-          thumbFallbackUrl: retainedThumbsRef.current.get(row.id),
+          thumbFallbackUrl: retainedThumbs.get(row.id),
           onThumbLoad: () => handlers.releaseRetainedThumb(row.id),
         }),
       )
   }, [
-    queueVersion,
     serverQueue,
-    activeRef,
-    retainedThumbsRef,
+    active,
+    retainedThumbs,
     handlers.cancelRow,
     handlers.onOpenClip,
     handlers.reEncodeClip,

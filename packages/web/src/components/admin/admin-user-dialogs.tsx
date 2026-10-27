@@ -18,10 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
+import { useForm, useStore } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { SaveIcon, UserPlusIcon } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
-import type { FormEvent } from "react"
+import { useState } from "react"
 
 import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
@@ -36,6 +36,36 @@ import {
 } from "./admin-user-data"
 import { normalizeRole } from "./admin-user-role"
 
+type UserRole = "admin" | "user"
+
+type EditUserValues = {
+  quotaGiB: string
+  role: UserRole
+}
+
+type CreateUserValues = {
+  username: string
+  role: UserRole
+}
+
+const NEW_USER: CreateUserValues = { username: "", role: "user" }
+
+function quotaError(quotaGiB: string): string | undefined {
+  try {
+    parseQuotaGiB(quotaGiB)
+    return undefined
+  } catch (cause) {
+    return errorMessage(cause, t("Invalid quota"))
+  }
+}
+
+function editedUserFields(values: EditUserValues): AdminUserEditableFields {
+  return {
+    role: values.role,
+    storageQuotaBytes: parseQuotaGiB(values.quotaGiB),
+  }
+}
+
 export function EditUserDialog({
   user,
   busy,
@@ -49,68 +79,101 @@ export function EditUserDialog({
   onOpenChange: (open: boolean) => void
   onUpdate: (user: AdminUserRow, next: AdminUserEditableFields) => Promise<void>
 }) {
-  const [quotaGiB, setQuotaGiB] = useState("")
-  const [role, setRole] = useState<"admin" | "user">("user")
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const quota = useMemo(() => {
-    try {
-      return { bytes: parseQuotaGiB(quotaGiB), error: null }
-    } catch (cause) {
-      return { bytes: null, error: errorMessage(cause, t("Invalid quota")) }
-    }
-  }, [quotaGiB])
-  const nextFields =
-    quota.error === null ? { role, storageQuotaBytes: quota.bytes } : null
-  // An invalid quota keeps Save enabled so submitting can say what is wrong.
-  const dirty = nextFields
-    ? adminUserFieldChanges(user, nextFields) !== null
-    : true
-
-  useEffect(() => {
-    if (!open) return
-    setQuotaGiB(formatQuotaGiB(user.storageQuotaBytes))
-    setRole(normalizeRole(user.role))
-    setSubmitError(null)
-  }, [open, user.storageQuotaBytes, user.role])
-
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (busy) return
-    setSubmitError(quota.error)
-    if (!nextFields) return
-    if (!dirty) {
-      onOpenChange(false)
-      return
-    }
-
-    try {
-      await onUpdate(user, nextFields)
-      onOpenChange(false)
-    } catch (cause) {
-      setSubmitError(errorMessage(cause, t("Couldn't update user")))
-    }
-  }
-
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent variant="secondary">
-        <form onSubmit={onSubmit}>
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>{t("Edit user")}</ResponsiveDialogTitle>
-            <ResponsiveDialogDescription>
-              {t("Update role and storage quota for {username}.", {
-                username: user.username,
-              })}
-            </ResponsiveDialogDescription>
-          </ResponsiveDialogHeader>
-          <ResponsiveDialogBody className="flex flex-col gap-4">
+        {/* Saved changes reseed the draft; closing discards it. */}
+        <EditUserForm
+          key={`${user.role}:${user.storageQuotaBytes}`}
+          user={user}
+          busy={busy}
+          onClose={() => onOpenChange(false)}
+          onUpdate={onUpdate}
+        />
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
+  )
+}
+
+function EditUserForm({
+  user,
+  busy,
+  onClose,
+  onUpdate,
+}: {
+  user: AdminUserRow
+  busy: boolean
+  onClose: () => void
+  onUpdate: (user: AdminUserRow, next: AdminUserEditableFields) => Promise<void>
+}) {
+  const update = useMutation({
+    mutationFn: (next: AdminUserEditableFields) => onUpdate(user, next),
+    onSuccess: onClose,
+  })
+  const form = useForm({
+    defaultValues: {
+      quotaGiB: formatQuotaGiB(user.storageQuotaBytes),
+      role: normalizeRole(user.role),
+    } satisfies EditUserValues,
+    onSubmit: ({ value }) => {
+      if (busy) return
+      const next = editedUserFields(value)
+      if (adminUserFieldChanges(user, next) === null) {
+        onClose()
+        return
+      }
+      update.mutate(next)
+    },
+  })
+  // An invalid quota keeps Save enabled so submitting can say what is wrong.
+  const dirty = useStore(
+    form.store,
+    (state) =>
+      quotaError(state.values.quotaGiB) !== undefined ||
+      adminUserFieldChanges(user, editedUserFields(state.values)) !== null,
+  )
+  const invalidQuota = useStore(
+    form.store,
+    (state) => state.fieldMeta.quotaGiB?.errors[0],
+  )
+  const submitError =
+    invalidQuota ??
+    (update.error
+      ? errorMessage(update.error, t("Couldn't update user"))
+      : null)
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        void form.handleSubmit()
+      }}
+    >
+      <ResponsiveDialogHeader>
+        <ResponsiveDialogTitle>{t("Edit user")}</ResponsiveDialogTitle>
+        <ResponsiveDialogDescription>
+          {t("Update role and storage quota for {username}.", {
+            username: user.username,
+          })}
+        </ResponsiveDialogDescription>
+      </ResponsiveDialogHeader>
+      <ResponsiveDialogBody className="flex flex-col gap-4">
+        <form.Field name="role">
+          {(field) => (
             <RoleField
               id={`role-${user.id}`}
-              value={role}
+              value={field.state.value}
               disabled={busy}
-              onValueChange={setRole}
+              onValueChange={field.handleChange}
             />
-            <FieldError>{submitError}</FieldError>
+          )}
+        </form.Field>
+        <FieldError>{submitError}</FieldError>
+        <form.Field
+          name="quotaGiB"
+          validators={{ onSubmit: ({ value }) => quotaError(value) }}
+        >
+          {(field) => (
             <Field>
               <FieldLabel htmlFor={`quota-${user.id}`}>
                 {t("Storage quota (GiB)")}
@@ -120,61 +183,30 @@ export function EditUserDialog({
                 type="number"
                 min={1}
                 step={1}
-                value={quotaGiB}
+                value={field.state.value}
                 placeholder={t("Unlimited")}
                 disabled={busy}
-                onChange={(event) => setQuotaGiB(event.target.value)}
+                onChange={(event) => field.handleChange(event.target.value)}
               />
             </Field>
-          </ResponsiveDialogBody>
-          <AdminDialogFooter
-            pending={busy}
-            failed={Boolean(submitError)}
-            disabled={!dirty}
-            pendingLabel={t("Saving…")}
-          >
-            <SaveIcon />
-            {t("Save")}
-          </AdminDialogFooter>
-        </form>
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+          )}
+        </form.Field>
+      </ResponsiveDialogBody>
+      <AdminDialogFooter
+        pending={busy}
+        failed={Boolean(submitError)}
+        disabled={!dirty}
+        pendingLabel={t("Saving…")}
+      >
+        <SaveIcon />
+        {t("Save")}
+      </AdminDialogFooter>
+    </form>
   )
 }
 
 export function CreateUserDialog() {
-  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
-  const [username, setUsername] = useState("")
-  const [role, setRole] = useState<"admin" | "user">("user")
-
-  const { error, isPending, mutate, reset } = useMutation({
-    mutationFn: (input: { username: string; role: "admin" | "user" }) =>
-      api.admin.createUser(input),
-    onSuccess: () => {
-      setOpen(false)
-      return queryClient.invalidateQueries({ queryKey: adminKeys.users() })
-    },
-  })
-
-  useEffect(() => {
-    if (!open) return
-    setUsername("")
-    setRole("user")
-    reset()
-  }, [open, reset])
-
-  const submitError = error
-    ? errorMessage(error, t("Couldn't create user"))
-    : null
-
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (isPending) return
-    const trimmedUsername = username.trim()
-    if (!trimmedUsername) return
-    mutate({ username: trimmedUsername, role })
-  }
 
   return (
     <ResponsiveDialog open={open} onOpenChange={setOpen}>
@@ -186,11 +218,49 @@ export function CreateUserDialog() {
         }
       />
       <ResponsiveDialogContent variant="secondary">
-        <form onSubmit={onSubmit}>
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>{t("Create user")}</ResponsiveDialogTitle>
-          </ResponsiveDialogHeader>
-          <ResponsiveDialogBody className="flex flex-col gap-4">
+        <CreateUserForm onCreated={() => setOpen(false)} />
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
+  )
+}
+
+/** Lives inside the dialog content, so each open starts blank. */
+function CreateUserForm({ onCreated }: { onCreated: () => void }) {
+  const queryClient = useQueryClient()
+  const { error, isPending, mutate } = useMutation({
+    mutationFn: (input: CreateUserValues) => api.admin.createUser(input),
+    onSuccess: () => {
+      onCreated()
+      return queryClient.invalidateQueries({ queryKey: adminKeys.users() })
+    },
+  })
+  const form = useForm({
+    defaultValues: NEW_USER,
+    onSubmit: ({ value }) => {
+      if (isPending) return
+      const username = value.username.trim()
+      if (!username) return
+      mutate({ username, role: value.role })
+    },
+  })
+
+  const submitError = error
+    ? errorMessage(error, t("Couldn't create user"))
+    : null
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        void form.handleSubmit()
+      }}
+    >
+      <ResponsiveDialogHeader>
+        <ResponsiveDialogTitle>{t("Create user")}</ResponsiveDialogTitle>
+      </ResponsiveDialogHeader>
+      <ResponsiveDialogBody className="flex flex-col gap-4">
+        <form.Field name="username">
+          {(field) => (
             <Field>
               <FieldLabel htmlFor="create-user-username">
                 {t("Username")}
@@ -198,30 +268,34 @@ export function CreateUserDialog() {
               <Input
                 id="create-user-username"
                 required
-                value={username}
+                value={field.state.value}
                 disabled={isPending}
-                onChange={(event) => setUsername(event.target.value)}
+                onChange={(event) => field.handleChange(event.target.value)}
               />
             </Field>
-            <FieldError>{submitError}</FieldError>
+          )}
+        </form.Field>
+        <FieldError>{submitError}</FieldError>
+        <form.Field name="role">
+          {(field) => (
             <RoleField
               id="create-user-role"
-              value={role}
+              value={field.state.value}
               disabled={isPending}
-              onValueChange={setRole}
+              onValueChange={field.handleChange}
             />
-          </ResponsiveDialogBody>
-          <AdminDialogFooter
-            pending={isPending}
-            failed={Boolean(submitError)}
-            pendingLabel={t("Creating…")}
-          >
-            <UserPlusIcon />
-            {t("Create")}
-          </AdminDialogFooter>
-        </form>
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+          )}
+        </form.Field>
+      </ResponsiveDialogBody>
+      <AdminDialogFooter
+        pending={isPending}
+        failed={Boolean(submitError)}
+        pendingLabel={t("Creating…")}
+      >
+        <UserPlusIcon />
+        {t("Create")}
+      </AdminDialogFooter>
+    </form>
   )
 }
 
@@ -232,9 +306,9 @@ function RoleField({
   onValueChange,
 }: {
   id: string
-  value: "admin" | "user"
+  value: UserRole
   disabled: boolean
-  onValueChange: (role: "admin" | "user") => void
+  onValueChange: (role: UserRole) => void
 }) {
   return (
     <Field>

@@ -2,6 +2,7 @@ import { cn } from "@alloy/ui/lib/utils"
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useRef,
   useState,
@@ -91,16 +92,12 @@ export function TrimTimeline({
   const [gesturing, setGesturing] = useState(false)
 
   const fitZoom = width > 0 && durationMs > 0 ? width / durationMs : 0
+  // The whole clip is the zoomed-out limit: adopt it on first measure, and
+  // raise a scale that no longer fills the viewport (late duration, rotation).
+  if (fitZoom > 0 && zoom < fitZoom) setZoom(fitZoom)
   const ready = fitZoom > 0 && zoom > 0
   const contentWidth = width * CONTENT_SPAN
   const contentMs = ready ? contentWidth / zoom : 0
-
-  // The whole clip is the zoomed-out limit: adopt it on first measure, and
-  // raise a scale that no longer fills the viewport (late duration, rotation).
-  useEffect(() => {
-    if (fitZoom <= 0) return
-    setZoom((current) => (current < fitZoom ? fitZoom : current))
-  }, [fitZoom])
 
   const applyOffset = useCallback(() => {
     const content = contentRef.current
@@ -138,22 +135,23 @@ export function TrimTimeline({
   // Pointer devices get the same two gestures: a trackpad pinch (which the
   // platform reports as ctrl+wheel) zooms, horizontal wheel scrubs. Vertical
   // wheel is left alone so the page still scrolls over the timeline.
+  const onWheel = useEffectEvent((event: WheelEvent) => {
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault()
+      setZoom((current) => clampZoom(current * Math.exp(-event.deltaY / 240)))
+      return
+    }
+    if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return
+    event.preventDefault()
+    onScrub(getCurrentMs() + event.deltaX / zoom)
+  })
   useEffect(() => {
     const viewport = viewportRef.current
     if (!viewport || !ready) return
-    const onWheel = (event: WheelEvent) => {
-      if (event.ctrlKey || event.metaKey) {
-        event.preventDefault()
-        setZoom((current) => clampZoom(current * Math.exp(-event.deltaY / 240)))
-        return
-      }
-      if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return
-      event.preventDefault()
-      onScrub(getCurrentMs() + event.deltaX / zoom)
-    }
-    viewport.addEventListener("wheel", onWheel, { passive: false })
-    return () => viewport.removeEventListener("wheel", onWheel)
-  }, [clampZoom, getCurrentMs, onScrub, ready, zoom])
+    const handleWheel = (event: WheelEvent) => onWheel(event)
+    viewport.addEventListener("wheel", handleWheel, { passive: false })
+    return () => viewport.removeEventListener("wheel", handleWheel)
+  }, [ready])
 
   const startPan = (pointerId: number, clientX: number) => {
     gestureRef.current = {

@@ -26,7 +26,8 @@ import {
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Field, FieldLabel } from "@alloy/ui/components/field"
 import { List, ListItem } from "@alloy/ui/components/list"
-import { useQueryClient } from "@tanstack/react-query"
+import { useForm, useStore } from "@tanstack/react-form"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   CircleAlertIcon,
   PencilIcon,
@@ -34,8 +35,8 @@ import {
   SaveIcon,
   Trash2Icon,
 } from "lucide-react"
-import { useEffect, useState } from "react"
-import type { FormEvent, ReactNode } from "react"
+import { useState } from "react"
+import type { ReactNode } from "react"
 
 import { LimitedInput } from "@/components/form/limited-field"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
@@ -78,39 +79,6 @@ export function PasskeysCard({
   onRefresh: () => Promise<void>
 }) {
   const applyWrite = useApplyPasskeyWrite(onRefresh)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [deleteError, setDeleteError] = useState<{
-    id: string
-    message: string
-  } | null>(null)
-
-  async function onDelete(passkey: Passkey) {
-    if (deletingId) return
-    setDeleteError(null)
-    setDeletingId(passkey.id)
-    try {
-      const { error } = await authClient.passkey.deletePasskey({
-        id: passkey.id,
-      })
-      if (error) {
-        setDeleteError({
-          id: passkey.id,
-          message: errorMessage(error, t("Couldn't remove passkey")),
-        })
-        return
-      }
-      applyWrite((current) =>
-        current.filter((entry) => entry.id !== passkey.id),
-      )
-    } catch (cause) {
-      setDeleteError({
-        id: passkey.id,
-        message: errorMessage(cause, t("Something went wrong")),
-      })
-    } finally {
-      setDeletingId(null)
-    }
-  }
 
   return (
     <SettingsSubsection
@@ -127,12 +95,6 @@ export function PasskeysCard({
             <PasskeyRow
               key={passkey.id}
               passkey={passkey}
-              removing={deletingId === passkey.id}
-              removeError={
-                deleteError?.id === passkey.id ? deleteError.message : null
-              }
-              onDelete={() => onDelete(passkey)}
-              onDismissRemoveError={() => setDeleteError(null)}
               applyWrite={applyWrite}
             />
           ))}
@@ -146,56 +108,51 @@ export function PasskeysCard({
   )
 }
 
+/** Maps a failed registration to the message the dialog shows. */
+function registrationError(cause: unknown, fallback: string): Error {
+  reportAuthFlowFailure("passkey registration", fallback, cause)
+  return new Error(
+    isAuthAttemptCancellation(cause)
+      ? t("Auth attempt cancelled.")
+      : errorMessage(cause, fallback),
+  )
+}
+
 function AddPasskeyDialog({ applyWrite }: { applyWrite: ApplyPasskeyWrite }) {
   const [open, setOpen] = useState(false)
-  const [name, setName] = useState("")
-  const [adding, setAdding] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
+  // The typed name survives a cancel and clears once a passkey is added.
+  const form = useForm({
+    defaultValues: { name: "" },
+    onSubmit: ({ value }) => {
+      if (!register.isPending) register.mutate(value.name)
+    },
+  })
+  const name = useStore(form.store, (state) => state.values.name)
+  // Lives outside the dialog content, so closing mid-registration still
+  // records the new passkey.
+  const register = useMutation({
+    mutationFn: async (label: string) => {
+      const result = await addPasskeyWithLabel({ label }).catch(
+        (cause: unknown) => {
+          throw registrationError(cause, t("Passkey registration failed"))
+        },
+      )
+      if (result.error) {
+        throw registrationError(result.error, t("Couldn't register passkey"))
+      }
+      return result.data
+    },
+    onSuccess: (data) => {
+      setOpen(false)
+      form.reset()
+      applyWrite((current) => (data ? [...current, data] : current))
+    },
+  })
 
   function handleOpenChange(next: boolean) {
     setOpen(next)
-    if (!next) setSubmitError(null)
-  }
-
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (adding) return
-    setSubmitError(null)
-    setAdding(true)
-    try {
-      const { data, error } = await addPasskeyWithLabel({
-        label: name,
-      })
-      if (error) {
-        reportAuthFlowFailure(
-          "passkey registration",
-          t("Couldn't register passkey"),
-          error,
-        )
-        setSubmitError(
-          isAuthAttemptCancellation(error)
-            ? t("Auth attempt cancelled.")
-            : errorMessage(error, t("Couldn't register passkey")),
-        )
-        return
-      }
-      handleOpenChange(false)
-      setName("")
-      applyWrite((current) => (data ? [...current, data] : current))
-    } catch (cause) {
-      reportAuthFlowFailure(
-        "passkey registration",
-        t("Passkey registration failed"),
-        cause,
-      )
-      setSubmitError(
-        isAuthAttemptCancellation(cause)
-          ? t("Auth attempt cancelled.")
-          : errorMessage(cause, t("Passkey registration failed")),
-      )
-    } finally {
-      setAdding(false)
-    }
+    // Resetting an in-flight registration would drop its pending state.
+    if (!next && !register.isPending) register.reset()
   }
 
   return (
@@ -203,17 +160,19 @@ function AddPasskeyDialog({ applyWrite }: { applyWrite: ApplyPasskeyWrite }) {
       mode="add"
       open={open}
       name={name}
-      error={submitError}
-      busy={adding}
+      error={register.error?.message ?? null}
+      busy={register.isPending}
       onOpenChange={handleOpenChange}
-      onNameChange={setName}
-      onSubmit={onSubmit}
+      onNameChange={(next) => form.setFieldValue("name", next)}
+      onSubmit={() => void form.handleSubmit()}
       submitAction={
         <FeedbackButton
           type="submit"
           variant="primary"
           size="sm"
-          state={adding ? "pending" : submitError ? "error" : "idle"}
+          state={
+            register.isPending ? "pending" : register.isError ? "error" : "idle"
+          }
           pendingLabel={t("Waiting for authenticator…")}
           errorLabel={t("Try again")}
         >
@@ -245,7 +204,7 @@ function PasskeyNameDialog({
   error: string | null
   onOpenChange: (open: boolean) => void
   onNameChange: (name: string) => void
-  onSubmit: (e: FormEvent<HTMLFormElement>) => void
+  onSubmit: () => void
   submitAction: ReactNode
 }) {
   const isAdd = mode === "add"
@@ -277,7 +236,13 @@ function PasskeyNameDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger render={trigger} />
       <DialogContent variant="secondary">
-        <form onSubmit={onSubmit}>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            onSubmit()
+          }}
+        >
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
@@ -322,19 +287,30 @@ function PasskeyNameDialog({
 
 function PasskeyRow({
   passkey,
-  removing,
-  removeError,
-  onDelete,
-  onDismissRemoveError,
   applyWrite,
 }: {
   passkey: Passkey
-  removing: boolean
-  removeError: string | null
-  onDelete: () => void
-  onDismissRemoveError: () => void
   applyWrite: ApplyPasskeyWrite
 }) {
+  const remove = useMutation({
+    mutationFn: async () => {
+      const { error } = await authClient.passkey.deletePasskey({
+        id: passkey.id,
+      })
+      if (error) {
+        throw new Error(errorMessage(error, t("Couldn't remove passkey")))
+      }
+    },
+    onSuccess: () =>
+      applyWrite((current) =>
+        current.filter((entry) => entry.id !== passkey.id),
+      ),
+  })
+  const removing = remove.isPending
+  const removeError = remove.error
+    ? errorMessage(remove.error, t("Something went wrong"))
+    : null
+
   return (
     <ListItem>
       <div className="min-w-0 flex-1">
@@ -349,7 +325,7 @@ function PasskeyRow({
         <EditPasskeyDialog passkey={passkey} applyWrite={applyWrite} />
         <AlertDialog
           onOpenChange={(open) => {
-            if (!open) onDismissRemoveError()
+            if (!open && !remove.isPending) remove.reset()
           }}
         >
           <AlertDialogTrigger
@@ -388,7 +364,7 @@ function PasskeyRow({
                 variant="destructive"
                 onClick={(event) => {
                   event.preventDefault()
-                  onDelete()
+                  if (!removing) remove.mutate()
                 }}
                 disabled={removing}
               >
@@ -410,50 +386,49 @@ function EditPasskeyDialog({
   applyWrite: ApplyPasskeyWrite
 }) {
   const [open, setOpen] = useState(false)
-  const [name, setName] = useState(passkey.name ?? "")
-  const [saving, setSaving] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
   const currentName = passkey.name ?? ""
-  const dirty = name.trim() !== currentName
-
-  useEffect(() => {
-    if (open) setName(currentName)
-  }, [open, currentName])
-
-  function handleOpenChange(next: boolean) {
-    setOpen(next)
-    if (!next) setSubmitError(null)
-  }
-
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (saving) return
-    if (!dirty) {
-      handleOpenChange(false)
-      return
-    }
-    setSubmitError(null)
-    setSaving(true)
-    try {
-      const { data, error } = await authClient.passkey.updatePasskey({
-        id: passkey.id,
-        name: name.trim() || undefined,
-      })
-      if (error) {
-        setSubmitError(errorMessage(error, t("Couldn't rename passkey")))
+  const form = useForm({
+    defaultValues: { name: currentName },
+    onSubmit: ({ value }) => {
+      if (rename.isPending) return
+      if (value.name.trim() === currentName) {
+        handleOpenChange(false)
         return
       }
-      handleOpenChange(false)
+      rename.mutate(value.name.trim())
+    },
+  })
+  const name = useStore(form.store, (state) => state.values.name)
+  const dirty = name.trim() !== currentName
+  const rename = useMutation({
+    mutationFn: async (nextName: string) => {
+      const { data, error } = await authClient.passkey.updatePasskey({
+        id: passkey.id,
+        name: nextName || undefined,
+      })
+      if (error) {
+        throw new Error(errorMessage(error, t("Couldn't rename passkey")))
+      }
+      return data
+    },
+    onSuccess: (data) => {
+      setOpen(false)
       applyWrite((current) =>
         data
           ? current.map((entry) => (entry.id === data.id ? data : entry))
           : current,
       )
-    } catch (cause) {
-      setSubmitError(errorMessage(cause, t("Something went wrong")))
-    } finally {
-      setSaving(false)
-    }
+    },
+  })
+  const submitError = rename.error
+    ? errorMessage(rename.error, t("Something went wrong"))
+    : null
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    // Every opening starts from the passkey's current name.
+    if (next) form.reset()
+    else if (!rename.isPending) rename.reset()
   }
 
   return (
@@ -463,17 +438,17 @@ function EditPasskeyDialog({
       open={open}
       name={name}
       error={submitError}
-      busy={saving}
+      busy={rename.isPending}
       onOpenChange={handleOpenChange}
-      onNameChange={setName}
-      onSubmit={onSubmit}
+      onNameChange={(next) => form.setFieldValue("name", next)}
+      onSubmit={() => void form.handleSubmit()}
       submitAction={
         <FeedbackButton
           type="submit"
           variant="primary"
           size="sm"
-          disabled={saving || !dirty}
-          state={saving ? "pending" : submitError ? "error" : "idle"}
+          disabled={rename.isPending || !dirty}
+          state={rename.isPending ? "pending" : submitError ? "error" : "idle"}
           pendingLabel={t("Saving…")}
           errorLabel={t("Try again")}
         >

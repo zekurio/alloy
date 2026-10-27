@@ -72,8 +72,7 @@ export function AdminWebhooksCard() {
 function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
   const queryClient = useQueryClient()
   const sendTestFeedback = useActionFeedback()
-  const [editing, setEditing] = useState(false)
-  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [openDialog, setOpenDialog] = useState<"edit" | "delete" | null>(null)
 
   const toggle = useMutation({
     mutationFn: (enabled: boolean) =>
@@ -107,7 +106,7 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
   return (
     <>
       <ListItemButton
-        onClick={() => setEditing(true)}
+        onClick={() => setOpenDialog("edit")}
         actions={
           <>
             <Switch
@@ -142,7 +141,7 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
               variant="ghost"
               size="icon"
               aria-label={t("Delete webhook")}
-              onClick={() => setDeleteOpen(true)}
+              onClick={() => setOpenDialog("delete")}
             >
               <Trash2Icon />
             </Button>
@@ -167,13 +166,13 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
       </ListItemButton>
       <EditWebhookDialog
         webhook={webhook}
-        open={editing}
-        onOpenChange={setEditing}
+        open={openDialog === "edit"}
+        onOpenChange={(open) => setOpenDialog(open ? "edit" : null)}
       />
       <ConfirmDeleteDialog
-        open={deleteOpen}
+        open={openDialog === "delete"}
         onOpenChange={(open) => {
-          setDeleteOpen(open)
+          setOpenDialog(open ? "delete" : null)
           if (!open) remove.reset()
         }}
         title={t("Delete this webhook?")}

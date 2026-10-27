@@ -1,36 +1,31 @@
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
-import type { Dispatch, RefObject, SetStateAction } from "react"
+import { useCallback, useEffect, useEffectEvent, useRef } from "react"
+import type { RefObject } from "react"
 
-import type { LoadStatus } from "./video-player-shell"
+import { readPlayerVolume } from "@/lib/player-volume"
+
+import type { PlayerStore } from "./video-player-store"
 import { readPlaybackClock, toPlaybackTime } from "./video-player-timeline"
 import type { MediaPlaybackRange } from "./video-player-types"
 
 type ResumeState = { time: number; play: boolean }
 type SourceState = { identity: string; mediaKey: string }
 
-/** Whether the current source has put a frame on screen. */
-export function useRenderedFrame(onFrameReady: (() => void) | undefined) {
-  const [hasRenderedFrame, setHasRenderedFrame] = useState(false)
-  const hasRenderedFrameRef = useRef(false)
+/** Marks the current source's first frame on screen, once per source. */
+export function useRenderedFrame(
+  store: PlayerStore,
+  onFrameReady: (() => void) | undefined,
+) {
   const onFrameReadyRef = useRef(onFrameReady)
 
   useEffect(() => {
     onFrameReadyRef.current = onFrameReady
   }, [onFrameReady])
 
-  const markFrameRendered = useCallback(() => {
-    if (hasRenderedFrameRef.current) return
-    hasRenderedFrameRef.current = true
-    setHasRenderedFrame(true)
+  return useCallback(() => {
+    if (store.getState().hasRenderedFrame) return
+    store.setState({ hasRenderedFrame: true })
     onFrameReadyRef.current?.()
-  }, [])
-
-  const resetRenderedFrame = useCallback(() => {
-    hasRenderedFrameRef.current = false
-    setHasRenderedFrame(false)
-  }, [])
-
-  return { hasRenderedFrame, markFrameRendered, resetRenderedFrame }
+  }, [store])
 }
 
 /**
@@ -41,61 +36,41 @@ export function useRenderedFrame(onFrameReady: (() => void) | undefined) {
  * handler.
  */
 export function useSourceLoading({
+  store,
   videoRef,
   identity,
   mediaKey,
   playbackRange,
   durationHint,
-  playbackRate,
   initialTime,
   autoPlay,
   isCoarsePointer,
-  volumeRef,
-  mutedRef,
-  playingRef,
-  lastTimeRef,
   playRequestIdRef,
   rangeEndedRef,
-  setStatus,
-  setDuration,
-  setCurrentTime,
-  setBufferedEnd,
   setPlayingState,
   clearBuffering,
   clearChromeHideTimer,
-  setChromeVisible,
   syncBuffered,
   playInternal,
   markFrameRendered,
-  resetRenderedFrame,
 }: {
+  store: PlayerStore
   videoRef: RefObject<HTMLVideoElement | null>
   identity: string
   mediaKey: string
   playbackRange: MediaPlaybackRange | undefined
   durationHint: number | undefined
-  playbackRate: number
   initialTime: number
   autoPlay: boolean
   isCoarsePointer: boolean
-  volumeRef: RefObject<number>
-  mutedRef: RefObject<boolean>
-  playingRef: RefObject<boolean>
-  lastTimeRef: RefObject<number>
   playRequestIdRef: RefObject<number>
   rangeEndedRef: RefObject<boolean>
-  setStatus: Dispatch<SetStateAction<LoadStatus>>
-  setDuration: Dispatch<SetStateAction<number>>
-  setCurrentTime: Dispatch<SetStateAction<number>>
-  setBufferedEnd: Dispatch<SetStateAction<number>>
   setPlayingState: (playing: boolean) => void
   clearBuffering: () => void
   clearChromeHideTimer: () => void
-  setChromeVisible: Dispatch<SetStateAction<boolean>>
   syncBuffered: () => void
   playInternal: (reportBlocked?: boolean) => Promise<void>
   markFrameRendered: () => void
-  resetRenderedFrame: () => void
 }) {
   const resumeRef = useRef<ResumeState | null>(null)
   const prevSourceRef = useRef<SourceState | null>(null)
@@ -105,12 +80,15 @@ export function useSourceLoading({
     if (!element) return
     const clock = readPlaybackClock(element, playbackRange, durationHint)
     const nextDuration = clock.duration
-    setDuration(nextDuration)
-    setBufferedEnd(0)
-    element.volume = volumeRef.current
-    element.muted = mutedRef.current
-    element.playbackRate = playbackRate
-    setStatus({ kind: "ready" })
+    const { volume, muted } = readPlayerVolume()
+    element.volume = volume
+    element.muted = muted
+    element.playbackRate = store.getState().playbackRate
+    store.setState({
+      duration: nextDuration,
+      bufferedEnd: 0,
+      status: { kind: "ready" },
+    })
     clearBuffering()
 
     const resume = resumeRef.current
@@ -123,8 +101,7 @@ export function useSourceLoading({
       } catch {
         // Seeking can throw before the element has a seekable range.
       }
-      lastTimeRef.current = target
-      setCurrentTime(target)
+      store.setState({ currentTime: target })
       if (resume.play) void playInternal(false)
       syncBuffered()
       return
@@ -133,8 +110,7 @@ export function useSourceLoading({
     const target = toPlaybackTime(initialTime, nextDuration, undefined)
     const mediaTarget = clock.toMediaTime(target)
     if (element.currentTime !== mediaTarget) element.currentTime = mediaTarget
-    lastTimeRef.current = target
-    setCurrentTime(target)
+    store.setState({ currentTime: target })
     if (autoPlay) void playInternal(false)
     syncBuffered()
   }, [
@@ -142,44 +118,35 @@ export function useSourceLoading({
     clearBuffering,
     durationHint,
     initialTime,
-    lastTimeRef,
-    mutedRef,
     playbackRange,
-    playbackRate,
     playInternal,
-    setBufferedEnd,
-    setCurrentTime,
-    setDuration,
-    setStatus,
+    store,
     syncBuffered,
     videoRef,
-    volumeRef,
   ])
 
   const resetForSource = useEffectEvent(
     (isNewMedia: boolean, isElementReload: boolean) => {
       if (isElementReload) {
         playRequestIdRef.current += 1
-        setStatus({ kind: "loading" })
-        setBufferedEnd(0)
-        resetRenderedFrame()
+        store.setState({
+          status: { kind: "loading" },
+          bufferedEnd: 0,
+          hasRenderedFrame: false,
+        })
       }
       clearBuffering()
       clearChromeHideTimer()
-      setChromeVisible(!(isCoarsePointer && autoPlay))
+      store.setState({ chromeVisible: !(isCoarsePointer && autoPlay) })
 
       if (isNewMedia) {
         resumeRef.current = null
-        lastTimeRef.current = 0
-        setDuration(0)
-        setCurrentTime(0)
+        store.setState({ duration: 0, currentTime: 0, posterHeld: true })
         setPlayingState(false)
         rangeEndedRef.current = false
       } else {
-        resumeRef.current = {
-          time: lastTimeRef.current,
-          play: playingRef.current,
-        }
+        const { currentTime, playing } = store.getState()
+        resumeRef.current = { time: currentTime, play: playing }
       }
 
       if (!isElementReload) return

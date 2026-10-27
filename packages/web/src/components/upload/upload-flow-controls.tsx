@@ -1,60 +1,31 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { useState } from "react"
 import type { ReactNode } from "react"
+import { useStore } from "zustand"
+
+import { useInvalidateClips } from "@/lib/clip-queries"
 
 import {
-  UploadActionsContext,
-  type UploadFlowActions,
-  type PublishClipFn,
-  UploadQueueContext,
-  type UploadQueueState,
+  UploadQueueStoreContext,
   WebUploadActionContext,
 } from "./upload-flow-context"
+import { createUploadQueueStore } from "./upload-queue-store"
 import { useWebUploadAction } from "./web-upload-action"
 
-const publishUnavailable: PublishClipFn = () =>
-  Promise.reject(new Error("Upload queue is not available."))
-
-const emptyQueueState: UploadQueueState = {
-  queue: [],
-}
-
 export function UploadFlowProvider({ children }: { children: ReactNode }) {
-  const [queueState, setQueueStateValue] =
-    useState<UploadQueueState>(emptyQueueState)
-  const publishClipRef = useRef<PublishClipFn>(publishUnavailable)
-
-  const publishClip = useCallback<PublishClipFn>(
-    (payload) => publishClipRef.current(payload),
-    [],
+  const queryClient = useQueryClient()
+  const invalidateClips = useInvalidateClips()
+  const [store] = useState(() =>
+    createUploadQueueStore(queryClient, invalidateClips),
   )
-  const setPublishClip = useCallback((fn: PublishClipFn | null) => {
-    publishClipRef.current = fn ?? publishUnavailable
-  }, [])
-  const setQueueState = useCallback((state: UploadQueueState | null) => {
-    setQueueStateValue(state ?? emptyQueueState)
-  }, [])
-
-  const queueValue = useMemo<UploadQueueState>(
-    () => ({ queue: queueState.queue }),
-    [queueState.queue],
-  )
-  const actions = useMemo<UploadFlowActions>(
-    () => ({
-      setQueueState,
-      publishClip,
-      setPublishClip,
-    }),
-    [setQueueState, publishClip, setPublishClip],
-  )
+  const publishClip = useStore(store, (state) => state.publishClip)
   const webUploadAction = useWebUploadAction(publishClip)
 
   return (
-    <UploadActionsContext.Provider value={actions}>
-      <UploadQueueContext.Provider value={queueValue}>
-        <WebUploadActionContext.Provider value={webUploadAction}>
-          {children}
-        </WebUploadActionContext.Provider>
-      </UploadQueueContext.Provider>
-    </UploadActionsContext.Provider>
+    <UploadQueueStoreContext.Provider value={store}>
+      <WebUploadActionContext.Provider value={webUploadAction}>
+        {children}
+      </WebUploadActionContext.Provider>
+    </UploadQueueStoreContext.Provider>
   )
 }

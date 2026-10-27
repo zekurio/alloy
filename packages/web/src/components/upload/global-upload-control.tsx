@@ -1,7 +1,7 @@
 import { t } from "@alloy/i18n"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { PlusIcon, UploadIcon } from "lucide-react"
-import { Suspense, lazy, useRef, useState } from "react"
+import { Suspense, lazy, useRef } from "react"
 
 import { alloyDesktop } from "@/lib/desktop"
 
@@ -38,10 +38,7 @@ export function GlobalUploadControl({
   const inputRef = useRef<HTMLInputElement>(null)
   // Stays mounted after the first pick so the details dialog can animate
   // closed instead of vanishing the moment the pick is committed or dropped.
-  const [importDialogMounted, setImportDialogMounted] = useState(false)
-  if (importAction.staged !== null && !importDialogMounted) {
-    setImportDialogMounted(true)
-  }
+  const importDialogMounted = importAction.shown !== null
 
   const triggerClassName =
     variant === "header"

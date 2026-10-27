@@ -1,53 +1,54 @@
-import { useCallback, useEffect, useState } from "react"
-import type { DependencyList } from "react"
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
+
+/** The query cache key of a `useDesktopQuery` read. */
+export function desktopQueryKey(key: readonly string[]): readonly string[] {
+  return ["desktop", ...key]
+}
 
 /**
- * Loads a value from a native bridge call on mount and whenever `deps`
- * change, dropping stale results so a fast remount can't clobber fresh state.
- * Bridge calls live outside TanStack Query, so this replaces the hand-rolled
- * "fetch + cancelled flag" effect each desktop panel used to repeat.
+ * Loads a value from a native bridge call through TanStack Query. The host
+ * pushes nothing for these reads, so they load when the first reader mounts,
+ * never refetch on focus or retry, and are dropped once the last reader
+ * unmounts; `refetch` re-reads on demand. `setData` applies the result of a
+ * follow-up call without a refetch.
  *
- * Pass `load: null` when the bridge is unavailable (plain web) — the hook stays
- * idle with `data` undefined. `setData` applies the result of a follow-up
- * mutation without a refetch; `refetch` re-runs the loader on demand.
- * A rejected loader leaves `data` as it was and sets `error` until the next
- * load succeeds.
+ * Pass `load: null` when the bridge is unavailable (plain web) or the value
+ * isn't needed yet: the query stays idle with `data` undefined. When
+ * `reloadWhenEnabled` returns true for the loaded value, the next switch from
+ * null back to a loader re-reads, e.g. whenever a picker opens. A rejected
+ * loader leaves `data` as it was and sets `error` until the next load
+ * succeeds.
  */
 export function useDesktopQuery<T>(
+  key: readonly string[],
   load: (() => Promise<T>) | null | undefined,
-  deps: DependencyList,
+  {
+    reloadWhenEnabled,
+  }: { reloadWhenEnabled?: (data: T | undefined) => boolean } = {},
 ) {
-  const [data, setData] = useState<T>()
-  const [loading, setLoading] = useState(load != null)
-  const [error, setError] = useState<unknown>(null)
-  const [reloadNonce, setReloadNonce] = useState(0)
-  const refetch = useCallback(() => setReloadNonce((nonce) => nonce + 1), [])
+  const queryClient = useQueryClient()
+  const queryKey = desktopQueryKey(key)
+  const query = useQuery({
+    queryKey,
+    queryFn: load ?? skipToken,
+    staleTime: (current) =>
+      reloadWhenEnabled?.(current.state.data) ? 0 : Infinity,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    // Bridge calls never touch the network.
+    networkMode: "always",
+  })
 
-  useEffect(() => {
-    if (load == null) {
-      setLoading(false)
-      return
-    }
-    let cancelled = false
-    setLoading(true)
-    void load()
-      .then(
-        (result) => {
-          if (cancelled) return
-          setData(result)
-          setError(null)
-        },
-        (cause: unknown) => {
-          if (!cancelled) setError(cause)
-        },
-      )
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [...deps, reloadNonce])
-
-  return { data, setData, loading, error, refetch }
+  return {
+    data: query.data,
+    setData: (next: T | ((current: T | undefined) => T | undefined)) =>
+      queryClient.setQueryData<T>(queryKey, next),
+    loading: query.isFetching,
+    /** Whether a load has settled, even if a reload is now in flight. */
+    loaded: query.dataUpdatedAt > 0 || query.errorUpdatedAt > 0,
+    error: query.error,
+    refetch: () => void query.refetch(),
+  }
 }

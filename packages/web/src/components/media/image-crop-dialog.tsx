@@ -13,15 +13,9 @@ import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Slider } from "@alloy/ui/components/slider"
 import { canvasBlurHash } from "@alloy/ui/lib/blurhash-encode"
 import { cn } from "@alloy/ui/lib/utils"
+import { useMutation } from "@tanstack/react-query"
 import { CircleAlertIcon, ImageIcon, Minus, Plus } from "lucide-react"
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { PointerEvent } from "react"
 
 import { errorMessage } from "@/lib/error-message"
@@ -33,7 +27,6 @@ import {
   clampImageOffset,
   CROP_CONFIG,
   type CropMode,
-  DEFAULT_PREVIEW_ZOOM,
   type DragState,
   fallbackStageSize,
   getCropFrame,
@@ -57,37 +50,52 @@ export interface ImageCropResult {
   blurHash: string | null
 }
 
+type CropSource =
+  | { file: File; image: LoadedImage; error: null }
+  | { file: File; image: null; error: string }
+
+/** Zoom and pan; a null zoom fits the image to the crop until changed. */
+type CropView = {
+  file: File | null
+  zoom: number | null
+  offset: Point
+}
+
+const INITIAL_VIEW: CropView = {
+  file: null,
+  zoom: null,
+  offset: { x: 0, y: 0 },
+}
+
 export function ImageCropDialog({
   file,
   mode,
   open,
   applying,
   onApply,
-  onApplyingChange,
   onOpenChange,
 }: {
   file: File | null
   mode: CropMode
   open: boolean
+  /** The caller's own work after `onApply`, e.g. an upload. */
   applying: boolean
   onApply: (result: ImageCropResult) => Promise<void>
-  onApplyingChange?: (applying: boolean) => void
   onOpenChange: (open: boolean) => void
 }) {
   const config = CROP_CONFIG[mode]
   const stageRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragState | null>(null)
-  const zoomInitializedRef = useRef(false)
-  const [stageNode, setStageNode] = useState<HTMLDivElement | null>(null)
-  const [loadedImage, setLoadedImage] = useState<LoadedImage | null>(null)
+  // Loaded images and the view belong to the file they were made for, so a
+  // new file starts fresh without resetting anything.
+  const [source, setSource] = useState<CropSource | null>(null)
+  const [storedView, setView] = useState<CropView>(INITIAL_VIEW)
   const [stageSize, setStageSize] = useState({ height: 0, width: 0 })
-  const [offset, setOffset] = useState<Point>({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [cropPending, setCropPending] = useState(false)
-  const [actionError, setActionError] = useState<string | null>(null)
+  const current = open && file && source?.file === file ? source : null
+  const loadedImage = current?.image ?? null
+  const view = storedView.file === file ? storedView : INITIAL_VIEW
   const stageReady = stageSize.width > 0 && stageSize.height > 0
   const cropReady = !!loadedImage && stageReady
-  const controlsDisabled = !cropReady || applying || cropPending
   const effectiveStageSize = useMemo(
     () => (stageReady ? stageSize : fallbackStageSize(mode)),
     [mode, stageSize],
@@ -105,28 +113,13 @@ export function ImageCropDialog({
     () => getMinimumZoom(mode, containedImageBox, cropFrame),
     [containedImageBox, cropFrame, mode],
   )
+  const zoom = clamp(view.zoom ?? minimumZoom, minimumZoom, MAX_PREVIEW_ZOOM)
 
   useEffect(() => {
-    onApplyingChange?.(cropPending)
-  }, [cropPending, onApplyingChange])
-
-  useEffect(() => {
-    if (!file || !open) {
-      setLoadedImage(null)
-      setStageSize({ height: 0, width: 0 })
-      setCropPending(false)
-      setActionError(null)
-      zoomInitializedRef.current = false
-      return
-    }
+    if (!file || !open) return
 
     let active = true
     let src: string | null = null
-    setLoadedImage(null)
-    setStageSize({ height: 0, width: 0 })
-    setCropPending(false)
-    setActionError(null)
-    zoomInitializedRef.current = false
 
     const load = async () => {
       src = requireObjectUrl(file, "crop source")
@@ -134,40 +127,37 @@ export function ImageCropDialog({
 
       if (!active) return
 
-      setLoadedImage({
-        element,
-        height: element.naturalHeight,
-        src,
-        width: element.naturalWidth,
+      setSource({
+        file,
+        image: {
+          element,
+          height: element.naturalHeight,
+          src,
+          width: element.naturalWidth,
+        },
+        error: null,
       })
-      setOffset({ x: 0, y: 0 })
-      setZoom(DEFAULT_PREVIEW_ZOOM)
     }
 
     load().catch((cause) => {
       if (active) {
-        setLoadedImage(null)
-        setActionError(errorMessage(cause, t("Couldn't load image")))
+        setSource({
+          file,
+          image: null,
+          error: errorMessage(cause, t("Couldn't load image")),
+        })
       }
     })
 
     return () => {
       active = false
       revokeObjectUrl(src, "crop source")
+      // Reopening with the same file must not show the revoked URL or the
+      // last session's zoom.
+      setSource((current) => (current?.file === file ? null : current))
+      setView((current) => (current.file === file ? INITIAL_VIEW : current))
     }
   }, [file, open])
-
-  useEffect(() => {
-    if (!cropReady || zoomInitializedRef.current) return
-
-    zoomInitializedRef.current = true
-    setOffset({ x: 0, y: 0 })
-    setZoom(minimumZoom)
-  }, [cropReady, minimumZoom])
-
-  useEffect(() => {
-    setZoom((current) => clamp(current, minimumZoom, MAX_PREVIEW_ZOOM))
-  }, [minimumZoom])
 
   // Stores the stage's layout size when it changed. clientWidth ignores the
   // dialog's open transform, which would skew a bounding-rect measure.
@@ -183,14 +173,21 @@ export function ImageCropDialog({
     return nextSize
   }, [])
 
-  useLayoutEffect(() => {
-    if (!open || !stageNode) return
-
-    measureStage()
-    const observer = new ResizeObserver(() => measureStage())
-    observer.observe(stageNode)
-    return () => observer.disconnect()
-  }, [open, measureStage, mode, stageNode])
+  // The stage mounts with the dialog's popup. Measuring on attach keeps the
+  // first paint at the real size; the observer follows later changes.
+  const setStageElement = useCallback(
+    (node: HTMLDivElement) => {
+      stageRef.current = node
+      measureStage()
+      const observer = new ResizeObserver(() => measureStage())
+      observer.observe(node)
+      return () => {
+        observer.disconnect()
+        stageRef.current = null
+      }
+    },
+    [measureStage],
+  )
 
   const imageBox = useMemo(() => {
     if (!loadedImage) {
@@ -200,68 +197,18 @@ export function ImageCropDialog({
     return getImageBox(loadedImage, effectiveStageSize, zoom)
   }, [effectiveStageSize, loadedImage, zoom])
 
-  const clampOffset = useCallback(
-    (next: Point) => {
-      if (!imageBox) return { x: 0, y: 0 }
+  const offset = useMemo(() => {
+    if (!imageBox) return { x: 0, y: 0 }
+    const next = clampImageOffset(view.offset, cropFrame, imageBox)
+    return pointsEqual(view.offset, next) ? view.offset : next
+  }, [cropFrame, imageBox, view.offset])
 
-      return clampImageOffset(next, cropFrame, imageBox)
-    },
-    [cropFrame, imageBox],
-  )
-
-  useEffect(() => {
-    setOffset((current) => {
-      const next = clampOffset(current)
-      return pointsEqual(current, next) ? current : next
-    })
-  }, [clampOffset, zoom])
-
-  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (!cropReady || applying) return
-
-    measureStage()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    dragRef.current = {
-      origin: { x: event.clientX, y: event.clientY },
-      pointerId: event.pointerId,
-      startOffset: offset,
-    }
-  }
-
-  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
-    const drag = dragRef.current
-    if (!drag || drag.pointerId !== event.pointerId || !loadedImage) return
-
-    const liveStageSize = measureStage() ?? effectiveStageSize
-    const { cropFrame: liveCropFrame, imageBox: liveImageBox } =
-      getLiveCropGeometry(loadedImage, liveStageSize, config, mode, zoom)
-    setOffset(
-      clampImageOffset(
-        {
-          x: drag.startOffset.x + event.clientX - drag.origin.x,
-          y: drag.startOffset.y + event.clientY - drag.origin.y,
-        },
-        liveCropFrame,
-        liveImageBox,
-      ),
-    )
-  }
-
-  function finishDrag(event: PointerEvent<HTMLDivElement>) {
-    const drag = dragRef.current
-    if (!drag || drag.pointerId !== event.pointerId) return
-
-    dragRef.current = null
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-  }
-
-  async function handleApply() {
-    if (!file || !cropReady || cropPending) return
-
-    setCropPending(true)
-    try {
+  const apply = useMutation({
+    // Cropping is local; a failed upload must surface rather than pause the
+    // dialog, which can't close while applying.
+    networkMode: "always",
+    mutationFn: async (_target: File) => {
+      if (!file || !loadedImage) return
       const renderedStageSize = readElementSize(stageRef.current) ?? stageSize
       const { cropFrame: renderedCropFrame, imageBox: renderedImageBox } =
         getLiveCropGeometry(loadedImage, renderedStageSize, config, mode, zoom)
@@ -298,24 +245,66 @@ export function ImageCropDialog({
       const blurHash = safeCanvasBlurHash(canvas)
       const blob = await canvasToBlob(canvas, preferredOutputType(file.type))
       await onApply({ blob, blurHash })
-    } finally {
-      setCropPending(false)
+    },
+  })
+  const busy = applying || apply.isPending
+  const controlsDisabled = !cropReady || busy
+  const actionError =
+    current?.error ??
+    (apply.error && apply.variables === file
+      ? errorMessage(apply.error, t("Couldn't crop image"))
+      : null)
+
+  function setViewFor(next: Omit<CropView, "file">) {
+    setView({ file, ...next })
+  }
+
+  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (!cropReady || applying) return
+
+    measureStage()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    dragRef.current = {
+      origin: { x: event.clientX, y: event.clientY },
+      pointerId: event.pointerId,
+      startOffset: offset,
     }
   }
 
-  async function handleApplyClick() {
-    setActionError(null)
-    try {
-      await handleApply()
-    } catch (cause) {
-      setActionError(errorMessage(cause, t("Couldn't crop image")))
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId || !loadedImage) return
+
+    const liveStageSize = measureStage() ?? effectiveStageSize
+    const { cropFrame: liveCropFrame, imageBox: liveImageBox } =
+      getLiveCropGeometry(loadedImage, liveStageSize, config, mode, zoom)
+    setViewFor({
+      zoom,
+      offset: clampImageOffset(
+        {
+          x: drag.startOffset.x + event.clientX - drag.origin.x,
+          y: drag.startOffset.y + event.clientY - drag.origin.y,
+        },
+        liveCropFrame,
+        liveImageBox,
+      ),
+    })
+  }
+
+  function finishDrag(event: PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+
+    dragRef.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
     }
   }
 
-  const setStageElement = useCallback((node: HTMLDivElement | null) => {
-    stageRef.current = node
-    setStageNode(node)
-  }, [])
+  function handleApplyClick() {
+    if (!file || !cropReady || apply.isPending) return
+    apply.mutate(file)
+  }
 
   function handleZoomChange(value: number | readonly number[]) {
     if (!loadedImage) return
@@ -326,10 +315,10 @@ export function ImageCropDialog({
     const { cropFrame: liveCropFrame, imageBox: liveImageBox } =
       getLiveCropGeometry(loadedImage, liveStageSize, config, mode, nextZoom)
 
-    setZoom(nextZoom)
-    setOffset((current) =>
-      clampImageOffset(current, liveCropFrame, liveImageBox),
-    )
+    setViewFor({
+      zoom: nextZoom,
+      offset: clampImageOffset(offset, liveCropFrame, liveImageBox),
+    })
   }
 
   const imagePlacement =
@@ -340,10 +329,18 @@ export function ImageCropDialog({
     cropReady && imagePlacement
       ? isCropCovered(cropFrame, imagePlacement)
       : false
-  const applyDisabled = !cropCovered || applying || cropPending
+  const applyDisabled = !cropCovered || busy
+
+  const handleOpenChange = (next: boolean) => {
+    // Closing mid-apply would drop the result, including a failure the dialog
+    // still has to show. Cancelling clears a failure, so a reopen starts clean.
+    if (!next && busy) return
+    if (!next) apply.reset()
+    onOpenChange(next)
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         variant="secondary"
         className="flex max-h-[calc(100vh-24px)] w-[min(640px,calc(100vw-24px))] max-w-none flex-col"
@@ -438,8 +435,8 @@ export function ImageCropDialog({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => onOpenChange(false)}
-            disabled={applying || cropPending}
+            onClick={() => handleOpenChange(false)}
+            disabled={busy}
           >
             {t("Cancel")}
           </Button>
@@ -447,15 +444,9 @@ export function ImageCropDialog({
             type="button"
             variant="primary"
             size="sm"
-            onClick={() => void handleApplyClick()}
+            onClick={handleApplyClick}
             disabled={applyDisabled}
-            state={
-              applying || cropPending
-                ? "pending"
-                : actionError
-                  ? "error"
-                  : "idle"
-            }
+            state={busy ? "pending" : actionError ? "error" : "idle"}
             pendingLabel={t("Applying...")}
             errorLabel={t("Try again")}
           >

@@ -19,7 +19,7 @@ import {
   SaveIcon,
   UploadIcon,
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 
 import {
   MediaStage,
@@ -70,9 +70,8 @@ import {
 } from "./library-entry-navigation"
 import { LocalFileLocation } from "./library-file-location"
 import {
-  clearLibraryHandoffPoster,
   LibraryHandoffPosterOverlay,
-  readLibraryHandoffPoster,
+  useLibraryHandoffPoster,
 } from "./library-handoff-poster"
 import {
   copyPublishedClipLink,
@@ -98,6 +97,14 @@ type LocalEditorBodyProps = {
   nextEntry: NavigableLibraryEntry | null
   deleting: boolean
   onRequestDelete: () => void
+}
+
+/** A value a save wrote, valid while the item still holds `over`. */
+type SavedValue<T> = { over: T; value: T }
+
+type SavedOverride = {
+  metadata?: SavedValue<ReturnType<typeof savedLocalMetadata>>
+  trim?: SavedValue<ReturnType<typeof persistedTrim>>
 }
 
 export type UploadEditorBodyProps = {
@@ -135,11 +142,34 @@ function LocalEditorBody({
   })
   const { playerRef, trim, trimmed, rangeMs } = playback
   const playerVolume = useExternalVideoVolume(playerRef)
-  const [savedTrim, setSavedTrim] = useState(() => persistedTrim(item))
 
-  const [savedMetadata, setSavedMetadata] = useState(() =>
-    savedLocalMetadata(item),
+  // What a save just wrote stands in for the item until the snapshot
+  // refresh lands with new values, so the draft doesn't flash dirty.
+  const itemMentionKey = item.mentions.map((mention) => mention.id).join("\0")
+  const itemSavedMetadata = useMemo(
+    () => savedLocalMetadata(item),
+    [
+      item.description,
+      item.displayGame?.id,
+      item.tags,
+      item.title,
+      itemMentionKey,
+    ],
   )
+  const itemSavedTrim = useMemo(
+    () => persistedTrim(item),
+    [item.trimStartMs, item.trimEndMs],
+  )
+  const [savedOverride, setSavedOverride] = useState<SavedOverride>({})
+  const savedMetadata =
+    savedOverride.metadata?.over === itemSavedMetadata
+      ? savedOverride.metadata.value
+      : itemSavedMetadata
+  const savedTrim =
+    savedOverride.trim?.over === itemSavedTrim
+      ? savedOverride.trim.value
+      : itemSavedTrim
+
   const metadata = useClipMetadataDraft(
     {
       title: item.title,
@@ -155,7 +185,6 @@ function LocalEditorBody({
     description,
     setDescription,
     game,
-    setGame,
     mentions,
     tags,
     normalizedTitle,
@@ -175,49 +204,7 @@ function LocalEditorBody({
   const saving = saveFeedback.feedback.state === "pending"
   const publishing = publishFeedback.feedback.state === "pending"
 
-  const resolvedGame = item.displayGame
-  const itemMentionKey = item.mentions.map((mention) => mention.id).join("\0")
-  const itemSavedMetadata = useMemo(
-    () => savedLocalMetadata(item),
-    [
-      item.description,
-      item.displayGame?.id,
-      item.tags,
-      item.title,
-      itemMentionKey,
-    ],
-  )
-  useEffect(() => {
-    setSavedMetadata(itemSavedMetadata)
-  }, [itemSavedMetadata])
-  const itemSavedTrim = useMemo(
-    () => persistedTrim(item),
-    [item.trimStartMs, item.trimEndMs],
-  )
-  useEffect(() => {
-    setSavedTrim(itemSavedTrim)
-  }, [itemSavedTrim])
-
-  useEffect(() => {
-    if (!resolvedGame) return
-    setGame((current) => current ?? resolvedGame)
-  }, [resolvedGame])
-
-  const [handoffPoster, setHandoffPoster] = useState(() =>
-    readLibraryHandoffPoster(item.id),
-  )
-  const [localFrameReady, setLocalFrameReady] = useState(
-    () => handoffPoster === null,
-  )
-  useEffect(() => {
-    setHandoffPoster(readLibraryHandoffPoster(item.id))
-  }, [item.id])
-  useEffect(() => {
-    setLocalFrameReady(handoffPoster === null)
-  }, [handoffPoster])
-  useEffect(() => {
-    if (handoffPoster && localFrameReady) clearLibraryHandoffPoster(item.id)
-  }, [handoffPoster, item.id, localFrameReady])
+  const handoff = useLibraryHandoffPoster(item.id)
   const waveform = useMediaWaveform(
     isImage ? null : item.mediaUrl,
     `desktop:${item.id}:${item.modifiedAt}:${item.sizeBytes}:${item.mediaUrl}`,
@@ -264,7 +251,10 @@ function LocalEditorBody({
           trimStartMs: currentTrim ? currentTrim.startMs : null,
           trimEndMs: currentTrim ? currentTrim.endMs : null,
         })
-        setSavedTrim(currentTrim)
+        setSavedOverride((current) => ({
+          ...current,
+          trim: { over: itemSavedTrim, value: currentTrim },
+        }))
       }
       const patch: Parameters<
         typeof desktop.recording.updateLibraryCapture
@@ -287,13 +277,19 @@ function LocalEditorBody({
       if (result) {
         setTitle(normalizedTitle)
         setDescription(normalizedDescription)
-        setSavedMetadata({
-          title: normalizedTitle,
-          description: normalizedDescription,
-          tags,
-          mentionIds,
-          gameId: game?.id ?? null,
-        })
+        setSavedOverride((current) => ({
+          ...current,
+          metadata: {
+            over: itemSavedMetadata,
+            value: {
+              title: normalizedTitle,
+              description: normalizedDescription,
+              tags,
+              mentionIds,
+              gameId: game?.id ?? null,
+            },
+          },
+        }))
       }
       notifyLibraryCapturesChanged()
       if (result && result.id !== item.id) {
@@ -433,15 +429,15 @@ function LocalEditorBody({
                   playerRef={playerRef}
                   onTimeUpdate={playback.handleTimeUpdate}
                   onPlayingChange={playback.setPlaying}
-                  onFrameReady={() => setLocalFrameReady(true)}
+                  onFrameReady={handoff.markFrameReady}
                   onEnded={playback.handleEnded}
                 />
 
                 <LibraryEntryNavButton side="left" target={prevEntry} />
                 <LibraryEntryNavButton side="right" target={nextEntry} />
                 <LibraryHandoffPosterOverlay
-                  poster={handoffPoster}
-                  ready={localFrameReady}
+                  poster={handoff.poster}
+                  ready={handoff.frameReady}
                 />
               </MediaStage>
 

@@ -14,6 +14,7 @@ import { Button } from "@alloy/ui/components/button"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
+import { useMutation } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { EyeOffIcon, RotateCcwIcon, Trash2Icon } from "lucide-react"
 import { useState } from "react"
@@ -24,86 +25,77 @@ import { completeAccountExitFlow } from "@/lib/auth-flow"
 import { errorMessage } from "@/lib/error-message"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
+type DangerAction = "disable" | "reactivate" | "delete"
+
 function useAccountDangerActions() {
   const router = useRouter()
   const navigate = useNavigate()
   const session = useSuspenseSession()
-  const [pendingAction, setPendingAction] = useState<
-    "disable" | "reactivate" | "delete" | null
-  >(null)
-  const [actionError, setActionError] = useState<string | null>(null)
   // The session user already carries `disabledAt`, so seed from it rather than
   // an isolated fetch that flashes a loading row each time the card mounts. The
-  // handlers below keep it current after a disable/reactivate.
+  // actions below keep it current after a disable/reactivate.
   const [disabledAt, setDisabledAt] = useState<string | null>(
     session?.user.disabledAt ?? null,
   )
 
-  const pending = pendingAction !== null
-
-  async function onDisable() {
-    if (pending) return
-    setActionError(null)
-    setPendingAction("disable")
-    try {
-      const state = await api.users.disableAccount()
-      setDisabledAt(state.disabledAt)
-      await completeAccountExitFlow({
-        invalidateRouter: () => router.invalidate(),
-        navigate: () => navigate({ to: "/login" }),
-      })
-    } catch (cause) {
-      setActionError(errorMessage(cause, t("Couldn't disable account")))
-    } finally {
-      setPendingAction(null)
-    }
+  async function disable() {
+    const state = await api.users.disableAccount()
+    setDisabledAt(state.disabledAt)
+    await completeAccountExitFlow({
+      invalidateRouter: () => router.invalidate(),
+      navigate: () => navigate({ to: "/login" }),
+    })
   }
 
-  async function onReactivate() {
-    if (pending) return
-    setActionError(null)
-    setPendingAction("reactivate")
-    try {
-      await api.users.reactivateAccount()
-      setDisabledAt(null)
-      await router.invalidate()
-    } catch (cause) {
-      setActionError(errorMessage(cause, t("Couldn't reactivate account")))
-    } finally {
-      setPendingAction(null)
-    }
+  async function reactivate() {
+    await api.users.reactivateAccount()
+    setDisabledAt(null)
+    await router.invalidate()
   }
 
-  async function onDelete() {
-    if (pending) return
-    setActionError(null)
-    setPendingAction("delete")
-    try {
-      const { error } = await authClient.deleteUser()
-      if (error) {
-        setActionError(errorMessage(error, t("Couldn't delete account")))
-        return
+  async function deleteAccount() {
+    const { error } = await authClient.deleteUser()
+    if (error)
+      throw new Error(errorMessage(error, t("Couldn't delete account")))
+    await completeAccountExitFlow({
+      invalidateRouter: () => router.invalidate(),
+      navigate: () => navigate({ to: "/login" }),
+    })
+  }
+
+  // One mutation for every action, so they share one in-flight lock and the
+  // latest failure.
+  const mutation = useMutation({
+    mutationFn: async (action: DangerAction) => {
+      const [run, fallback] =
+        action === "disable"
+          ? [disable, t("Couldn't disable account")]
+          : action === "reactivate"
+            ? [reactivate, t("Couldn't reactivate account")]
+            : [deleteAccount, t("Something went wrong")]
+      try {
+        await run()
+      } catch (cause) {
+        throw new Error(errorMessage(cause, fallback))
       }
-      await completeAccountExitFlow({
-        invalidateRouter: () => router.invalidate(),
-        navigate: () => navigate({ to: "/login" }),
-      })
-    } catch (cause) {
-      setActionError(errorMessage(cause, t("Something went wrong")))
-    } finally {
-      setPendingAction(null)
-    }
+    },
+  })
+
+  const pending = mutation.isPending
+  const start = async (action: DangerAction) => {
+    if (pending) return
+    await mutation.mutateAsync(action).catch(() => undefined)
   }
 
   return {
     disabledAt,
     pending,
-    pendingAction,
-    actionError,
-    clearActionError: () => setActionError(null),
-    onDisable,
-    onReactivate,
-    onDelete,
+    pendingAction: pending ? mutation.variables : null,
+    actionError: mutation.error?.message ?? null,
+    clearActionError: mutation.reset,
+    onDisable: () => start("disable"),
+    onReactivate: () => start("reactivate"),
+    onDelete: () => start("delete"),
   }
 }
 
@@ -117,7 +109,7 @@ function DisableAccountRow({
 }: {
   disabledAt: string | null
   pending: boolean
-  pendingAction: "disable" | "reactivate" | "delete" | null
+  pendingAction: DangerAction | null
   actionError: string | null
   onDisable: () => Promise<void>
   onReactivate: () => Promise<void>
@@ -207,7 +199,7 @@ function DeleteAccountRow({
   onDelete,
 }: {
   pending: boolean
-  pendingAction: "disable" | "reactivate" | "delete" | null
+  pendingAction: DangerAction | null
   actionError: string | null
   clearActionError: () => void
   onDelete: () => Promise<void>

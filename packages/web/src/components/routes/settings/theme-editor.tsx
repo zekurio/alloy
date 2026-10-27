@@ -37,6 +37,7 @@ import {
 } from "@alloy/ui/lib/theme-custom"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
+import { useForm, useStore } from "@tanstack/react-form"
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -68,6 +69,17 @@ export interface ThemeEditorSeed {
   selected: string
   /** Open in the two-color mode rather than with every role. */
   guided: boolean
+}
+
+/** The editor's own view state; the theme being edited lives in the form. */
+interface EditorView {
+  /** The variant being edited. */
+  selectedId: string
+  filter: string
+  collapsed: boolean
+  /** Whether Inspect is picking, or its last pick found no theme color. */
+  inspect: "off" | "picking" | "miss"
+  pickedRole: ThemeColorRole | null
 }
 
 /** What the two-color mode shows; the palette is generated from these. */
@@ -147,23 +159,68 @@ export function ThemeEditor({
   seed: ThemeEditorSeed
   onClose: () => void
 }) {
-  const [name, setName] = useState(seed.name)
-  const [nameMissing, setNameMissing] = useState(false)
-  const [variants, setVariants] = useState(seed.variants)
-  const [selectedId, setSelectedId] = useState(seed.selected)
-  const [seeds, setSeeds] = useState(() => guidedSeeds(seed.variants))
-  const [advanced, setAdvanced] = useState(!seed.guided)
-  const [filter, setFilter] = useState("")
-  const [collapsed, setCollapsed] = useState(false)
-  const [inspecting, setInspecting] = useState(false)
-  const [pickedRole, setPickedRole] = useState<ThemeColorRole | null>(null)
-  const [inspectMiss, setInspectMiss] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [view, setView] = useState<EditorView>(() => ({
+    selectedId: seed.selected,
+    filter: "",
+    collapsed: false,
+    inspect: "off",
+    pickedRole: null,
+  }))
+  const patchView = (patch: Partial<EditorView>) =>
+    setView((current) => ({ ...current, ...patch }))
   const nameRef = useRef<HTMLInputElement>(null)
   const fieldRefs = useRef(new Map<ThemeColorRole, HTMLDivElement>())
+  const form = useForm({
+    defaultValues: {
+      name: seed.name,
+      variants: seed.variants,
+      seeds: guidedSeeds(seed.variants),
+      advanced: !seed.guided,
+    },
+    onSubmit: async ({ value }) => {
+      const trimmed = value.name.trim()
+      if (!trimmed) {
+        patchView({ collapsed: false })
+        nameRef.current?.focus()
+        return
+      }
+      try {
+        const saved = await saveAccountTheme({
+          id: seed.themeId ?? newCustomThemeId(),
+          name: trimmed.slice(0, THEME_NAME_MAX_LENGTH),
+          variants: value.variants.map((variant) => ({
+            ...variant,
+            name:
+              variant.name
+                ?.trim()
+                .slice(0, THEME_VARIANT_NAME_MAX_LENGTH)
+                .trim() || null,
+            colors: canonicalThemeColors(variant.colors),
+          })),
+          guided: !value.advanced,
+        })
+        if (!seed.themeId) selectThemeFamily(saved.id)
+        onClose()
+      } catch (cause) {
+        toast.error(t("Couldn't save theme"), {
+          description: messageFromUnknown(cause) ?? undefined,
+        })
+      }
+    },
+  })
+  const { variants, seeds, advanced } = useStore(
+    form.store,
+    (state) => state.values,
+  )
+  const saving = useStore(form.store, (state) => state.isSubmitting)
+  // Flagged once a save was blocked, until the name is filled in.
+  const nameMissing = useStore(
+    form.store,
+    (state) => state.submissionAttempts > 0 && !state.values.name.trim(),
+  )
   // Removing a variant always leaves at least one.
   const selected =
-    variants.find((variant) => variant.id === selectedId) ?? variants[0]
+    variants.find((variant) => variant.id === view.selectedId) ?? variants[0]
   const { appearance, colors } = selected
   const full = variants.length >= MAX_THEME_VARIANTS
 
@@ -173,23 +230,33 @@ export function ThemeEditor({
   useEffect(() => endThemePreview, [])
 
   const hovered = useThemeInspector(
-    inspecting,
+    view.inspect === "picking",
     (role) => {
-      setInspecting(false)
-      setInspectMiss(role === null)
-      if (!role) return
-      setAdvanced(true)
-      setCollapsed(false)
-      setFilter("")
-      setPickedRole(role)
+      if (!role) {
+        patchView({ inspect: "miss" })
+        return
+      }
+      form.setFieldValue("advanced", true)
+      patchView({
+        inspect: "off",
+        collapsed: false,
+        filter: "",
+        pickedRole: role,
+      })
       requestAnimationFrame(() =>
         fieldRefs.current
           .get(role)
           ?.scrollIntoView({ block: "nearest", behavior: "smooth" }),
       )
     },
-    () => setInspecting(false),
+    () => patchView({ inspect: "off" }),
   )
+
+  function setVariants(
+    update: (current: CustomThemeVariant[]) => CustomThemeVariant[],
+  ) {
+    form.setFieldValue("variants", update)
+  }
 
   function updateSelected(change: Partial<CustomThemeVariant>) {
     setVariants((current) =>
@@ -204,7 +271,10 @@ export function ThemeEditor({
       ...(seeds[selected.id] ?? guidedSeed(colors)),
       [field]: value,
     }
-    setSeeds((current) => ({ ...current, [selected.id]: nextSeed }))
+    form.setFieldValue("seeds", (current) => ({
+      ...current,
+      [selected.id]: nextSeed,
+    }))
     updateSelected({
       colors: generateThemeColors(
         appearance,
@@ -224,18 +294,18 @@ export function ThemeEditor({
   }
 
   function toggleAdvanced(next: boolean) {
-    setAdvanced(next)
+    form.setFieldValue("advanced", next)
     // Guided fields pick up from wherever the hand edits left the palettes.
-    if (!next) setSeeds(guidedSeeds(variants))
+    if (!next) form.setFieldValue("seeds", guidedSeeds(variants))
   }
 
   function insertVariant(variant: CustomThemeVariant, index: number) {
     setVariants((current) => current.toSpliced(index, 0, variant))
-    setSeeds((current) => ({
+    form.setFieldValue("seeds", (current) => ({
       ...current,
       [variant.id]: guidedSeed(variant.colors),
     }))
-    setSelectedId(variant.id)
+    patchView({ selectedId: variant.id })
   }
 
   /**
@@ -283,44 +353,13 @@ export function ThemeEditor({
     if (variants.length < 2) return
     const index = variants.indexOf(selected)
     const remaining = variants.filter((variant) => variant !== selected)
-    setVariants(remaining)
-    setSelectedId(remaining[Math.min(index, remaining.length - 1)]?.id ?? "")
+    setVariants(() => remaining)
+    patchView({
+      selectedId: remaining[Math.min(index, remaining.length - 1)]?.id ?? "",
+    })
   }
 
-  async function save() {
-    const trimmed = name.trim()
-    if (!trimmed) {
-      setNameMissing(true)
-      setCollapsed(false)
-      nameRef.current?.focus()
-      return
-    }
-    setSaving(true)
-    try {
-      const saved = await saveAccountTheme({
-        id: seed.themeId ?? newCustomThemeId(),
-        name: trimmed.slice(0, THEME_NAME_MAX_LENGTH),
-        variants: variants.map((variant) => ({
-          ...variant,
-          name:
-            variant.name
-              ?.trim()
-              .slice(0, THEME_VARIANT_NAME_MAX_LENGTH)
-              .trim() || null,
-          colors: canonicalThemeColors(variant.colors),
-        })),
-        guided: !advanced,
-      })
-      if (!seed.themeId) selectThemeFamily(saved.id)
-      onClose()
-    } catch (cause) {
-      toast.error(t("Couldn't save theme"), {
-        description: messageFromUnknown(cause) ?? undefined,
-      })
-      setSaving(false)
-    }
-  }
-
+  const { filter, collapsed, inspect, pickedRole } = view
   const query = filter.trim().toLowerCase()
   const groups = ROLE_GROUPS.map((group) => ({
     label: group.label,
@@ -328,13 +367,14 @@ export function ThemeEditor({
       (role) => !query || t(ROLE_LABELS[role]).toLowerCase().includes(query),
     ),
   })).filter((group) => group.roles.length > 0)
-  const status = inspecting
-    ? t("Click anything to find its color. Esc cancels.")
-    : inspectMiss
-      ? t("That element doesn't use a theme color.")
-      : pickedRole
-        ? t(ROLE_LABELS[pickedRole])
-        : t("Changes preview live")
+  const status =
+    inspect === "picking"
+      ? t("Click anything to find its color. Esc cancels.")
+      : inspect === "miss"
+        ? t("That element doesn't use a theme color.")
+        : pickedRole
+          ? t(ROLE_LABELS[pickedRole])
+          : t("Changes preview live")
 
   return (
     <>
@@ -362,13 +402,15 @@ export function ThemeEditor({
           </div>
           <Button
             type="button"
-            variant={inspecting ? "accent-outline" : "ghost"}
+            variant={inspect === "picking" ? "accent-outline" : "ghost"}
             size="sm"
-            aria-pressed={inspecting}
-            onClick={() => {
-              setInspectMiss(false)
-              setInspecting((current) => !current)
-            }}
+            aria-pressed={inspect === "picking"}
+            onClick={() =>
+              setView((current) => ({
+                ...current,
+                inspect: current.inspect === "picking" ? "off" : "picking",
+              }))
+            }
           >
             <CrosshairIcon />
             {t("Inspect")}
@@ -379,7 +421,12 @@ export function ThemeEditor({
             size="icon-sm"
             aria-label={collapsed ? t("Expand") : t("Collapse")}
             aria-expanded={!collapsed}
-            onClick={() => setCollapsed((current) => !current)}
+            onClick={() =>
+              setView((current) => ({
+                ...current,
+                collapsed: !current.collapsed,
+              }))
+            }
           >
             {collapsed ? (
               <ChevronUpIcon className="size-4" />
@@ -408,18 +455,22 @@ export function ThemeEditor({
                 >
                   {t("Theme name")}
                 </label>
-                <Input
-                  ref={nameRef}
-                  id="theme-editor-name"
-                  value={name}
-                  maxLength={THEME_NAME_MAX_LENGTH}
-                  placeholder={t("e.g. Aurora")}
-                  aria-invalid={nameMissing || undefined}
-                  onChange={(event) => {
-                    setName(event.target.value)
-                    setNameMissing(false)
-                  }}
-                />
+                <form.Field name="name">
+                  {(field) => (
+                    <Input
+                      ref={nameRef}
+                      id="theme-editor-name"
+                      value={field.state.value}
+                      maxLength={THEME_NAME_MAX_LENGTH}
+                      placeholder={t("e.g. Aurora")}
+                      aria-invalid={nameMissing || undefined}
+                      onBlur={field.handleBlur}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                    />
+                  )}
+                </form.Field>
                 <span
                   id="theme-editor-variants"
                   className="self-start pt-1 text-sm font-medium"
@@ -436,7 +487,7 @@ export function ThemeEditor({
                       key={variant.id}
                       type="button"
                       aria-pressed={variant === selected}
-                      onClick={() => setSelectedId(variant.id)}
+                      onClick={() => patchView({ selectedId: variant.id })}
                       className={cn(
                         "focus-visible:ring-ring flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-md border px-2 text-xs font-medium outline-none focus-visible:ring-2",
                         variant === selected
@@ -509,7 +560,9 @@ export function ThemeEditor({
                       placeholder={t("Filter colors")}
                       aria-label={t("Filter colors")}
                       className="h-7 w-32 text-xs sm:h-7"
-                      onChange={(event) => setFilter(event.target.value)}
+                      onChange={(event) =>
+                        patchView({ filter: event.target.value })
+                      }
                     />
                   ) : null}
                   <label className="flex items-center gap-2 text-xs font-medium">
@@ -602,7 +655,7 @@ export function ThemeEditor({
                 variant="primary"
                 size="sm"
                 disabled={saving}
-                onClick={() => void save()}
+                onClick={() => void form.handleSubmit()}
               >
                 {seed.themeId ? t("Save theme") : t("Create theme")}
               </Button>

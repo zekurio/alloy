@@ -1,19 +1,32 @@
-import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useSyncExternalStore,
+} from "react"
 import type { RefObject } from "react"
 
 import { isFullscreenElement } from "@/lib/fullscreen"
 
+import type { PlayerStore } from "./video-player-store"
 import type { MediaPlaybackRange } from "./video-player-types"
 import { createPlayThresholdTracker } from "./video-player-view"
 
-// Owns the chrome bar's visibility plus the auto-hide timer. Kept out of
-// PlayerCore so the timer ref and its scheduling can't be poked from unrelated
-// code paths; the auto-hide effect and pointer handlers stay in the player and
-// drive it through the returned setters.
-export function useVideoChromeVisibility(isCoarsePointer: boolean) {
-  const [chromeVisible, setChromeVisible] = useState(true)
+// Owns the auto-hide timer for the chrome bar, whose visibility lives in the
+// player store. Kept out of PlayerCore so the timer ref and its scheduling
+// can't be poked from unrelated code paths; the auto-hide effect and pointer
+// handlers stay in the player and drive it through the returned setters.
+export function useVideoChromeVisibility(
+  store: PlayerStore,
+  isCoarsePointer: boolean,
+) {
   const chromeHideTimerRef = useRef<number | null>(null)
+
+  const setChromeVisible = useCallback(
+    (chromeVisible: boolean) => store.setState({ chromeVisible }),
+    [store],
+  )
 
   const clearChromeHideTimer = useCallback(() => {
     if (chromeHideTimerRef.current === null) return
@@ -25,39 +38,33 @@ export function useVideoChromeVisibility(isCoarsePointer: boolean) {
     (delayMs = isCoarsePointer ? 2600 : 1600) => {
       clearChromeHideTimer()
       chromeHideTimerRef.current = window.setTimeout(() => {
-        setChromeVisible(false)
+        store.setState({ chromeVisible: false })
         chromeHideTimerRef.current = null
       }, delayMs)
     },
-    [clearChromeHideTimer, isCoarsePointer],
+    [clearChromeHideTimer, isCoarsePointer, store],
   )
 
-  return {
-    chromeVisible,
-    setChromeVisible,
-    scheduleChromeHide,
-    clearChromeHideTimer,
-  }
+  useEffect(() => clearChromeHideTimer, [clearChromeHideTimer])
+
+  return { setChromeVisible, scheduleChromeHide, clearChromeHideTimer }
+}
+
+function subscribeFullscreenChange(onChange: () => void): () => void {
+  document.addEventListener("fullscreenchange", onChange)
+  return () => document.removeEventListener("fullscreenchange", onChange)
 }
 
 /** The player container while it is the fullscreen element, else null. */
 export function useFullscreenContainer(
   containerRef: RefObject<HTMLDivElement | null>,
 ): HTMLDivElement | null {
-  const [fullscreenContainer, setFullscreenContainer] =
-    useState<HTMLDivElement | null>(null)
-
-  const onFullscreenChange = useCallback(() => {
+  const getSnapshot = useCallback(() => {
     const container = containerRef.current
-    setFullscreenContainer(isFullscreenElement(container) ? container : null)
+    return isFullscreenElement(container) ? container : null
   }, [containerRef])
 
-  useEffect(() => {
-    onFullscreenChange()
-  }, [onFullscreenChange])
-  useDocumentEvent("fullscreenchange", onFullscreenChange)
-
-  return fullscreenContainer
+  return useSyncExternalStore(subscribeFullscreenChange, getSnapshot)
 }
 
 /** Calls `onFrame` on every animation frame while `active` is true. */
@@ -92,10 +99,13 @@ export function usePlayThreshold({
     callbackRef.current = onPlayThreshold
   }, [onPlayThreshold])
 
-  const trackPlaybackRef = useRef(createPlayThresholdTracker())
+  const trackPlaybackRef = useRef<ReturnType<
+    typeof createPlayThresholdTracker
+  > | null>(null)
   return useCallback(
     (video: HTMLVideoElement) => {
       if (!callbackRef.current) return
+      trackPlaybackRef.current ??= createPlayThresholdTracker()
       const qualified = trackPlaybackRef.current({
         identity,
         played: video.played,

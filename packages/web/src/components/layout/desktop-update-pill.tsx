@@ -5,6 +5,7 @@ import {
 } from "@alloy/ui/components/app-sidebar"
 import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
 import { cn } from "@alloy/ui/lib/utils"
+import { useMutation } from "@tanstack/react-query"
 import { CircleAlertIcon, DownloadIcon, RefreshCwIcon } from "lucide-react"
 import { useState } from "react"
 
@@ -63,9 +64,17 @@ export function DesktopUpdatePill() {
   const updateState = useDesktopUpdateState()
   const { status } = updateState
   const percent = updateDownloadPercent(updateState)
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [restartDialogOpen, setRestartDialogOpen] = useState(false)
+  const action = useMutation({
+    // Bridge calls: the browser's offline flag must not pause them.
+    networkMode: "always",
+    mutationFn: async (next: "download" | "restart") => {
+      const desktop = alloyDesktop()
+      if (!desktop) return
+      if (next === "download") await desktop.updates.downloadUpdate()
+      else await desktop.updates.restartToInstall()
+    },
+  })
 
   if (
     status !== "available" &&
@@ -76,37 +85,30 @@ export function DesktopUpdatePill() {
   }
 
   const downloaded = status === "downloaded"
+  // A successful restart call leaves the app quitting, so it stays pending.
+  const pending =
+    action.isPending || (action.isSuccess && action.variables === "restart")
+  const error = action.isError
+    ? action.variables === "restart"
+      ? t("Couldn't restart to update.")
+      : t("Couldn't download the update.")
+    : null
   const busy = status === "downloading" || pending
 
   const runAction = () => {
-    if (busy) return
-    const desktop = alloyDesktop()
-    if (!desktop) return
-    setError(null)
-
+    if (busy || !alloyDesktop()) return
     if (status === "available") {
-      setPending(true)
-      void desktop.updates
-        .downloadUpdate()
-        .catch(() => setError(t("Couldn't download the update.")))
-        .finally(() => setPending(false))
+      action.mutate("download")
       return
     }
-
     if (!downloaded) return
+    action.reset()
     setRestartDialogOpen(true)
   }
 
   const restartToInstall = () => {
-    if (pending) return
-    const desktop = alloyDesktop()
-    if (!desktop) return
-    setError(null)
-    setPending(true)
-    void desktop.updates.restartToInstall().catch(() => {
-      setError(t("Couldn't restart to update."))
-      setPending(false)
-    })
+    if (pending || !alloyDesktop()) return
+    action.mutate("restart")
   }
 
   const label = error
@@ -160,7 +162,7 @@ export function DesktopUpdatePill() {
         open={restartDialogOpen}
         onOpenChange={(open) => {
           setRestartDialogOpen(open)
-          if (!open) setError(null)
+          if (!open && action.isError) action.reset()
         }}
         title={t("Install the update and restart Alloy?")}
         description={t(

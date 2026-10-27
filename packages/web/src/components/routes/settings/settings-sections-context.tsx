@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useState } from "react"
 import type { ReactNode } from "react"
+import { useStore } from "zustand"
+import { createStore, type StoreApi } from "zustand/vanilla"
 
 export interface SettingsSection {
   id: string
@@ -7,14 +9,42 @@ export interface SettingsSection {
   element: HTMLElement
 }
 
-/** Registered subsections of the open panel, in document order. */
-const SettingsSectionsContext = createContext<SettingsSection[]>([])
+interface SettingsSectionsState {
+  /** Registered subsections of the open panel, in document order. */
+  sections: SettingsSection[]
+  /** Adds a subsection; returns its unregister function. */
+  register: (section: SettingsSection) => () => void
+}
 
-// Registration lives in its own context so subsections, which only need the
-// stable register function, don't re-render every time a sibling registers.
-const RegisterSettingsSectionContext = createContext<
-  ((section: SettingsSection) => () => void) | null
->(null)
+type SettingsSectionsStore = StoreApi<SettingsSectionsState>
+
+function createSettingsSectionsStore(): SettingsSectionsStore {
+  return createStore<SettingsSectionsState>()((set) => ({
+    sections: [],
+    register: (section) => {
+      // Lazy panels mount their subsections in render order, but a re-sort on
+      // every registration keeps the list correct however they arrive.
+      set(({ sections }) => ({
+        sections: sortByDocumentOrder([
+          ...sections.filter((entry) => entry.id !== section.id),
+          section,
+        ]),
+      }))
+      return () =>
+        set(({ sections }) => ({
+          sections: sections.filter(
+            (entry) => entry.element !== section.element,
+          ),
+        }))
+    },
+  }))
+}
+
+// Stands in outside a provider, where nothing registers, so reads stay empty.
+const EMPTY_SECTIONS_STORE = createSettingsSectionsStore()
+
+const SettingsSectionsStoreContext =
+  createContext<SettingsSectionsStore | null>(null)
 
 /**
  * Collects the subsections the open panel renders so the sidebar can list them
@@ -26,46 +56,29 @@ export function SettingsSectionsProvider({
 }: {
   children: ReactNode
 }) {
-  const [sections, setSections] = useState<SettingsSection[]>([])
-
-  const register = useCallback((section: SettingsSection) => {
-    // Lazy panels mount their subsections in render order, but a re-sort on
-    // every registration keeps the list correct however they arrive.
-    setSections((previous) =>
-      sortByDocumentOrder([
-        ...previous.filter((entry) => entry.id !== section.id),
-        section,
-      ]),
-    )
-    return () =>
-      setSections((previous) =>
-        previous.filter((entry) => entry.element !== section.element),
-      )
-  }, [])
-
+  const [store] = useState(createSettingsSectionsStore)
   return (
-    <RegisterSettingsSectionContext.Provider value={register}>
-      <SettingsSectionsContext.Provider value={sections}>
-        {children}
-      </SettingsSectionsContext.Provider>
-    </RegisterSettingsSectionContext.Provider>
+    <SettingsSectionsStoreContext.Provider value={store}>
+      {children}
+    </SettingsSectionsStoreContext.Provider>
   )
 }
 
 /** Subsections of the open panel, empty outside a provider. */
 export function useSettingsSections(): SettingsSection[] {
-  return useContext(SettingsSectionsContext)
+  const store = useContext(SettingsSectionsStoreContext)
+  return useStore(store ?? EMPTY_SECTIONS_STORE, (state) => state.sections)
 }
 
 /** Registers a subsection; returns the ref callback to attach to its element. */
 export function useRegisterSettingsSection(id: string, label: string | null) {
-  const register = useContext(RegisterSettingsSectionContext)
+  const store = useContext(SettingsSectionsStoreContext)
   return useCallback(
     (element: HTMLElement | null) => {
-      if (!register || !label || !element) return
-      return register({ id, label, element })
+      if (!store || !label || !element) return
+      return store.getState().register({ id, label, element })
     },
-    [id, label, register],
+    [id, label, store],
   )
 }
 

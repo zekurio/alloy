@@ -11,7 +11,7 @@ import {
 } from "@alloy/ui/components/dialog"
 import { cn } from "@alloy/ui/lib/utils"
 import { ImageIcon, Pencil } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import type { ReactNode } from "react"
 
 import { MediaEditOverlay } from "@/components/routes/settings/profile-media-controls"
@@ -38,11 +38,9 @@ export function WelcomeProfileDialog({
   onClose,
 }: WelcomeProfileDialogProps) {
   // Keep the last non-null value mounted so the dialog can animate out after
-  // the URL param clears, mirroring SettingsDialog's visibleSection pattern.
+  // the URL param clears.
   const [visibleWelcome, setVisibleWelcome] = useState(welcome)
-  useEffect(() => {
-    if (welcome !== null) setVisibleWelcome(welcome)
-  }, [welcome])
+  if (welcome !== null && welcome !== visibleWelcome) setVisibleWelcome(welcome)
 
   const activeWelcome = welcome ?? visibleWelcome
   if (activeWelcome === null) return null

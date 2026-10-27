@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 
 /** Number of min/max samples kept for one source. */
 const PEAK_COUNT = 1_200
 /** Maximum source bytes kept by Mediabunny while it reads one waveform. */
 const MAX_SOURCE_CACHE_BYTES = 8 * 1024 * 1024
-/** Keep completed peak data bounded when a page visits many editors. */
-const MAX_WAVEFORM_CACHE_ENTRIES = 16
+/**
+ * How long finished peaks outlive their last editor. Decoding a waveform
+ * reads the whole audio track, while the peaks themselves are a few KB.
+ */
+const WAVEFORM_GC_TIME_MS = 30 * 60_000
 const SAMPLE_POINTS_PER_PEAK = 16
 const NORMALIZATION_PERCENTILE = 0.98
 
@@ -34,18 +37,10 @@ const EMPTY_WAVEFORM_DATA: MediaWaveformData = {
   hasAudio: false,
 }
 
-interface PendingWaveform {
-  controller: AbortController
-  consumers: number
-  promise: Promise<MediaWaveformData>
-}
-
-const waveformCache = new Map<string, MediaWaveformData>()
-const pendingWaveforms = new Map<string, PendingWaveform>()
-
 /**
  * Loads a waveform for an editor source. A cache key should include the
  * capture or source version when a URL can be reused for changed bytes.
+ * Decoding stops when the last editor using it leaves.
  */
 export function useMediaWaveform(
   mediaUrl: string | null,
@@ -53,116 +48,51 @@ export function useMediaWaveform(
   durationHintMs = 0,
   range?: MediaWaveformRange,
 ): MediaWaveformState {
-  const [state, setState] = useState<MediaWaveformState>(() =>
-    mediaUrl ? loadingWaveform(durationHintMs) : emptyWaveform(durationHintMs),
-  )
-
-  useEffect(() => {
-    if (!mediaUrl || !cacheKey) {
-      setState(emptyWaveform(durationHintMs))
-      return
-    }
-
-    const durationMs = finiteDurationMs(durationHintMs)
-    const normalizedRange = normalizeWaveformRange(range)
-    const request = acquireMediaWaveform(
-      mediaUrl,
-      `${cacheKey}:duration:${durationMs}:range:${waveformRangeKey(normalizedRange)}`,
+  const durationMs = finiteDurationMs(durationHintMs)
+  const normalizedRange = normalizeWaveformRange(range)
+  const query = useQuery({
+    queryKey: [
+      "media-waveform",
+      cacheKey,
       durationMs,
-      normalizedRange,
-    )
-    let active = true
-    setState(loadingWaveform(durationMs))
-    void request.promise.then(
-      (data) => {
-        if (!active) return
-        setState({
-          ...data,
-          status: data.hasAudio ? "ready" : "empty",
-          error: null,
-        })
-      },
-      (cause: unknown) => {
-        if (!active) return
-        setState({
-          ...EMPTY_WAVEFORM_DATA,
-          durationMs,
-          status: "error",
-          error: cause,
-        })
-      },
-    )
+      waveformRangeKey(normalizedRange),
+    ],
+    queryFn: ({ signal }) =>
+      mediaUrl
+        ? loadMediaWaveform(mediaUrl, durationMs, signal, normalizedRange)
+        : EMPTY_WAVEFORM_DATA,
+    enabled: Boolean(mediaUrl && cacheKey),
+    staleTime: Infinity,
+    gcTime: WAVEFORM_GC_TIME_MS,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    // Sources are local captures and blob previews, so decode while offline.
+    networkMode: "always",
+  })
 
-    return () => {
-      active = false
-      request.release()
+  let state: MediaWaveformState
+  if (!mediaUrl || !cacheKey) {
+    state = emptyWaveform(durationHintMs)
+  } else if (query.data) {
+    state = {
+      ...query.data,
+      status: query.data.hasAudio ? "ready" : "empty",
+      error: null,
     }
-  }, [cacheKey, durationHintMs, mediaUrl, range?.endMs, range?.startMs])
+  } else if (query.isError) {
+    state = {
+      ...EMPTY_WAVEFORM_DATA,
+      durationMs,
+      status: "error",
+      error: query.error,
+    }
+  } else {
+    state = loadingWaveform(durationMs)
+  }
 
   if (state.durationMs > 0 || durationHintMs <= 0) return state
   return { ...state, durationMs: durationHintMs }
-}
-
-/**
- * Decodes a compact audio peak series from a media URL. Completed entries
- * store only bounded peak arrays. In-flight work stops when its last editor
- * leaves.
- */
-function acquireMediaWaveform(
-  mediaUrl: string,
-  cacheKey: string,
-  durationHintMs: number,
-  range: MediaWaveformRange | undefined,
-) {
-  const cached = waveformCache.get(cacheKey)
-  if (cached) {
-    waveformCache.delete(cacheKey)
-    waveformCache.set(cacheKey, cached)
-    return { promise: Promise.resolve(cached), release: () => undefined }
-  }
-
-  const existing = pendingWaveforms.get(cacheKey)
-  const pending =
-    existing ?? startMediaWaveform(mediaUrl, cacheKey, durationHintMs, range)
-  pending.consumers += 1
-  let released = false
-  return {
-    promise: pending.promise,
-    release: () => {
-      if (released) return
-      released = true
-      pending.consumers -= 1
-      if (pending.consumers > 0) return
-      if (pendingWaveforms.get(cacheKey) !== pending) return
-      pendingWaveforms.delete(cacheKey)
-      pending.controller.abort()
-    },
-  }
-}
-
-function startMediaWaveform(
-  mediaUrl: string,
-  cacheKey: string,
-  durationHintMs: number,
-  range: MediaWaveformRange | undefined,
-): PendingWaveform {
-  const controller = new AbortController()
-  const promise = loadMediaWaveform(
-    mediaUrl,
-    durationHintMs,
-    controller.signal,
-    range,
-  ).then((data) => {
-    if (!controller.signal.aborted) cacheWaveform(cacheKey, data)
-    return data
-  })
-  const pending = { controller, consumers: 0, promise }
-  pendingWaveforms.set(cacheKey, pending)
-  void promise.then(
-    () => finishPendingWaveform(cacheKey, pending),
-    () => finishPendingWaveform(cacheKey, pending),
-  )
-  return pending
 }
 
 async function loadMediaWaveform(
@@ -289,29 +219,6 @@ async function loadMediaWaveform(
   } finally {
     signal.removeEventListener("abort", abort)
     input.dispose()
-  }
-}
-
-function finishPendingWaveform(
-  cacheKey: string,
-  pending: PendingWaveform,
-): void {
-  if (pendingWaveforms.get(cacheKey) === pending) {
-    pendingWaveforms.delete(cacheKey)
-  }
-}
-
-function cacheWaveform(cacheKey: string, data: MediaWaveformData): void {
-  waveformCache.delete(cacheKey)
-  waveformCache.set(cacheKey, data)
-  evictWaveformCache()
-}
-
-function evictWaveformCache(): void {
-  while (waveformCache.size > MAX_WAVEFORM_CACHE_ENTRIES) {
-    const oldest = waveformCache.keys().next().value
-    if (oldest === undefined) return
-    waveformCache.delete(oldest)
   }
 }
 

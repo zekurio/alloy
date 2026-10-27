@@ -40,15 +40,12 @@ export async function finishLocalClipDelete({
   deleteLocal,
   localItem,
   serverId,
-  setDeletingLocal,
 }: {
   deleteLocal: boolean
   localItem: RecordingLibraryItem
   serverId: string
-  setDeletingLocal: (deleting: boolean) => void
 }): Promise<void> {
   if (deleteLocal) {
-    setDeletingLocal(true)
     try {
       await deleteLocalLibraryCopy(localItem)
     } catch (cause) {
@@ -62,8 +59,6 @@ export async function finishLocalClipDelete({
       toast.error(
         t("Clip deleted from server, but the local copy couldn't be removed"),
       )
-    } finally {
-      setDeletingLocal(false)
     }
     return
   }

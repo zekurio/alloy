@@ -44,8 +44,9 @@ import {
   useSettingsCategories,
 } from "@/components/routes/settings/settings-categories"
 import {
+  selectSettingsDirty,
   SettingsSaveProvider,
-  useSettingsSaveState,
+  useSettingsSave,
 } from "@/components/routes/settings/settings-save-context"
 import { SettingsSaveHeader } from "@/components/routes/settings/settings-save-header"
 import { searchSettingsCategories } from "@/components/routes/settings/settings-search"
@@ -111,7 +112,8 @@ function usePreloadSettingsPanels(categories: SettingsCategory[]) {
  * browser's back button and the back gesture phones use to leave a section.
  */
 function useBlockUnsavedNavigation() {
-  const { dirty, requestAttention } = useSettingsSaveState()
+  const dirty = useSettingsSave(selectSettingsDirty)
+  const requestAttention = useSettingsSave((state) => state.requestAttention)
   useBlocker({
     disabled: !dirty,
     enableBeforeUnload: dirty,
@@ -155,12 +157,14 @@ function SettingsDialogRoot({
 }: SettingsDialogProps) {
   const categories = useSettingsCategories()
   const open = section !== null && categories.length > 0
+  // Holds the last section while the dialog animates closed.
   const [visibleSection, setVisibleSection] = useState(section)
-  useEffect(() => {
-    if (section !== null) setVisibleSection(section)
-  }, [section])
+  if (section !== null && section !== visibleSection) {
+    setVisibleSection(section)
+  }
 
-  const { dirty, requestAttention } = useSettingsSaveState()
+  const dirty = useSettingsSave(selectSettingsDirty)
+  const requestAttention = useSettingsSave((state) => state.requestAttention)
   useBlockUnsavedNavigation()
   // Mounted while closed too, so the panels are ready before it first opens.
   usePreloadSettingsPanels(categories)
@@ -464,7 +468,8 @@ function SettingsSectionView({
 }) {
   const ActivePanel = active.Panel
   const scrollRef = useRef<HTMLDivElement | null>(null)
-  const { dirty, requestAttention } = useSettingsSaveState()
+  const dirty = useSettingsSave(selectSettingsDirty)
+  const requestAttention = useSettingsSave((state) => state.requestAttention)
   // Leaving a section unmounts its panel and would silently drop its edits,
   // so it gets the same unsaved-changes guard as closing.
   const guarded = (leave: () => void) => {

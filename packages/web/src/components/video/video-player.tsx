@@ -22,8 +22,6 @@ interface VideoPlayerProps extends SharedPlayerProps {
   controls?: boolean
   autoPlay?: boolean
   loop?: boolean
-  muted?: boolean
-  playbackRate?: number
   /** Initial position in this player's zero-based timeline, in seconds. */
   initialTime?: number
   /** Window in `src` that maps to this player's zero-based timeline. */
@@ -38,8 +36,6 @@ export function VideoPlayer({
   controls = true,
   autoPlay = false,
   loop = false,
-  muted = false,
-  playbackRate = 1,
   initialTime = 0,
   playbackRange,
   ...rest
@@ -57,9 +53,7 @@ export function VideoPlayer({
       controls={controls}
       autoPlay={autoPlay}
       loop={loop}
-      initialMuted={muted}
       initialTime={initialTime}
-      playbackRate={playbackRate}
       playbackRange={playbackRange}
       {...rest}
     />

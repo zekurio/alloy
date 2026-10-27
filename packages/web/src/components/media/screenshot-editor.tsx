@@ -103,6 +103,13 @@ function pointerFraction(event: PointerEvent<HTMLElement>) {
   }
 }
 
+type OpenedScreenshot = {
+  file: File | undefined
+  mediaUrl: string | undefined
+  image: ImageBitmap | null
+  error: string | null
+}
+
 export function ScreenshotEditor({
   file,
   mediaUrl,
@@ -133,13 +140,18 @@ export function ScreenshotEditor({
     history.commit()
   })
   const canvas = useRef<HTMLCanvasElement>(null)
-  const [image, setImage] = useState<ImageBitmap | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // The decoded bitmap (or failure) for the source it came from; a source
+  // switch reads as loading until the new one decodes.
+  const [opened, setOpened] = useState<OpenedScreenshot | null>(null)
+  const current =
+    opened && opened.file === file && opened.mediaUrl === mediaUrl
+      ? opened
+      : null
+  const image = current?.image ?? null
+  const error = current?.error ?? null
   useEffect(() => {
     const controller = new AbortController()
     let bitmap: ImageBitmap | null = null
-    setError(null)
-    setImage(null)
     const source = mediaUrl
       ? fetch(mediaUrl, { signal: controller.signal }).then((response) => {
           if (!response.ok) throw new Error("Could not read screenshot")
@@ -153,16 +165,26 @@ export function ScreenshotEditor({
       .then((loaded) => {
         bitmap = loaded
         if (controller.signal.aborted) loaded.close()
-        else setImage(loaded)
+        else setOpened({ file, mediaUrl, image: loaded, error: null })
       })
       .catch((cause: unknown) => {
         if (controller.signal.aborted) return
         clientLogger.warn("[screenshot-editor] Failed to open image.", cause)
-        setError(t("Couldn't open image"))
+        setOpened({
+          file,
+          mediaUrl,
+          image: null,
+          error: t("Couldn't open image"),
+        })
       })
     return () => {
       controller.abort()
-      bitmap?.close()
+      if (!bitmap) return
+      const closed = bitmap
+      closed.close()
+      // An <Activity> hide re-runs this effect for the same source, so drop
+      // the closed bitmap rather than keep drawing from it.
+      setOpened((current) => (current?.image === closed ? null : current))
     }
   }, [file, mediaUrl])
   useEffect(() => {

@@ -1,8 +1,8 @@
 import { t } from "@alloy/i18n"
-import { useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { useCallback, useEffect, useRef, useState } from "react"
-import type { ChangeEvent, Dispatch, SetStateAction } from "react"
+import { useCallback, useRef, useState } from "react"
+import type { ChangeEvent } from "react"
 
 import { ImageCropDialog } from "@/components/media/image-crop-dialog"
 import type { CropMode } from "@/components/media/image-crop-utils"
@@ -35,33 +35,29 @@ function useProfileRefresh() {
   }, [queryClient, refetchSession, router])
 }
 
+type ProfileMediaChange =
+  | { kind: "upload"; mode: CropMode; blob: Blob }
+  | { kind: "remove"; mode: CropMode }
+
+/**
+ * The shown avatar and banner: the props, overridden by an upload's response
+ * until the props change. The response is the only truth if the refresh after
+ * a write fails, so the override survives until then.
+ */
 function useSyncedProfileMedia({ image, banner }: ProfileMediaInput) {
-  const [profileImage, setProfileImage] = useState(image)
-  const [profileBanner, setProfileBanner] = useState(banner)
-
-  useEffect(() => {
-    setProfileImage(image)
-  }, [image])
-
-  useEffect(() => {
-    setProfileBanner(banner)
-  }, [banner])
-
-  return {
-    profileBanner,
-    profileImage,
-    setProfileBanner,
-    setProfileImage,
+  const [media, setMedia] = useState({ image, banner })
+  const [synced, setSynced] = useState({ image, banner })
+  if (synced.image !== image || synced.banner !== banner) {
+    setSynced({ image, banner })
+    setMedia((current) => ({
+      image: synced.image !== image ? image : current.image,
+      banner: synced.banner !== banner ? banner : current.banner,
+    }))
   }
+  return { media, setMedia }
 }
 
-function useProfileMediaInputs({
-  setCropFile,
-  setCropMode,
-}: {
-  setCropFile: Dispatch<SetStateAction<File | null>>
-  setCropMode: Dispatch<SetStateAction<CropMode>>
-}) {
+function useProfileMediaInputs(onSelect: (file: File, mode: CropMode) => void) {
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const bannerInputRef = useRef<HTMLInputElement>(null)
 
@@ -75,8 +71,7 @@ function useProfileMediaInputs({
     if (!file) return
     // Reset the input so the same file can be re-selected.
     e.target.value = ""
-    setCropMode(mode)
-    setCropFile(file)
+    onSelect(file, mode)
   }
 
   // Hidden file inputs — reused for avatar and banner.
@@ -102,102 +97,11 @@ function useProfileMediaInputs({
   return { fileInputs, openFilePicker }
 }
 
-function useProfileMediaMutations({
-  refreshProfile,
-  setProfileBanner,
-  setProfileImage,
-}: {
-  refreshProfile: () => Promise<void>
-  setProfileBanner: Dispatch<SetStateAction<string>>
-  setProfileImage: Dispatch<SetStateAction<string>>
-}) {
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleImageUpload(
-    blob: Blob,
-    mode: CropMode,
-  ): Promise<boolean> {
-    setError(null)
-    setUploading(true)
-    try {
-      let nextUser: Awaited<ReturnType<typeof api.users.uploadAvatar>>
-      if (mode === "avatar") {
-        nextUser = await api.users.uploadAvatar(blob)
-        setProfileImage(nextUser.image ?? "")
-      } else {
-        nextUser = await api.users.uploadBanner(blob)
-        setProfileBanner(nextUser.banner ?? "")
-      }
-      // The upload already saved; a failed refresh must not leave the crop
-      // dialog open so Apply uploads the same image again.
-      void refreshAfterWrite("profile", refreshProfile)
-      return true
-    } catch (cause) {
-      setError(errorMessage(cause, t("Upload failed")))
-      throw cause
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  async function handleRemoveAvatar() {
-    await removeProfileMedia({
-      remove: api.users.removeAvatar,
-      update: (nextUser) => setProfileImage(nextUser.image ?? ""),
-      failure: t("Couldn't remove avatar"),
-      refreshProfile,
-      setUploading,
-      setError,
-    })
-  }
-
-  async function handleRemoveBanner() {
-    await removeProfileMedia({
-      remove: api.users.removeBanner,
-      update: (nextUser) => setProfileBanner(nextUser.banner ?? ""),
-      failure: t("Couldn't remove banner"),
-      refreshProfile,
-      setUploading,
-      setError,
-    })
-  }
-
-  return {
-    handleImageUpload,
-    handleRemoveAvatar,
-    handleRemoveBanner,
-    error,
-    uploading,
-  }
-}
-
-async function removeProfileMedia({
-  remove,
-  update,
-  failure,
-  refreshProfile,
-  setUploading,
-  setError,
-}: {
-  remove: () => Promise<Awaited<ReturnType<typeof api.users.removeAvatar>>>
-  update: (nextUser: Awaited<ReturnType<typeof api.users.removeAvatar>>) => void
-  failure: string
-  refreshProfile: () => Promise<void>
-  setUploading: Dispatch<SetStateAction<boolean>>
-  setError: Dispatch<SetStateAction<string | null>>
-}) {
-  setError(null)
-  setUploading(true)
-  try {
-    const nextUser = await remove()
-    update(nextUser)
-    void refreshAfterWrite("profile", refreshProfile)
-  } catch (cause) {
-    setError(errorMessage(cause, failure))
-  } finally {
-    setUploading(false)
-  }
+function changeFailure(change: ProfileMediaChange): string {
+  if (change.kind === "upload") return t("Upload failed")
+  return change.mode === "avatar"
+    ? t("Couldn't remove avatar")
+    : t("Couldn't remove banner")
 }
 
 /**
@@ -207,28 +111,49 @@ async function removeProfileMedia({
  */
 export function useProfileMedia(input: ProfileMediaInput) {
   const refreshProfile = useProfileRefresh()
-  const media = useSyncedProfileMedia(input)
-  const [cropFile, setCropFile] = useState<File | null>(null)
-  const [cropMode, setCropMode] = useState<CropMode>("avatar")
-  const [cropApplying, setCropApplying] = useState(false)
+  const { media, setMedia } = useSyncedProfileMedia(input)
+  // The mode outlives the file, so the dialog keeps its title while it
+  // animates closed.
+  const [crop, setCrop] = useState<{ file: File | null; mode: CropMode }>({
+    file: null,
+    mode: "avatar",
+  })
   const bannerAnchor = useClickAnchor()
   const avatarAnchor = useClickAnchor()
-  const { fileInputs, openFilePicker } = useProfileMediaInputs({
-    setCropFile,
-    setCropMode,
+  const { fileInputs, openFilePicker } = useProfileMediaInputs((file, mode) =>
+    setCrop({ file, mode }),
+  )
+  const change = useMutation({
+    mutationFn: (variables: ProfileMediaChange) => {
+      if (variables.kind === "upload") {
+        return variables.mode === "avatar"
+          ? api.users.uploadAvatar(variables.blob)
+          : api.users.uploadBanner(variables.blob)
+      }
+      return variables.mode === "avatar"
+        ? api.users.removeAvatar()
+        : api.users.removeBanner()
+    },
+    onSuccess: (nextUser, variables) => {
+      setMedia((current) =>
+        variables.mode === "avatar"
+          ? { ...current, image: nextUser.image ?? "" }
+          : { ...current, banner: nextUser.banner ?? "" },
+      )
+      // The write already saved; a failed refresh must not leave the crop
+      // dialog open so Apply uploads the same image again.
+      void refreshAfterWrite("profile", refreshProfile)
+    },
   })
-  const mutations = useProfileMediaMutations({
-    refreshProfile,
-    setProfileBanner: media.setProfileBanner,
-    setProfileImage: media.setProfileImage,
-  })
+  const uploading = change.isPending
+  const error =
+    change.error && change.variables
+      ? errorMessage(change.error, changeFailure(change.variables))
+      : null
 
   function mediaMenu(kind: MediaKind) {
     const anchor = kind === "avatar" ? avatarAnchor.anchor : bannerAnchor.anchor
-    const onRemove =
-      kind === "avatar"
-        ? mutations.handleRemoveAvatar
-        : mutations.handleRemoveBanner
+    const onRemove = () => change.mutate({ kind: "remove", mode: kind })
     return (
       <MediaDropdownContent
         anchor={anchor}
@@ -246,32 +171,28 @@ export function useProfileMedia(input: ProfileMediaInput) {
       <>
         {fileInputs}
         <ImageCropDialog
-          file={cropFile}
-          mode={cropMode}
-          open={!!cropFile}
-          applying={mutations.uploading}
-          onApplyingChange={setCropApplying}
+          file={crop.file}
+          mode={crop.mode}
+          open={!!crop.file}
+          applying={uploading}
           onOpenChange={(open) => {
-            if (!open && !mutations.uploading && !cropApplying) {
-              setCropFile(null)
-            }
+            if (!open) setCrop((current) => ({ ...current, file: null }))
           }}
           onApply={async ({ blob }) => {
-            const uploaded = await mutations.handleImageUpload(blob, cropMode)
-            if (uploaded) {
-              setCropFile(null)
-            }
+            // Rejects on failure, so the crop dialog stays open with the error.
+            await change.mutateAsync({ kind: "upload", mode: crop.mode, blob })
+            setCrop((current) => ({ ...current, file: null }))
           }}
         />
       </>
     ),
-    error: mutations.error,
-    hasBanner: !!userImageSrc(media.profileBanner),
+    error,
+    hasBanner: !!userImageSrc(media.banner),
     mediaMenu,
     openFilePicker,
-    profileBanner: media.profileBanner,
-    profileImage: media.profileImage,
+    profileBanner: media.banner,
+    profileImage: media.image,
     refreshProfile,
-    uploading: mutations.uploading,
+    uploading,
   }
 }

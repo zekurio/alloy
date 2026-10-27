@@ -8,7 +8,7 @@ import { message, t } from "@alloy/i18n"
 import { Callout } from "@alloy/ui/components/callout"
 import { Input } from "@alloy/ui/components/input"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
-import { useEffect, useState } from "react"
+import { useForm, useStore } from "@tanstack/react-form"
 
 import { api } from "@/lib/api"
 
@@ -78,44 +78,46 @@ function draftFromLimits(limits: UploadLimits): Record<string, string> {
   )
 }
 
+function limitsFromDraft(
+  draft: Record<string, string>,
+): Record<string, number> {
+  return Object.fromEntries(
+    FIELDS.map((field) => [
+      field.key,
+      Math.round(Number(draft[field.key]) * field.scale),
+    ]),
+  )
+}
+
 export function UploadLimitsSettingsContent({
   config,
 }: {
   config: AdminRuntimeConfig
 }) {
   const saved = config.uploadLimits
-  const [draft, setDraft] = useState(() => draftFromLimits(saved))
   const saveLimits = useAdminConfigMutation(api.admin.updateUploadLimits)
   const saving = saveLimits.isPending
-  useEffect(() => setDraft(draftFromLimits(saved)), [saved])
+  const form = useForm({
+    defaultValues: draftFromLimits(saved),
+    onSubmit: async ({ value, formApi }) => {
+      const result = UploadLimitsSchema.safeParse(limitsFromDraft(value))
+      if (!result.success)
+        throw new Error(t("Fix the invalid settings before saving."))
+      const updated = await saveLimits.mutateAsync(result.data)
+      formApi.reset(draftFromLimits(updated.uploadLimits), {
+        keepDefaultValues: true,
+      })
+    },
+  })
+  const draft = useStore(form.store, (state) => state.values)
 
-  const validation = UploadLimitsSchema.safeParse(
-    Object.fromEntries(
-      FIELDS.map((field) => [
-        field.key,
-        Math.round(Number(draft[field.key]) * field.scale),
-      ]),
-    ),
-  )
+  const validation = UploadLimitsSchema.safeParse(limitsFromDraft(draft))
   const dirty = FIELDS.some(
     (field) =>
       Math.round(Number(draft[field.key]) * field.scale) !== saved[field.key],
   )
 
-  async function save() {
-    if (saving || !dirty) return
-    if (!validation.success)
-      throw new Error(t("Fix the invalid settings before saving."))
-    await saveLimits.mutateAsync(validation.data)
-  }
-
-  useSettingsSaveBar({
-    dirty,
-    saving,
-    valid: validation.success,
-    save,
-    discard: () => setDraft(draftFromLimits(saved)),
-  })
+  useSettingsSaveBar(form, { dirty, saving, valid: validation.success })
 
   function renderFields(fields: readonly (typeof FIELDS)[number][]) {
     return (
@@ -143,10 +145,7 @@ export function UploadLimitsSettingsContent({
                 aria-invalid={invalid || undefined}
                 className="w-32"
                 onChange={(event) =>
-                  setDraft((prev) => ({
-                    ...prev,
-                    [field.key]: event.target.value,
-                  }))
+                  form.setFieldValue(field.key, event.target.value)
                 }
               />
             </SettingRow>

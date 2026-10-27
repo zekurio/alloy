@@ -2,13 +2,13 @@ import { clipDownloadUrl, type ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { DropdownMenuItem } from "@alloy/ui/components/dropdown-menu"
 import { toast } from "@alloy/ui/lib/toast"
+import { useMutation } from "@tanstack/react-query"
 import {
   CheckIcon,
   CircleAlertIcon,
   DownloadIcon,
   Loader2Icon,
 } from "lucide-react"
-import { useCallback, useState } from "react"
 
 import { startBrowserDownload } from "@/lib/browser-download"
 import {
@@ -33,7 +33,14 @@ export function clipBrowserDownloadActionSupported(row: ClipRow): boolean {
 
 function useClipDownloadAction(row: ClipRow) {
   const download = useClipDownload(row.id)
-  const [error, setError] = useState<string | null>(null)
+  const startDownload = useMutation({
+    mutationFn: () => startClipDownload(row),
+    // The host runs the download; the browser's offline flag must not pause it.
+    networkMode: "always",
+  })
+  const error = startDownload.error
+    ? errorMessage(startDownload.error, t("Couldn't start the download"))
+    : null
   const supported = clipDownloadActionSupported(row)
   const downloading = download?.status === "downloading"
   const saved = download?.status === "completed"
@@ -44,17 +51,13 @@ function useClipDownloadAction(row: ClipRow) {
           Math.floor((download.receivedBytes / download.totalBytes) * 100),
         )
       : 0
-  const start = useCallback(
-    (onError?: (message: string) => void) => {
-      setError(null)
-      void startClipDownload(row).catch((cause) => {
-        const message = errorMessage(cause, t("Couldn't start the download"))
-        setError(message)
-        onError?.(message)
-      })
-    },
-    [row],
-  )
+  // Awaited rather than given per-call callbacks: a menu item unmounts as the
+  // menu closes, and its toast must still show.
+  const start = (onError?: (message: string) => void) => {
+    startDownload.mutateAsync().catch((cause: unknown) => {
+      onError?.(errorMessage(cause, t("Couldn't start the download")))
+    })
+  }
   return { supported, downloading, saved, progress, error, start }
 }
 

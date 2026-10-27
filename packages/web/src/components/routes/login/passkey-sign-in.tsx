@@ -1,9 +1,9 @@
 import { AUTH_ERROR_CODES } from "@alloy/contracts"
 import { message, t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { useMutation } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { KeyRoundIcon } from "lucide-react"
-import { useState } from "react"
 
 import { authClient } from "@/lib/auth-client"
 import {
@@ -18,14 +18,11 @@ export function PasskeySignIn({
   redirectTo?: string
   onReactivationRequired?: () => void
 }) {
-  const [pending, setPending] = useState(false)
   const navigate = useNavigate()
   const router = useRouter()
-
-  async function onSignIn() {
-    if (pending) return
-    setPending(true)
-    try {
+  const signIn = useMutation({
+    // Resolves true once signed in and on the way to the redirect target.
+    mutationFn: async () => {
       const { error } = await authClient.signIn.passkey()
       if (error) {
         if (
@@ -40,8 +37,7 @@ export function PasskeySignIn({
             error,
           )
         }
-        setPending(false)
-        return
+        return false
       }
       await completeAuthSessionFlow({
         invalidateRouter: () => router.invalidate(),
@@ -50,15 +46,16 @@ export function PasskeySignIn({
             ? window.location.assign(redirectTo)
             : navigate({ to: "/" }),
       })
-    } catch (cause) {
+      return true
+    },
+    onError: (cause) =>
       toastAuthAttemptFailure(
         "passkey sign-in",
         message("Passkey sign-in failed"),
         cause,
-      )
-      setPending(false)
-    }
-  }
+      ),
+  })
+  const pending = signIn.isPending || signIn.data === true
 
   return (
     <Button
@@ -67,7 +64,9 @@ export function PasskeySignIn({
       size="lg"
       className="w-full gap-3"
       disabled={pending}
-      onClick={onSignIn}
+      onClick={() => {
+        if (!pending) signIn.mutate()
+      }}
       onFocus={authClient.signIn.preloadPasskey}
       onPointerEnter={authClient.signIn.preloadPasskey}
     >

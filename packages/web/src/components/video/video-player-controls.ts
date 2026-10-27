@@ -1,81 +1,67 @@
-import { useCallback, useEffect, useImperativeHandle, useMemo } from "react"
-import type {
-  Dispatch,
-  MutableRefObject,
-  RefObject,
-  SetStateAction,
-} from "react"
+import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
+import { useCallback, useImperativeHandle, useMemo, useRef } from "react"
+import type { RefObject } from "react"
 
 import {
   exitFullscreenBestEffort,
   isFullscreenElement,
   requestFullscreenBestEffort,
 } from "@/lib/fullscreen"
-import { flushPlayerVolume, writePlayerVolume } from "@/lib/player-volume"
+import {
+  flushPlayerVolume,
+  readPlayerVolume,
+  writePlayerVolume,
+} from "@/lib/player-volume"
 
 import type { PlayerCoreProps } from "./video-player-core-types"
 import type { VideoKeyCommand } from "./video-player-shell"
+import type { PlayerStore } from "./video-player-store"
 
 interface VideoPlayerControlsOptions {
+  store: PlayerStore
   containerRef: RefObject<HTMLDivElement | null>
-  duration: number
   getCurrentTime: () => number
   getDuration: () => number
   isCoarsePointer: boolean
-  isFullscreen: boolean
-  mutedRef: MutableRefObject<boolean>
   pauseInternal: () => void
   playerRef: PlayerCoreProps["playerRef"]
   playInternal: (reportBlocked?: boolean) => Promise<void>
   seekInternal: (targetSec: number, keepPlaying?: boolean) => void
-  setChromeVisible: Dispatch<SetStateAction<boolean>>
-  setMutedState: Dispatch<SetStateAction<boolean>>
-  setPlaybackRate: Dispatch<SetStateAction<number>>
-  setVolumeState: Dispatch<SetStateAction<number>>
+  setChromeVisible: (visible: boolean) => void
   shortcutBounds: PlayerCoreProps["shortcutBounds"]
   videoRef: RefObject<HTMLVideoElement | null>
-  volumeRef: MutableRefObject<number>
 }
 
 export function useVideoPlayerControls({
+  store,
   containerRef,
-  duration,
   getCurrentTime,
   getDuration,
   isCoarsePointer,
-  isFullscreen,
-  mutedRef,
   pauseInternal,
   playerRef,
   playInternal,
   seekInternal,
   setChromeVisible,
-  setMutedState,
-  setPlaybackRate,
-  setVolumeState,
   shortcutBounds,
   videoRef,
-  volumeRef,
 }: VideoPlayerControlsOptions) {
+  // Volume lives in the shared player-volume store. The element is written
+  // here too, inside the gesture, so unmuting counts as user activation for
+  // the play() that may follow.
   const setMuted = useCallback(
     (next: boolean) => {
-      mutedRef.current = next
-      setMutedState(next)
       const video = videoRef.current
       if (video) video.muted = next
-      writePlayerVolume({ volume: volumeRef.current, muted: next })
+      writePlayerVolume({ volume: readPlayerVolume().volume, muted: next })
     },
-    [mutedRef, setMutedState, videoRef, volumeRef],
+    [videoRef],
   )
 
   const setVolume = useCallback(
     (next: number) => {
       const clamped = Math.max(0, Math.min(1, next))
-      const nextMuted = clamped > 0 ? false : mutedRef.current
-      volumeRef.current = clamped
-      mutedRef.current = nextMuted
-      setVolumeState(clamped)
-      setMutedState(nextMuted)
+      const nextMuted = clamped > 0 ? false : readPlayerVolume().muted
       const video = videoRef.current
       if (video) {
         video.volume = clamped
@@ -83,7 +69,16 @@ export function useVideoPlayerControls({
       }
       writePlayerVolume({ volume: clamped, muted: nextMuted })
     },
-    [mutedRef, setMutedState, setVolumeState, videoRef, volumeRef],
+    [videoRef],
+  )
+
+  const setPlaybackRate = useCallback(
+    (playbackRate: number) => {
+      store.setState({ playbackRate })
+      const video = videoRef.current
+      if (video) video.playbackRate = playbackRate
+    },
+    [store, videoRef],
   )
 
   useImperativeHandle(
@@ -122,15 +117,15 @@ export function useVideoPlayerControls({
   }, [pauseInternal, playInternal, videoRef])
 
   const toggleMute = useCallback(
-    () => setMuted(!mutedRef.current),
-    [mutedRef, setMuted],
+    () => setMuted(!readPlayerVolume().muted),
+    [setMuted],
   )
 
   const volumeBy = useCallback(
     (delta: number) => {
-      setVolume(volumeRef.current + delta)
+      setVolume(readPlayerVolume().volume + delta)
     },
-    [setVolume, volumeRef],
+    [setVolume],
   )
 
   const seekBy = useCallback(
@@ -148,10 +143,17 @@ export function useVideoPlayerControls({
     requestFullscreenBestEffort(element, "video player")
   }, [containerRef])
 
-  useEffect(() => {
-    if (isFullscreen && isCoarsePointer) screen.orientation?.unlock?.()
+  // Entering or leaving fullscreen re-reveals the chrome, and on touch
+  // devices releases the orientation lock so the clip can rotate. Other
+  // elements' fullscreen changes fire here too, hence the remembered state.
+  const fullscreenRef = useRef(false)
+  useDocumentEvent("fullscreenchange", () => {
+    const fullscreen = isFullscreenElement(containerRef.current)
+    if (fullscreen === fullscreenRef.current) return
+    fullscreenRef.current = fullscreen
+    if (fullscreen && isCoarsePointer) screen.orientation?.unlock?.()
     setChromeVisible(true)
-  }, [isCoarsePointer, isFullscreen, setChromeVisible])
+  })
 
   const keyCommand = useMemo<VideoKeyCommand>(
     () => ({
@@ -159,14 +161,16 @@ export function useVideoPlayerControls({
       toggleMute,
       seekBy,
       seekTo: (seconds) =>
-        seekInternal(Number.isFinite(seconds) ? seconds : duration),
+        seekInternal(
+          Number.isFinite(seconds) ? seconds : store.getState().duration,
+        ),
       seekPercent: (percent) => {
         const start = Math.max(0, shortcutBounds?.start ?? 0)
         const end =
           shortcutBounds?.end !== undefined &&
           Number.isFinite(shortcutBounds.end)
             ? shortcutBounds.end
-            : duration
+            : store.getState().duration
         const span = Math.max(0, end - start)
         seekInternal(start + span * Math.min(1, Math.max(0, percent)))
       },
@@ -174,7 +178,7 @@ export function useVideoPlayerControls({
       toggleFullscreen,
     }),
     [
-      duration,
+      store,
       seekBy,
       seekInternal,
       shortcutBounds?.end,
@@ -188,6 +192,7 @@ export function useVideoPlayerControls({
 
   return {
     keyCommand,
+    setPlaybackRate,
     setVolume,
     finishVolumeChange: flushPlayerVolume,
     toggleFullscreen,

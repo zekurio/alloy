@@ -31,12 +31,18 @@ let lastPersistedAt = 0
 let listeningToWindow = false
 
 export function usePlayerVolume(): PlayerVolumeState {
-  return useSyncExternalStore(subscribePlayerVolume, playerVolumeSnapshot)
+  return useSyncExternalStore(subscribePlayerVolume, readPlayerVolume)
+}
+
+/** The current volume, for handlers that must not wait for a render. */
+export function readPlayerVolume(): PlayerVolumeState {
+  state ??= storage.read()
+  return state
 }
 
 export function writePlayerVolume(next: PlayerVolumeState): void {
   const normalized = normalizePlayerVolume(next)
-  const current = playerVolumeSnapshot()
+  const current = readPlayerVolume()
   if (
     normalized.volume === current.volume &&
     normalized.muted === current.muted
@@ -66,11 +72,6 @@ function subscribePlayerVolume(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
-function playerVolumeSnapshot(): PlayerVolumeState {
-  state ??= storage.read()
-  return state
-}
-
 function schedulePersistence(): void {
   if (persistTimer !== null) return
   persistTimer = window.setTimeout(
@@ -94,7 +95,7 @@ function handleStorage(event: StorageEvent): void {
   lastPersistedAt = Date.now()
 
   const next = storage.refresh()
-  const current = playerVolumeSnapshot()
+  const current = readPlayerVolume()
   if (next.volume === current.volume && next.muted === current.muted) return
   state = next
   for (const listener of listeners) listener()

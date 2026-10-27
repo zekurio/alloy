@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useEffectEvent } from "react"
 
 export function useWindowEvent<K extends keyof WindowEventMap>(
   type: K,
@@ -8,17 +8,13 @@ export function useWindowEvent<K extends keyof WindowEventMap>(
   options?: boolean | AddEventListenerOptions,
   enabled = true,
 ): void {
-  const listenerRef = useRef(listener)
-
-  useEffect(() => {
-    listenerRef.current = listener
-  }, [listener])
+  const onEvent = useEffectEvent(listener)
 
   useEffect(() => {
     if (!enabled || !globalThis.window) return
 
     const handleEvent = (event: WindowEventMap[K]) => {
-      listenerRef.current(event)
+      onEvent(event)
     }
 
     window.addEventListener(type, handleEvent, options)

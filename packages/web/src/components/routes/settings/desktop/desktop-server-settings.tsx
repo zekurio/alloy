@@ -10,6 +10,8 @@ import { LoadingState } from "@alloy/ui/components/loading-state"
 import { SettingRows } from "@alloy/ui/components/setting-row"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
+import { useForm } from "@tanstack/react-form"
+import { useMutation } from "@tanstack/react-query"
 import {
   CheckCircle2Icon,
   CircleAlertIcon,
@@ -20,8 +22,7 @@ import {
   RefreshCcwIcon,
   Trash2Icon,
 } from "lucide-react"
-import { useEffect, useState } from "react"
-import type { FormEvent } from "react"
+import { useState } from "react"
 import { flushSync } from "react-dom"
 
 import {
@@ -30,6 +31,7 @@ import {
 } from "@/components/routes/settings/settings-panel"
 import { alloyDesktop, type DesktopSavedServer } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
+import { useDesktopQuery } from "@/lib/use-desktop-query"
 
 import { DesktopAutostartSettings } from "./desktop-autostart-settings"
 import { DesktopLogSettings } from "./desktop-log-settings"
@@ -83,57 +85,61 @@ export function DesktopAppPanel() {
 
 /** The host's saved servers and the current one, re-read on demand. */
 function useSavedServers(serverApi: ServerApi | undefined) {
-  const [servers, setServers] = useState<DesktopSavedServer[]>([])
-  const [currentServerUrl, setCurrentServerUrl] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [loaded, setLoaded] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [reloadNonce, setReloadNonce] = useState(0)
-  useEffect(() => {
-    const api = serverApi
-    if (!api) return
-    let cancelled = false
-
-    const load = async () => {
-      setLoadError(null)
-      setLoading(true)
-      try {
-        const [savedServers, currentServer] = await Promise.all([
-          api.list(),
-          api.current(),
-        ])
-        if (cancelled) return
-        setServers(savedServers)
-        setCurrentServerUrl(currentServer)
-      } catch (cause) {
-        if (!cancelled) {
-          setLoadError(errorMessage(cause, t("Couldn't load servers.")))
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-          setLoaded(true)
-        }
-      }
-    }
-
-    void load()
-
-    return () => {
-      cancelled = true
-    }
-  }, [serverApi, reloadNonce])
+  const { data, setData, loading, loaded, error, refetch } = useDesktopQuery(
+    ["servers"],
+    serverApi ? () => loadSavedServers(serverApi) : null,
+  )
 
   return {
-    servers,
-    setServers,
-    currentServerUrl,
+    servers: data?.servers ?? [],
+    setServers: (servers: DesktopSavedServer[]) =>
+      setData((current) => ({
+        servers,
+        currentServerUrl: current?.currentServerUrl ?? null,
+      })),
+    currentServerUrl: data?.currentServerUrl ?? null,
     loading,
     loaded,
-    loadError,
-    reload: () => setReloadNonce((nonce) => nonce + 1),
+    // A reload clears the last failure until it settles.
+    loadError:
+      error && !loading
+        ? errorMessage(error, t("Couldn't load servers."))
+        : null,
+    reload: refetch,
   }
 }
+
+async function loadSavedServers(api: ServerApi): Promise<{
+  servers: DesktopSavedServer[]
+  currentServerUrl: string | null
+}> {
+  const [servers, currentServerUrl] = await Promise.all([
+    api.list(),
+    api.current(),
+  ])
+  return { servers, currentServerUrl }
+}
+
+/**
+ * A connect is held in state set through `flushSync`, not a mutation, so the
+ * spinner commits before the host swaps this window for the new server's.
+ */
+type ConnectState =
+  | { phase: "idle" }
+  | { phase: "connecting"; serverUrl: string }
+  | { phase: "failed"; message: string }
+
+/** The confirm dialog that is open, and the server it is about. */
+type ServerDialog = { kind: "connect" | "forget"; serverUrl: string } | null
+
+function useServerUrlForm(connect: (serverUrl: string) => Promise<void>) {
+  return useForm({
+    defaultValues: { url: "" },
+    onSubmit: ({ value }) => connect(value.url),
+  })
+}
+
+type ServerUrlForm = ReturnType<typeof useServerUrlForm>
 
 function ServerSettings({
   serverApi,
@@ -144,16 +150,22 @@ function ServerSettings({
 }) {
   const { servers, setServers, currentServerUrl, loading, loadError, reload } =
     saved
-  const [url, setUrl] = useState("")
-  const [connectingServerUrl, setConnectingServerUrl] = useState<string | null>(
-    null,
-  )
-  const [error, setError] = useState<string | null>(null)
-  const [serverToConnect, setServerToConnect] = useState<string | null>(null)
-  const [serverToForget, setServerToForget] = useState<string | null>(null)
-  const [forgetting, setForgetting] = useState(false)
-  const [forgetError, setForgetError] = useState<string | null>(null)
+  const [connect, setConnect] = useState<ConnectState>({ phase: "idle" })
+  const [dialog, setDialog] = useState<ServerDialog>(null)
+  const form = useServerUrlForm((serverUrl) => connectTo(serverUrl))
+  const forget = useMutation({
+    mutationFn: (serverUrl: string) => serverApi.forget(serverUrl),
+    networkMode: "always",
+    onSuccess: (next) => {
+      setServers(next)
+      setDialog(null)
+    },
+  })
+  const connectingServerUrl =
+    connect.phase === "connecting" ? connect.serverUrl : null
   const busy = connectingServerUrl !== null
+  const serverToConnect = dialog?.kind === "connect" ? dialog.serverUrl : null
+  const serverToForget = dialog?.kind === "forget" ? dialog.serverUrl : null
 
   async function connectTo(serverUrl: string, confirmed = false) {
     const nextUrl = serverUrl.trim()
@@ -163,58 +175,38 @@ function ServerSettings({
       currentServerUrl !== null &&
       !sameOrigin(nextUrl, currentServerUrl)
     ) {
-      setServerToConnect(nextUrl)
+      setDialog({ kind: "connect", serverUrl: nextUrl })
       return
     }
-    setError(null)
-    setServerToConnect(null)
+    setDialog(null)
 
-    flushSync(() => setConnectingServerUrl(nextUrl))
+    flushSync(() => setConnect({ phase: "connecting", serverUrl: nextUrl }))
     try {
       // On success the host replaces this window with the new server's
       // window, so there is nothing left to update here.
       await serverApi.switchTo(nextUrl)
-      setUrl("")
+      form.reset()
+      setConnect({ phase: "idle" })
     } catch (cause) {
-      setError(errorMessage(cause, t("Couldn't connect to server.")))
-    } finally {
-      setConnectingServerUrl(null)
-    }
-  }
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault()
-    await connectTo(url)
-  }
-
-  async function forgetServer(serverUrl: string) {
-    if (busy || forgetting) return
-    setForgetError(null)
-    setForgetting(true)
-    try {
-      setServers(await serverApi.forget(serverUrl))
-      setServerToForget(null)
-    } catch (cause) {
-      setForgetError(errorMessage(cause, t("Couldn't forget server.")))
-    } finally {
-      setForgetting(false)
+      setConnect({
+        phase: "failed",
+        message: errorMessage(cause, t("Couldn't connect to server.")),
+      })
     }
   }
 
   return (
     <div className="flex flex-col gap-4">
-      {error ? (
+      {connect.phase === "failed" ? (
         <Callout tone="destructive" className="text-xs">
           <CircleAlertIcon />
-          <span>{error}</span>
+          <span>{connect.message}</span>
         </Callout>
       ) : null}
       <ServerConnectForm
-        url={url}
+        form={form}
         busy={busy}
         connectingServerUrl={connectingServerUrl}
-        setUrl={setUrl}
-        onSubmit={handleSubmit}
       />
 
       <div className="border-border border-t pt-4">
@@ -246,8 +238,8 @@ function ServerSettings({
             busy={busy}
             connectTo={connectTo}
             forgetServer={(serverUrl) => {
-              setForgetError(null)
-              setServerToForget(serverUrl)
+              forget.reset()
+              setDialog({ kind: "forget", serverUrl })
             }}
           />
         )}
@@ -255,7 +247,7 @@ function ServerSettings({
       <ConfirmActionDialog
         open={serverToConnect !== null}
         onOpenChange={(open) => {
-          if (!open) setServerToConnect(null)
+          if (!open) setDialog(null)
         }}
         title={t("Connect to another Alloy server?")}
         description={t(
@@ -275,9 +267,9 @@ function ServerSettings({
       <ConfirmDeleteDialog
         open={serverToForget !== null}
         onOpenChange={(open) => {
-          if (!open && !forgetting) {
-            setServerToForget(null)
-            setForgetError(null)
+          if (!open && !forget.isPending) {
+            setDialog(null)
+            forget.reset()
           }
         }}
         title={t("Forget this Alloy server?")}
@@ -287,10 +279,16 @@ function ServerSettings({
         )}
         confirmLabel={t("Forget server")}
         pendingLabel={t("Forgetting...")}
-        pending={forgetting}
-        error={forgetError}
+        pending={forget.isPending}
+        error={
+          forget.error
+            ? errorMessage(forget.error, t("Couldn't forget server."))
+            : null
+        }
         onConfirm={() => {
-          if (serverToForget !== null) void forgetServer(serverToForget)
+          if (serverToForget !== null && !busy && !forget.isPending) {
+            forget.mutate(serverToForget)
+          }
         }}
       />
     </div>
@@ -298,47 +296,59 @@ function ServerSettings({
 }
 
 function ServerConnectForm({
-  url,
+  form,
   busy,
   connectingServerUrl,
-  setUrl,
-  onSubmit,
 }: {
-  url: string
+  form: ServerUrlForm
   busy: boolean
   connectingServerUrl: string | null
-  setUrl: (value: string) => void
-  onSubmit: (event: FormEvent) => Promise<void>
 }) {
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-2">
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        void form.handleSubmit()
+      }}
+      className="flex flex-col gap-2"
+    >
       <label htmlFor="desktop-server-url" className="text-xs font-medium">
         {t("Server address")}
       </label>
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Input
-          id="desktop-server-url"
-          type="text"
-          inputMode="url"
-          placeholder="alloy.example.com"
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          disabled={busy}
-          className="sm:flex-1"
-        />
-        <Button type="submit" disabled={busy || !url.trim()}>
-          {busy && sameServerTarget(connectingServerUrl, url) ? (
-            <>
-              <Spinner />
-              {t("Connecting...")}
-            </>
-          ) : (
-            <>
-              <PlusIcon className="size-4" />
-              {t("Add server")}
-            </>
+        <form.Field name="url">
+          {(field) => (
+            <Input
+              id="desktop-server-url"
+              type="text"
+              inputMode="url"
+              placeholder="alloy.example.com"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(event) => field.handleChange(event.target.value)}
+              disabled={busy}
+              className="sm:flex-1"
+            />
           )}
-        </Button>
+        </form.Field>
+        <form.Subscribe selector={(state) => state.values.url}>
+          {(url) => (
+            <Button type="submit" disabled={busy || !url.trim()}>
+              {busy && sameServerTarget(connectingServerUrl, url) ? (
+                <>
+                  <Spinner />
+                  {t("Connecting...")}
+                </>
+              ) : (
+                <>
+                  <PlusIcon className="size-4" />
+                  {t("Add server")}
+                </>
+              )}
+            </Button>
+          )}
+        </form.Subscribe>
       </div>
     </form>
   )

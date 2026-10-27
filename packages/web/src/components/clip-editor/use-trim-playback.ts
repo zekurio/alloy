@@ -43,13 +43,14 @@ export function useTrimPlayback({
 }) {
   const playerRef = useRef<VideoPlayerHandle | null>(null)
   const [playing, setPlaying] = useState(false)
-  const [durationMs, setDurationMs] = useState(initialDurationMs)
   // Mount-time fact: whether the trim was seeded from persisted bounds. A
   // seeded end is a real cut point, so duration adoption must never treat it
   // as an "untouched full range" and expand it.
   const seededTrimRef = useRef(initialTrim !== undefined)
-  const [trim, setTrim] = useState(() =>
-    initialTrim
+  // The trim is fitted into the duration, so the two change together.
+  const [timeline, setTimeline] = useState(() => ({
+    durationMs: initialDurationMs,
+    trim: initialTrim
       ? {
           startMs: Math.min(
             Math.max(0, initialTrim.startMs),
@@ -64,7 +65,11 @@ export function useTrimPlayback({
           startMs: 0,
           endMs: initialDurationMs,
         },
-  )
+  }))
+  const { durationMs, trim } = timeline
+  const setTrim = useCallback((next: TrimRange) => {
+    setTimeline((current) => ({ ...current, trim: next }))
+  }, [])
   // The playhead position lives outside React state: the playback loop
   // publishes it every animation frame, and rendering it through setState
   // would reconcile the whole editor subtree at 60fps. Leaf components
@@ -102,21 +107,30 @@ export function useTrimPlayback({
     // The player reports the real duration once metadata lands; adopt it and
     // re-fit the trim into the actual media bounds.
     const reported = Math.round((playerRef.current?.getDuration() ?? 0) * 1000)
-    if (reported > 0 && reported !== durationMs) {
-      setDurationMs(reported)
-      setTrim((current) => ({
-        startMs: Math.min(current.startMs, Math.max(0, reported - MIN_TRIM_MS)),
-        // An untouched full-range trim simply adopts the new duration. A
-        // seeded trim keeps its end — even one that happens to sit at the
-        // previously known duration — and only clamps into the real media.
-        endMs:
-          current.endMs <= 0 ||
-          (!seededTrimRef.current &&
-            current.endMs >= durationMs - FULL_CLIP_TOLERANCE_MS)
-            ? reported
-            : Math.min(current.endMs, reported),
-      }))
-    }
+    if (reported <= 0 || reported === durationMs) return
+    setTimeline((current) =>
+      current.durationMs === reported
+        ? current
+        : {
+            durationMs: reported,
+            trim: {
+              startMs: Math.min(
+                current.trim.startMs,
+                Math.max(0, reported - MIN_TRIM_MS),
+              ),
+              // An untouched full-range trim simply adopts the new duration. A
+              // seeded trim keeps its end — even one that happens to sit at the
+              // previously known duration — and only clamps into the real media.
+              endMs:
+                current.trim.endMs <= 0 ||
+                (!seededTrimRef.current &&
+                  current.trim.endMs >=
+                    current.durationMs - FULL_CLIP_TOLERANCE_MS)
+                  ? reported
+                  : Math.min(current.trim.endMs, reported),
+            },
+          },
+    )
   }
 
   const seek = (sourceMs: number) => {
@@ -167,7 +181,10 @@ export function useTrimPlayback({
     const clamped = Math.round(
       Math.min(Math.max(0, sourceMs), trim.endMs - MIN_TRIM_MS),
     )
-    setTrim((current) => ({ ...current, startMs: clamped }))
+    setTimeline((current) => ({
+      ...current,
+      trim: { ...current.trim, startMs: clamped },
+    }))
     playerRef.current?.pause()
     setCurrentMs(clamped)
     playerRef.current?.seek(clamped / 1000, false)
@@ -178,7 +195,10 @@ export function useTrimPlayback({
     const clamped = Math.round(
       Math.max(Math.min(durationMs, sourceMs), trim.startMs + MIN_TRIM_MS),
     )
-    setTrim((current) => ({ ...current, endMs: clamped }))
+    setTimeline((current) => ({
+      ...current,
+      trim: { ...current.trim, endMs: clamped },
+    }))
     playerRef.current?.pause()
     setCurrentMs(clamped)
     playerRef.current?.seek(clamped / 1000, false)

@@ -1,12 +1,11 @@
-import { type QueueClip } from "@alloy/api"
-import { Suspense, useCallback, useEffect, useMemo } from "react"
+import { Suspense, useEffect } from "react"
+import { useStore } from "zustand"
 
-import { useOpenClipDialog } from "@/lib/clip-navigation"
+import { useUploadQueueQuery } from "@/lib/clip-queries"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
-import type { PublishClipInput } from "./new-clip-helpers"
-import { useUploadActions } from "./upload-flow-context"
-import { useUploadQueueState } from "./upload-flow-queue-state"
+import { useUploadQueueStore } from "./upload-flow-context"
+import { hasUploadInFlight } from "./upload-queue-store"
 
 export function UploadFlow() {
   return (
@@ -25,37 +24,26 @@ function UploadFlowInner() {
 }
 
 function AuthedUploadFlow() {
-  const { setPublishClip, setQueueState } = useUploadActions()
-  const openClipDialog = useOpenClipDialog()
-  const handleOpenClip = useCallback(
-    (row: QueueClip) => openClipDialog(row.id, row.gameSlug),
-    [openClipDialog],
+  const store = useUploadQueueStore()
+  // Opens the server queue stream that feeds the query cache.
+  useUploadQueueQuery({ enabled: true })
+  useEffect(() => store.getState().attach(), [store])
+
+  const uploadInFlight = useStore(store, (state) =>
+    hasUploadInFlight(state.active),
   )
-  const { runUpload, queue } = useUploadQueueState(handleOpenClip)
-
-  const queueState = useMemo(() => ({ queue }), [queue])
-
   useEffect(() => {
-    setQueueState(queueState)
-  }, [queueState, setQueueState])
-
-  useEffect(() => {
-    return () => setQueueState(null)
-  }, [setQueueState])
-
-  const publishFromDesktopEditor = useCallback(
-    async (payload: PublishClipInput) => {
-      return runUpload(payload)
-    },
-    [runUpload],
-  )
-
-  useEffect(() => {
-    setPublishClip(publishFromDesktopEditor)
-    return () => {
-      setPublishClip(null)
+    if (!uploadInFlight) return
+    // Leaving the page drops the transfer and its prepared media, so ask
+    // first while any upload still has work left on this page.
+    const confirmLeave = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      // WebKit and older engines only prompt when returnValue is set.
+      event.returnValue = ""
     }
-  }, [publishFromDesktopEditor, setPublishClip])
+    window.addEventListener("beforeunload", confirmLeave)
+    return () => window.removeEventListener("beforeunload", confirmLeave)
+  }, [uploadInFlight])
 
   return null
 }

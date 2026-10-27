@@ -7,7 +7,7 @@ import {
   uploadQueueStreamUrl,
 } from "@alloy/api"
 import { type QueryClient, useQueryClient } from "@tanstack/react-query"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 
 import { invalidateClipCaches, patchClipInCaches } from "./clip-query-cache"
 import { clipKeys } from "./clip-query-keys"
@@ -80,18 +80,10 @@ function syncQueueClipCaches(
   return Boolean(previous && previous.encodeActive && !current.encodeActive)
 }
 
-function bindUploadQueueStream(input: {
-  source: EventSource
-  queryClient: QueryClient
-  setInitialError: (next: boolean) => void
-}) {
-  const { source, queryClient, setInitialError } = input
+function bindUploadQueueStream(source: EventSource, queryClient: QueryClient) {
   const handleSnapshot = (ev: MessageEvent<string>) => {
     const snapshot = parseQueueSnapshotPayload(ev.data)
-    if (!snapshot) {
-      setInitialError(true)
-      return
-    }
+    if (!snapshot) return
     const previous = queryClient.getQueryData<QueueClip[]>(clipKeys.queue())
     const previousById = new Map(previous?.map((row) => [row.id, row]))
     let completed = false
@@ -102,15 +94,11 @@ function bindUploadQueueStream(input: {
     }
     queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), snapshot)
     if (completed) invalidateClipCaches(queryClient)
-    setInitialError(false)
   }
 
   const handleDelta = (ev: MessageEvent<string>) => {
     const event = parseQueueEventPayload(ev.data)
-    if (!event) {
-      setInitialError(true)
-      return
-    }
+    if (!event) return
     const previousQueue = queryClient.getQueryData<QueueClip[]>(
       clipKeys.queue(),
     )
@@ -143,7 +131,6 @@ function bindUploadQueueStream(input: {
       remove: handleDelta,
     },
     () => {
-      setInitialError(true)
       // CLOSED means the browser stopped reconnecting. The server ends the
       // stream once the session is gone and then refuses the retry with 401.
       if (source.readyState === EventSource.CLOSED) void recheckSession()
@@ -153,19 +140,13 @@ function bindUploadQueueStream(input: {
 
 export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
   const queryClient = useQueryClient()
-  const [initialError, setInitialError] = useState(false)
 
   useEffect(() => {
-    setInitialError(false)
     if (!enabled) return
 
     const url = uploadQueueStreamUrl(apiOrigin())
     const source = new EventSource(url, { withCredentials: true })
-    const removeListeners = bindUploadQueueStream({
-      source,
-      queryClient,
-      setInitialError,
-    })
+    const removeListeners = bindUploadQueueStream(source, queryClient)
     // `heartbeat` lands as an unhandled event — EventSource ignores it
     // silently. Nothing to wire up.
 
@@ -174,6 +155,4 @@ export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
       source.close()
     }
   }, [enabled, queryClient])
-
-  return { initialError }
 }

@@ -9,14 +9,16 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useMemo,
+  useReducer,
   useRef,
-  useState,
 } from "react"
 
 import {
   exportScreenshot,
   type ScreenshotEdit,
 } from "@/components/media/screenshot-edit"
+import { loadLibraryEditorPage } from "@/components/routes/library/load-library-editor-page"
 import {
   prepareSelectedClipFile,
   type PublishClipInput,
@@ -61,62 +63,72 @@ export interface WebUploadMetadata {
   trimmed: boolean
 }
 
-export function useWebUploadAction(
-  publishClip: PublishClipFn,
-): WebUploadAction {
-  const [publishing, setPublishing] = useState(false)
-  const [publishError, setPublishError] = useState<string | null>(null)
-  const [linkToCopy, setLinkToCopy] = useState<string | null>(null)
-  const selection = useWebUploadSelection(publishing)
-  const { clear: clearSelection, discard: discardSelection } = selection
-  const clear = useCallback(() => {
-    setPublishError(null)
-    setLinkToCopy(null)
-    clearSelection()
-  }, [clearSelection])
-  const publish = usePublishSelectedFile(
-    publishClip,
-    selection.selected,
-    publishing,
-    linkToCopy,
-    clear,
-    setPublishing,
-    setPublishError,
-    setLinkToCopy,
-  )
-  const retryLinkCopy = useRetryLinkCopy(
-    linkToCopy,
-    publishing,
-    clear,
-    setPublishing,
-    setPublishError,
-  )
-  const discard = useCallback(() => {
-    setPublishError(null)
-    setLinkToCopy(null)
-    discardSelection()
-  }, [discardSelection])
+interface WebUploadState {
+  picking: boolean
+  selection: { file: SelectedFile; previewUrl: string | null } | null
+  publishing: boolean
+  /**
+   * The pick's or the publish's failure. A pick only starts with nothing
+   * selected and a publish only with a selection, so one slot covers both.
+   */
+  error: string | null
+  /** An unlisted clip's link, kept after the copy failed so it can retry. */
+  linkToCopy: string | null
+}
 
-  return {
-    available: Boolean(globalThis.File),
-    picking: selection.picking,
-    publishing,
-    error: publishError ?? selection.error,
-    awaitingLinkCopy: linkToCopy !== null,
-    selected: selection.selected,
-    previewUrl: selection.previewUrl,
-    select: selection.select,
-    discard,
-    publish,
-    retryLinkCopy,
+type PublishOutcome = { error?: string; linkToCopy?: string }
+
+type WebUploadEvent =
+  | { type: "pick" }
+  | { type: "picked"; file: SelectedFile; previewUrl: string | null }
+  | { type: "pickFailed"; error: string }
+  | { type: "publish" }
+  | ({ type: "published" } & PublishOutcome)
+  | { type: "clear" }
+
+const initialWebUploadState: WebUploadState = {
+  picking: false,
+  selection: null,
+  publishing: false,
+  error: null,
+  linkToCopy: null,
+}
+
+function webUploadReducer(
+  state: WebUploadState,
+  event: WebUploadEvent,
+): WebUploadState {
+  switch (event.type) {
+    case "pick":
+      return { ...state, picking: true, error: null }
+    case "picked":
+      return {
+        ...state,
+        picking: false,
+        selection: { file: event.file, previewUrl: event.previewUrl },
+      }
+    case "pickFailed":
+      return { ...state, picking: false, error: event.error }
+    case "publish":
+      return { ...state, publishing: true, error: null }
+    case "published":
+      return {
+        ...state,
+        publishing: false,
+        error: event.error ?? state.error,
+        linkToCopy: event.linkToCopy ?? state.linkToCopy,
+      }
+    case "clear":
+      return { ...state, selection: null, error: null, linkToCopy: null }
   }
 }
 
-function useWebUploadSelection(publishing: boolean) {
-  const [picking, setPicking] = useState(false)
-  const [selected, setSelected] = useState<SelectedFile | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+export function useWebUploadAction(
+  publishClip: PublishClipFn,
+): WebUploadAction {
+  const [state, dispatch] = useReducer(webUploadReducer, initialWebUploadState)
+  const { picking, selection, publishing, error, linkToCopy } = state
+  const selected = selection?.file ?? null
   // Owns the live object URL. Written only where the URL is created or
   // revoked, so a render that never commits cannot change what gets revoked.
   const previewUrlRef = useRef<string | null>(null)
@@ -134,16 +146,16 @@ function useWebUploadSelection(publishing: boolean) {
   }, [revokePreviewUrl])
 
   const clear = useCallback(() => {
-    setError(null)
-    setSelected(null)
     revokePreviewUrl()
-    setPreviewUrl(null)
+    dispatch({ type: "clear" })
   }, [revokePreviewUrl])
+
   const select = useCallback(
     async (file: File | null) => {
       if (!file || picking || publishing || selected) return
-      setError(null)
-      setPicking(true)
+      dispatch({ type: "pick" })
+      // Fetch the editor while the picked file is still being probed.
+      void loadLibraryEditorPage().catch(() => {})
       try {
         const prepared = await prepareSelectedClipFile(file)
         // Unmounted while preparing: nothing would ever revoke a new URL.
@@ -154,40 +166,28 @@ function useWebUploadSelection(publishing: boolean) {
         // A transition keeps the current page, and the trigger's spinner, up
         // while the editor's chunk loads instead of blanking the main area.
         startTransition(() => {
-          setSelected(prepared)
-          setPreviewUrl(url)
-          setPicking(false)
+          dispatch({ type: "picked", file: prepared, previewUrl: url })
         })
       } catch (cause) {
-        setError(errorMessage(cause, t("Could not prepare clip.")))
-        setPicking(false)
+        dispatch({
+          type: "pickFailed",
+          error: errorMessage(cause, t("Could not prepare clip.")),
+        })
       }
     },
     [picking, publishing, selected, revokePreviewUrl],
   )
+
   const discard = useCallback(() => {
     if (publishing) return
     clear()
   }, [publishing, clear])
 
-  return { picking, selected, previewUrl, error, select, discard, clear }
-}
-
-function usePublishSelectedFile(
-  publishClip: PublishClipFn,
-  selected: SelectedFile | null,
-  publishing: boolean,
-  linkToCopy: string | null,
-  clearSelection: () => void,
-  setPublishing: (value: boolean) => void,
-  setPublishError: (value: string | null) => void,
-  setLinkToCopy: (value: string | null) => void,
-) {
-  return useCallback(
+  const publish = useCallback(
     async (metadata: WebUploadMetadata) => {
       if (!selected || publishing || linkToCopy) return
-      setPublishError(null)
-      setPublishing(true)
+      dispatch({ type: "publish" })
+      let outcome: PublishOutcome = {}
       try {
         const result = await publishClip(
           createDeferredWebUpload(selected, metadata),
@@ -200,56 +200,67 @@ function usePublishSelectedFile(
             publicOrigin(),
           )
           if (!(await copyUploadedClipLink(link))) {
-            setLinkToCopy(link)
-            setPublishError(
-              t("Upload started, but the clip link couldn't be copied."),
-            )
+            outcome = {
+              linkToCopy: link,
+              error: t("Upload started, but the clip link couldn't be copied."),
+            }
             return
           }
         }
-        clearSelection()
+        clear()
       } catch (cause) {
-        setPublishError(errorMessage(cause, t("Could not start upload.")))
+        outcome = { error: errorMessage(cause, t("Could not start upload.")) }
       } finally {
-        setPublishing(false)
+        dispatch({ type: "published", ...outcome })
       }
     },
-    [
-      publishClip,
-      selected,
-      publishing,
-      linkToCopy,
-      clearSelection,
-      setPublishing,
-      setPublishError,
-      setLinkToCopy,
-    ],
+    [publishClip, selected, publishing, linkToCopy, clear],
   )
-}
 
-function useRetryLinkCopy(
-  linkToCopy: string | null,
-  publishing: boolean,
-  clearSelection: () => void,
-  setPublishing: (value: boolean) => void,
-  setPublishError: (value: string | null) => void,
-) {
-  return useCallback(async () => {
+  const retryLinkCopy = useCallback(async () => {
     if (!linkToCopy || publishing) return
-    setPublishError(null)
-    setPublishing(true)
+    dispatch({ type: "publish" })
+    let outcome: PublishOutcome = {}
     try {
       if (!(await copyUploadedClipLink(linkToCopy))) {
-        setPublishError(
-          t("Upload started, but the clip link couldn't be copied."),
-        )
+        outcome = {
+          error: t("Upload started, but the clip link couldn't be copied."),
+        }
         return
       }
-      clearSelection()
+      clear()
     } finally {
-      setPublishing(false)
+      dispatch({ type: "published", ...outcome })
     }
-  }, [linkToCopy, publishing, clearSelection, setPublishing, setPublishError])
+  }, [linkToCopy, publishing, clear])
+
+  return useMemo(
+    () => ({
+      available: Boolean(globalThis.File),
+      picking,
+      publishing,
+      error,
+      awaitingLinkCopy: linkToCopy !== null,
+      selected,
+      previewUrl: selection?.previewUrl ?? null,
+      select,
+      discard,
+      publish,
+      retryLinkCopy,
+    }),
+    [
+      picking,
+      publishing,
+      error,
+      linkToCopy,
+      selected,
+      selection,
+      select,
+      discard,
+      publish,
+      retryLinkCopy,
+    ],
+  )
 }
 
 function createDeferredWebUpload(

@@ -13,7 +13,10 @@ import {
   ProviderTextField,
   providerFieldId,
 } from "./admin-auth-provider-fields"
-import type { ProviderDraft } from "./admin-auth-provider-utils"
+import type {
+  ProviderDraft,
+  SetProviderDraftField,
+} from "./admin-auth-provider-utils"
 import { HexColorInput } from "./hex-color-input"
 
 /**
@@ -29,7 +32,7 @@ export function SignInButtonFields({
 }: {
   draft: ProviderDraft
   editingProviderId: string | null
-  onChange: (next: Partial<ProviderDraft>) => void
+  onChange: SetProviderDraftField
 }) {
   const iconSrc = useProviderIconSrc(draft)
 
@@ -47,7 +50,7 @@ export function SignInButtonFields({
           // Empty keeps the theme styling, so the swatch shows the token the
           // OAuth button falls back to.
           fallbackColor="var(--surface-raised)"
-          onChange={(buttonColor) => onChange({ buttonColor })}
+          onChange={(buttonColor) => onChange("buttonColor", buttonColor)}
         />
         <ProviderColorField
           fieldId="button-text-color"
@@ -56,7 +59,9 @@ export function SignInButtonFields({
           placeholder="#ffffff"
           value={draft.buttonTextColor}
           fallbackColor="var(--foreground)"
-          onChange={(buttonTextColor) => onChange({ buttonTextColor })}
+          onChange={(buttonTextColor) =>
+            onChange("buttonTextColor", buttonTextColor)
+          }
         />
         <ProviderIconField
           draft={draft}
@@ -68,7 +73,7 @@ export function SignInButtonFields({
           editingProviderId={editingProviderId}
           label={t("Icon URL")}
           value={draft.iconUrl}
-          onChange={(iconUrl) => onChange({ iconUrl })}
+          onChange={(iconUrl) => onChange("iconUrl", iconUrl)}
           // Stored icons use relative paths, which native URL inputs reject.
           type={
             publicOAuthProviderIconUrl(draft.iconUrl.trim()) ? "text" : "url"
@@ -122,18 +127,21 @@ function previewDisplayName(draft: ProviderDraft): string {
  */
 function useProviderIconSrc(draft: ProviderDraft): string | undefined {
   const file = draft.iconFile
-  const [fileSrc, setFileSrc] = useState<string | null>(null)
+  const [preview, setPreview] = useState<{
+    file: File
+    url: string | null
+  } | null>(null)
 
+  // The URL is created in the effect, not during render, so StrictMode's
+  // double render can't leak one.
   useEffect(() => {
-    if (!file) {
-      setFileSrc(null)
-      return
-    }
+    if (!file) return
     const url = createObjectUrl(file, "provider icon preview")
-    setFileSrc(url)
+    setPreview({ file, url })
     return () => revokeObjectUrl(url, "provider icon preview")
   }, [file])
 
+  const fileSrc = file && preview?.file === file ? preview.url : null
   return (
     fileSrc ?? publicOAuthProviderIconUrl(draft.iconUrl.trim() || undefined)
   )
@@ -200,7 +208,7 @@ function ProviderIconField({
 }: {
   draft: ProviderDraft
   iconSrc: string | undefined
-  onChange: (next: Partial<ProviderDraft>) => void
+  onChange: SetProviderDraftField
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const removable = Boolean(draft.iconFile || draft.iconUrl.trim())
@@ -209,7 +217,7 @@ function ProviderIconField({
     const file = event.target.files?.[0] ?? null
     // Reset so picking the same file again still fires a change event.
     event.target.value = ""
-    onChange({ iconFile: file })
+    onChange("iconFile", file)
   }
 
   return (
@@ -239,7 +247,10 @@ function ProviderIconField({
               variant="ghost"
               size="sm"
               aria-label={t("Remove icon")}
-              onClick={() => onChange({ iconFile: null, iconUrl: "" })}
+              onClick={() => {
+                onChange("iconFile", null)
+                onChange("iconUrl", "")
+              }}
             >
               {t("Remove")}
             </Button>

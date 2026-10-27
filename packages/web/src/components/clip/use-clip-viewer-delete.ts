@@ -1,5 +1,6 @@
 import type { ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
+import { useMutation } from "@tanstack/react-query"
 import { useCallback, useState } from "react"
 
 import { useDeleteClipMutation } from "@/lib/clip-queries"
@@ -17,9 +18,13 @@ export function useClipViewerDelete({
 }) {
   const localItem = useLocalClipPlayback(row.id).localItem
   const deleteMutation = useDeleteClipMutation()
+  // The local copy is cleaned up once the server delete lands.
+  const localDeleteMutation = useMutation({
+    mutationFn: finishLocalClipDelete,
+    networkMode: "always",
+  })
   const [open, setOpen] = useState(false)
-  const [deletingLocal, setDeletingLocal] = useState(false)
-  const pending = deleteMutation.isPending || deletingLocal
+  const pending = deleteMutation.isPending || localDeleteMutation.isPending
 
   const confirm = useCallback(
     (deleteLocal: boolean) => {
@@ -28,11 +33,10 @@ export function useClipViewerDelete({
         {
           onSuccess: async () => {
             if (localItem) {
-              await finishLocalClipDelete({
+              await localDeleteMutation.mutateAsync({
                 deleteLocal,
                 localItem,
                 serverId: row.id,
-                setDeletingLocal,
               })
             }
             setOpen(false)
@@ -41,7 +45,7 @@ export function useClipViewerDelete({
         },
       )
     },
-    [deleteMutation, localItem, onDeleted, row.id],
+    [deleteMutation, localDeleteMutation, localItem, onDeleted, row.id],
   )
 
   return {

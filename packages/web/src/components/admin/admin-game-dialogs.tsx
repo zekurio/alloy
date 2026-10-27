@@ -18,9 +18,10 @@ import {
   ResponsiveDialogTrigger,
 } from "@alloy/ui/components/responsive-dialog"
 import { cn } from "@alloy/ui/lib/utils"
+import { useForm, useStore } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { PencilIcon, PlusIcon } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 import type { FormEvent, ReactNode } from "react"
 
 import { api } from "@/lib/api"
@@ -38,77 +39,70 @@ import {
 import { GameArtworkEditor } from "./game-artwork-editor"
 import { SteamGridDBArtworkGrid } from "./steamgriddb-artwork-grid"
 
+const PREVIEW_LABEL = "game artwork preview"
+
 /**
  * An artwork change waiting for the dialog's save. Nothing reaches the server
- * until then, so cancelling the dialog discards every slot at once.
+ * until then, so cancelling the dialog discards every slot at once. A staged
+ * file carries the blob URL its tile previews, revoked when the file leaves.
  */
 type StagedArtwork =
-  | { kind: "file"; file: File }
+  | { kind: "file"; file: File; preview: string | null }
   | { kind: "url"; url: string; preview: string }
   | { kind: "remove" }
 
 type StagedArtworkMap = Partial<Record<GameAssetRole, StagedArtwork>>
 
-function withStaged(
+type CreateGameValues = {
+  name: string
+  releaseDate: string
+  staged: StagedArtworkMap
+}
+
+type EditGameValues = CreateGameValues & { slug: string }
+
+const NEW_GAME: CreateGameValues = { name: "", releaseDate: "", staged: {} }
+
+function stagedFile(file: File): StagedArtwork {
+  return { kind: "file", file, preview: createObjectUrl(file, PREVIEW_LABEL) }
+}
+
+function releasePreview(change: StagedArtwork | undefined) {
+  if (change?.kind === "file") revokeObjectUrl(change.preview, PREVIEW_LABEL)
+}
+
+/**
+ * Swaps one staged slot. Call it from event handlers, never from a state
+ * updater: it revokes the replaced file's preview URL.
+ */
+function restage(
   staged: StagedArtworkMap,
   role: GameAssetRole,
   change: StagedArtwork | null,
 ) {
+  if (staged[role] !== change) releasePreview(staged[role])
   const next = { ...staged }
   if (change) next[role] = change
   else delete next[role]
   return next
 }
 
-export function CreateGameDialog() {
-  const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState("")
-  const [releaseDate, setReleaseDate] = useState("")
-  const [staged, setStaged] = useState<StagedArtworkMap>({})
-  const [role, setRole] = useState<GameAssetRole>("grid")
-  const previews = useFilePreviews(staged)
-  const create = useMutation({
-    mutationFn: api.admin.createGame,
-    onSuccess: (created) => {
-      setAdminGameCacheRow(queryClient, created)
-      setOpen(false)
+/** Revokes the previews still staged when the dialog content unmounts. */
+function useReleaseStagedPreviews(staged: () => StagedArtworkMap) {
+  const read = useEffectEvent(staged)
+  useEffect(
+    () => () => {
+      for (const change of Object.values(read())) releasePreview(change)
     },
-  })
-  const saving = create.isPending
-  const submitError = create.error
-    ? errorMessage(create.error, t("Couldn't create game"))
-    : null
+    [],
+  )
+}
 
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault()
-    const trimmed = name.trim()
-    if (!trimmed || saving) return
-    const assets: Partial<Record<GameAssetRole, File>> = {}
-    for (const role of GAME_ASSET_ROLES) {
-      const change = staged[role]
-      if (change?.kind === "file") assets[role] = change.file
-    }
-    create.mutate({
-      name: trimmed,
-      releaseDate: releaseDatePayload(releaseDate),
-      assets,
-    })
-  }
+export function CreateGameDialog() {
+  const [open, setOpen] = useState(false)
 
   return (
-    <ResponsiveDialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (nextOpen) {
-          setName("")
-          setReleaseDate("")
-          setStaged({})
-          create.reset()
-        }
-        setOpen(nextOpen)
-      }}
-    >
+    <ResponsiveDialog open={open} onOpenChange={setOpen}>
       <ResponsiveDialogTrigger
         render={
           <Button
@@ -122,62 +116,144 @@ export function CreateGameDialog() {
         }
       />
       <ResponsiveDialogContent className="md:max-w-[640px]">
-        <form onSubmit={handleSubmit}>
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>
-              {t("New custom game")}
-            </ResponsiveDialogTitle>
-          </ResponsiveDialogHeader>
-          <GameEditorBody error={submitError}>
-            <GameDetailFields
-              idPrefix="new-game"
-              name={name}
-              onNameChange={setName}
-              releaseDate={releaseDate}
-              onReleaseDateChange={setReleaseDate}
-            />
-            <GameArtworkEditor
-              role={role}
-              onRoleChange={setRole}
-              src={(role) => previews[role] ?? null}
-              // Everything in a new game is unsaved, so the marker says nothing.
-              changed={() => false}
-              disabled={saving}
-              onFile={(role, file) =>
-                setStaged((old) =>
-                  withStaged(old, role, { kind: "file", file }),
-                )
-              }
-              onRemove={(role) =>
-                setStaged((old) => withStaged(old, role, null))
-              }
-            />
-          </GameEditorBody>
-          <AdminDialogFooter
-            pending={saving}
-            failed={Boolean(submitError)}
-            disabled={name.trim().length === 0}
-            pendingLabel={t("Creating…")}
-          >
-            {t("Create")}
-          </AdminDialogFooter>
-        </form>
+        <CreateGameForm onCreated={() => setOpen(false)} />
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   )
 }
 
-export function EditGameDialog({ game }: { game: AdminGameRow }) {
+/** Lives inside the dialog content, so each open starts from a blank draft. */
+function CreateGameForm({ onCreated }: { onCreated: () => void }) {
   const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState(game.name)
-  const [slug, setSlug] = useState(game.slug)
-  const [releaseDate, setReleaseDate] = useState(
-    dateInputValue(game.releaseDate),
-  )
-  const [staged, setStaged] = useState<StagedArtworkMap>({})
   const [role, setRole] = useState<GameAssetRole>("grid")
-  const previews = useFilePreviews(staged)
+  const create = useMutation({
+    mutationFn: api.admin.createGame,
+    onSuccess: (created) => {
+      setAdminGameCacheRow(queryClient, created)
+      onCreated()
+    },
+  })
+  const saving = create.isPending
+  const form = useForm({
+    defaultValues: NEW_GAME,
+    onSubmit: ({ value }) => {
+      const trimmed = value.name.trim()
+      if (!trimmed || saving) return
+      const assets: Partial<Record<GameAssetRole, File>> = {}
+      for (const role of GAME_ASSET_ROLES) {
+        const change = value.staged[role]
+        if (change?.kind === "file") assets[role] = change.file
+      }
+      create.mutate({
+        name: trimmed,
+        releaseDate: releaseDatePayload(value.releaseDate),
+        assets,
+      })
+    },
+  })
+  const values = useStore(form.store, (state) => state.values)
+  useReleaseStagedPreviews(() => form.getFieldValue("staged"))
+  const submitError = create.error
+    ? errorMessage(create.error, t("Couldn't create game"))
+    : null
+
+  const stage = (role: GameAssetRole, change: StagedArtwork | null) => {
+    form.setFieldValue(
+      "staged",
+      restage(form.getFieldValue("staged"), role, change),
+    )
+  }
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        void form.handleSubmit()
+      }}
+    >
+      <ResponsiveDialogHeader>
+        <ResponsiveDialogTitle>{t("New custom game")}</ResponsiveDialogTitle>
+      </ResponsiveDialogHeader>
+      <GameEditorBody error={submitError}>
+        <GameDetailFields
+          idPrefix="new-game"
+          name={values.name}
+          onNameChange={(name) => form.setFieldValue("name", name)}
+          releaseDate={values.releaseDate}
+          onReleaseDateChange={(date) =>
+            form.setFieldValue("releaseDate", date)
+          }
+        />
+        <GameArtworkEditor
+          role={role}
+          onRoleChange={setRole}
+          src={(role) => {
+            const change = values.staged[role]
+            return change && change.kind !== "remove" ? change.preview : null
+          }}
+          // Everything in a new game is unsaved, so the marker says nothing.
+          changed={() => false}
+          disabled={saving}
+          onFile={(role, file) => stage(role, stagedFile(file))}
+          onRemove={(role) => stage(role, null)}
+        />
+      </GameEditorBody>
+      <AdminDialogFooter
+        pending={saving}
+        failed={Boolean(submitError)}
+        disabled={values.name.trim().length === 0}
+        pendingLabel={t("Creating…")}
+      >
+        {t("Create")}
+      </AdminDialogFooter>
+    </form>
+  )
+}
+
+export function EditGameDialog({ game }: { game: AdminGameRow }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <ResponsiveDialog open={open} onOpenChange={setOpen}>
+      <ResponsiveDialogTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t("Edit game")}
+          >
+            <PencilIcon className="size-3.5" />
+          </Button>
+        }
+      />
+      <ResponsiveDialogContent className="md:max-w-[640px]">
+        <EditGameForm game={game} onSaved={() => setOpen(false)} />
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
+  )
+}
+
+/**
+ * Seeds from the game when the dialog opens. It is not keyed on the game: the
+ * cache updates the row mid-save, and the draft must keep diffing against it.
+ */
+function EditGameForm({
+  game,
+  onSaved,
+}: {
+  game: AdminGameRow
+  onSaved: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [role, setRole] = useState<GameAssetRole>("grid")
+  const defaultValues: EditGameValues = {
+    name: game.name,
+    slug: game.slug,
+    releaseDate: dateInputValue(game.releaseDate),
+    staged: {},
+  }
+  const form = useForm({ defaultValues })
   const save = useMutation({
     mutationFn: async ({
       patch,
@@ -191,7 +267,7 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
           queryClient,
           await api.admin.updateGame(game.id, patch),
         )
-        setStaged(uploads)
+        form.setFieldValue("staged", uploads)
       }
       for (const role of GAME_ASSET_ROLES) {
         const upload = uploads[role]
@@ -200,12 +276,18 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
           queryClient,
           await api.admin.uploadGameAsset(game.id, role, upload.file),
         )
-        setStaged((old) => withStaged(old, role, null))
+        form.setFieldValue(
+          "staged",
+          restage(form.getFieldValue("staged"), role, null),
+        )
       }
     },
-    onSuccess: () => setOpen(false),
+    onSuccess: onSaved,
   })
   const saving = save.isPending
+  const values = useStore(form.store, (state) => state.values)
+  const { staged } = values
+  useReleaseStagedPreviews(() => form.getFieldValue("staged"))
   const saveError = save.error
     ? errorMessage(save.error, t("Couldn't save changes"))
     : null
@@ -217,8 +299,14 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
   const slotSrc = (role: GameAssetRole) => {
     const change = staged[role]
     if (!change) return liveUrl(role)
-    if (change.kind === "file") return previews[role] ?? null
-    return change.kind === "url" ? change.preview : null
+    return change.kind === "remove" ? null : change.preview
+  }
+
+  const stage = (role: GameAssetRole, change: StagedArtwork | null) => {
+    form.setFieldValue(
+      "staged",
+      restage(form.getFieldValue("staged"), role, change),
+    )
   }
 
   // What the selected slot would hold once saved, if it is a remote image.
@@ -231,13 +319,13 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
 
   // Only what differs is sent: any write marks the game as customized, which
   // ends its automatic SteamGridDB refreshes.
-  const trimmedName = name.trim()
-  const trimmedSlug = slug.trim()
+  const trimmedName = values.name.trim()
+  const trimmedSlug = values.slug.trim()
   const details: AdminUpdateGameInput = {}
   if (trimmedName !== game.name) details.name = trimmedName
   if (trimmedSlug !== game.slug) details.slug = trimmedSlug
-  if (releaseDate !== dateInputValue(game.releaseDate)) {
-    details.releaseDate = releaseDatePayload(releaseDate)
+  if (values.releaseDate !== dateInputValue(game.releaseDate)) {
+    details.releaseDate = releaseDatePayload(values.releaseDate)
   }
   const dirty =
     Object.keys(details).length > 0 || Object.keys(staged).length > 0
@@ -262,114 +350,75 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
   }
 
   return (
-    <ResponsiveDialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (nextOpen) {
-          setName(game.name)
-          setSlug(game.slug)
-          setReleaseDate(dateInputValue(game.releaseDate))
-          setStaged({})
-          save.reset()
-        }
-        setOpen(nextOpen)
-      }}
-    >
-      <ResponsiveDialogTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t("Edit game")}
-          >
-            <PencilIcon className="size-3.5" />
-          </Button>
-        }
-      />
-      <ResponsiveDialogContent className="md:max-w-[640px]">
-        <form onSubmit={handleSave}>
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>{t("Edit game")}</ResponsiveDialogTitle>
-            {game.source === "steamgriddb" ? (
-              <ResponsiveDialogDescription>
-                {t(
-                  "Customizations stop automatic SteamGridDB updates for this game.",
-                )}
-              </ResponsiveDialogDescription>
-            ) : null}
-          </ResponsiveDialogHeader>
-          <GameEditorBody error={saveError}>
-            <GameDetailFields
-              idPrefix={`game-${game.id}`}
-              name={name}
-              onNameChange={setName}
-              slug={slug}
-              onSlugChange={setSlug}
-              releaseDate={releaseDate}
-              onReleaseDateChange={setReleaseDate}
-            />
-            <GameArtworkEditor
+    <form onSubmit={handleSave}>
+      <ResponsiveDialogHeader>
+        <ResponsiveDialogTitle>{t("Edit game")}</ResponsiveDialogTitle>
+        {game.source === "steamgriddb" ? (
+          <ResponsiveDialogDescription>
+            {t(
+              "Customizations stop automatic SteamGridDB updates for this game.",
+            )}
+          </ResponsiveDialogDescription>
+        ) : null}
+      </ResponsiveDialogHeader>
+      <GameEditorBody error={saveError}>
+        <GameDetailFields
+          idPrefix={`game-${game.id}`}
+          name={values.name}
+          onNameChange={(name) => form.setFieldValue("name", name)}
+          slug={values.slug}
+          onSlugChange={(slug) => form.setFieldValue("slug", slug)}
+          releaseDate={values.releaseDate}
+          onReleaseDateChange={(date) =>
+            form.setFieldValue("releaseDate", date)
+          }
+        />
+        <GameArtworkEditor
+          role={role}
+          onRoleChange={setRole}
+          src={slotSrc}
+          changed={(role) => staged[role] !== undefined}
+          disabled={saving}
+          onFile={(role, file) => stage(role, stagedFile(file))}
+          onRemove={(role) =>
+            // With nothing saved in the slot, removing only undoes the staged
+            // pick.
+            stage(role, liveUrl(role) ? { kind: "remove" } : null)
+          }
+        >
+          {game.steamgriddbId === null ? null : (
+            <SteamGridDBArtworkGrid
+              gameId={game.id}
               role={role}
-              onRoleChange={setRole}
-              src={slotSrc}
-              changed={(role) => staged[role] !== undefined}
+              selectedUrl={selectedUrl}
               disabled={saving}
-              onFile={(role, file) =>
-                setStaged((old) =>
-                  withStaged(old, role, { kind: "file", file }),
+              onPick={(asset) =>
+                stage(
+                  role,
+                  // Picking what is already saved undoes the staged change
+                  // instead of rewriting it.
+                  asset.url === liveUrl(role)
+                    ? null
+                    : {
+                        kind: "url",
+                        url: asset.url,
+                        preview: asset.thumb ?? asset.url,
+                      },
                 )
               }
-              onRemove={(role) =>
-                setStaged((old) =>
-                  // With nothing saved in the slot, removing only undoes the
-                  // staged pick.
-                  withStaged(
-                    old,
-                    role,
-                    liveUrl(role) ? { kind: "remove" } : null,
-                  ),
-                )
-              }
-            >
-              {game.steamgriddbId === null ? null : (
-                <SteamGridDBArtworkGrid
-                  gameId={game.id}
-                  role={role}
-                  selectedUrl={selectedUrl}
-                  disabled={saving}
-                  onPick={(asset) =>
-                    setStaged((old) =>
-                      withStaged(
-                        old,
-                        role,
-                        // Picking what is already saved undoes the staged
-                        // change instead of rewriting it.
-                        asset.url === liveUrl(role)
-                          ? null
-                          : {
-                              kind: "url",
-                              url: asset.url,
-                              preview: asset.thumb ?? asset.url,
-                            },
-                      ),
-                    )
-                  }
-                />
-              )}
-            </GameArtworkEditor>
-          </GameEditorBody>
-          <AdminDialogFooter
-            pending={saving}
-            failed={Boolean(saveError)}
-            disabled={!trimmedName || !trimmedSlug || !dirty}
-            pendingLabel={t("Saving…")}
-          >
-            {t("Save")}
-          </AdminDialogFooter>
-        </form>
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+            />
+          )}
+        </GameArtworkEditor>
+      </GameEditorBody>
+      <AdminDialogFooter
+        pending={saving}
+        failed={Boolean(saveError)}
+        disabled={!trimmedName || !trimmedSlug || !dirty}
+        pendingLabel={t("Saving…")}
+      >
+        {t("Save")}
+      </AdminDialogFooter>
+    </form>
   )
 }
 
@@ -454,49 +503,4 @@ function GameDetailFields({
       </Field>
     </div>
   )
-}
-
-/**
- * Blob URLs for staged file uploads, so the artwork tiles show the pending
- * image before it is uploaded. A file keeps its URL while it stays staged.
- */
-function useFilePreviews(staged: StagedArtworkMap) {
-  const urls = useRef(new Map<File, string>())
-  const [previews, setPreviews] = useState<
-    Partial<Record<GameAssetRole, string>>
-  >({})
-
-  useEffect(() => {
-    const next: Partial<Record<GameAssetRole, string>> = {}
-    const files = new Set<File>()
-    for (const role of GAME_ASSET_ROLES) {
-      const change = staged[role]
-      if (change?.kind !== "file") continue
-      files.add(change.file)
-      let url = urls.current.get(change.file)
-      if (!url) {
-        url = createObjectUrl(change.file, "game artwork preview") ?? undefined
-        if (url) urls.current.set(change.file, url)
-      }
-      if (url) next[role] = url
-    }
-    for (const [file, url] of urls.current) {
-      if (files.has(file)) continue
-      revokeObjectUrl(url, "game artwork preview")
-      urls.current.delete(file)
-    }
-    setPreviews(next)
-  }, [staged])
-
-  useEffect(() => {
-    const current = urls.current
-    return () => {
-      for (const url of current.values()) {
-        revokeObjectUrl(url, "game artwork preview")
-      }
-      current.clear()
-    }
-  }, [])
-
-  return previews
 }

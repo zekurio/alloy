@@ -12,6 +12,7 @@ import {
 } from "@alloy/ui/components/dropdown-menu"
 import { Progress } from "@alloy/ui/components/progress"
 import { cn } from "@alloy/ui/lib/utils"
+import { useMutation } from "@tanstack/react-query"
 import {
   MoreVerticalIcon,
   PencilIcon,
@@ -229,24 +230,17 @@ function ToggleUserStatusDialog({
   onToggleStatus: (user: AdminUserRow) => Promise<void>
 }) {
   const isBanned = adminUserIsBanned(user)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleToggleStatus() {
-    setError(null)
-    try {
-      await onToggleStatus(user)
-      onOpenChange(false)
-    } catch (cause) {
-      setError(errorMessage(cause, t("Couldn't update user")))
-    }
-  }
+  const toggle = useMutation({
+    mutationFn: () => onToggleStatus(user),
+    onSuccess: () => onOpenChange(false),
+  })
 
   return (
     <ConfirmActionDialog
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next)
-        if (!next) setError(null)
+        if (!next) toggle.reset()
       }}
       title={
         isBanned
@@ -265,9 +259,13 @@ function ToggleUserStatusDialog({
       confirmLabel={isBanned ? t("Unban") : t("Ban")}
       pendingLabel={isBanned ? t("Unban") : t("Ban")}
       pending={busy}
-      error={error}
+      error={
+        toggle.error
+          ? errorMessage(toggle.error, t("Couldn't update user"))
+          : null
+      }
       confirmVariant={isBanned ? "primary" : "destructive"}
-      onConfirm={() => void handleToggleStatus()}
+      onConfirm={() => toggle.mutate()}
     />
   )
 }
@@ -285,24 +283,17 @@ function DeleteUserDialog({
   onOpenChange: (open: boolean) => void
   onDelete: (user: AdminUserRow) => Promise<void>
 }) {
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleDelete() {
-    setError(null)
-    try {
-      await onDelete(user)
-      onOpenChange(false)
-    } catch (cause) {
-      setError(errorMessage(cause, t("Couldn't remove user")))
-    }
-  }
+  const remove = useMutation({
+    mutationFn: () => onDelete(user),
+    onSuccess: () => onOpenChange(false),
+  })
 
   return (
     <ConfirmDeleteDialog
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next)
-        if (!next) setError(null)
+        if (!next) remove.reset()
       }}
       title={t("Delete {username}?", { username: user.username })}
       description={t(
@@ -311,8 +302,12 @@ function DeleteUserDialog({
       confirmLabel={t("Delete")}
       pendingLabel={t("Deleting…")}
       pending={busy}
-      error={error}
-      onConfirm={() => void handleDelete()}
+      error={
+        remove.error
+          ? errorMessage(remove.error, t("Couldn't remove user"))
+          : null
+      }
+      onConfirm={() => remove.mutate()}
     />
   )
 }

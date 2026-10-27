@@ -49,13 +49,15 @@ function Carousel({
   ...props
 }: ComponentProps<"div"> & { opts?: CarouselOptions }) {
   const [carouselRef, api] = useEmblaCarousel(opts)
-  const [canScrollPrev, setCanScrollPrev] = useState(false)
-  const [canScrollNext, setCanScrollNext] = useState(false)
+  const [scrollable, setScrollable] = useState({ prev: false, next: false })
   const [settled, setSettled] = useState(false)
 
   const onSelect = useCallback((emblaApi: CarouselApi) => {
-    setCanScrollPrev(emblaApi.canScrollPrev())
-    setCanScrollNext(emblaApi.canScrollNext())
+    const prev = emblaApi.canScrollPrev()
+    const next = emblaApi.canScrollNext()
+    setScrollable((current) =>
+      current.prev === prev && current.next === next ? current : { prev, next },
+    )
   }, [])
 
   const scrollPrev = useCallback(() => {
@@ -106,8 +108,8 @@ function Carousel({
         carouselRef,
         scrollPrev,
         scrollNext,
-        canScrollPrev,
-        canScrollNext,
+        canScrollPrev: scrollable.prev,
+        canScrollNext: scrollable.next,
         settled,
       }}
     >

@@ -2,7 +2,13 @@ import type { GameRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useReducer,
+  useRef,
+} from "react"
 
 import { refreshLibrarySnapshotCache } from "@/components/routes/library/library-data"
 import { clientLogger } from "@/lib/client-log"
@@ -16,9 +22,51 @@ export interface ImportClipAction {
   committing: boolean
   error: string | null
   staged: RecordingLibraryStagedImport | null
+  /**
+   * The last pick, kept after it is committed or discarded so the details
+   * dialog can animate closed with it.
+   */
+  shown: RecordingLibraryStagedImport | null
   start: () => Promise<void>
   discard: () => Promise<void>
   commit: (metadata: { title: string; game: GameRow }) => Promise<void>
+}
+
+interface ImportState {
+  busy: "picking" | "committing" | null
+  /** The latest pick, discard or commit failure; each new one clears it. */
+  error: string | null
+  staged: RecordingLibraryStagedImport | null
+  shown: RecordingLibraryStagedImport | null
+}
+
+type ImportEvent =
+  | { type: "start"; busy: "picking" | "committing" }
+  | { type: "settle" }
+  | { type: "fail"; error: string }
+  | { type: "stage"; staged: RecordingLibraryStagedImport }
+  | { type: "unstage" }
+
+const initialImportState: ImportState = {
+  busy: null,
+  error: null,
+  staged: null,
+  shown: null,
+}
+
+function importReducer(state: ImportState, event: ImportEvent): ImportState {
+  switch (event.type) {
+    case "start":
+      return { ...state, busy: event.busy, error: null }
+    case "settle":
+      return { ...state, busy: null }
+    case "fail":
+      return { ...state, error: event.error }
+    case "stage":
+      return { ...state, staged: event.staged, shown: event.staged }
+    case "unstage":
+      return { ...state, staged: null, error: null }
+  }
 }
 
 export function useImportClipAction(
@@ -26,40 +74,35 @@ export function useImportClipAction(
 ): ImportClipAction {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [picking, setPicking] = useState(false)
-  const [committing, setCommitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [staged, setStaged] = useState<RecordingLibraryStagedImport | null>(
-    null,
-  )
+  const [state, dispatch] = useReducer(importReducer, initialImportState)
+  const { busy, error, staged, shown } = state
+  const picking = busy === "picking"
+  const committing = busy === "committing"
   // The host keeps a staged pick until it is committed or discarded. This
   // hook can unmount while the native picker is open or the details dialog
   // is up (the upload popover closes), so whatever it still holds, or
   // receives afterwards, is discarded rather than left to the host.
   const mountedRef = useRef(true)
-  const stagedRef = useRef<RecordingLibraryStagedImport | null>(null)
   // A commit in flight owns its pick: discarding it would fail the commit.
   const committingIdRef = useRef<string | null>(null)
-  useEffect(() => {
-    stagedRef.current = staged
-  }, [staged])
+  const discardLeftover = useEffectEvent((host: AlloyDesktop | null) => {
+    if (host && staged && committingIdRef.current !== staged.id) {
+      discardQuietly(host, staged.id)
+    }
+  })
   useEffect(() => {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
-      const current = stagedRef.current
-      if (desktop && current && committingIdRef.current !== current.id) {
-        discardQuietly(desktop, current.id)
-      }
+      discardLeftover(desktop)
     }
   }, [desktop])
 
   const available = desktop !== null
 
   const start = useCallback(async () => {
-    if (!desktop || picking || committing || staged) return
-    setError(null)
-    setPicking(true)
+    if (!desktop || busy || staged) return
+    dispatch({ type: "start", busy: "picking" })
     try {
       const next = await desktop.recording.importLibraryFile()
       if (!next) return
@@ -68,23 +111,28 @@ export function useImportClipAction(
         discardQuietly(desktop, next.id)
         return
       }
-      setStaged(next)
+      dispatch({ type: "stage", staged: next })
     } catch (cause) {
-      setError(errorMessage(cause, t("Could not import clip.")))
+      dispatch({
+        type: "fail",
+        error: errorMessage(cause, t("Could not import clip.")),
+      })
     } finally {
-      setPicking(false)
+      dispatch({ type: "settle" })
     }
-  }, [committing, desktop, picking, staged])
+  }, [busy, desktop, staged])
 
   const discard = useCallback(async () => {
     const current = staged
     if (!current || !desktop || committing) return
-    setError(null)
-    setStaged(null)
+    dispatch({ type: "unstage" })
     try {
       await desktop.recording.discardStagedLibraryImport(current.id)
     } catch (cause) {
-      setError(errorMessage(cause, t("Could not clear staged import.")))
+      dispatch({
+        type: "fail",
+        error: errorMessage(cause, t("Could not clear staged import.")),
+      })
     }
   }, [committing, desktop, staged])
 
@@ -93,8 +141,7 @@ export function useImportClipAction(
       const current = staged
       if (!current || !desktop || committing) return
 
-      setError(null)
-      setCommitting(true)
+      dispatch({ type: "start", busy: "committing" })
       committingIdRef.current = current.id
       let committed = false
       try {
@@ -105,7 +152,7 @@ export function useImportClipAction(
           gameIconUrl: game.iconUrl ?? game.logoUrl,
         })
         committed = true
-        setStaged(null)
+        dispatch({ type: "unstage" })
         // The clip is in the library now. Refreshing the snapshot and opening
         // it are follow-ups whose failure must not report a failed import.
         try {
@@ -125,7 +172,10 @@ export function useImportClipAction(
           )
         }
       } catch (cause) {
-        setError(errorMessage(cause, t("Could not import clip.")))
+        dispatch({
+          type: "fail",
+          error: errorMessage(cause, t("Could not import clip.")),
+        })
       } finally {
         committingIdRef.current = null
         // A failed commit stays staged for another try, unless the dialog
@@ -133,7 +183,7 @@ export function useImportClipAction(
         if (!committed && !mountedRef.current) {
           discardQuietly(desktop, current.id)
         }
-        setCommitting(false)
+        dispatch({ type: "settle" })
       }
     },
     [committing, desktop, navigate, queryClient, staged],
@@ -145,6 +195,7 @@ export function useImportClipAction(
     committing,
     error,
     staged,
+    shown,
     start,
     discard,
     commit,

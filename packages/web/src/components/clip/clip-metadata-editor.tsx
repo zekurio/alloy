@@ -4,7 +4,7 @@ import { Chip } from "@alloy/ui/components/chip"
 import { Textarea } from "@alloy/ui/components/textarea"
 import { cn } from "@alloy/ui/lib/utils"
 import { ChevronRightIcon, Gamepad2Icon, PencilIcon } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import type { ReactNode } from "react"
 
 import { GameCombobox } from "@/components/game/game-combobox"
@@ -185,15 +185,15 @@ function GamePickerChip({
   invalid: boolean
   promptOnMount: boolean
 }) {
+  // A prompted editor opens the picker once, the first time the game is empty
+  // and editing is allowed.
   const [editing, setEditing] = useState(false)
-  const autoFocusUsedRef = useRef(false)
-  const rootRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (autoFocusUsedRef.current || disabled || !promptOnMount || value) return
-    autoFocusUsedRef.current = true
+  const [prompted, setPrompted] = useState(false)
+  if (!prompted && promptOnMount && !disabled && !value) {
+    setPrompted(true)
     setEditing(true)
-  }, [disabled, promptOnMount, value])
+  }
+  const rootRef = useRef<HTMLDivElement>(null)
 
   useOutsideDismiss(
     rootRef,

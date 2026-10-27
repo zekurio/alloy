@@ -18,13 +18,14 @@ import { Slider } from "@alloy/ui/components/slider"
 import { Switch } from "@alloy/ui/components/switch"
 import { cn } from "@alloy/ui/lib/utils"
 import { FolderOpenIcon, PlayIcon } from "lucide-react"
+import { useShallow } from "zustand/react/shallow"
 
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { useDesktopQuery } from "@/lib/use-desktop-query"
 
 import {
   EMPTY_SOUND_LIBRARY,
-  useDesktopRecording,
+  useDesktopRecordingPanel,
 } from "./desktop-recording-context"
 import { useSliderDraft } from "./use-slider-draft"
 
@@ -61,10 +62,16 @@ export function NotificationSoundsSection({
     listNotificationSounds,
     openNotificationSoundsFolder,
     previewNotificationSound,
-  } = useDesktopRecording()
+  } = useDesktopRecordingPanel(
+    useShallow((state) => ({
+      listNotificationSounds: state.listNotificationSounds,
+      openNotificationSoundsFolder: state.openNotificationSoundsFolder,
+      previewNotificationSound: state.previewNotificationSound,
+    })),
+  )
   const { data, refetch } = useDesktopQuery(
-    () => listNotificationSounds(),
-    [listNotificationSounds],
+    ["recording", "notification-sounds"],
+    listNotificationSounds,
   )
   const library = data ?? EMPTY_SOUND_LIBRARY
 

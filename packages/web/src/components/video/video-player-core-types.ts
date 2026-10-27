@@ -16,8 +16,6 @@ export type PlayerCoreProps = SharedPlayerProps & {
   controls: boolean
   autoPlay: boolean
   loop: boolean
-  initialMuted: boolean
   initialTime: number
-  playbackRate: number
   playbackRange?: MediaPlaybackRange
 }

@@ -12,7 +12,7 @@ import { InputGroupAddon } from "@alloy/ui/components/input-group"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { SearchIcon } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 
 import { GameIcon } from "@/components/game/game-icon"
 import { errorMessage } from "@/lib/error-message"
@@ -82,14 +82,19 @@ export function GameCombobox({
   const [inputValue, setInputValue] = useState(value?.name ?? "")
   const debouncedQuery = useDebouncedValue(inputValue, 200)
 
-  const lastExternalNameRef = useRef<string | null>(value?.name ?? null)
-  useEffect(() => {
-    const nextName = value?.name ?? ""
-    if (lastExternalNameRef.current !== nextName) {
-      lastExternalNameRef.current = nextName
-      setInputValue(nextName)
-    }
-  }, [value?.name])
+  // A new name from the parent replaces the input text, unless it is the echo
+  // of a game picked here: `shown` is the name the input already holds.
+  const externalName = value?.name ?? ""
+  const [names, setNames] = useState({
+    prop: externalName,
+    shown: externalName,
+  })
+  if (names.prop !== externalName) {
+    setNames({ prop: externalName, shown: externalName })
+    if (names.shown !== externalName) setInputValue(externalName)
+  }
+  const showPicked = (name: string) =>
+    setNames((current) => ({ ...current, shown: name }))
 
   const localSearchQuery = useLocalGameSearchQuery(debouncedQuery)
 
@@ -97,64 +102,70 @@ export function GameCombobox({
 
   const resolveMutation = useResolveGameMutation()
 
-  const [pendingItem, setPendingItem] = useState<GameComboboxItem | null>(null)
+  // What the input shows instead of `value`: a remote pick still resolving, or
+  // an emptied input when clearing isn't allowed. The clear holds until the
+  // parent passes a different value.
+  const [override, setOverride] = useState<
+    | { kind: "pending"; item: GameComboboxItem }
+    | { kind: "cleared"; from: GameRow | null }
+    | null
+  >(null)
+  const pendingItem = override?.kind === "pending" ? override.item : null
+  const cleared = override?.kind === "cleared" && override.from === value
 
-  const [cleared, setCleared] = useState(false)
+  // Paging restarts with every new query.
+  const [page, setPage] = useState({ query: debouncedQuery, count: PAGE_SIZE })
+  if (page.query !== debouncedQuery) {
+    setPage({ query: debouncedQuery, count: PAGE_SIZE })
+  }
+  const visibleCount = page.query === debouncedQuery ? page.count : PAGE_SIZE
 
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE)
-  }, [debouncedQuery])
-
-  const anchorRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!focusOnMount) return
-    anchorRef.current?.querySelector("input")?.focus()
-  }, [focusOnMount])
-
-  useEffect(() => {
-    if (value) setCleared(false)
-  }, [value])
+  const anchorRef = useRef<HTMLDivElement | null>(null)
+  const attachAnchor = useCallback(
+    (anchor: HTMLDivElement | null) => {
+      anchorRef.current = anchor
+      if (focusOnMount) anchor?.querySelector("input")?.focus()
+    },
+    [focusOnMount],
+  )
 
   const handlePick = useCallback(
     (picked: GameComboboxItem | null) => {
       if (picked === null) {
         if (!allowClear) {
-          setCleared(true)
+          setOverride({ kind: "cleared", from: value })
           setInputValue("")
           return
         }
-        setPendingItem(null)
+        setOverride(null)
         setInputValue("")
         onChange(null)
         return
       }
-      setCleared(false)
-      setPendingItem(picked)
       setInputValue(picked.name)
       // Local/custom games are already resolved — attach them directly. Only
       // remote-only SteamGridDB results need a resolve round-trip to mint a row.
       if (picked.game) {
-        setPendingItem(null)
-        lastExternalNameRef.current = picked.game.name
+        setOverride(null)
+        showPicked(picked.game.name)
         onChange(picked.game)
         return
       }
       if (picked.steamgriddbId == null) {
-        setPendingItem(null)
+        setOverride(null)
         return
       }
+      setOverride({ kind: "pending", item: picked })
       resolveMutation.mutate(
         { steamgriddbId: picked.steamgriddbId },
         {
           onSuccess: (row) => {
-            setPendingItem(null)
-            lastExternalNameRef.current = row.name
+            setOverride(null)
+            showPicked(row.name)
             onChange(row)
           },
           onError: (cause) => {
-            setPendingItem(null)
+            setOverride(null)
             // Roll the input back to whatever the parent still thinks is
             // selected — we couldn't finish the handshake.
             setInputValue(value?.name ?? "")
@@ -163,7 +174,7 @@ export function GameCombobox({
         },
       )
     },
-    [allowClear, onChange, resolveMutation, value?.name],
+    [allowClear, onChange, resolveMutation, value],
   )
 
   // Base UI's `filter` prop runs on every items change; we want zero
@@ -264,7 +275,7 @@ export function GameCombobox({
   const isDisabled = disabled || resolving
 
   return (
-    <div ref={anchorRef} className={cn("relative", className)}>
+    <div ref={attachAnchor} className={cn("relative", className)}>
       <Combobox<GameComboboxItem>
         items={effectiveItems}
         value={controlledValue}
@@ -344,9 +355,13 @@ export function GameCombobox({
                   e.preventDefault()
                 }}
                 onClick={() => {
-                  setVisibleCount((n) =>
-                    Math.min(n + PAGE_SIZE, effectiveItems.length),
-                  )
+                  setPage({
+                    query: debouncedQuery,
+                    count: Math.min(
+                      visibleCount + PAGE_SIZE,
+                      effectiveItems.length,
+                    ),
+                  })
                 }}
                 className={cn(
                   "flex w-full items-center justify-center rounded-md py-2 text-xs",

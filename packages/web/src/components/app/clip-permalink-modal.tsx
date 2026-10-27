@@ -1,5 +1,5 @@
 import { useRouter } from "@tanstack/react-router"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
 import { goBackInBrowserHistory } from "@/lib/browser-url"
@@ -17,14 +17,18 @@ export function ClipPermalinkModal({
   gameId: string | null
 }) {
   const router = useRouter()
-  const [modalClipId, setModalClipId] = useState<string | null>(clipId)
-
-  useEffect(() => {
-    setModalClipId(clipId)
-  }, [clipId])
+  // The dialog runs ahead of the route: it shows the next clip before the
+  // permalink navigation lands, and closes before the history entry pops. A
+  // new `clipId` from the route takes over again.
+  const [modal, setModal] = useState<{ route: string; id: string | null }>({
+    route: clipId,
+    id: clipId,
+  })
+  if (modal.route !== clipId) setModal({ route: clipId, id: clipId })
+  const modalClipId = modal.route === clipId ? modal.id : clipId
 
   const handleClose = useCallback(() => {
-    setModalClipId(null)
+    setModal((current) => ({ ...current, id: null }))
     if (goBackInBrowserHistory()) return
     if (gameId) {
       void router.navigate({
@@ -41,7 +45,7 @@ export function ClipPermalinkModal({
   // inheriting this route's game scope.
   const handleNavigate = useCallback(
     (entry: { id: string; gameId: string | null }) => {
-      setModalClipId(entry.id)
+      setModal((current) => ({ ...current, id: entry.id }))
       void router.navigate({
         ...clipPermalink(entry.id, entry.gameId),
         search: {},

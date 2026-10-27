@@ -32,6 +32,7 @@ import {
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Switch } from "@alloy/ui/components/switch"
 import { cn } from "@alloy/ui/lib/utils"
+import { useForm, useStore } from "@tanstack/react-form"
 import {
   CircleAlertIcon,
   PlusIcon,
@@ -39,7 +40,7 @@ import {
   UserKeyIcon,
 } from "lucide-react"
 import { useState } from "react"
-import type { FormEvent, ReactElement } from "react"
+import type { ReactElement } from "react"
 
 import { ListEmpty } from "@/components/feedback/empty-state"
 import { EnvManagedNote } from "@/components/routes/settings/admin-env-note"
@@ -369,82 +370,114 @@ function ProviderDialog({
   error: string | null
   onSave: SaveProviders
 }) {
-  const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [draft, setDraft] = useState<ProviderDraft>(() =>
-    providerToDraft(provider),
-  )
-  const [draftOpen, setDraftOpen] = useState(open)
-  const editing = provider !== null && providerIndex !== null
-
-  // Start every opening from the provider as it is now. Resetting after a
-  // save instead would use the pre-save provider captured by that render.
-  if (open !== draftOpen) {
-    setDraftOpen(open)
-    if (open) {
-      setDraft(providerToDraft(provider))
-      setAdvancedOpen(false)
-    }
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const providerInput = draftToInput(draft)
-    const nextProviders = editing
-      ? providers.map((current, index) =>
-          index === providerIndex ? providerInput : providerToInput(current),
-        )
-      : [...providers.map(providerToInput), providerInput]
-    const iconUpload = draft.iconFile
-      ? { providerId: providerInput.providerId, file: draft.iconFile }
-      : undefined
-    if (!(await onSave(nextProviders, iconUpload))) return
-    onOpenChange(false)
-  }
-
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       {trigger ? <ResponsiveDialogTrigger render={trigger} /> : null}
       <ResponsiveDialogContent className="md:max-w-[760px]">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>
-            {editing ? t("Edit OAuth provider") : t("Add OAuth provider")}
+            {provider ? t("Edit OAuth provider") : t("Add OAuth provider")}
           </ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
-        <form onSubmit={handleSubmit}>
-          <ResponsiveDialogBody className="flex flex-col gap-4 md:my-3 md:max-h-[70vh] md:overflow-y-auto md:py-1">
-            <OAuthProviderForm
-              draft={draft}
-              editingProviderId={provider?.providerId ?? null}
-              clientSecretSet={provider?.clientSecretSet ?? false}
-              authBaseURL={authBaseURL}
-              advancedOpen={advancedOpen}
-              onAdvancedOpenChange={setAdvancedOpen}
-              onChange={(next) =>
-                setDraft((current) => ({ ...current, ...next }))
-              }
-            />
-            {error ? (
-              <Callout tone="destructive" className="text-xs">
-                <CircleAlertIcon />
-                <span>{error}</span>
-              </Callout>
-            ) : null}
-          </ResponsiveDialogBody>
-          <ResponsiveDialogFooter>
-            <ResponsiveDialogClose
-              render={
-                <Button type="button" variant="ghost" disabled={pending}>
-                  {t("Cancel")}
-                </Button>
-              }
-            />
-            <Button type="submit" disabled={pending}>
-              {pending ? <Spinner className="size-3.5" /> : null}
-              {pending ? t("Saving...") : t("Save")}
-            </Button>
-          </ResponsiveDialogFooter>
-        </form>
+        {/* The popup unmounts on close, so every opening starts the form
+            from the provider as it is now. */}
+        <ProviderDialogForm
+          providers={providers}
+          provider={provider}
+          providerIndex={providerIndex}
+          authBaseURL={authBaseURL}
+          pending={pending}
+          error={error}
+          onSave={onSave}
+          onSaved={() => onOpenChange(false)}
+        />
       </ResponsiveDialogContent>
     </ResponsiveDialog>
+  )
+}
+
+function ProviderDialogForm({
+  providers,
+  provider,
+  providerIndex,
+  authBaseURL,
+  pending,
+  error,
+  onSave,
+  onSaved,
+}: {
+  providers: AdminOAuthProvider[]
+  provider: AdminOAuthProvider | null
+  providerIndex: number | null
+  authBaseURL: string
+  pending: boolean
+  error: string | null
+  onSave: SaveProviders
+  onSaved: () => void
+}) {
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const form = useForm({
+    defaultValues: providerToDraft(provider),
+    onSubmit: async ({ value }) => {
+      const providerInput = draftToInput(value)
+      const nextProviders =
+        providerIndex !== null
+          ? providers.map((current, index) =>
+              index === providerIndex
+                ? providerInput
+                : providerToInput(current),
+            )
+          : [...providers.map(providerToInput), providerInput]
+      const iconUpload = value.iconFile
+        ? { providerId: providerInput.providerId, file: value.iconFile }
+        : undefined
+      if (await onSave(nextProviders, iconUpload)) onSaved()
+    },
+  })
+  const draft = useStore(form.store, (state) => state.values)
+  const setField = (
+    key: keyof ProviderDraft,
+    value: ProviderDraft[keyof ProviderDraft],
+  ) => form.setFieldValue(key, value)
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        void form.handleSubmit()
+      }}
+    >
+      <ResponsiveDialogBody className="flex flex-col gap-4 md:my-3 md:max-h-[70vh] md:overflow-y-auto md:py-1">
+        <OAuthProviderForm
+          draft={draft}
+          editingProviderId={provider?.providerId ?? null}
+          clientSecretSet={provider?.clientSecretSet ?? false}
+          authBaseURL={authBaseURL}
+          advancedOpen={advancedOpen}
+          onAdvancedOpenChange={setAdvancedOpen}
+          onChange={setField}
+        />
+        {error ? (
+          <Callout tone="destructive" className="text-xs">
+            <CircleAlertIcon />
+            <span>{error}</span>
+          </Callout>
+        ) : null}
+      </ResponsiveDialogBody>
+      <ResponsiveDialogFooter>
+        <ResponsiveDialogClose
+          render={
+            <Button type="button" variant="ghost" disabled={pending}>
+              {t("Cancel")}
+            </Button>
+          }
+        />
+        <Button type="submit" disabled={pending}>
+          {pending ? <Spinner className="size-3.5" /> : null}
+          {pending ? t("Saving...") : t("Save")}
+        </Button>
+      </ResponsiveDialogFooter>
+    </form>
   )
 }

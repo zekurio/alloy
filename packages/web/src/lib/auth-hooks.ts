@@ -25,6 +25,8 @@ export function useRequireAuthStrict(): Session | null {
         ? null
         : "/login"
 
+  // The settings dialog opens over unguarded routes too, so a session that
+  // ends while it is open has no route guard to move it on.
   useEffect(() => {
     if (target) void navigate({ to: target, replace: true })
   }, [target, navigate])
@@ -32,35 +34,11 @@ export function useRequireAuthStrict(): Session | null {
   return target ? null : session
 }
 
-export function useRedirectIfAuthed(to: string = "/"): boolean {
-  const session = useSuspenseSession()
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    if (session) void navigate({ to, replace: true })
-  }, [session, to, navigate])
-
-  return !session
-}
-
 /**
- * Like {@link useRedirectIfAuthed}, but supports a sanitized same-origin
- * `redirect` target (e.g. the desktop browser-login `/desktop/authorize`
- * page). A redirect target may be a non-router server path, so we use a hard
- * navigation; the default `/` stays a client-side route change.
+ * Whether the login and sign-up pages should render. Their `beforeLoad`
+ * redirects a signed-in visitor, and every sign-in invalidates the router, so
+ * the guard also moves the page on once a sign-in lands here.
  */
-export function useLoginRedirect(redirectTo: string | null): boolean {
-  const session = useSuspenseSession()
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    if (!session) return
-    if (redirectTo) {
-      window.location.assign(redirectTo)
-    } else {
-      void navigate({ to: "/", replace: true })
-    }
-  }, [session, redirectTo, navigate])
-
-  return !session
+export function useSignedOut(): boolean {
+  return !useSuspenseSession()
 }

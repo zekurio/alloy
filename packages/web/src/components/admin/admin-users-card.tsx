@@ -10,7 +10,7 @@ import {
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { SearchIcon, XIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { ListEmpty } from "@/components/feedback/empty-state"
 
@@ -23,12 +23,10 @@ export function AdminUsersCard({ currentUserId }: { currentUserId: string }) {
   const normalizedSearch = search.trim()
   const adminUsers = useAdminUsers(currentUserId, normalizedSearch)
   const loadSettled = adminUsers.users !== null || !!adminUsers.loadError
-  const [initialLoadSettled, setInitialLoadSettled] = useState(loadSettled)
-  const initialLoading = !initialLoadSettled && !loadSettled
   // Search and cache expiry must not unmount controls after the first load.
-  useEffect(() => {
-    if (loadSettled) setInitialLoadSettled(true)
-  }, [loadSettled])
+  const [initialLoadSettled, setInitialLoadSettled] = useState(loadSettled)
+  if (loadSettled && !initialLoadSettled) setInitialLoadSettled(true)
+  const initialLoading = !initialLoadSettled && !loadSettled
 
   const list = adminUsers.loadError ? (
     <Callout tone="destructive">{adminUsers.loadError}</Callout>

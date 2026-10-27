@@ -5,8 +5,14 @@ import { cn } from "@alloy/ui/lib/utils"
 import { SaveIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
+import { useShallow } from "zustand/react/shallow"
 
-import { useSettingsSaveState } from "./settings-save-context"
+import {
+  selectSettingsDirty,
+  selectSettingsSaving,
+  selectSettingsValid,
+  useSettingsSave,
+} from "./settings-save-context"
 
 const LAYER_CLASS_NAME =
   "col-start-1 row-start-1 min-w-0 transition-[opacity,visibility] duration-[var(--duration-base)] ease-[var(--ease-out)] motion-reduce:transition-none"
@@ -36,8 +42,17 @@ export function SettingsSaveHeader({
   compact?: boolean
   children: ReactNode
 }) {
-  const { dirty, saving, valid, attention, feedback, saveAll, discardAll } =
-    useSettingsSaveState()
+  const dirty = useSettingsSave(selectSettingsDirty)
+  const saving = useSettingsSave(selectSettingsSaving)
+  const valid = useSettingsSave(selectSettingsValid)
+  const { attention, feedback, saveAll, discardAll } = useSettingsSave(
+    useShallow(({ attention, feedback, saveAll, discardAll }) => ({
+      attention,
+      feedback,
+      saveAll,
+      discardAll,
+    })),
+  )
   const visible = dirty || feedback.state !== "idle"
 
   // Flash for a moment after each blocked attempt. Compare against the last

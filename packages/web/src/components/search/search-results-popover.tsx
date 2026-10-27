@@ -6,8 +6,9 @@ import { cssVariables } from "@alloy/ui/lib/css-properties"
 import { cn } from "@alloy/ui/lib/utils"
 import { useNavigate } from "@tanstack/react-router"
 import { FilmIcon, GamepadIcon, SearchIcon, UserIcon } from "lucide-react"
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useMemo, useRef } from "react"
 import type { RefObject } from "react"
+import { useShallow } from "zustand/react/shallow"
 
 import {
   enrichLibraryItem,
@@ -15,12 +16,13 @@ import {
   useLibrarySnapshot,
   type LibraryItemView,
 } from "@/components/routes/library/library-data"
+import { useActiveOption } from "@/hooks/use-active-option"
 import { useOpenClipDialog } from "@/lib/clip-navigation"
 import { alloyDesktop } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 import { type UserListRow, useSearchQuery } from "@/lib/search-api"
 
-import { useAppSearch } from "./app-search"
+import { useAppSearchStore, useDeferredSearchQuery } from "./app-search"
 import { searchLocalClips } from "./local-clip-search"
 import {
   ClipRowItem,
@@ -59,12 +61,8 @@ function useSearchPopoverState(
 ) {
   const navigate = useNavigate()
   const openClipDialog = useOpenClipDialog()
-  const [activeIndex, setActiveIndex] = useState(0)
+  const { activeIndex, move, highlight } = useActiveOption(flat)
   const rootRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    setActiveIndex(0)
-  }, [flat])
 
   const closePopover = useCallback(() => {
     setOpen(false)
@@ -117,45 +115,34 @@ function useSearchPopoverState(
     [clear, closePopover, navigate],
   )
 
-  const onKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      const target = event.target
-      const wrapper = rootRef.current?.closest<HTMLElement>(
-        '[data-slot="app-header-search"]',
-      )
-      if (!(target instanceof Node) || !wrapper?.contains(target)) return
-      if (event.key === "Escape") {
-        event.preventDefault()
-        clear()
-        return
-      }
-      if (flat.length === 0) return
-      if (event.key === "ArrowDown") {
-        event.preventDefault()
-        setActiveIndex((i) => (i + 1) % flat.length)
-      } else if (event.key === "ArrowUp") {
-        event.preventDefault()
-        setActiveIndex((i) => (i - 1 + flat.length) % flat.length)
-      } else if (event.key === "Enter") {
-        const item = flat[activeIndex]
-        if (!item) return
-        event.preventDefault()
-        if (item.kind === "clip") commitClip(item.row)
-        else if (item.kind === "local-clip") commitLocalClip(item.row)
-        else if (item.kind === "game") commitGame(item.row)
-        else commitUser(item.row)
-      }
-    },
-    [
-      flat,
-      activeIndex,
-      clear,
-      commitClip,
-      commitGame,
-      commitLocalClip,
-      commitUser,
-    ],
-  )
+  const onKeyDown = (event: KeyboardEvent) => {
+    const target = event.target
+    const wrapper = rootRef.current?.closest<HTMLElement>(
+      '[data-slot="app-header-search"]',
+    )
+    if (!(target instanceof Node) || !wrapper?.contains(target)) return
+    if (event.key === "Escape") {
+      event.preventDefault()
+      clear()
+      return
+    }
+    if (flat.length === 0) return
+    if (event.key === "ArrowDown") {
+      event.preventDefault()
+      move(1)
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault()
+      move(-1)
+    } else if (event.key === "Enter") {
+      const item = flat[activeIndex]
+      if (!item) return
+      event.preventDefault()
+      if (item.kind === "clip") commitClip(item.row)
+      else if (item.kind === "local-clip") commitLocalClip(item.row)
+      else if (item.kind === "game") commitGame(item.row)
+      else commitUser(item.row)
+    }
+  }
 
   // Window-scoped so ↓/↑/Esc work even when focus is still in the input.
   // Gated on `open` so other surfaces aren't intercepted.
@@ -177,7 +164,7 @@ function useSearchPopoverState(
 
   return {
     activeIndex,
-    setActiveIndex,
+    highlight,
     commitClip,
     commitLocalClip,
     commitGame,
@@ -301,7 +288,15 @@ function useSearchInputA11y(
 }
 
 export function SearchResultsPopover() {
-  const { query, deferredQuery, open, setOpen, clear } = useAppSearch()
+  const { query, open, setOpen, clear } = useAppSearchStore(
+    useShallow(({ query, open, setOpen, clear }) => ({
+      query,
+      open,
+      setOpen,
+      clear,
+    })),
+  )
+  const deferredQuery = useDeferredSearchQuery()
   const bridgeRef = useRef<HTMLSpanElement | null>(null)
   const listboxId = useId()
 
@@ -324,7 +319,7 @@ export function SearchResultsPopover() {
 
   const {
     activeIndex,
-    setActiveIndex,
+    highlight,
     commitClip,
     commitLocalClip,
     commitGame,
@@ -378,7 +373,7 @@ export function SearchResultsPopover() {
             error={error}
             flat={flat}
             activeIndex={activeIndex}
-            onHover={setActiveIndex}
+            onHover={highlight}
             onCommitClip={commitClip}
             onCommitLocalClip={commitLocalClip}
             onCommitGame={commitGame}

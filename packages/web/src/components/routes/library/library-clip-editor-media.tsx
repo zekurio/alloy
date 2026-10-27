@@ -14,7 +14,7 @@ import { Spinner } from "@alloy/ui/components/spinner"
 import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { cn } from "@alloy/ui/lib/utils"
 import { ImageIcon } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import type { ComponentProps } from "react"
 
 import {
@@ -52,10 +52,9 @@ import {
   type NavigableLibraryEntry,
 } from "./library-entry-navigation"
 import {
-  clearLibraryHandoffPoster,
   LibraryHandoffPosterOverlay,
   type LibraryHandoffPoster,
-  readLibraryHandoffPoster,
+  useLibraryHandoffPoster,
 } from "./library-handoff-poster"
 
 export function useClipEditorMedia(
@@ -171,28 +170,11 @@ export function useClipEditorMedia(
     }),
     [fallbackSeed, poster, posterBlurHash],
   )
-  const [publishHandoffPoster, setPublishHandoffPoster] = useState(() =>
-    readLibraryHandoffPoster(row.id),
-  )
-  const [cloudFrameReady, setCloudFrameReady] = useState(
-    () => publishHandoffPoster === null,
-  )
-
-  useEffect(() => {
-    setPublishHandoffPoster(readLibraryHandoffPoster(row.id))
-  }, [row.id])
-  useEffect(() => {
-    setCloudFrameReady(publishHandoffPoster === null)
-  }, [publishHandoffPoster])
-  useEffect(() => {
-    if (publishHandoffPoster && cloudFrameReady) {
-      clearLibraryHandoffPoster(row.id)
-    }
-  }, [cloudFrameReady, publishHandoffPoster, row.id])
+  const publishHandoff = useLibraryHandoffPoster(row.id)
 
   return {
     aspectRatio,
-    cloudFrameReady,
+    cloudFrameReady: publishHandoff.frameReady,
     waveform,
     handoffPoster,
     mediaVersion:
@@ -209,8 +191,8 @@ export function useClipEditorMedia(
     poster,
     posterBlurHash,
     previewUnavailable,
-    publishHandoffPoster,
-    setCloudFrameReady,
+    publishHandoffPoster: publishHandoff.poster,
+    markCloudFrameReady: publishHandoff.markFrameReady,
     streamSrc,
     fallbackSeed,
   }
@@ -277,7 +259,7 @@ export function ClipEditorVideo({
       playerRef={playback.playerRef}
       onPlayingChange={playback.setPlaying}
       onFrameReady={() => {
-        media.setCloudFrameReady(true)
+        media.markCloudFrameReady()
         onFrameReady?.()
       }}
       onEnded={playback.handleEnded}

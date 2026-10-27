@@ -23,7 +23,7 @@ import {
 } from "@alloy/ui/components/drawer"
 import { useIsMobile } from "@alloy/ui/hooks/use-mobile"
 import { cn } from "@alloy/ui/lib/utils"
-import { createContext, useContext } from "react"
+import { createContext, useContext, useState } from "react"
 import type { CSSProperties, ComponentProps, ReactNode } from "react"
 
 const ResponsiveDialogContext = createContext(false)
@@ -41,16 +41,34 @@ function ResponsiveDialog({
   onOpenChange: (open: boolean) => void
   children: ReactNode
 }) {
-  const isMobile = useIsMobile()
+  const viewportMobile = useIsMobile()
+  // Swapping Drawer and Dialog remounts the content and drops whatever the
+  // user typed, so a dialog keeps the layout it opened with until it has
+  // finished closing.
+  const [heldMobile, setHeldMobile] = useState(open ? viewportMobile : null)
+  if (open && heldMobile === null) setHeldMobile(viewportMobile)
+  const isMobile = heldMobile ?? viewportMobile
+  const releaseLayout = (nextOpen: boolean) => {
+    if (!nextOpen) setHeldMobile(null)
+  }
 
   return (
     <ResponsiveDialogContext.Provider value={isMobile}>
       {isMobile ? (
-        <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
+        <Drawer
+          open={open}
+          onOpenChange={onOpenChange}
+          onOpenChangeComplete={releaseLayout}
+          direction="bottom"
+        >
           {children}
         </Drawer>
       ) : (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog
+          open={open}
+          onOpenChange={onOpenChange}
+          onOpenChangeComplete={releaseLayout}
+        >
           {children}
         </Dialog>
       )}

@@ -91,10 +91,7 @@ export function useThemeInspector(
   const cancel = useEffectEvent(onCancel)
 
   useEffect(() => {
-    if (!active) {
-      setRect(null)
-      return
-    }
+    if (!active) return
     const outsideEditor = (target: EventTarget | null): Element | null =>
       target instanceof Element && !target.closest(THEME_EDITOR_SELECTOR)
         ? target

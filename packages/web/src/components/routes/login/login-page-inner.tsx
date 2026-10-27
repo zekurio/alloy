@@ -4,6 +4,7 @@ import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
+import { useMutation } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { LogInIcon } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
@@ -11,7 +12,7 @@ import { type ReactNode, useEffect, useState } from "react"
 import { SignInReactivationPrompt } from "@/components/account/reactivate-account-prompt"
 import { canSignUp } from "@/lib/auth-access"
 import { authClient } from "@/lib/auth-client"
-import { useLoginRedirect } from "@/lib/auth-hooks"
+import { useSignedOut } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 import { usePasskeySupport } from "@/lib/passkey-support"
@@ -113,7 +114,7 @@ export function LoginPageInner({
   redirectTo,
   reactivate = false,
 }: LoginPageInnerProps) {
-  const canRender = useLoginRedirect(redirectTo ?? null)
+  const canRender = useSignedOut()
   const [reactivationRequired, setReactivationRequired] = useState(reactivate)
   const { ready: passkeyReady, supported: passkeySupported } =
     usePasskeySupport()
@@ -154,22 +155,17 @@ function DesktopLoginPage({
 }: {
   desktop: NonNullable<ReturnType<typeof alloyDesktop>>
 }) {
-  const [pending, setPending] = useState(false)
-
-  async function onSignIn() {
-    if (pending) return
-    setPending(true)
-    toast.dismiss(DESKTOP_LOGIN_ERROR_TOAST_ID)
-    try {
-      await desktop.openConnect()
-    } catch (cause) {
+  const connect = useMutation({
+    mutationFn: () => desktop.openConnect(),
+    // A local bridge call: the browser's offline flag must not pause it.
+    networkMode: "always",
+    onMutate: () => toast.dismiss(DESKTOP_LOGIN_ERROR_TOAST_ID),
+    onError: (cause) =>
       toast.error(errorMessage(cause, t("Could not reach server.")), {
         id: DESKTOP_LOGIN_ERROR_TOAST_ID,
-      })
-    } finally {
-      setPending(false)
-    }
-  }
+      }),
+  })
+  const pending = connect.isPending
 
   return (
     <>
@@ -187,7 +183,9 @@ function DesktopLoginPage({
         size="lg"
         className="w-full gap-3"
         disabled={pending}
-        onClick={onSignIn}
+        onClick={() => {
+          if (!pending) connect.mutate()
+        }}
       >
         {pending ? <Spinner /> : <LogInIcon className="size-4" />}
         {t("Sign in")}

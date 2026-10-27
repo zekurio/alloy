@@ -37,6 +37,11 @@ export type ProviderDraft = {
   iconFile: File | null
 }
 
+export type SetProviderDraftField = <K extends keyof ProviderDraft>(
+  key: K,
+  value: ProviderDraft[K],
+) => void
+
 export type ProviderIconUpload = {
   providerId: string
   file: File

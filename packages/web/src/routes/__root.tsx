@@ -5,7 +5,6 @@ import { Suspense, lazy, useEffect } from "react"
 import { OAuthErrorToast } from "@/components/auth/oauth-error-toast"
 import { redirectToSetupBeforeLoad } from "@/lib/auth-guards"
 import { alloyWindowChrome } from "@/lib/desktop"
-import { RuntimeConfigEvents } from "@/lib/runtime-config-events"
 import { ThemeAccountSync } from "@/lib/theme-account-sync"
 
 export const Route = createRootRouteWithContext<{
@@ -42,7 +41,6 @@ function RootLayout() {
       <Outlet />
       <ThemeAccountSync />
       <Suspense fallback={null}>
-        <RuntimeConfigEvents />
         <OAuthErrorToast />
         <ReactivateAccountPrompt />
       </Suspense>

@@ -29,10 +29,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
+import { useForm, useStore } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { PlusIcon } from "lucide-react"
-import { useEffect, useState } from "react"
-import type { FormEvent, ReactElement, ReactNode } from "react"
+import { useState } from "react"
+import type { ReactElement, ReactNode } from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -44,48 +45,28 @@ import {
   WEBHOOK_URL_PLACEHOLDERS,
 } from "./admin-webhook-data"
 
+type CreateWebhookValues = {
+  name: string
+  provider: WebhookProvider
+  url: string
+  secret: string
+}
+
+const NEW_WEBHOOK: CreateWebhookValues = {
+  name: "",
+  provider: "discord",
+  url: "",
+  secret: "",
+}
+
+type EditWebhookValues = {
+  name: string
+  url: string
+  secret: string
+}
+
 export function CreateWebhookDialog() {
-  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
-  const [name, setName] = useState("")
-  const [provider, setProvider] = useState<WebhookProvider>("discord")
-  const [url, setUrl] = useState("")
-  const [secret, setSecret] = useState("")
-
-  const { error, isPending, mutate, reset } = useMutation({
-    mutationFn: () => {
-      const input: AdminWebhookInput = {
-        name: name.trim(),
-        provider,
-        url: url.trim(),
-      }
-      if (provider === "generic" && secret) input.secret = secret
-      return api.admin.createWebhook(input)
-    },
-    onSuccess: (created) => {
-      setAdminWebhookCacheRow(queryClient, created)
-      setOpen(false)
-    },
-  })
-
-  useEffect(() => {
-    if (open) return
-    setName("")
-    setProvider("discord")
-    setUrl("")
-    setSecret("")
-    reset()
-  }, [open, reset])
-
-  const submitError = error
-    ? errorMessage(error, t("Couldn't create webhook"))
-    : null
-
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault()
-    if (isPending) return
-    mutate()
-  }
 
   return (
     <WebhookDialog
@@ -101,71 +82,128 @@ export function CreateWebhookDialog() {
       description={t(
         "Public clips are announced here as soon as they finish encoding.",
       )}
-      onSubmit={handleSubmit}
-      isPending={isPending}
-      error={submitError}
     >
-      <WebhookNameField
-        id="new-webhook-name"
-        value={name}
-        onValueChange={setName}
-        placeholder={t("e.g. #clips")}
-      />
-      <Field>
-        <FieldLabel htmlFor="new-webhook-provider">{t("Provider")}</FieldLabel>
-        <Select
-          value={provider}
-          onValueChange={(value) => {
-            if (
-              value === "discord" ||
-              value === "fluxer" ||
-              value === "generic"
-            ) {
-              setProvider(value)
-            }
-          }}
-        >
-          <SelectTrigger id="new-webhook-provider" size="sm">
-            <SelectValue>{WEBHOOK_PROVIDER_LABELS[provider]}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {WEBHOOK_PROVIDERS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {WEBHOOK_PROVIDER_LABELS[option]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <FieldDescription>
-          {provider === "generic"
-            ? t("Your endpoint receives a signed JSON payload.")
-            : t("{provider} renders the clip link as a playable preview.", {
-                provider: WEBHOOK_PROVIDER_LABELS[provider],
-              })}
-        </FieldDescription>
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="new-webhook-url">{t("Endpoint URL")}</FieldLabel>
-        <Input
-          id="new-webhook-url"
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          placeholder={WEBHOOK_URL_PLACEHOLDERS[provider]}
-          type="url"
-          required
-        />
-      </Field>
-      {provider === "generic" ? (
-        <WebhookSecretField
-          id="new-webhook-secret"
-          value={secret}
-          onValueChange={setSecret}
-          description={t(
-            "Used to sign each payload so your endpoint can verify it.",
-          )}
-        />
-      ) : null}
+      <CreateWebhookForm onSaved={() => setOpen(false)} />
     </WebhookDialog>
+  )
+}
+
+/** Lives inside the dialog content, so closing the dialog discards the draft. */
+function CreateWebhookForm({ onSaved }: { onSaved: () => void }) {
+  const queryClient = useQueryClient()
+  const { error, isPending, mutate } = useMutation({
+    mutationFn: (input: AdminWebhookInput) => api.admin.createWebhook(input),
+    onSuccess: (created) => {
+      setAdminWebhookCacheRow(queryClient, created)
+      onSaved()
+    },
+  })
+  const form = useForm({
+    defaultValues: NEW_WEBHOOK,
+    onSubmit: ({ value }) => {
+      if (isPending) return
+      const input: AdminWebhookInput = {
+        name: value.name.trim(),
+        provider: value.provider,
+        url: value.url.trim(),
+      }
+      if (value.provider === "generic" && value.secret) {
+        input.secret = value.secret
+      }
+      mutate(input)
+    },
+  })
+  const provider = useStore(form.store, (state) => state.values.provider)
+
+  return (
+    <WebhookForm
+      form={form}
+      isPending={isPending}
+      error={error ? errorMessage(error, t("Couldn't create webhook")) : null}
+    >
+      <form.Field name="name">
+        {(field) => (
+          <WebhookNameField
+            id="new-webhook-name"
+            value={field.state.value}
+            onValueChange={field.handleChange}
+            placeholder={t("e.g. #clips")}
+          />
+        )}
+      </form.Field>
+      <form.Field name="provider">
+        {(field) => (
+          <Field>
+            <FieldLabel htmlFor="new-webhook-provider">
+              {t("Provider")}
+            </FieldLabel>
+            <Select
+              value={field.state.value}
+              onValueChange={(value) => {
+                if (
+                  value === "discord" ||
+                  value === "fluxer" ||
+                  value === "generic"
+                ) {
+                  field.handleChange(value)
+                }
+              }}
+            >
+              <SelectTrigger id="new-webhook-provider" size="sm">
+                <SelectValue>
+                  {WEBHOOK_PROVIDER_LABELS[field.state.value]}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {WEBHOOK_PROVIDERS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {WEBHOOK_PROVIDER_LABELS[option]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              {field.state.value === "generic"
+                ? t("Your endpoint receives a signed JSON payload.")
+                : t("{provider} renders the clip link as a playable preview.", {
+                    provider: WEBHOOK_PROVIDER_LABELS[field.state.value],
+                  })}
+            </FieldDescription>
+          </Field>
+        )}
+      </form.Field>
+      <form.Field name="url">
+        {(field) => (
+          <Field>
+            <FieldLabel htmlFor="new-webhook-url">
+              {t("Endpoint URL")}
+            </FieldLabel>
+            <Input
+              id="new-webhook-url"
+              value={field.state.value}
+              onChange={(event) => field.handleChange(event.target.value)}
+              placeholder={WEBHOOK_URL_PLACEHOLDERS[provider]}
+              type="url"
+              required
+            />
+          </Field>
+        )}
+      </form.Field>
+      {provider === "generic" ? (
+        <form.Field name="secret">
+          {(field) => (
+            <WebhookSecretField
+              id="new-webhook-secret"
+              value={field.state.value}
+              onValueChange={field.handleChange}
+              description={t(
+                "Used to sign each payload so your endpoint can verify it.",
+              )}
+            />
+          )}
+        </form.Field>
+      ) : null}
+    </WebhookForm>
   )
 }
 
@@ -178,44 +216,6 @@ export function EditWebhookDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const queryClient = useQueryClient()
-  const [name, setName] = useState(webhook.name)
-  const [url, setUrl] = useState("")
-  const [secret, setSecret] = useState("")
-
-  const { error, isPending, mutate, reset } = useMutation({
-    mutationFn: () => {
-      const patch: AdminWebhookPatch = { name: name.trim() }
-      if (url.trim()) patch.url = url.trim()
-      if (webhook.provider === "generic" && secret) patch.secret = secret
-      return api.admin.updateWebhook(webhook.id, patch)
-    },
-    onSuccess: (updated) => {
-      setAdminWebhookCacheRow(queryClient, updated)
-      setOpen(false)
-    },
-  })
-
-  useEffect(() => {
-    if (!open) return
-    setName(webhook.name)
-    // Both start blank: the stored URL may be masked and the secret is never
-    // sent back, so an empty field means "keep what is stored".
-    setUrl("")
-    setSecret("")
-    reset()
-  }, [open, webhook.name, reset])
-
-  const submitError = error
-    ? errorMessage(error, t("Couldn't save webhook"))
-    : null
-
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault()
-    if (isPending) return
-    mutate()
-  }
-
   return (
     <WebhookDialog
       open={open}
@@ -226,43 +226,107 @@ export function EditWebhookDialog({
           {WEBHOOK_PROVIDER_LABELS[webhook.provider]} · {webhook.url}
         </>
       }
-      onSubmit={handleSubmit}
-      isPending={isPending}
-      error={submitError}
     >
-      <WebhookNameField
-        id="edit-webhook-name"
-        value={name}
-        onValueChange={setName}
+      <EditWebhookForm
+        key={webhook.name}
+        webhook={webhook}
+        onSaved={() => setOpen(false)}
       />
-      <Field>
-        <FieldLabel htmlFor="edit-webhook-url">{t("Endpoint URL")}</FieldLabel>
-        <Input
-          id="edit-webhook-url"
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          // The row does not show the stored URL and a phone hides the dialog
-          // description, so the empty field is where it stays visible.
-          placeholder={webhook.url}
-          type="url"
-        />
-        <FieldDescription>
-          {t("Leave blank to keep the current URL.")}
-        </FieldDescription>
-      </Field>
-      {webhook.provider === "generic" ? (
-        <WebhookSecretField
-          id="edit-webhook-secret"
-          value={secret}
-          onValueChange={setSecret}
-          description={
-            webhook.secretSet
-              ? t("Leave blank to keep the current secret.")
-              : t("Used to sign each payload so your endpoint can verify it.")
-          }
-        />
-      ) : null}
     </WebhookDialog>
+  )
+}
+
+function EditWebhookForm({
+  webhook,
+  onSaved,
+}: {
+  webhook: AdminWebhookRow
+  onSaved: () => void
+}) {
+  const queryClient = useQueryClient()
+  const { error, isPending, mutate } = useMutation({
+    mutationFn: (patch: AdminWebhookPatch) =>
+      api.admin.updateWebhook(webhook.id, patch),
+    onSuccess: (updated) => {
+      setAdminWebhookCacheRow(queryClient, updated)
+      onSaved()
+    },
+  })
+  const form = useForm({
+    // URL and secret start blank: the stored URL may be masked and the secret
+    // is never sent back, so an empty field means "keep what is stored".
+    defaultValues: {
+      name: webhook.name,
+      url: "",
+      secret: "",
+    } satisfies EditWebhookValues,
+    onSubmit: ({ value }) => {
+      if (isPending) return
+      const patch: AdminWebhookPatch = { name: value.name.trim() }
+      if (value.url.trim()) patch.url = value.url.trim()
+      if (webhook.provider === "generic" && value.secret) {
+        patch.secret = value.secret
+      }
+      mutate(patch)
+    },
+  })
+
+  return (
+    <WebhookForm
+      form={form}
+      isPending={isPending}
+      error={error ? errorMessage(error, t("Couldn't save webhook")) : null}
+    >
+      <form.Field name="name">
+        {(field) => (
+          <WebhookNameField
+            id="edit-webhook-name"
+            value={field.state.value}
+            onValueChange={field.handleChange}
+          />
+        )}
+      </form.Field>
+      <form.Field name="url">
+        {(field) => (
+          <Field>
+            <FieldLabel htmlFor="edit-webhook-url">
+              {t("Endpoint URL")}
+            </FieldLabel>
+            <Input
+              id="edit-webhook-url"
+              value={field.state.value}
+              onChange={(event) => field.handleChange(event.target.value)}
+              // The row does not show the stored URL and a phone hides the
+              // dialog description, so the empty field is where it stays
+              // visible.
+              placeholder={webhook.url}
+              type="url"
+            />
+            <FieldDescription>
+              {t("Leave blank to keep the current URL.")}
+            </FieldDescription>
+          </Field>
+        )}
+      </form.Field>
+      {webhook.provider === "generic" ? (
+        <form.Field name="secret">
+          {(field) => (
+            <WebhookSecretField
+              id="edit-webhook-secret"
+              value={field.state.value}
+              onValueChange={field.handleChange}
+              description={
+                webhook.secretSet
+                  ? t("Leave blank to keep the current secret.")
+                  : t(
+                      "Used to sign each payload so your endpoint can verify it.",
+                    )
+              }
+            />
+          )}
+        </form.Field>
+      ) : null}
+    </WebhookForm>
   )
 }
 
@@ -272,9 +336,6 @@ function WebhookDialog({
   trigger,
   title,
   description,
-  onSubmit,
-  isPending,
-  error,
   children,
 }: {
   open: boolean
@@ -283,9 +344,6 @@ function WebhookDialog({
   trigger?: ReactElement
   title: ReactNode
   description: ReactNode
-  onSubmit: (event: FormEvent) => void
-  isPending: boolean
-  error: string | null
   children: ReactNode
 }) {
   return (
@@ -298,21 +356,42 @@ function WebhookDialog({
             {description}
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
-        <form onSubmit={onSubmit}>
-          <ResponsiveDialogBody className="flex flex-col gap-4">
-            {children}
-            <FieldError>{error}</FieldError>
-          </ResponsiveDialogBody>
-          <AdminDialogFooter
-            pending={isPending}
-            failed={Boolean(error)}
-            pendingLabel={t("Saving…")}
-          >
-            {t("Save")}
-          </AdminDialogFooter>
-        </form>
+        {children}
       </ResponsiveDialogContent>
     </ResponsiveDialog>
+  )
+}
+
+function WebhookForm({
+  form,
+  isPending,
+  error,
+  children,
+}: {
+  form: { handleSubmit: () => Promise<void> }
+  isPending: boolean
+  error: string | null
+  children: ReactNode
+}) {
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        void form.handleSubmit()
+      }}
+    >
+      <ResponsiveDialogBody className="flex flex-col gap-4">
+        {children}
+        <FieldError>{error}</FieldError>
+      </ResponsiveDialogBody>
+      <AdminDialogFooter
+        pending={isPending}
+        failed={Boolean(error)}
+        pendingLabel={t("Saving…")}
+      >
+        {t("Save")}
+      </AdminDialogFooter>
+    </form>
   )
 }
 
