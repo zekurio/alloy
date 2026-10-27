@@ -15,7 +15,7 @@ import {
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Input } from "@alloy/ui/components/input"
 import { CircleAlertIcon, UploadIcon, VideoIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { GameCombobox } from "@/components/game/game-combobox"
 import { fileExtensionLabel } from "@/components/upload/new-clip-helpers"
@@ -33,18 +33,20 @@ export function ImportClipDetailsDialog({
 }) {
   const { staged, committing: pending, error } = action
   // The pick the dialog shows. It outlives `staged` so the summary and form
-  // stay put while the dialog animates closed.
+  // stay put while the dialog animates closed. The dialog stays mounted
+  // between picks, so each new pick resets the form in the same render that
+  // shows it, rather than an effect leaving the last pick's values up for a
+  // frame.
   const [shown, setShown] = useState(staged)
-  if (staged !== null && staged !== shown) setShown(staged)
-  const [title, setTitle] = useState("")
+  const [title, setTitle] = useState(staged?.title ?? "")
   const [game, setGame] = useState<GameRow | null>(null)
   const [submitted, setSubmitted] = useState(false)
-
-  useEffect(() => {
-    setTitle(shown?.title ?? "")
+  if (staged !== null && staged !== shown) {
+    setShown(staged)
+    setTitle(staged.title ?? "")
     setGame(null)
     setSubmitted(false)
-  }, [shown?.id, shown?.title])
+  }
 
   const normalizedTitle = normalizeClipTitle(title)
   const titleInvalid = submitted && normalizedTitle.length === 0
