@@ -76,7 +76,7 @@ validation in the PR. Native integration tests and the Nix security test remain.
    touch Nix files, the lockfile, or the root manifests also run a Nix flake
    check, and devenv changes build the development shell. Desktop changes
    additionally check the Rust crates on Windows and Linux and build the
-   Windows installer.
+   Windows installer and the Nix desktop package.
 
 Releases are tagged from `dev` by maintainers; see
 [RELEASING.md](RELEASING.md) for the release process.

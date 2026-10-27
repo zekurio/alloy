@@ -29,6 +29,10 @@
         pkgs = import nixpkgs { inherit system; };
         alloy = pkgs.callPackage ./nix/package.nix { };
         alloy-obs-runtime = pkgs.callPackage ./nix/obs-runtime.nix { };
+        alloy-desktop = pkgs.callPackage ./nix/desktop.nix {
+          inherit alloy-obs-runtime;
+          inherit (alloy) pnpmDeps;
+        };
         dockerImageConfig = {
           Cmd = [ "${pkgs.lib.getExe alloy}" ];
           ExposedPorts."2552/tcp" = { };
@@ -45,7 +49,12 @@
         # is the packaging/CI/NixOS entrypoint only.
         packages = {
           default = alloy;
-          inherit alloy alloy-obs-runtime dockerImage;
+          inherit
+            alloy
+            alloy-desktop
+            alloy-obs-runtime
+            dockerImage
+            ;
         };
 
         checks = {
@@ -63,5 +72,6 @@
     )
     // {
       nixosModules.default = import ./nix/module.nix { inherit self; };
+      nixosModules.desktop = import ./nix/desktop-module.nix { inherit self; };
     };
 }

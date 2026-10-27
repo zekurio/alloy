@@ -1,7 +1,8 @@
 # Nix packaging
 
 `flake.nix` exposes the Linux server package, container image, and NixOS
-module. The development shell lives separately in `devenv.nix`.
+module, and the Linux desktop app with its own module. The development shell
+lives separately in `devenv.nix`.
 
 ## Files
 
@@ -14,10 +15,22 @@ module. The development shell lives separately in `devenv.nix`.
 - `source.nix` excludes local state and generated artifacts from the build
   source, including nested workspace outputs.
 - `obs-runtime.nix` builds `.#alloy-obs-runtime`, the OBS prefix the Linux
-  desktop recorder loads through `ALLOY_OBS_RUNTIME_DIR`: OBS with
-  obs-vkcapture, obs-pipewire-audio-capture, and libpipewire. Build it from the
-  same nixpkgs as the system, since libobs loads the system's graphics
-  drivers.
+  desktop recorder loads through `ALLOY_OBS_RUNTIME_DIR`: libobs with the
+  modules the recorder opens, obs-vkcapture, obs-pipewire-audio-capture, and
+  libpipewire. It copies them out of nixpkgs' OBS, so they come from the
+  binary cache without OBS's UI, browser source, scripting, and VLC source.
+  When the recorder opens another module, add it to the runtime's list. Build
+  it from the same nixpkgs as the system, since libobs loads the system's
+  graphics drivers.
+- `desktop.nix` builds `.#alloy-desktop`: the recorder and the native addon
+  from one Cargo build, the Electron bundles from the server package's pnpm
+  dependencies, the OBS runtime, FFmpeg, and the `dev.zekurio.alloy` desktop
+  entry. It ships no graphics drivers; those come from the system.
+- `electron.nix` fetches the Electron release `packages/desktop/package.json`
+  pins, for the desktop package and the devenv shell.
+- `desktop-module.nix` (`nixosModules.desktop`) defines
+  `programs.alloy-desktop`, which builds the app from the system's nixpkgs
+  and sets up game capture.
 - `module.nix` defines `services.alloy-server`, including PostgreSQL,
   storage, credentials, and systemd hardening.
 - `module-security-test.nix` checks production-mode and HTTPS enforcement,
@@ -31,6 +44,66 @@ module. The development shell lives separately in `devenv.nix`.
 The top-level `pnpmConfigHook` uses the pnpm executable in `nativeBuildInputs`.
 `fetchPnpmDeps` receives that same pinned package explicitly. Neither should
 select nixpkgs' default pnpm independently.
+
+## Alloy desktop
+
+On NixOS, use the module. It builds the app from the system's nixpkgs and adds
+obs-vkcapture's Vulkan layer and `OBS_VKCAPTURE=1` for games:
+
+```nix
+{
+  inputs.alloy.url = "github:zekurio/alloy";
+
+  # in the system's modules:
+  imports = [ inputs.alloy.nixosModules.desktop ];
+  programs.alloy-desktop.enable = true;
+}
+```
+
+Building it needs a nixpkgs from 26.05 on, which has `pnpm_11`. On older
+channels, use the flake's own build:
+
+```nix
+programs.alloy-desktop.package = inputs.alloy.packages.x86_64-linux.alloy-desktop;
+```
+
+Without the module, install the package. Built from the system's nixpkgs, it
+builds locally:
+
+```sh
+nix profile add github:zekurio/alloy#alloy-desktop --override-input nixpkgs nixpkgs
+# or from the flake's pinned nixpkgs, which Cachix has built, when it is at
+# least as new as the system's:
+nix profile add github:zekurio/alloy#alloy-desktop
+```
+
+What the package can't do on its own:
+
+- **Provide graphics drivers.** Electron and libobs load the system's, from
+  `/run/opengl-driver`, which NixOS sets up with `hardware.graphics`. The
+  drivers need a glibc at least as new as the one they were built with, so a
+  build from a nixpkgs older than the system's can't load them: Electron
+  renders in software and OBS can't open an EGL display. Build from the
+  system's nixpkgs, with the module or `--override-input nixpkgs nixpkgs`. On
+  other distributions, point the app at drivers from the same nixpkgs, for
+  example through nixGL or a `/run/opengl-driver` you set up.
+- **Capture games.** obs-vkcapture's layer has to load in the game, through
+  `hardware.graphics.extraPackages` and `OBS_VKCAPTURE=1` in the game's
+  environment, which a package can't change. The module sets both; otherwise,
+  add them yourself or start games with `OBS_VKCAPTURE=1 %command%` in Steam.
+  Without the layer, game sessions fall back to display capture. OpenGL games
+  also need obs-vkcapture's `obs-gamecapture` wrapper. Whether Steam's
+  Proton container sees the layer on NixOS is not yet tested.
+- **Bind global shortcuts under `nix run`.** The shortcuts portal only
+  accepts an app whose desktop entry is installed, which `nix run` doesn't
+  do. Install the package or use the module. On desktops without the
+  portal, bind the entry's _Save a clip_ and _Take a screenshot_ actions, or
+  `alloy-desktop --action clip`, to keys.
+- **Provide the session's services.** PipeWire with WirePlumber, and
+  xdg-desktop-portal with a ScreenCast and a GlobalShortcuts backend (KDE,
+  GNOME 48 or later, Hyprland), come with the desktop.
+- **Start at login or update itself.** Linux has no autostart setting yet,
+  and updates come through Nix.
 
 ## Updating pnpm or dependencies
 
@@ -47,6 +120,10 @@ dependency store changes, regenerate `pnpmDepsHash` in `package.nix`:
 3. Copy the reported `got: sha256-...` hash into `pnpmDepsHash`.
 4. Rebuild with the real hash and run `nix flake check`.
 
+When the Electron pin in `packages/desktop/package.json` changes,
+`nix build .#alloy-desktop` fails with the new release's hash; copy its
+`got: sha256-...` into `electron.nix`.
+
 Keep the nixpkgs inputs in `flake.lock` and `devenv.lock` aligned: run
 `nix flake update nixpkgs` and `devenv update nixpkgs` together. The `devenv`
 workflow fails when the two revisions differ. Pinning pnpm does not pin
@@ -59,6 +136,7 @@ build.
 pnpm verify
 nix flake check
 nix build .#alloy
+nix build .#alloy-desktop
 devenv test
 ```
 

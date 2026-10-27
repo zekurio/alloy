@@ -75,9 +75,9 @@ in
     ALLOY_STORAGE_FS_THUMBNAILS_PATH = "${config.devenv.root}/data/storage/thumbnails";
     ALLOY_STORAGE_FS_ASSETS_PATH = "${config.devenv.root}/data/storage/assets";
     # The Electron binary npm downloads does not run on NixOS, so
-    # electron-vite starts the desktop shell on nixpkgs' build, which can
-    # trail the pinned version.
-    ELECTRON_EXEC_PATH = "${pkgs.electron}/bin/electron";
+    # electron-vite starts the desktop shell on the pinned release built for
+    # Nix.
+    ELECTRON_EXEC_PATH = "${pkgs.callPackage ./nix/electron.nix { }}/bin/electron";
   };
 
   # Create `.env` and start the one Postgres shared by all active shells. This
