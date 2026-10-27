@@ -658,7 +658,16 @@ impl DesktopRuntime {
             }
             "recording.getStatus" => to_value(self.recorder.get_status().await),
             "recording.getShortcuts" => to_value(self.shortcuts.state()),
-            "recording.bindShortcuts" => to_value(self.shortcuts.rebind().await?),
+            // A bind already waiting on the desktop's dialog is kept: binding
+            // again would close that dialog under the user.
+            "recording.bindShortcuts" => {
+                let state = self.shortcuts.state();
+                if state.binding {
+                    to_value(state)
+                } else {
+                    to_value(self.shortcuts.rebind().await?)
+                }
+            }
             "recording.configureShortcuts" => {
                 self.shortcuts.configure().await?;
                 Ok(Value::Null)

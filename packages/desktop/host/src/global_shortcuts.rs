@@ -313,7 +313,10 @@ fn keysym(key: &str) -> Option<String> {
 #[cfg(target_os = "linux")]
 mod portal {
     use std::{
-        sync::{Arc, atomic::Ordering},
+        sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        },
         time::Duration,
     };
 
@@ -344,10 +347,20 @@ mod portal {
         proxy: Arc<GlobalShortcuts>,
         /// Shared with the task that watches for the session to end.
         session: Arc<Session<GlobalShortcuts>>,
+        /// Set once the portal closes the session, which may happen before
+        /// the bind stores it.
+        ended: Arc<AtomicBool>,
         listeners: Vec<JoinHandle<()>>,
     }
 
     impl Binding {
+        /// Drops a session the portal has already closed.
+        fn discard(self) {
+            for listener in &self.listeners {
+                listener.abort();
+            }
+        }
+
         pub(super) async fn close(self) {
             for listener in &self.listeners {
                 listener.abort();
@@ -404,6 +417,14 @@ mod portal {
             drop(session);
             binding.close().await;
             return stand_down(inner);
+        }
+        // Closed while the dialog was open, before it could be stored: the
+        // listener that saw it found nothing to clear. Checked under the lock
+        // that listener takes after setting the flag.
+        if binding.ended.load(Ordering::SeqCst) {
+            drop(session);
+            binding.discard();
+            return fail(inner, generation, SESSION_ENDED);
         }
         let configurable = binding.proxy.version() >= 2;
         *session = Some(binding);
@@ -479,7 +500,8 @@ mod portal {
         };
         // Listening starts before binding, so no press is missed. Its tasks
         // only start once every subscription is in place.
-        let listeners = match bounded(listen(inner, request, &proxy, &session, own)).await {
+        let ended = Arc::new(AtomicBool::new(false));
+        let listeners = match bounded(listen(inner, request, &proxy, &session, own, &ended)).await {
             Ok(listeners) => listeners,
             Err(message) => {
                 let _ = timeout(CALL_TIMEOUT, session.close()).await;
@@ -489,6 +511,7 @@ mod portal {
         Ok(Binding {
             proxy: Arc::new(proxy),
             session,
+            ended,
             listeners,
         })
     }
@@ -541,6 +564,7 @@ mod portal {
         proxy: &GlobalShortcuts,
         session: &Arc<Session<GlobalShortcuts>>,
         own: String,
+        ended: &Arc<AtomicBool>,
     ) -> Result<Vec<JoinHandle<()>>, Error> {
         let mut activated = proxy.receive_activated().await?;
         let mut changed = proxy.receive_shortcuts_changed().await?;
@@ -575,6 +599,7 @@ mod portal {
         // The stream borrows the session, so the task holds it too.
         let weak = Arc::downgrade(inner);
         let session = Arc::clone(session);
+        let ended = Arc::clone(ended);
         let ends = tokio::spawn(async move {
             let Ok(mut closed) = session.receive_closed().await else {
                 return;
@@ -582,6 +607,9 @@ mod portal {
             if closed.next().await.is_none() {
                 return;
             }
+            // Before taking the lock, so a bind about to store this session
+            // sees it ended.
+            ended.store(true, Ordering::SeqCst);
             let Some(inner) = weak.upgrade() else { return };
             // Only the current session's end counts; an earlier one is closed
             // by the bind that replaced it. The portal has already closed
