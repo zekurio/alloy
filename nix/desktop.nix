@@ -33,7 +33,8 @@ let
   electron = callPackage ./electron.nix { };
 
   # The Rust and the Electron builds each see only their own files, so a
-  # change to one, or to the server or web app, doesn't rebuild the other.
+  # change to one doesn't rebuild the other, and a change to the server or
+  # web app rebuilds neither. nix-desktop.yml runs on changes to these files.
   rustFiles = lib.fileset.unions [
     ../Cargo.toml
     ../Cargo.lock
@@ -42,11 +43,42 @@ let
     ../packages/desktop/recorder
     ../packages/desktop/update-signer
   ];
+  # The workspace packages the shell bundles, the public folder the connect
+  # screen ships, and every workspace manifest, which pnpm's offline install
+  # reads. Documentation is left out.
+  shellFiles = lib.fileset.difference (lib.fileset.unions (
+    [
+      ../package.json
+      ../pnpm-lock.yaml
+      ../pnpm-workspace.yaml
+      ../tsconfig.base.json
+      ../public
+      ../packages/desktop
+      ../packages/contracts
+      ../packages/i18n
+      ../packages/primitives
+      ../packages/ui
+    ]
+    ++ lib.mapAttrsToList (name: _: lib.fileset.maybeMissing (../packages + "/${name}/package.json")) (
+      lib.filterAttrs (_: type: type == "directory") (builtins.readDir ../packages)
+    )
+  )) (lib.fileset.fileFilter (file: file.hasExt "md") ../packages);
   repository = lib.fileset.fromSource source;
+  # The app's manifest and the logo, which the installed app reads from the
+  # repository's layout.
+  appFiles = lib.fileset.toSource {
+    root = ../.;
+    fileset = lib.fileset.intersection repository (
+      lib.fileset.unions [
+        ../packages/desktop/package.json
+        ../public/logo.png
+      ]
+    );
+  };
 
   # The recorder sidecar and the Node-API addon, from one workspace build.
-  native = rustPlatform.buildRustPackage {
-    pname = "alloy-desktop-native";
+  rust = rustPlatform.buildRustPackage {
+    pname = "alloy-desktop-rust";
     inherit version;
     src = lib.fileset.toSource {
       root = ../.;
@@ -81,7 +113,7 @@ let
     inherit version pnpmDeps;
     src = lib.fileset.toSource {
       root = ../.;
-      fileset = lib.fileset.difference repository rustFiles;
+      fileset = lib.fileset.difference (lib.fileset.intersection repository shellFiles) rustFiles;
     };
     nativeBuildInputs = [
       nodejs_24
@@ -173,17 +205,17 @@ stdenvNoCC.mkDerivation {
     mkdir -p "$resources/agent" "$resources/native"
 
     cp -R ${shell} "$app/out"
-    install -Dm644 ${source}/packages/desktop/package.json "$app/package.json"
-    install -Dm644 ${source}/public/logo.png "$out/lib/alloy-desktop/public/logo.png"
+    install -Dm644 ${appFiles}/packages/desktop/package.json "$app/package.json"
+    install -Dm644 ${appFiles}/public/logo.png "$out/lib/alloy-desktop/public/logo.png"
 
-    install -Dm755 ${native}/lib/liballoy_desktop_native.so "$resources/native/alloy-desktop.node"
-    install -Dm755 ${native}/bin/alloy-agent "$resources/agent/alloy-agent"
+    install -Dm755 ${rust}/lib/liballoy_desktop_native.so "$resources/native/alloy-desktop.node"
+    install -Dm755 ${rust}/bin/alloy-agent "$resources/agent/alloy-agent"
     ln -s ${alloy-obs-runtime}/bin/obs-ffmpeg-mux "$resources/agent/obs-ffmpeg-mux"
     # The host hands the agent this folder; it loads libobs, its plugins and
     # libpipewire from there.
     ln -s ${alloy-obs-runtime} "$resources/obs-runtime"
 
-    install -Dm644 ${source}/public/logo.png \
+    install -Dm644 ${appFiles}/public/logo.png \
       "$out/share/icons/hicolor/512x512/apps/${appId}.png"
 
     makeWrapper ${lib.getExe electron} "$out/bin/alloy-desktop" \
@@ -196,7 +228,7 @@ stdenvNoCC.mkDerivation {
   '';
 
   passthru = {
-    inherit electron native shell;
+    inherit electron rust shell;
   };
 
   meta = {

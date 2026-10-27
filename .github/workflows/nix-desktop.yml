@@ -1,0 +1,72 @@
+name: nix desktop
+
+# Builds `.#alloy-desktop`, whose Rust and Electron builds take a while, only
+# when its inputs change. The paths are the files `rustFiles`, `shellFiles`,
+# and `appFiles` in nix/desktop.nix select, the Nix files it imports, and the
+# nixpkgs pin. Keep them in step, so that every change to the package is built
+# and Cachix keeps the result.
+on:
+  pull_request:
+    paths:
+      - "nix/desktop.nix"
+      - "nix/electron.nix"
+      - "nix/obs-runtime.nix"
+      # The shell installs the server package's pnpm dependencies.
+      - "nix/package.nix"
+      - "nix/pipewire-client.nix"
+      - "nix/pnpm.nix"
+      - "nix/source.nix"
+      - "packages/desktop/**"
+      # The workspace packages the shell bundles.
+      - "packages/contracts/**"
+      - "packages/i18n/**"
+      - "packages/primitives/**"
+      - "packages/ui/**"
+      - "packages/*/package.json"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "public/**"
+      - "flake.nix"
+      - "flake.lock"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - ".github/workflows/nix-desktop.yml"
+      - "!**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nix-desktop:
+    name: nix desktop package
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: install nix
+        uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # Read-only on fork PRs (no secret); pushes from same-repo runs.
+      - name: set up cachix
+        uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: zekurio
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: build desktop package
+        run: nix build .#alloy-desktop --print-build-logs
