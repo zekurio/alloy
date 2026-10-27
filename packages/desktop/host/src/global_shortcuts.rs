@@ -503,15 +503,27 @@ mod portal {
         let mut activated = proxy.receive_activated().await?;
         let mut changed = proxy.receive_shortcuts_changed().await?;
 
+        // Signals arrive for every session on the connection, including an
+        // earlier one the portal hasn't closed yet; only this one's count.
+        let own = session_path(session);
+        let ours = move |path: &str| own.as_deref().is_none_or(|own| own == path);
         let on_activated = Arc::clone(&request.on_activated);
-        let activations = tokio::spawn(async move {
-            while let Some(activation) = activated.next().await {
-                on_activated(activation.shortcut_id());
+        let activations = tokio::spawn({
+            let ours = ours.clone();
+            async move {
+                while let Some(activation) = activated.next().await {
+                    if ours(activation.session_handle().as_str()) {
+                        on_activated(activation.shortcut_id());
+                    }
+                }
             }
         });
         let weak = Arc::downgrade(inner);
         let changes = tokio::spawn(async move {
             while let Some(change) = changed.next().await {
+                if !ours(change.session_handle().as_str()) {
+                    continue;
+                }
                 let Some(inner) = weak.upgrade() else { return };
                 let shortcuts = bound_shortcuts(change.shortcuts());
                 inner.update(|state| state.shortcuts = shortcuts);
@@ -563,6 +575,15 @@ mod portal {
                 Err(CONFIGURE_FAILED.into())
             }
         }
+    }
+
+    /// The session's object path. ashpd keeps the accessor private, but a
+    /// session serializes as its path, which is how it reaches the portal.
+    fn session_path(session: &Session<GlobalShortcuts>) -> Option<String> {
+        serde_json::to_value(session)
+            .ok()?
+            .as_str()
+            .map(str::to_string)
     }
 
     fn bound_shortcuts(shortcuts: &[Shortcut]) -> Vec<BoundShortcut> {
