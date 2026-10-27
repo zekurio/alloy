@@ -6,7 +6,7 @@ import type {
 } from "@alloy/contracts/desktop"
 import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useEffectEvent, useState } from "react"
 import { create } from "zustand"
 import { useShallow } from "zustand/react/shallow"
 
@@ -145,10 +145,14 @@ export function useRetainRecordingSync(
   recording: AlloyDesktopRecordingApi | null,
   onLoadError?: (cause: unknown) => void,
 ) {
+  // An inline callback must not restart the shared subscription each render.
+  const notifyLoadError = useEffectEvent((cause: unknown) => {
+    onLoadError?.(cause)
+  })
   useEffect(() => {
     if (!recording) return
-    return retainRecordingSync(recording, onLoadError)
-  }, [recording, onLoadError])
+    return retainRecordingSync(recording, notifyLoadError)
+  }, [recording])
 }
 
 /** The shared recording state; pair with `useRetainRecordingSync`. */
