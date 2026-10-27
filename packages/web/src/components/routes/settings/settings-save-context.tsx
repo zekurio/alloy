@@ -49,10 +49,10 @@ interface SettingsSaveState {
   valid: boolean
   /**
    * Bumped each time a close or tab switch is blocked by unsaved edits, so
-   * the save bar can replay its attention animation per attempt.
+   * the save banner can replay its attention flash per attempt.
    */
   attention: number
-  /** Outcome of the latest save, shown by the save bar. */
+  /** Outcome of the latest save, shown by the save banner. */
   feedback: SettingsSaveFeedback
   requestAttention: () => void
   /** Saves every dirty form; never rejects, failures land in `feedback`. */
@@ -70,7 +70,8 @@ const SettingsSaveStateContext = createContext<SettingsSaveState | null>(null)
 
 /**
  * Collects the dirty/save/discard state of every settings form so the dialog
- * can drive one bottom-anchored save bar and block closing with unsaved edits.
+ * can turn the section header into one save banner and block closing with
+ * unsaved edits.
  * Lives outside the dialog content, so it survives open/close transitions.
  */
 export function SettingsSaveProvider({ children }: { children: ReactNode }) {
@@ -221,7 +222,7 @@ export function useSettingsSaveState(): SettingsSaveState {
 }
 
 /**
- * Registers a form with the settings save bar, which renders its Cancel/Save
+ * Registers a form with the settings save banner, which renders its Cancel/Save
  * controls. Forms keep no save footer of their own, so one rendered outside a
  * SettingsSaveProvider (the settings dialog and page) throws instead of
  * silently losing its only way to save.

@@ -1,11 +1,21 @@
 import { AppMain, AppShell } from "@alloy/ui/components/app-shell"
+import { animateWithMotionTokens } from "@alloy/ui/lib/motion"
 import {
   createFileRoute,
   Outlet,
   useNavigate,
   useRouterState,
 } from "@tanstack/react-router"
-import { lazy, memo, Suspense, useCallback, useEffect } from "react"
+import {
+  Activity,
+  lazy,
+  memo,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react"
 import type { ComponentProps, ReactNode } from "react"
 
 import { WelcomeProfileDialog } from "@/components/auth/welcome-profile-dialog"
@@ -171,18 +181,44 @@ function AppShellContent({ session }: { session: boolean }) {
       return pathname.startsWith("/library/") && pathname !== "/library/"
     },
   })
-  const editorOpen = libraryEditorOpen || webUploadAction.selected !== null
+  const uploadEditorOpen = webUploadAction.selected !== null
+  const editorOpen = libraryEditorOpen || uploadEditorOpen
+  // Fetch the editor while the picked file is still being probed.
+  const preparingUpload = webUploadAction.picking
+  useEffect(() => {
+    if (preparingUpload) void loadLibraryEditorPage().catch(() => {})
+  }, [preparingUpload])
+
+  // The page comes back exactly as it was left when the editor closes; fade
+  // it in rather than snapping it over the editor's last frame.
+  const uploadEditorWasOpen = useRef(false)
+  useLayoutEffect(() => {
+    const closed = uploadEditorWasOpen.current && !uploadEditorOpen
+    uploadEditorWasOpen.current = uploadEditorOpen
+    if (!closed) return
+    const main = document.querySelector<HTMLElement>('[data-slot="app-main"]')
+    if (main) animateWithMotionTokens(main, { opacity: [0, 1] })
+  }, [uploadEditorOpen])
 
   return (
     <AppShell>
       <AppChrome />
-      {webUploadAction.selected ? (
-        <Suspense fallback={null}>
+      {/* Always mounted: the pick lands in a transition, so the page stays
+          up until the editor is ready rather than this boundary blanking
+          the main area with its fallback. It comes before the page so the
+          skip link's #app-main lookup finds the editor while both exist. */}
+      <Suspense fallback={null}>
+        {uploadEditorOpen ? (
           <LibraryEditorPage uploadAction={webUploadAction} />
-        </Suspense>
-      ) : (
+        ) : null}
+      </Suspense>
+      {/* Hidden rather than unmounted under the editor, so the page keeps
+          its scroll position and state. Activity also tears down its
+          effects meanwhile, so its window shortcuts (a library entry's
+          Delete, for one) can't fire from behind the editor. */}
+      <Activity mode={uploadEditorOpen ? "hidden" : "visible"}>
         <Outlet />
-      )}
+      </Activity>
       <UploadFlow />
       {session && !editorOpen ? (
         <div className="fixed right-[var(--app-content-padding)] bottom-[var(--app-content-padding)] z-30 hidden md:flex">

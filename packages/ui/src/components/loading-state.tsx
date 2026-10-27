@@ -6,6 +6,9 @@ import { cn } from "@alloy/ui/lib/utils"
  * vertical padding via `className` (e.g. "py-16") where a section needs more
  * breathing room. Use the panel variant for both lazy-panel and initial-data
  * loading so the spinner stays in the same position between them.
+ *
+ * The spinner waits 150 ms before fading in, so a load that finishes quickly
+ * never blinks it.
  */
 export function LoadingState({
   variant = "section",
@@ -21,7 +24,7 @@ export function LoadingState({
   return (
     <div
       className={cn(
-        "flex items-center justify-center",
+        "animate-delayed-appear flex items-center justify-center",
         variant === "panel" ? "text-foreground-muted h-32" : "py-12",
         className,
       )}

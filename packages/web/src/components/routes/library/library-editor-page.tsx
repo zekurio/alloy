@@ -35,7 +35,7 @@ export function LibraryEditorPage(props: LibraryEditorPageProps) {
     const previewUrl = props.uploadAction.previewUrl
     if (!selected || !previewUrl) return null
     return (
-      <AppMain className="p-4 md:p-6">
+      <AppMain className="animate-in fade-in-0 p-4 duration-[var(--duration-slow)] ease-[var(--ease-out)] motion-reduce:animate-none md:p-6">
         <EditorBody
           key={`${selected.name}:${selected.sizeBytes}`}
           uploadAction={props.uploadAction}

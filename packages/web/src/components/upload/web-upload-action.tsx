@@ -5,7 +5,13 @@ import {
   type UserSearchResult,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
 
 import {
   exportScreenshot,
@@ -145,11 +151,15 @@ function useWebUploadSelection(publishing: boolean) {
         revokePreviewUrl()
         const url = createObjectUrl(prepared.file, "upload preview URL")
         previewUrlRef.current = url
-        setSelected(prepared)
-        setPreviewUrl(url)
+        // A transition keeps the current page, and the trigger's spinner, up
+        // while the editor's chunk loads instead of blanking the main area.
+        startTransition(() => {
+          setSelected(prepared)
+          setPreviewUrl(url)
+          setPicking(false)
+        })
       } catch (cause) {
         setError(errorMessage(cause, t("Could not prepare clip.")))
-      } finally {
         setPicking(false)
       }
     },

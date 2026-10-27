@@ -3,6 +3,7 @@ import {
   MODAL_OVERLAY_CLASS_NAME,
   MODAL_OVERLAY_FORCE_RENDER,
 } from "@alloy/ui/lib/modal"
+import { DIALOG_MOTION_CLASS_NAME } from "@alloy/ui/lib/motion"
 import { cn } from "@alloy/ui/lib/utils"
 import { Dialog } from "@base-ui/react/dialog"
 import type { ComponentProps } from "react"
@@ -36,7 +37,8 @@ function DialogOverlay({
       className={cn(
         "fixed inset-0 isolate z-50",
         MODAL_OVERLAY_CLASS_NAME,
-        "duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        DIALOG_MOTION_CLASS_NAME,
+        "data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className,
       )}
       {...props}
@@ -66,7 +68,8 @@ function DialogContent({
         className={cn(
           "group/dialog-content fixed z-50 overflow-hidden rounded-lg border border-border bg-surface text-foreground shadow-lg",
           "data-[variant=secondary]:rounded-xl data-[variant=secondary]:border-border/80 data-[variant=secondary]:shadow-[0_28px_90px_-38px_rgba(0,0,0,0.82)]",
-          "duration-100 outline-none",
+          DIALOG_MOTION_CLASS_NAME,
+          "outline-none",
           centered &&
             "top-1/2 left-1/2 w-full max-w-[440px] -translate-x-1/2 -translate-y-1/2",
           disableZoom

@@ -13,7 +13,7 @@ import { cssVariables } from "@alloy/ui/lib/css-properties"
 import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { mediaAspectRatio } from "@/components/clip-editor/media-stage"
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
@@ -55,8 +55,16 @@ export function ClipViewerDialog({
   // the desktop grid/sidebar layout hasn't kicked in yet.
   const isDesktop = useMediaQuery("(min-width: 1024px)")
   const open = clipId !== null
-  const query = useClipQuery(clipId ?? "")
-  const list = useActiveClipList()
+  // The clip and list on screen. They outlive `clipId` so the viewer keeps
+  // its content, arrows included, while it animates closed.
+  const [shownClipId, setShownClipId] = useState(clipId)
+  if (clipId !== null && clipId !== shownClipId) setShownClipId(clipId)
+  const activeList = useActiveClipList()
+  const [shownList, setShownList] = useState(activeList)
+  if (open && activeList !== shownList) setShownList(activeList)
+  const viewerClipId = clipId ?? shownClipId
+  const list = open ? activeList : shownList
+  const query = useClipQuery(viewerClipId ?? "")
 
   const closeViewer = useCallback(() => {
     setActiveClipList(null)
@@ -64,13 +72,13 @@ export function ClipViewerDialog({
   }, [onClose])
 
   const prev = useMemo(() => {
-    if (!list || !clipId) return null
-    return list.prevOf(clipId)
-  }, [list, clipId])
+    if (!list || !viewerClipId) return null
+    return list.prevOf(viewerClipId)
+  }, [list, viewerClipId])
   const next = useMemo(() => {
-    if (!list || !clipId) return null
-    return list.nextOf(clipId)
-  }, [list, clipId])
+    if (!list || !viewerClipId) return null
+    return list.nextOf(viewerClipId)
+  }, [list, viewerClipId])
 
   const navigateTo = useCallback(
     (entry: ClipListEntry) => {
@@ -114,8 +122,13 @@ export function ClipViewerDialog({
       onOpenChange={(nextOpen) => {
         if (!nextOpen) closeViewer()
       }}
+      onOpenChangeComplete={(nextOpen) => {
+        if (nextOpen) return
+        setShownClipId(null)
+        setShownList(null)
+      }}
     >
-      {open ? (
+      {viewerClipId !== null ? (
         query.data ? (
           !isDesktop ? (
             <MobileClipViewerBody
@@ -198,7 +211,7 @@ function ClipViewerDialogBody({
       className={cn(
         // Below lg this branch is normally hidden by MobileClipViewerBody, but
         // we keep a sensible fallback in case the breakpoint check disagrees.
-        "h-auto max-h-[calc(100dvh-32px)] w-[calc(100dvw-32px)] overflow-visible rounded-xl bg-surface transition-[filter,opacity,transform] duration-100",
+        "h-auto max-h-[calc(100dvh-32px)] w-[calc(100dvw-32px)] overflow-visible rounded-xl bg-surface",
         "lg:h-[calc(min(calc(100dvh-var(--clip-modal-margin-y)*2),calc((100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar))/var(--clip-modal-ratio))))]",
         "lg:max-h-[calc(100dvh-var(--clip-modal-margin-y)*2)]",
         "lg:min-h-[min(480px,calc(100dvh-var(--clip-modal-margin-y)*2))]",

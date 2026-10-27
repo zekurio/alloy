@@ -32,15 +32,19 @@ export function ImportClipDetailsDialog({
   action: ImportClipAction
 }) {
   const { staged, committing: pending, error } = action
+  // The pick the dialog shows. It outlives `staged` so the summary and form
+  // stay put while the dialog animates closed.
+  const [shown, setShown] = useState(staged)
+  if (staged !== null && staged !== shown) setShown(staged)
   const [title, setTitle] = useState("")
   const [game, setGame] = useState<GameRow | null>(null)
   const [submitted, setSubmitted] = useState(false)
 
   useEffect(() => {
-    setTitle(staged?.title ?? "")
+    setTitle(shown?.title ?? "")
     setGame(null)
     setSubmitted(false)
-  }, [staged?.id, staged?.title])
+  }, [shown?.id, shown?.title])
 
   const normalizedTitle = normalizeClipTitle(title)
   const titleInvalid = submitted && normalizedTitle.length === 0
@@ -72,7 +76,7 @@ export function ImportClipDetailsDialog({
           }}
         >
           <DialogBody className="flex flex-col gap-4">
-            {staged ? <StagedImportSummary staged={staged} /> : null}
+            {shown ? <StagedImportSummary staged={shown} /> : null}
 
             <label className="flex flex-col gap-2">
               <span className="text-foreground-muted text-xs font-semibold">

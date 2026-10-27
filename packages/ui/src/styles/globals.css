@@ -610,8 +610,8 @@ html[data-theme-inspecting] *:not([data-theme-editor], [data-theme-editor] *) {
     }
   }
 
-  /* Side-to-side nudge — the settings save bar replays this when closing is
-     blocked by unsaved edits, pointing the eye at the Save/Cancel buttons. */
+  /* Side-to-side nudge — the settings save banner replays this when closing
+     is blocked by unsaved edits, pointing the eye at the Save/Cancel buttons. */
   @keyframes alloy-attention-shake {
     0%,
     100% {
@@ -668,6 +668,36 @@ html[data-theme-inspecting] *:not([data-theme-editor], [data-theme-editor] *) {
       animation: none;
       color: var(--foreground-muted);
     }
+  }
+
+  /* tw-animate's enter/exit utilities, behind every dialog, menu, popover
+     and tooltip, have no reduced-motion handling of their own. Keep their
+     fades, which move nothing, and hold zoom, slide and rotation at rest.
+     Important because the variant classes that set these are more specific. */
+  @media (prefers-reduced-motion: reduce) {
+    [class*="animate-in"],
+    [class*="animate-out"] {
+      --tw-enter-scale: 1 !important;
+      --tw-exit-scale: 1 !important;
+      --tw-enter-translate-x: 0 !important;
+      --tw-enter-translate-y: 0 !important;
+      --tw-exit-translate-x: 0 !important;
+      --tw-exit-translate-y: 0 !important;
+      --tw-enter-rotate: 0 !important;
+      --tw-exit-rotate: 0 !important;
+    }
+  }
+
+  /* Spinners for loads that usually finish quickly: hidden for the first
+     150 ms, then faded in, so a fast response never blinks one. */
+  @keyframes alloy-delayed-appear {
+    from {
+      opacity: 0;
+    }
+  }
+  .animate-delayed-appear {
+    animation: alloy-delayed-appear var(--duration-base) var(--ease-out) 150ms
+      backwards;
   }
 }
 
