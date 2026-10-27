@@ -69,6 +69,15 @@ pub(in crate::agent) fn libobs_candidates(runtime_dir: Option<&Path>) -> Vec<Pat
     candidates
 }
 
+/// Whether the loaded libobs, a canonical path, is one of the runtime
+/// folder's. The Nix runtime links it, so compare where its copy resolves.
+fn libobs_from_runtime(runtime_dir: &Path, libobs: &Path) -> bool {
+    libobs_candidates(Some(runtime_dir))
+        .iter()
+        .filter(|candidate| candidate.starts_with(runtime_dir))
+        .any(|candidate| fs::canonicalize(candidate).is_ok_and(|path| path == libobs))
+}
+
 /// The file a loaded symbol came from. A library opened by soname has no path
 /// of its own, and its plugins and graphics module live beside it.
 pub(in crate::agent) fn library_path(candidate: &Path, symbol: *const c_void) -> PathBuf {
@@ -125,6 +134,10 @@ pub(in crate::agent) fn module_paths(
     module: &str,
 ) -> Vec<ModulePaths> {
     let file = format!("{module}.so");
+    // A libobs from the runtime folder only takes modules from that folder or
+    // beside it. One from the system or the user's OBS Studio may be built for
+    // another libobs, whose ABI isn't stable across versions.
+    let pinned = runtime_dir.is_some_and(|runtime| libobs_from_runtime(runtime, libobs));
     let mut paths = Vec::new();
     let mut push = |bin: PathBuf, data: PathBuf| {
         if !paths.iter().any(|known: &ModulePaths| known.bin == bin) {
@@ -145,7 +158,8 @@ pub(in crate::agent) fn module_paths(
         );
     }
 
-    if let (Some(bin), Some(data)) = (
+    if let (false, Some(bin), Some(data)) = (
+        pinned,
         env::var_os("OBS_PLUGINS_PATH"),
         env::var_os("OBS_PLUGINS_DATA_PATH"),
     ) {
@@ -165,6 +179,10 @@ pub(in crate::agent) fn module_paths(
             library_dir.join("obs-plugins").join(&file),
             data_root.join(module),
         );
+    }
+
+    if pinned {
+        return paths;
     }
 
     for (bin, data) in [
