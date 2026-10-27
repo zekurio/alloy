@@ -186,12 +186,14 @@ need. The host hands the agent `resources/obs-runtime`, or
 `ALLOY_OBS_RUNTIME_DIR` when set; without libobs there, the agent uses the
 system's OBS. devenv provides Rust, `pkg-config`, and ALSA for the addon. The
 Electron binary npm downloads does not run on NixOS, so devenv sets
-`ELECTRON_EXEC_PATH` to nixpkgs' Electron, which can trail the pinned version
-by a few releases. On NixOS, Electron and the recorder load the system's
-graphics drivers, so both need a glibc at least as new as the system's. When
-devenv's nixpkgs is older, Electron logs `MESA-LOADER ... GLIBC_2.xx not found`
-and renders in software, so point `ELECTRON_EXEC_PATH` at your system's
-nixpkgs Electron and `ALLOY_RECORDER_PATH` at an agent built with it. Media
+`ELECTRON_EXEC_PATH` to the pinned release built by
+[`nix/electron.nix`](../../nix/electron.nix). On NixOS, Electron and the
+recorder load the system's graphics drivers, so both need a glibc at least as
+new as the system's. When devenv's nixpkgs is older, Electron logs
+`MESA-LOADER ... GLIBC_2.xx not found` and renders in software, so point
+`ELECTRON_EXEC_PATH` at `nix/electron.nix` built with your system's nixpkgs
+(`nix build --impure --expr '(import <nixpkgs> { }).callPackage ./nix/electron.nix { }'`)
+and `ALLOY_RECORDER_PATH` at an agent built with it. Media
 tools come from `PATH` unless `ALLOY_FFMPEG` and `ALLOY_FFPROBE` point
 elsewhere. Folders follow XDG: data in
 `~/.local/share/dev.zekurio.alloy`, caches in `~/.cache/dev.zekurio.alloy`,

@@ -21,9 +21,11 @@ lives separately in `devenv.nix`.
   drivers.
 - `desktop.nix` builds `.#alloy-desktop`: the recorder and the native addon
   from one Cargo build, the Electron bundles from the server package's pnpm
-  dependencies, nixpkgs' Electron, the OBS runtime, FFmpeg, and the
-  `dev.zekurio.alloy` desktop entry, with Mesa and Intel's VA-API driver for
-  when the system's graphics drivers don't load.
+  dependencies, the OBS runtime, FFmpeg, and the `dev.zekurio.alloy` desktop
+  entry, with Mesa and Intel's VA-API driver for when the system's graphics
+  drivers don't load.
+- `electron.nix` fetches the Electron release `packages/desktop/package.json`
+  pins, for the desktop package and the devenv shell.
 - `desktop-module.nix` (`nixosModules.desktop`) defines
   `programs.alloy-desktop`, which builds the app from the system's nixpkgs
   and sets up game capture.
@@ -101,9 +103,6 @@ What the package can't do on its own:
 - **Start at login or update itself.** Linux has no autostart setting yet,
   and updates come through Nix.
 
-The app runs on nixpkgs' Electron, which can trail the version
-`packages/desktop/package.json` pins by a few releases.
-
 ## Updating pnpm or dependencies
 
 Keep the exact pnpm version in `package.json`; `pnpm/action-setup` in the
@@ -118,6 +117,10 @@ dependency store changes, regenerate `pnpmDepsHash` in `package.nix`:
 2. Run `nix build .#alloy --print-build-logs` on an x86_64-linux builder.
 3. Copy the reported `got: sha256-...` hash into `pnpmDepsHash`.
 4. Rebuild with the real hash and run `nix flake check`.
+
+When the Electron pin in `packages/desktop/package.json` changes,
+`nix build .#alloy-desktop` fails with the new release's hash; copy its
+`got: sha256-...` into `electron.nix`.
 
 Keep the nixpkgs inputs in `flake.lock` and `devenv.lock` aligned: run
 `nix flake update nixpkgs` and `devenv update nixpkgs` together. The `devenv`

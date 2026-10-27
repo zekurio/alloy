@@ -15,7 +15,7 @@
   pkg-config,
   alsa-lib,
   glib,
-  electron,
+  callPackage,
   mesa,
   intel-media-driver,
   coreutils,
@@ -32,6 +32,7 @@
 
 let
   pnpmPackage = import ./pnpm.nix { inherit pnpm_11; };
+  electron = callPackage ./electron.nix { };
 
   # The Rust and the Electron builds each see only their own files, so a
   # change to one, or to the server or web app, doesn't rebuild the other.
@@ -236,7 +237,7 @@ stdenvNoCC.mkDerivation {
   '';
 
   passthru = {
-    inherit native shell;
+    inherit electron native shell;
   };
 
   meta = {
