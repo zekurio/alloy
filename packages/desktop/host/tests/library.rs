@@ -1838,6 +1838,24 @@ async fn replay_tails_copy_only_from_a_keyframe_close_to_the_tail() {
 }
 
 #[tokio::test]
+async fn replays_saved_before_their_buffer_filled_record_what_they_hold() {
+    let temp = TempDir::new().expect("temp dir");
+    let library = library(&temp);
+    // A 90 s buffer saved 4 s after it started: nothing to trim, and the
+    // recorder still reports the length it asked for.
+    let media = temp.path().join("captures/Clips/Test Game/short.mp4");
+    write_color_recording(&media, "libx264", 4, 60);
+    let mut replay = capture(media.to_str().unwrap(), CaptureKind::Replay);
+    replay.duration_ms = Some(90_000);
+    finalize_capture(&library, &mut replay).await.unwrap();
+    assert!(replay.duration_ms.unwrap().abs_diff(4_000) < 150);
+    assert_eq!(
+        replay.size_bytes,
+        Some(std::fs::metadata(&media).unwrap().len())
+    );
+}
+
+#[tokio::test]
 async fn shutdown_media_cancels_future_tool_work() {
     let temp = TempDir::new().expect("temp dir");
     let library = library(&temp);

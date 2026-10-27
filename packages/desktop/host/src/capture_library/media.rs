@@ -11,7 +11,8 @@ use crate::capture_library::store::{
     CaptureLibrary, ensure_media_in_output, ensure_media_location, export_job_key,
 };
 use crate::capture_library::types::{
-    CaptureRecord, ExportRequest, ExportSegment, LibraryExport, LibraryItem, PostProcess, VideoMeta,
+    CaptureKind, CaptureRecord, ExportRequest, ExportSegment, LibraryExport, LibraryItem,
+    PostProcess, VideoMeta,
 };
 use crate::capture_library::work::Lane;
 
@@ -584,28 +585,31 @@ pub async fn discard_capture_sources(capture: &CaptureRecord) {
     }
 }
 
-/// Applies the recorder's post-processing to a raw capture, then records the
-/// file's final size and duration. Without post-processing there is nothing
-/// to do. On failure the original destination and every concat source stay
-/// in place, so the recorder can retry after a transient ffmpeg failure.
+/// Applies the recorder's post-processing to a raw replay, then records the
+/// file's final size and duration. A screenshot is final as written. On
+/// failure the original destination and every concat source stay in place,
+/// so the recorder can retry after a transient ffmpeg failure.
 pub async fn finalize_capture(library: &CaptureLibrary, capture: &mut CaptureRecord) -> Result<()> {
-    let Some(post_process) = capture.post_process.clone() else {
+    if capture.kind == CaptureKind::Screenshot {
         return Ok(());
-    };
+    }
     let filename = ensure_media_location(library.output_folder(), &capture.filename)?;
-    match &post_process {
-        PostProcess::TrimTail { keep_ms } => trim_tail(library, &filename, *keep_ms).await?,
-        PostProcess::ConcatSegments { segment_paths } => {
-            // Only the join creates the destination, in one rename. If it
-            // exists, an earlier run joined the segments and stopped before
-            // it deleted them all or recorded the clip.
-            if !filename.is_file() {
-                concat_segments(library, segment_paths, &filename).await?;
+    if let Some(post_process) = capture.post_process.clone() {
+        match &post_process {
+            PostProcess::TrimTail { keep_ms } => trim_tail(library, &filename, *keep_ms).await?,
+            PostProcess::ConcatSegments { segment_paths } => {
+                // Only the join creates the destination, in one rename. If it
+                // exists, an earlier run joined the segments and stopped
+                // before it deleted them all or recorded the clip.
+                if !filename.is_file() {
+                    concat_segments(library, segment_paths, &filename).await?;
+                }
+                remove_staged_parts(Path::new(&capture.filename), segment_paths).await;
             }
-            remove_staged_parts(Path::new(&capture.filename), segment_paths).await;
         }
     }
-    // The recorder reports what it asked for; the file says what it holds.
+    // The recorder reports what it asked for; the file says what it holds,
+    // which is less when the replay buffer hadn't filled yet.
     capture.post_process = None;
     capture.size_bytes = tokio::fs::metadata(&filename)
         .await
