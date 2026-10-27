@@ -579,15 +579,31 @@ mod portal {
             let Ok(mut closed) = session.receive_closed().await else {
                 return;
             };
-            if closed.next().await.is_some()
-                && let Some(inner) = weak.upgrade()
-            {
-                inner.update(|state| {
-                    state.shortcuts.clear();
-                    state.configurable = false;
-                    state.error = Some(SESSION_ENDED.into());
-                });
+            if closed.next().await.is_none() {
+                return;
             }
+            let Some(inner) = weak.upgrade() else { return };
+            // Only the current session's end counts; an earlier one is closed
+            // by the bind that replaced it. The portal has already closed
+            // this one, so it is dropped without closing it again.
+            let mut current = inner.session.lock().await;
+            if !current
+                .as_ref()
+                .is_some_and(|binding| Arc::ptr_eq(&binding.session, &session))
+            {
+                return;
+            }
+            if let Some(binding) = current.take() {
+                // Includes this task, which has nothing left to await.
+                for listener in &binding.listeners {
+                    listener.abort();
+                }
+            }
+            inner.update(|state| {
+                state.shortcuts.clear();
+                state.configurable = false;
+                state.error = Some(SESSION_ENDED.into());
+            });
         });
         Ok(vec![activations, changes, ends])
     }
