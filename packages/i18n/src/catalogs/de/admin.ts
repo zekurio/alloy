@@ -167,10 +167,10 @@ export const ADMIN_MESSAGES = {
     "Leer lassen, um das aktuelle Secret zu behalten.",
   "Leave empty to use the theme color.":
     "Leer lassen, um die Theme-Farbe zu verwenden.",
-  "Let anyone create an account with a passkey. OAuth providers have their own Create accounts setting.":
-    "Erlaube allen, ein Konto mit einem Passkey zu erstellen. OAuth-Anbieter haben ihre eigene Einstellung „Konten erstellen“.",
   "Let anyone create an account with a passkey. Env-managed OAuth providers without allow_sign_up also follow this setting.":
     "Erlaube allen, ein Konto mit einem Passkey zu erstellen. Per Umgebungsvariable verwaltete OAuth-Anbieter ohne allow_sign_up folgen ebenfalls dieser Einstellung.",
+  "Let anyone create an account with a passkey. OAuth providers have their own Create accounts setting.":
+    "Erlaube allen, ein Konto mit einem Passkey zu erstellen. OAuth-Anbieter haben ihre eigene Einstellung „Konten erstellen“.",
   "Link preview": "Link-Vorschau",
   "Loading quality settings": "Qualitätseinstellungen werden geladen",
   "Loading quality...": "Qualität wird geladen...",
@@ -211,10 +211,10 @@ export const ADMIN_MESSAGES = {
   "Only games without clips can be deleted.":
     "Nur Spiele ohne Clips können gelöscht werden.",
   "Open registrations": "Offene Registrierungen",
-  "Open registrations is off, but {providers} still creates accounts on first sign-in. Turn off Create accounts on the provider to stop it.":
-    "Offene Registrierungen sind aus, aber {providers} erstellt bei der ersten Anmeldung weiterhin Konten. Schalte „Konten erstellen“ beim Anbieter aus, um das zu beenden.",
   "Open registrations is off, but {providers} still create accounts on first sign-in. Turn off Create accounts on a provider to stop it.":
     "Offene Registrierungen sind aus, aber {providers} erstellen bei der ersten Anmeldung weiterhin Konten. Schalte „Konten erstellen“ bei einem Anbieter aus, um das zu beenden.",
+  "Open registrations is off, but {providers} still creates accounts on first sign-in. Turn off Create accounts on the provider to stop it.":
+    "Offene Registrierungen sind aus, aber {providers} erstellt bei der ersten Anmeldung weiterhin Konten. Schalte „Konten erstellen“ beim Anbieter aus, um das zu beenden.",
   PKCE: "PKCE",
   "PNG, JPEG, WebP, or SVG, stored on this server and shown on the sign-in button. Size is controlled by Upload limits.":
     "PNG, JPEG, WebP oder SVG, auf diesem Server gespeichert und auf der Anmeldeschaltfläche angezeigt. Die Größe wird unter Upload-Limits festgelegt.",
