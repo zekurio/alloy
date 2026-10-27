@@ -178,7 +178,9 @@ only on loopback; other servers require HTTPS.
 
 ### Linux
 
-The shell runs and records on Linux for development; packages come later. See
+The shell runs and records on Linux. The flake packages it as
+`.#alloy-desktop`, with a NixOS module for what a package can't set up; see
+[`nix/README.md`](../../nix/README.md#alloy-desktop). See
 [Linux recorder](#linux-recorder) for the OBS runtime and the plugins games
 need. The host hands the agent `resources/obs-runtime`, or
 `ALLOY_OBS_RUNTIME_DIR` when set; without libobs there, the agent uses the
@@ -189,8 +191,9 @@ by a few releases. On NixOS, Electron and the recorder load the system's
 graphics drivers, so both need a glibc at least as new as the system's. When
 devenv's nixpkgs is older, Electron logs `MESA-LOADER ... GLIBC_2.xx not found`
 and renders in software, so point `ELECTRON_EXEC_PATH` at your system's
-nixpkgs Electron and `ALLOY_RECORDER_PATH` at an agent built with it. Media tools come from `PATH` unless `ALLOY_FFMPEG` and
-`ALLOY_FFPROBE` point elsewhere. Folders follow XDG: data in
+nixpkgs Electron and `ALLOY_RECORDER_PATH` at an agent built with it. Media
+tools come from `PATH` unless `ALLOY_FFMPEG` and `ALLOY_FFPROBE` point
+elsewhere. Folders follow XDG: data in
 `~/.local/share/dev.zekurio.alloy`, caches in `~/.cache/dev.zekurio.alloy`,
 the browser profile in `~/.config/dev.zekurio.alloy`.
 

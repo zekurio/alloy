@@ -9,7 +9,8 @@ on:
     paths:
       - "nix/**"
       - "packages/**"
-      - "!packages/desktop/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
       - "public/**"
       - "flake.nix"
       - "flake.lock"
@@ -56,3 +57,8 @@ jobs:
 
       - name: check nix flake
         run: nix flake check --print-build-logs
+
+      # The desktop app's Rust and Electron builds take a while, so it is a
+      # package rather than a flake check. Cachix keeps the result.
+      - name: build desktop package
+        run: nix build .#alloy-desktop --print-build-logs
