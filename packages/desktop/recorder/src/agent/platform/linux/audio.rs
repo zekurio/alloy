@@ -258,12 +258,12 @@ fn run_audio_level_monitor() {
         thread::sleep(AUDIO_LEVEL_POLL_INTERVAL);
     }
 
+    // The loop only ends once `audio_level_subscription_active` marked the
+    // monitor stopped, under the lock a new subscription takes; resetting it
+    // here could stop the monitor that subscription started.
     for (_, meter) in meters.drain() {
         client.remove_meter(meter.meter);
     }
-    let mut monitor = lock_audio_level_monitor();
-    monitor.deadline = None;
-    monitor.running = false;
 }
 
 fn reconcile_meters(client: &Client, meters: &mut HashMap<MeterTarget, LevelMeter>, graph: &Graph) {
