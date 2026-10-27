@@ -8,7 +8,7 @@
 
 use std::sync::{
     Arc, Mutex, MutexGuard, PoisonError,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use serde::Serialize;
@@ -88,8 +88,9 @@ struct Inner {
     /// ask to bind again while the app quits or installs an update, and that
     /// must not open a session for a stopped runtime.
     stopped: AtomicBool,
-    /// Held while a bind the user asked for runs; see `bind_again`.
-    user_bind: tokio::sync::Mutex<()>,
+    /// Binds running or about to, counted from before they supersede an
+    /// earlier one; see `PendingBind`.
+    pending_binds: AtomicUsize,
     #[cfg(target_os = "linux")]
     session: tokio::sync::Mutex<Option<portal::Binding>>,
     /// Bumped by every bind and by shutdown. A bind still waiting on the
@@ -121,7 +122,7 @@ impl GlobalShortcuts {
                 }),
                 request: Mutex::new(None),
                 stopped: AtomicBool::new(false),
-                user_bind: tokio::sync::Mutex::new(()),
+                pending_binds: AtomicUsize::new(0),
                 #[cfg(target_os = "linux")]
                 session: tokio::sync::Mutex::new(None),
                 #[cfg(target_os = "linux")]
@@ -147,6 +148,22 @@ impl GlobalShortcuts {
 
     /// Binds the last requested shortcuts again in a new session.
     pub async fn rebind(&self) -> Result<ShortcutsState, String> {
+        let _pending = PendingBind::start(&self.inner);
+        self.bind_requested().await
+    }
+
+    /// Binds again for the settings' **Set up again**. A bind already
+    /// running or about to, the user's or the app's, is kept rather than
+    /// replaced, since replacing it would close the desktop's dialog under
+    /// the user. Two quick calls start one bind.
+    pub async fn bind_again(&self) -> Result<ShortcutsState, String> {
+        let Some(_pending) = PendingBind::start_alone(&self.inner) else {
+            return Ok(self.state());
+        };
+        self.bind_requested().await
+    }
+
+    async fn bind_requested(&self) -> Result<ShortcutsState, String> {
         if self.inner.stopped.load(Ordering::SeqCst) {
             return Ok(self.state());
         }
@@ -156,21 +173,6 @@ impl GlobalShortcuts {
         #[cfg(not(target_os = "linux"))]
         drop(request);
         Ok(self.state())
-    }
-
-    /// Binds again for the settings' **Set up again**. A bind already
-    /// running, the user's or the app's, is kept rather than replaced, since
-    /// replacing it would close the desktop's dialog under the user. The lock
-    /// makes two quick calls start one bind, and is released even when the
-    /// call is dropped.
-    pub async fn bind_again(&self) -> Result<ShortcutsState, String> {
-        let Ok(_user_bind) = self.inner.user_bind.try_lock() else {
-            return Ok(self.state());
-        };
-        if self.state().binding {
-            return Ok(self.state());
-        }
-        self.rebind().await
     }
 
     /// Opens the desktop's settings for the shortcuts.
@@ -212,7 +214,11 @@ impl GlobalShortcuts {
         #[cfg(target_os = "linux")]
         if let Some(request) = lock(&self.inner.request).clone() {
             let inner = Arc::clone(&self.inner);
-            tokio::spawn(async move { portal::bind(&inner, request).await });
+            let pending = PendingBind::start(&inner);
+            tokio::spawn(async move {
+                portal::bind(&inner, request).await;
+                drop(pending);
+            });
         }
     }
 }
@@ -232,6 +238,33 @@ impl Inner {
         if let Some(on_state) = on_state {
             on_state(&state);
         }
+    }
+}
+
+/// Counts a bind from before it bumps the generation until it ends, even
+/// when its future is dropped. `binding` is only published once the bind
+/// holds the bind lock, too late to tell **Set up again** that one waits.
+struct PendingBind(Arc<Inner>);
+
+impl PendingBind {
+    fn start(inner: &Arc<Inner>) -> Self {
+        inner.pending_binds.fetch_add(1, Ordering::SeqCst);
+        Self(Arc::clone(inner))
+    }
+
+    /// Starts counting a bind only when no other is running or about to.
+    fn start_alone(inner: &Arc<Inner>) -> Option<Self> {
+        inner
+            .pending_binds
+            .compare_exchange(0, 1, Ordering::SeqCst, Ordering::SeqCst)
+            .ok()?;
+        Some(Self(Arc::clone(inner)))
+    }
+}
+
+impl Drop for PendingBind {
+    fn drop(&mut self) {
+        self.0.pending_binds.fetch_sub(1, Ordering::SeqCst);
     }
 }
 
