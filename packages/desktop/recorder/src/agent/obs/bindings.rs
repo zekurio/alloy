@@ -565,7 +565,9 @@ impl LibObs {
         if !path.exists() {
             return;
         }
-        if let Ok(path) = cstring_path(path) {
+        // libobs appends a file's name to the path as it is, so the path
+        // ends in a separator.
+        if let Ok(path) = cstring_path(&path.join("")) {
             (self.obs_add_data_path)(path.as_ptr());
         }
     }

@@ -55,7 +55,9 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
 
     mkdir -p $out/bin $out/lib/obs-plugins $out/share/obs/obs-plugins
-    cp -P ${obs-studio}/lib/libobs.so* ${obs-studio}/lib/libobs-opengl.so* $out/lib/
+    # obs-vkcapture links the frontend API, whose calls do nothing without
+    # OBS's UI.
+    cp -P ${obs-studio}/lib/libobs{,-opengl,-frontend-api}.so* $out/lib/
     cp -r ${obs-studio}/share/obs/libobs $out/share/obs/
     # Without the wrapper OBS's UI runs its helpers in, whose environment
     # names Qt and VLC.
