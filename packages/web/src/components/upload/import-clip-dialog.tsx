@@ -34,18 +34,21 @@ export function ImportClipDetailsDialog({
   const { staged, committing: pending, error } = action
   // The pick the dialog shows. It outlives `staged` so the summary and form
   // stay put while the dialog animates closed. The dialog stays mounted
-  // between picks, so each new pick resets the form in the same render that
+  // between picks, so a new pick resets the form in the same render that
   // shows it, rather than an effect leaving the last pick's values up for a
-  // frame.
+  // frame. The host gives every staged copy a fresh id, so the id tells a
+  // new pick (even of the same file) from a new object for the same one.
   const [shown, setShown] = useState(staged)
   const [title, setTitle] = useState(staged?.title ?? "")
   const [game, setGame] = useState<GameRow | null>(null)
   const [submitted, setSubmitted] = useState(false)
   if (staged !== null && staged !== shown) {
     setShown(staged)
-    setTitle(staged.title ?? "")
-    setGame(null)
-    setSubmitted(false)
+    if (staged.id !== shown?.id) {
+      setTitle(staged.title ?? "")
+      setGame(null)
+      setSubmitted(false)
+    }
   }
 
   const normalizedTitle = normalizeClipTitle(title)

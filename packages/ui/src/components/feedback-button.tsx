@@ -17,6 +17,12 @@ const FEEDBACK_STATES: readonly FeedbackState[] = [
 
 type FeedbackButtonProps = Omit<ComponentProps<typeof Button>, "children"> & {
   state?: FeedbackState
+  /**
+   * The idle label. Every state's label stays mounted, and this one also
+   * stands in for the pending placeholder and any missing success or error
+   * label, so it can render up to four times. Pass plain content, such as
+   * an icon and text: nothing with an id, effects or state.
+   */
   children: ReactNode
   /**
    * Shown beside a spinner while pending. Without one, the spinner covers
