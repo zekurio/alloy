@@ -1,10 +1,9 @@
 name: nix desktop
 
 # Builds `.#alloy-desktop`, whose Rust and Electron builds take a while, only
-# when its inputs change: the desktop package, the Cargo workspace, the Nix
-# files it imports, and the nixpkgs pin. checks already builds the Electron
-# shell outside Nix, so the shared TS packages it bundles are not listed.
-# Cachix keeps the result.
+# when its inputs change. The paths are the files `rustFiles` and `shellFiles`
+# in nix/desktop.nix select, the Nix files it imports, and the nixpkgs pin.
+# Keep them in step, so that Cachix has the package for every commit on dev.
 on:
   pull_request:
     paths:
@@ -17,15 +16,21 @@ on:
       - "nix/pnpm.nix"
       - "nix/source.nix"
       - "packages/desktop/**"
+      # The workspace packages the shell bundles.
+      - "packages/contracts/**"
+      - "packages/i18n/**"
+      - "packages/primitives/**"
+      - "packages/ui/**"
+      - "packages/*/package.json"
       - "Cargo.toml"
       - "Cargo.lock"
-      # The desktop entry and tray use the logo.
-      - "public/logo.png"
+      - "public/**"
       - "flake.nix"
       - "flake.lock"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
       - ".github/workflows/nix-desktop.yml"
       - "!**/*.md"
   workflow_dispatch:
