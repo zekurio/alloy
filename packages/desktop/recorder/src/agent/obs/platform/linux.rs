@@ -9,7 +9,10 @@ use std::{
     ffi::{c_char, c_int, c_void, CStr, CString},
     fs,
     path::{Path, PathBuf},
-    sync::{Mutex, Once},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex, Once,
+    },
     thread,
 };
 
@@ -395,6 +398,28 @@ pub(in crate::agent) fn display_capture_source(
         )),
         None => Err("Display capture needs a Wayland or X11 session.".into()),
     }
+}
+
+/// Set once OBS logs that the user cancelled or denied the screen-sharing
+/// dialog. Its capture reports nothing else and stays empty afterwards.
+static SCREENCAST_DECLINED: AtomicBool = AtomicBool::new(false);
+
+/// Sees every OBS log message, for what OBS reports nowhere else.
+pub(in crate::agent) fn observe_obs_log(message: &str) {
+    if message.starts_with("[pipewire] Failed to") && message.contains("cancelled by user") {
+        SCREENCAST_DECLINED.store(true, Ordering::SeqCst);
+    }
+}
+
+/// Whether the screen-sharing dialog was declined since the display source
+/// was created.
+pub(in crate::agent) fn screencast_declined() -> bool {
+    SCREENCAST_DECLINED.load(Ordering::SeqCst)
+}
+
+/// Called as a portal display source is created, which opens a new dialog.
+pub(in crate::agent) fn forget_screencast_declined() {
+    SCREENCAST_DECLINED.store(false, Ordering::SeqCst);
 }
 
 static AGENT_STATE_FOLDER: Mutex<Option<PathBuf>> = Mutex::new(None);

@@ -450,6 +450,8 @@ export const DESKTOP_MESSAGES = {
   "Saved servers": "Gespeicherte Server",
   "Saves the configured replay buffer.":
     "Speichert den konfigurierten Replay-Puffer.",
+  "Screen sharing was cancelled. Restart the agent or change the display settings to choose a screen.":
+    "Die Bildschirmfreigabe wurde abgebrochen. Starte den Agenten neu oder ändere die Anzeigeeinstellungen, um einen Bildschirm zu wählen.",
   "Search games": "Spiele suchen",
   "Search processes": "Prozesse suchen",
   Seek: "Spulen",

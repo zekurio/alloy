@@ -77,9 +77,11 @@ builds a matching prefix with every plugin below and libpipewire.
 - Display capture on Wayland goes through the screen-sharing portal (OBS's
   `linux-pipewire`). The dialog asks once; the portal's restore token is kept
   in the agent state folder, so later sessions reopen the chosen screen. The
-  agent runs a GLib main loop for the portal's D-Bus replies, and stops the
-  buffer if no picture arrives within two minutes. On X11 it captures a RandR
-  monitor with OBS's `linux-capture`, listed through `xrandr`.
+  agent runs a GLib main loop for the portal's D-Bus replies. The buffer waits
+  for the dialog as long as it takes. If the user cancels it, which OBS only
+  logs, the buffer stops and the dialog doesn't reopen until the settings
+  change or the agent restarts. On X11 it captures a RandR monitor with OBS's
+  `linux-capture`, listed through `xrandr`.
 - Audio goes through PipeWire with
   [obs-pipewire-audio-capture](https://github.com/dimtpap/obs-pipewire-audio-capture),
   which the agent requires, since OBS has no PipeWire audio of its own.

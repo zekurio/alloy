@@ -23,13 +23,13 @@ mod windows;
 
 #[cfg(target_os = "linux")]
 pub(in crate::agent) use linux::{
-    audio_application_from_game, display_capture_source, graphics_module, libobs_candidates,
-    library_path, module_paths, mux_helper_ready, platform_audio_devices,
-    platform_default_audio_device_id, platform_gpus, platform_modules, prepare_display_session,
-    remember_display_restore_token, set_agent_state_folder, set_audio_device, vaapi_device,
-    DisplayCaptureSource, APPLICATION_AUDIO_PRIORITY, APPLICATION_AUDIO_SOURCE_ID,
-    APPLICATION_AUDIO_TARGET_KEY, AUDIO_INPUT_SOURCE_ID, AUDIO_OUTPUT_SOURCE_ID,
-    GAME_CAPTURE_SOURCE_ID,
+    audio_application_from_game, display_capture_source, forget_screencast_declined,
+    graphics_module, libobs_candidates, library_path, module_paths, mux_helper_ready,
+    observe_obs_log, platform_audio_devices, platform_default_audio_device_id, platform_gpus,
+    platform_modules, prepare_display_session, remember_display_restore_token, screencast_declined,
+    set_agent_state_folder, set_audio_device, vaapi_device, DisplayCaptureSource,
+    APPLICATION_AUDIO_PRIORITY, APPLICATION_AUDIO_SOURCE_ID, APPLICATION_AUDIO_TARGET_KEY,
+    AUDIO_INPUT_SOURCE_ID, AUDIO_OUTPUT_SOURCE_ID, GAME_CAPTURE_SOURCE_ID,
 };
 #[cfg(windows)]
 pub(in crate::agent) use windows::{

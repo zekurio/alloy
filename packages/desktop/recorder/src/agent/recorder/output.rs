@@ -269,8 +269,6 @@ impl Recorder {
             target_game_key: game.map(|game| game.window_key.clone()),
             game_content_expires_at: None,
             game_capture_hook_wait,
-            #[cfg(target_os = "linux")]
-            display_wait_started_at: None,
         })
     }
 

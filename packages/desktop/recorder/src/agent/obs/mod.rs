@@ -559,6 +559,7 @@ unsafe fn configure_display_capture_source(
 
     match platform::display_capture_source(settings)? {
         platform::DisplayCaptureSource::Portal { restore_token } => {
+            platform::forget_screencast_declined();
             obs.set_bool(data, c"ShowCursor", false);
             if let Some(token) = restore_token {
                 obs.set_string(data, c"RestoreToken", &token)?;

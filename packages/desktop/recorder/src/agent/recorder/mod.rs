@@ -114,7 +114,9 @@ struct ReplayStartFailure {
     target: Option<String>,
     error: String,
     attempts: u32,
-    retry_at: Instant,
+    /// `None` waits for the user: for a declined screen-sharing dialog,
+    /// which must not reopen on its own.
+    retry_at: Option<Instant>,
 }
 
 #[derive(Clone)]
@@ -142,10 +144,6 @@ struct ActiveSession {
     target_game_key: Option<String>,
     game_content_expires_at: Option<Instant>,
     game_capture_hook_wait: Option<GameCaptureHookWait>,
-    /// Set while display capture waits for its first frame, which on Wayland
-    /// arrives once a screen is chosen in the screen-sharing dialog.
-    #[cfg(target_os = "linux")]
-    display_wait_started_at: Option<Instant>,
 }
 
 impl Drop for Recorder {
@@ -166,10 +164,6 @@ const CODEC_PROBE_RETRY_COOLDOWN: Duration = Duration::from_secs(30);
 const REPLAY_START_RETRY_MIN: Duration = Duration::from_secs(2);
 const REPLAY_START_RETRY_MAX: Duration = Duration::from_secs(60);
 const TELEMETRY_EVENT_INTERVAL: Duration = Duration::from_secs(10);
-/// How long display capture may go without a frame before the buffer stops:
-/// enough to answer the screen-sharing dialog.
-#[cfg(target_os = "linux")]
-const DISPLAY_CAPTURE_START_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GameBoundaryReason {
@@ -1096,7 +1090,10 @@ impl Recorder {
 
     fn replay_start_waiting(&self, target: Option<&str>) -> bool {
         self.replay_start_failure.as_ref().is_some_and(|failure| {
-            failure.target.as_deref() == target && Instant::now() < failure.retry_at
+            failure.target.as_deref() == target
+                && failure
+                    .retry_at
+                    .is_none_or(|retry_at| Instant::now() < retry_at)
         })
     }
 
@@ -1126,7 +1123,7 @@ impl Recorder {
             target,
             error: error.to_string(),
             attempts,
-            retry_at: Instant::now() + wait,
+            retry_at: Some(Instant::now() + wait),
         });
         report
     }
@@ -1289,7 +1286,7 @@ impl Recorder {
     /// portal failed) it stops and retries on the start backoff.
     #[cfg(target_os = "linux")]
     fn refresh_display_capture(&mut self) -> Result<bool, String> {
-        let (Some(obs), Some(session)) = (self.obs.as_ref(), self.replay_session.as_mut()) else {
+        let (Some(obs), Some(session)) = (self.obs.as_ref(), self.replay_session.as_ref()) else {
             return Ok(true);
         };
         if session.source_kind != OutputSourceKind::Display {
@@ -1299,25 +1296,29 @@ impl Recorder {
         // SAFETY: the session's source belongs to this libobs instance.
         let (width, height) = unsafe { obs.source_size(source) };
         if width > 0 && height > 0 {
-            session.display_wait_started_at = None;
             // SAFETY: as above; the source is a display capture source.
             unsafe { crate::agent::obs::platform::remember_display_restore_token(obs, source) };
             return Ok(true);
         }
-        let waiting_since = *session
-            .display_wait_started_at
-            .get_or_insert_with(Instant::now);
-        if waiting_since.elapsed() < DISPLAY_CAPTURE_START_TIMEOUT {
+        // The screen-sharing dialog waits on the user as long as it takes;
+        // only an answer ends the wait. A cancel stops the buffer, and it
+        // stays stopped until the settings change or the agent restarts, so
+        // the dialog never reopens on its own.
+        if !crate::agent::obs::platform::screencast_declined() {
             return Ok(true);
         }
-
         let settings = self.settings.clone().unwrap_or_default();
         let target = self.replay_target(&settings);
         self.stop_active_replay_buffer()?;
-        let error = "Display capture received no picture. Choose a screen in the \
-                     screen-sharing dialog to record."
+        let error = "Screen sharing was cancelled. Restart the agent or change the display \
+                     settings to choose a screen."
             .to_string();
-        self.remember_replay_start_failure(target, &error);
+        self.replay_start_failure = Some(ReplayStartFailure {
+            target,
+            error: error.clone(),
+            attempts: 1,
+            retry_at: None,
+        });
         Err(error)
     }
 
