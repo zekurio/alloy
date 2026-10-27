@@ -28,7 +28,10 @@ in
       type = lib.types.package;
       default = defaultPackage;
       defaultText = lib.literalMD "`alloy-desktop` built from the system's nixpkgs";
-      description = "The Alloy desktop package.";
+      description = ''
+        The Alloy desktop package. The default needs a nixpkgs from 26.05 on;
+        with older ones, use the flake's `packages.''${system}.alloy-desktop`.
+      '';
     };
 
     gameCapture.enable = lib.mkOption {

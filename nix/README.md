@@ -56,6 +56,14 @@ obs-vkcapture's Vulkan layer and `OBS_VKCAPTURE=1` for games:
 }
 ```
 
+Building it needs a nixpkgs from 26.05 on, which has `pnpm_11`. On older
+channels, use the flake's own build, which falls back to its own Mesa when the
+system's drivers don't load:
+
+```nix
+programs.alloy-desktop.package = inputs.alloy.packages.x86_64-linux.alloy-desktop;
+```
+
 Without the module, install the package. Built from the system's nixpkgs, it
 uses the system's graphics drivers as they are, but builds locally:
 
