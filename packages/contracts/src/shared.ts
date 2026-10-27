@@ -1,10 +1,7 @@
-// Scalar and vocabulary declarations the desktop contracts need as well live
-// in @alloy/primitives; re-exported here so this package keeps one surface.
-export {
-  CLIP_PRIVACY,
-  type ClipPrivacy,
-  type IsoDateString,
-} from "@alloy/primitives"
+export type IsoDateString = string
+
+export const CLIP_PRIVACY = ["public", "unlisted", "private"] as const
+export type ClipPrivacy = (typeof CLIP_PRIVACY)[number]
 
 export const CLIP_STATUS = ["pending", "processing", "ready", "failed"] as const
 export type ClipStatus = (typeof CLIP_STATUS)[number]
