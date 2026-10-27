@@ -35,7 +35,7 @@ use crate::agent::{
     },
     time::{now_iso, system_time_iso, timestamp_millis, unix_millis_to_system_time},
 };
-use crate::protocol::{CONTENT_TYPE_MP4, SIDE_CAR_NAME};
+use crate::protocol::{CONTENT_TYPE_MP4, RECORDER_CAPABILITIES, SIDE_CAR_NAME};
 use crate::types::{
     ConfigureParams, RecordingActionResult, RecordingAudioApplicationSelection,
     RecordingAudioDevice, RecordingBackendState, RecordingBufferStorage, RecordingCapture,
@@ -170,44 +170,6 @@ const TELEMETRY_EVENT_INTERVAL: Duration = Duration::from_secs(10);
 /// enough to answer the screen-sharing dialog.
 #[cfg(target_os = "linux")]
 const DISPLAY_CAPTURE_START_TIMEOUT: Duration = Duration::from_secs(120);
-
-/// What this recorder can do, for the version handshake and the status. The
-/// web hides the controls for anything a recorder leaves out.
-#[cfg(windows)]
-pub(in crate::agent) const CAPABILITIES: &[&str] = &[
-    "screenshots",
-    "game-capture",
-    "audio-devices",
-    "audio-applications",
-    "audio-volume",
-    "game-processes",
-    "display-capture",
-    "displays",
-    "replay-buffer",
-    "notification-sounds",
-    "audio-levels",
-    "hotkeys",
-    "telemetry",
-];
-
-/// Linux leaves out `hotkeys`: Wayland gives applications no global key hook,
-/// so binding the shortcuts through the GlobalShortcuts portal is left to the
-/// desktop shell.
-#[cfg(target_os = "linux")]
-pub(in crate::agent) const CAPABILITIES: &[&str] = &[
-    "screenshots",
-    "game-capture",
-    "audio-devices",
-    "audio-applications",
-    "audio-volume",
-    "game-processes",
-    "display-capture",
-    "displays",
-    "replay-buffer",
-    "notification-sounds",
-    "audio-levels",
-    "telemetry",
-];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GameBoundaryReason {
@@ -401,7 +363,10 @@ impl Recorder {
             available_audio_applications: self.cached_audio_applications.clone(),
             telemetry,
             message: self.last_error.clone(),
-            capabilities: CAPABILITIES.iter().map(ToString::to_string).collect(),
+            capabilities: RECORDER_CAPABILITIES
+                .iter()
+                .map(ToString::to_string)
+                .collect(),
         }
     }
 

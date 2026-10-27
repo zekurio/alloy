@@ -58,6 +58,12 @@ const DISCORD_EXECUTABLE_OSES: &[&str] = &["win32"];
 // Linux runs native games and Windows games through Proton.
 #[cfg(not(windows))]
 const DISCORD_EXECUTABLE_OSES: &[&str] = &["win32", "linux"];
+/// Runtimes that start many native Linux games under their own name, such as
+/// LÖVE's `love`. The recorder matches Linux processes by file name, so a
+/// catalog rule for one would claim every game it runs.
+const SHARED_LINUX_RUNTIMES: &[&str] = &[
+    "dotnet", "electron", "godot", "java", "love", "mono", "node", "python", "python3",
+];
 
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1852,12 +1858,14 @@ fn trim_discord_detections(payload: Value) -> Result<DiscordDetectionCache, Stri
                 let Some(executable) = raw_executable.as_object() else {
                     continue;
                 };
-                if !DISCORD_EXECUTABLE_OSES.contains(&discord_string(executable.get("os")).as_str())
-                {
+                let os = discord_string(executable.get("os"));
+                if !DISCORD_EXECUTABLE_OSES.contains(&os.as_str()) {
                     continue;
                 }
                 let key = discord_executable_key(&discord_string(executable.get("name")));
-                if key.is_empty() {
+                if key.is_empty()
+                    || (os == "linux" && SHARED_LINUX_RUNTIMES.contains(&key.as_str()))
+                {
                     continue;
                 }
                 matched_executable = true;

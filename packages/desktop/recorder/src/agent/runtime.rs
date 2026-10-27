@@ -17,7 +17,7 @@ use crate::agent::{
     platform::{
         list_displays, list_game_processes, stop_audio_level_events, subscribe_audio_level_events,
     },
-    recorder::{Recorder, CAPABILITIES},
+    recorder::Recorder,
 };
 use crate::{
     agent::{
@@ -26,7 +26,7 @@ use crate::{
         time::timestamp_millis,
         watchdog::RecorderProgress,
     },
-    protocol::{RECORDER_PROTOCOL_VERSION, SIDE_CAR_NAME},
+    protocol::{RECORDER_CAPABILITIES, RECORDER_PROTOCOL_VERSION, SIDE_CAR_NAME},
     types::{
         ConfigureParams, PlayNotificationSoundParams, RecordingStatus, Request, Response,
         SaveReplayClipParams, SidecarVersion,
@@ -82,7 +82,7 @@ fn sidecar_version() -> SidecarVersion {
         name: SIDE_CAR_NAME,
         version: env!("CARGO_PKG_VERSION"),
         protocol_version: RECORDER_PROTOCOL_VERSION,
-        capabilities: CAPABILITIES,
+        capabilities: RECORDER_CAPABILITIES,
     }
 }
 
