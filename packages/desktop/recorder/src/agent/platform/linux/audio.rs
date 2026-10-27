@@ -7,7 +7,7 @@
 
 use std::{
     collections::HashMap,
-    sync::{Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard, PoisonError},
     thread,
     time::{Duration, Instant},
 };
@@ -30,6 +30,27 @@ use crate::types::{
 const AUDIO_LEVEL_SUBSCRIPTION_TTL: Duration = Duration::from_secs(10);
 const AUDIO_LEVEL_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const AUDIO_LEVEL_REFRESH_INTERVAL: Duration = Duration::from_secs(2);
+/// How long one snapshot of the graph answers lookups. A configure asks for
+/// the devices, each default, and the applications in turn; one connection
+/// serves them all, and a stalled server costs one timeout, not one per
+/// lookup.
+const GRAPH_REUSE: Duration = Duration::from_secs(1);
+
+type GraphResult = Result<Arc<Graph>, String>;
+
+static LAST_GRAPH: Mutex<Option<(Instant, GraphResult)>> = Mutex::new(None);
+
+/// The graph from a recent lookup, or a fresh one. The lock is held while
+/// connecting, so concurrent lookups wait for that snapshot.
+fn graph() -> GraphResult {
+    let mut last = LAST_GRAPH.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some((_, graph)) = last.as_ref().filter(|(at, _)| at.elapsed() < GRAPH_REUSE) {
+        return graph.clone();
+    }
+    let graph = Client::connect().map(|client| Arc::new(client.graph()));
+    *last = Some((Instant::now(), graph.clone()));
+    graph
+}
 
 fn devices(graph: &Graph) -> Vec<RecordingAudioDevice> {
     graph
@@ -92,20 +113,21 @@ fn stream_application(node: &Node) -> Option<StreamApplication> {
 }
 
 pub(in crate::agent) fn audio_devices() -> Result<Vec<RecordingAudioDevice>, String> {
-    Ok(devices(&Client::connect()?.graph()))
+    let graph = graph()?;
+    Ok(devices(&graph))
 }
 
 pub(in crate::agent) fn default_audio_device_id(kind: &RecordingAudioDeviceKind) -> Option<String> {
-    let graph = Client::connect().ok()?.graph();
+    let graph = graph().ok()?;
     match kind {
-        RecordingAudioDeviceKind::Output => graph.default_sink,
-        RecordingAudioDeviceKind::Input => graph.default_source,
+        RecordingAudioDeviceKind::Output => graph.default_sink.clone(),
+        RecordingAudioDeviceKind::Input => graph.default_source.clone(),
     }
 }
 
 pub(in crate::agent) fn audio_applications() -> Vec<RecordingAudioApplicationSelection> {
-    let graph = match Client::connect() {
-        Ok(client) => client.graph(),
+    let graph = match graph() {
+        Ok(graph) => graph,
         Err(error) => {
             eprintln!("[{SIDE_CAR_NAME}] could not list audio applications: {error}");
             return Vec::new();

@@ -349,7 +349,7 @@ const GAME_CAPTURE_UNAVAILABLE: &str =
     "OBS game capture is unavailable; install the obs-vkcapture plugin.";
 
 /// win-capture signals hooks as they happen. obs-vkcapture has no signals
-/// and is only polled through `get_hooked`.
+/// and is polled instead, through `get_hooked` or its frame size.
 #[cfg(target_os = "linux")]
 unsafe fn connect_game_capture_signals(_obs: &LibObs, _source: *mut ObsSource) {}
 
@@ -483,6 +483,17 @@ pub(in crate::agent) unsafe fn game_capture_source_hooked(
 ) -> bool {
     if GAME_CAPTURE_HOOKED.load(Ordering::SeqCst) {
         return true;
+    }
+
+    // obs-vkcapture only has `get_hooked` from 1.5.6. On any version, a
+    // source with a frame size has a game's texture.
+    #[cfg(target_os = "linux")]
+    {
+        let (width, height) = obs.source_size(source);
+        if width > 0 && height > 0 {
+            GAME_CAPTURE_HOOKED.store(true, Ordering::SeqCst);
+            return true;
+        }
     }
 
     let handler = (obs.obs_source_get_proc_handler)(source);
