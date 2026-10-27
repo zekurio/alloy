@@ -88,6 +88,8 @@ struct Inner {
     /// ask to bind again while the app quits or installs an update, and that
     /// must not open a session for a stopped runtime.
     stopped: AtomicBool,
+    /// Set while a bind the user asked for runs; see `bind_again`.
+    user_bind: AtomicBool,
     #[cfg(target_os = "linux")]
     session: tokio::sync::Mutex<Option<portal::Binding>>,
     /// Bumped by every bind and by shutdown. A bind still waiting on the
@@ -119,6 +121,7 @@ impl GlobalShortcuts {
                 }),
                 request: Mutex::new(None),
                 stopped: AtomicBool::new(false),
+                user_bind: AtomicBool::new(false),
                 #[cfg(target_os = "linux")]
                 session: tokio::sync::Mutex::new(None),
                 #[cfg(target_os = "linux")]
@@ -153,6 +156,23 @@ impl GlobalShortcuts {
         #[cfg(not(target_os = "linux"))]
         drop(request);
         Ok(self.state())
+    }
+
+    /// Binds again for the settings' **Set up again**. A bind already
+    /// running, the user's or the app's, is kept rather than replaced, since
+    /// replacing it would close the desktop's dialog under the user. The swap
+    /// makes two quick calls start one bind.
+    pub async fn bind_again(&self) -> Result<ShortcutsState, String> {
+        if self.inner.user_bind.swap(true, Ordering::SeqCst) {
+            return Ok(self.state());
+        }
+        let result = if self.state().binding {
+            Ok(self.state())
+        } else {
+            self.rebind().await
+        };
+        self.inner.user_bind.store(false, Ordering::SeqCst);
+        result
     }
 
     /// Opens the desktop's settings for the shortcuts.
@@ -207,8 +227,12 @@ impl Inner {
             change(&mut state);
             state.clone()
         };
-        if let Some(request) = lock(&self.request).as_ref() {
-            (request.on_state)(&state);
+        // Called outside the lock, so a handler may call back in.
+        let on_state = lock(&self.request)
+            .as_ref()
+            .map(|request| Arc::clone(&request.on_state));
+        if let Some(on_state) = on_state {
+            on_state(&state);
         }
     }
 }
@@ -600,10 +624,12 @@ mod portal {
         let weak = Arc::downgrade(inner);
         let session = Arc::clone(session);
         let ended = Arc::clone(ended);
+        let (subscribed, ready) = tokio::sync::oneshot::channel();
         let ends = tokio::spawn(async move {
             let Ok(mut closed) = session.receive_closed().await else {
                 return;
             };
+            let _ = subscribed.send(());
             if closed.next().await.is_none() {
                 return;
             }
@@ -633,6 +659,11 @@ mod portal {
                 state.error = Some(SESSION_ENDED.into());
             });
         });
+        // The stream borrows the session, so the task subscribes; waiting
+        // for it means a close during the dialog is never missed.
+        if ready.await.is_err() {
+            log::warn!("global shortcuts: could not watch for the session to end");
+        }
         Ok(vec![activations, changes, ends])
     }
 
