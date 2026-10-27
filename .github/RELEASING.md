@@ -127,13 +127,22 @@ app, and it cannot connect to servers from the Electron release on, since the
 desktop bridge and its `/api/server-info` field were renamed. Each machine
 reinstalls by hand:
 
-1. Uninstall Alloy from Apps & Features. Tick "delete the application data"
-   for a clean start; it also removes the old app's browser profiles.
+1. Uninstall Alloy from Apps & Features and tick "delete the application
+   data". That removes the old app's settings, saved servers, browser
+   profiles, and cached import copies.
 2. Install the Electron build from the release and sign in again.
 
 Uninstall the Tauri app first: its "delete the application data" also removes
 the folders the Electron build uses (`%APPDATA%\dev.zekurio.alloy` and
 `%LOCALAPPDATA%\dev.zekurio.alloy`).
+
+Without that box, the Tauri app leaves data in
+`%LOCALAPPDATA%\dev.zekurio.alloy` that nothing uses or cleans up any more.
+Delete it by hand:
+
+- `EBWebView\` and `webviews\`, its browser profiles, which still hold
+  session tokens;
+- `recording-library-imports\`, copies of videos picked for import.
 
 ## Recovery
 
