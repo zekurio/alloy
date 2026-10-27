@@ -12,7 +12,10 @@ use crate::agent::{
     platform::{DetectedGame, GameDetection},
     time::now_iso,
 };
-use crate::types::{RecordingGame, RecordingGameGuess, RecordingGameProcess, RecordingSettings};
+use crate::types::{
+    RecordingGame, RecordingGameGuess, RecordingGameGuessSource, RecordingGameProcess,
+    RecordingSettings,
+};
 
 /// Wine and Proton processes that run beside every Windows game.
 const WINE_HELPERS: &[&str] = &[
@@ -125,6 +128,12 @@ fn detected_game(process: Process, settings: &RecordingSettings) -> Option<Detec
         return None;
     }
     let candidate = candidate_game_detection_match(path, executable, None, None, None, settings)?;
+    // Windows only counts a catalog match once the process has a game-like
+    // window. Without window information, it counts once the process
+    // renders, as in the picker; a game the user allowed always counts.
+    if !matches!(candidate.source, RecordingGameGuessSource::Manual) && !uses_gpu(process.pid) {
+        return None;
+    }
     let name = readable_detected_game_name(&candidate, path, None, executable);
     let guess = RecordingGameGuess {
         source: candidate.source,
