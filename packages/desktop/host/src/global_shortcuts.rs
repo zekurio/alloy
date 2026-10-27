@@ -450,8 +450,15 @@ mod portal {
                 .await
                 .map_err(|error| failure(&error))?,
         );
+        // Signals are matched to the session by its path. Without it, a
+        // press could reach an earlier session's listener too, so fail.
+        let Some(own) = session_path(&session) else {
+            log::warn!("global shortcuts: could not read the session path");
+            let _ = timeout(CALL_TIMEOUT, session.close()).await;
+            return Err(FAILED);
+        };
         // Listening starts before binding, so no press is missed.
-        let listeners = match listen(inner, request, &proxy, &session).await {
+        let listeners = match listen(inner, request, &proxy, &session, own).await {
             Ok(listeners) => listeners,
             Err(error) => {
                 let message = failure(&error);
@@ -499,14 +506,14 @@ mod portal {
         request: &BindRequest,
         proxy: &GlobalShortcuts,
         session: &Arc<Session<GlobalShortcuts>>,
+        own: String,
     ) -> Result<Vec<JoinHandle<()>>, Error> {
         let mut activated = proxy.receive_activated().await?;
         let mut changed = proxy.receive_shortcuts_changed().await?;
 
         // Signals arrive for every session on the connection, including an
         // earlier one the portal hasn't closed yet; only this one's count.
-        let own = session_path(session);
-        let ours = move |path: &str| own.as_deref().is_none_or(|own| own == path);
+        let ours = move |path: &str| own == path;
         let on_activated = Arc::clone(&request.on_activated);
         let activations = tokio::spawn({
             let ours = ours.clone();

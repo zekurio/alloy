@@ -565,8 +565,9 @@ impl DesktopRuntime {
 
     pub async fn shutdown(&self) -> Result<(), String> {
         let _selection = self.selection_lock.lock().await;
-        self.select_server_locked(None).await?;
+        // First, so a failed deselect doesn't leave the session listening.
         self.shortcuts.shutdown().await;
+        self.select_server_locked(None).await?;
         let stopped = self.recorder.shutdown().await;
         let libraries = self
             .libraries
