@@ -26,7 +26,7 @@ use crate::{
                 session::{display_session, DisplaySession},
                 x11_screen_index,
             },
-            primary_display_id, DetectedGame,
+            DetectedGame,
         },
     },
     protocol::SIDE_CAR_NAME,
@@ -388,18 +388,9 @@ pub(in crate::agent) fn display_capture_source(
         Some(DisplaySession::Wayland) => Ok(DisplayCaptureSource::Portal {
             restore_token: stored_restore_token(),
         }),
-        Some(DisplaySession::X11) => {
-            // A stored id that no longer resolves, such as an unplugged
-            // monitor or Wayland's `portal`, records the primary monitor.
-            let selected = Some(settings.selected_display_id.trim())
-                .filter(|id| !id.is_empty())
-                .and_then(x11_screen_index);
-            Ok(DisplayCaptureSource::X11Screen(
-                selected
-                    .or_else(|| primary_display_id().and_then(|id| x11_screen_index(&id)))
-                    .unwrap_or(0),
-            ))
-        }
+        Some(DisplaySession::X11) => Ok(DisplayCaptureSource::X11Screen(
+            x11_screen_index(settings.selected_display_id.trim()).unwrap_or(0),
+        )),
         None => Err("Display capture needs a Wayland or X11 session.".into()),
     }
 }

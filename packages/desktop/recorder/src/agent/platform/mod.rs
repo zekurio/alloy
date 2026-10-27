@@ -25,7 +25,7 @@ pub(in crate::agent) use audio_levels::{stop_audio_level_events, subscribe_audio
 #[cfg(target_os = "linux")]
 pub(in crate::agent) use linux::{
     audio_applications, detect_game_activity, hotkeys, is_detected_game_alive, list_displays,
-    list_game_processes, primary_display_id, refresh_capture_metadata, stop_audio_level_events,
+    list_game_processes, refresh_capture_metadata, stop_audio_level_events,
     subscribe_audio_level_events,
 };
 #[cfg(windows)]

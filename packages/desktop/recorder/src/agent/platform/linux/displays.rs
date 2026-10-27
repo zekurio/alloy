@@ -45,22 +45,18 @@ pub(in crate::agent) fn list_displays() -> Vec<RecordingDisplay> {
     }
 }
 
-pub(in crate::agent) fn primary_display_id() -> Option<String> {
-    let displays = list_displays();
-    displays
-        .iter()
-        .find(|display| display.primary)
-        .or(displays.first())
-        .map(|display| display.id.clone())
-}
-
-/// The OBS X11 screen capture index for a listed display. Indexes shift when
-/// monitors come and go, so displays are stored by name and resolved here.
+/// The OBS X11 screen capture index for a selected display. Indexes shift
+/// when monitors come and go, so displays are stored by name and resolved
+/// here. A selection that no longer resolves, such as an unplugged monitor
+/// or Wayland's `portal`, falls back to the primary monitor, then the first.
 pub(in crate::agent) fn x11_screen_index(display_id: &str) -> Option<i64> {
-    let name = display_id.strip_prefix(X11_DISPLAY_PREFIX)?;
-    x11_monitors()
-        .into_iter()
-        .find(|monitor| monitor.name == name)
+    let monitors = x11_monitors();
+    let name = display_id.strip_prefix(X11_DISPLAY_PREFIX);
+    monitors
+        .iter()
+        .find(|monitor| Some(monitor.name.as_str()) == name)
+        .or_else(|| monitors.iter().find(|monitor| monitor.primary))
+        .or(monitors.first())
         .map(|monitor| monitor.index)
 }
 

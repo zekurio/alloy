@@ -13,7 +13,7 @@ pub(in crate::agent) use audio::{
     audio_applications, audio_devices, default_audio_device_id, stop_audio_level_events,
     subscribe_audio_level_events,
 };
-pub(in crate::agent) use displays::{list_displays, primary_display_id, x11_screen_index};
+pub(in crate::agent) use displays::{list_displays, x11_screen_index};
 pub(in crate::agent) use games::{
     audio_target, detect_game_activity, is_detected_game_alive, list_game_processes,
 };
