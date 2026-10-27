@@ -185,10 +185,14 @@ function GamePickerChip({
   invalid: boolean
   promptOnMount: boolean
 }) {
-  // A prompted editor opens the picker straight away while the game is empty.
-  const [editing, setEditing] = useState(
-    () => promptOnMount && !disabled && !value,
-  )
+  // A prompted editor opens the picker once, the first time the game is empty
+  // and editing is allowed.
+  const [editing, setEditing] = useState(false)
+  const [prompted, setPrompted] = useState(false)
+  if (!prompted && promptOnMount && !disabled && !value) {
+    setPrompted(true)
+    setEditing(true)
+  }
   const rootRef = useRef<HTMLDivElement>(null)
 
   useOutsideDismiss(

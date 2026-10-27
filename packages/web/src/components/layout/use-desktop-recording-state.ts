@@ -183,10 +183,13 @@ export async function saveRecordingSettings(
   next: RecordingSettings,
 ) {
   const sequence = ++saveSequence
+  const owner = session
   useRecordingSyncStore.setState({ settings: next })
   try {
     const saved = await recording.setSettings(next)
-    confirmedSettings = saved
+    // The host's answer stays the rollback target even when a newer save
+    // superseded this one, but not once its session has stopped.
+    if (session === owner) confirmedSettings = saved
     if (sequence !== saveSequence) return
     useRecordingSyncStore.setState({ settings: saved })
   } catch (cause) {

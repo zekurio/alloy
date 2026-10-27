@@ -331,16 +331,16 @@ export function ImageCropDialog({
       : false
   const applyDisabled = !cropCovered || busy
 
+  const handleOpenChange = (next: boolean) => {
+    // Closing mid-apply would drop the result, including a failure the dialog
+    // still has to show. Cancelling clears a failure, so a reopen starts clean.
+    if (!next && busy) return
+    if (!next) apply.reset()
+    onOpenChange(next)
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        // Closing mid-apply would drop the result, including a failure the
-        // dialog still has to show.
-        if (!next && busy) return
-        onOpenChange(next)
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         variant="secondary"
         className="flex max-h-[calc(100vh-24px)] w-[min(640px,calc(100vw-24px))] max-w-none flex-col"
@@ -435,7 +435,7 @@ export function ImageCropDialog({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleOpenChange(false)}
             disabled={busy}
           >
             {t("Cancel")}
