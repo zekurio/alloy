@@ -1,6 +1,7 @@
 # The Alloy desktop app for Linux: the Electron shell, its native addon, the
 # OBS recorder with the OBS runtime it loads, FFmpeg for the capture library,
-# and a desktop entry. nix/README.md lists what has to come from the system.
+# and a desktop entry. Graphics drivers come from the system; nix/README.md
+# lists what else has to.
 {
   lib,
   stdenvNoCC,
@@ -16,9 +17,6 @@
   alsa-lib,
   glib,
   callPackage,
-  mesa,
-  intel-media-driver,
-  coreutils,
   ffmpeg-headless,
   alloy-obs-runtime,
   # The server package's dependency fetch: one workspace lockfile, one hash.
@@ -107,55 +105,17 @@ let
 
   appId = "dev.zekurio.alloy";
 
-  # Electron and libobs load the graphics drivers in /run/opengl-driver,
-  # which need a glibc at least as new as the one they were built with. When
-  # the system's Mesa doesn't load with this package's glibc, or there is
-  # none, the loaders use this package's Mesa, and Intel's VA-API driver for
-  # the encoders, instead. Other vendors' EGL libraries, like NVIDIA's, stay
-  # ahead of it.
-  systemDrivers = "/run/opengl-driver";
-  driverVariables = lib.concatStringsSep " " [
-    "__EGL_VENDOR_LIBRARY_FILENAMES"
-    "LD_LIBRARY_PATH"
-    "LIBGL_DRIVERS_PATH"
-    "GBM_BACKENDS_PATH"
-    "LIBVA_DRIVERS_PATH"
-  ];
   # Electron opens links and folders with xdg-open, and this one comes first
-  # on the path. The browser or file manager it starts gets back what the
-  # driver fallback replaced, and not Electron's CHROME_DESKTOP, which
-  # Chromium-based browsers would take as their own desktop entry.
+  # on the path. The browser or file manager it starts doesn't get Electron's
+  # CHROME_DESKTOP, which Chromium-based browsers would take as their own
+  # desktop entry.
   xdgOpen = writeShellScriptBin "xdg-open" ''
     unset CHROME_DESKTOP
-    if [ -n "''${ALLOY_SYSTEM_DRIVER_ENV+set}" ]; then
-      unset ${driverVariables}
-      eval "$ALLOY_SYSTEM_DRIVER_ENV"
-      unset ALLOY_SYSTEM_DRIVER_ENV
-    fi
     PATH=:$PATH:
     PATH=''${PATH//":''${0%/*}:"/:}
     PATH=''${PATH#:}
     PATH=''${PATH%:}
     exec xdg-open "$@"
-  '';
-  driverFallback = ''
-    unset ALLOY_SYSTEM_DRIVER_ENV
-    if ! { [ -e ${systemDrivers}/lib/libEGL_mesa.so.0 ] \
-      && LD_PRELOAD=${systemDrivers}/lib/libEGL_mesa.so.0 ${lib.getExe' coreutils "true"} 2>/dev/null; }; then
-      export ALLOY_SYSTEM_DRIVER_ENV="$(declare -p ${driverVariables} 2>/dev/null)"
-      vendors=
-      for vendor in ${systemDrivers}/share/glvnd/egl_vendor.d/*.json; do
-        case $vendor in
-          */50_mesa.json) ;;
-          *) if [ -e "$vendor" ]; then vendors=$vendors$vendor:; fi ;;
-        esac
-      done
-      export __EGL_VENDOR_LIBRARY_FILENAMES=$vendors${mesa}/share/glvnd/egl_vendor.d/50_mesa.json
-      export LD_LIBRARY_PATH=${mesa}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-      export LIBGL_DRIVERS_PATH=${mesa}/lib/dri
-      export GBM_BACKENDS_PATH=${mesa}/lib/gbm:${systemDrivers}/lib/gbm
-      export LIBVA_DRIVERS_PATH=${mesa}/lib/dri:${intel-media-driver}/lib/dri:${systemDrivers}/lib/dri
-    fi
   '';
 in
 stdenvNoCC.mkDerivation {
@@ -228,7 +188,6 @@ stdenvNoCC.mkDerivation {
 
     makeWrapper ${lib.getExe electron} "$out/bin/alloy-desktop" \
       --add-flags "$app" \
-      --run ${lib.escapeShellArg driverFallback} \
       --prefix PATH : ${xdgOpen}/bin \
       --set-default ALLOY_FFMPEG ${lib.getExe' ffmpeg-headless "ffmpeg"} \
       --set-default ALLOY_FFPROBE ${lib.getExe' ffmpeg-headless "ffprobe"}

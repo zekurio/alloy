@@ -25,8 +25,7 @@ lives separately in `devenv.nix`.
 - `desktop.nix` builds `.#alloy-desktop`: the recorder and the native addon
   from one Cargo build, the Electron bundles from the server package's pnpm
   dependencies, the OBS runtime, FFmpeg, and the `dev.zekurio.alloy` desktop
-  entry, with Mesa and Intel's VA-API driver for when the system's graphics
-  drivers don't load.
+  entry. It ships no graphics drivers; those come from the system.
 - `electron.nix` fetches the Electron release `packages/desktop/package.json`
   pins, for the desktop package and the devenv shell.
 - `desktop-module.nix` (`nixosModules.desktop`) defines
@@ -62,32 +61,32 @@ obs-vkcapture's Vulkan layer and `OBS_VKCAPTURE=1` for games:
 ```
 
 Building it needs a nixpkgs from 26.05 on, which has `pnpm_11`. On older
-channels, use the flake's own build, which falls back to its own Mesa when the
-system's drivers don't load:
+channels, use the flake's own build:
 
 ```nix
 programs.alloy-desktop.package = inputs.alloy.packages.x86_64-linux.alloy-desktop;
 ```
 
 Without the module, install the package. Built from the system's nixpkgs, it
-uses the system's graphics drivers as they are, but builds locally:
+builds locally:
 
 ```sh
 nix profile add github:zekurio/alloy#alloy-desktop --override-input nixpkgs nixpkgs
-# or from the flake's pinned nixpkgs, which Cachix has built:
+# or from the flake's pinned nixpkgs, which Cachix has built, when it is at
+# least as new as the system's:
 nix profile add github:zekurio/alloy#alloy-desktop
 ```
 
 What the package can't do on its own:
 
-- **Always use the system's graphics drivers.** Electron and libobs load the
-  drivers in `/run/opengl-driver`, which need a glibc at least as new as the
-  one they were built with. When the flake's pinned nixpkgs is older than the
-  system's, the app falls back to the Mesa and Intel VA-API driver it ships
-  with. Those cover AMD and Intel GPUs, for rendering and encoding, but can
-  trail the system's driver releases. NVIDIA's own EGL library still loads
-  first, though that path is untested. Build from the system's nixpkgs, with
-  the module or `--override-input nixpkgs nixpkgs`, to skip the fallback.
+- **Provide graphics drivers.** Electron and libobs load the system's, from
+  `/run/opengl-driver`, which NixOS sets up with `hardware.graphics`. The
+  drivers need a glibc at least as new as the one they were built with, so a
+  build from a nixpkgs older than the system's can't load them: Electron
+  renders in software and OBS can't open an EGL display. Build from the
+  system's nixpkgs, with the module or `--override-input nixpkgs nixpkgs`. On
+  other distributions, point the app at drivers from the same nixpkgs, for
+  example through nixGL or a `/run/opengl-driver` you set up.
 - **Capture games.** obs-vkcapture's layer has to load in the game, through
   `hardware.graphics.extraPackages` and `OBS_VKCAPTURE=1` in the game's
   environment, which a package can't change. The module sets both; otherwise,
