@@ -82,6 +82,10 @@ struct Inner {
     request: Mutex<Option<BindRequest>>,
     #[cfg(target_os = "linux")]
     session: tokio::sync::Mutex<Option<portal::Binding>>,
+    /// Bumped by every bind and by shutdown. A bind still waiting on the
+    /// desktop's dialog when it changes is stale, and drops its session.
+    #[cfg(target_os = "linux")]
+    generation: std::sync::atomic::AtomicU64,
 }
 
 impl Default for GlobalShortcuts {
@@ -101,6 +105,8 @@ impl GlobalShortcuts {
                 request: Mutex::new(None),
                 #[cfg(target_os = "linux")]
                 session: tokio::sync::Mutex::new(None),
+                #[cfg(target_os = "linux")]
+                generation: std::sync::atomic::AtomicU64::new(0),
             }),
         }
     }
@@ -134,11 +140,18 @@ impl GlobalShortcuts {
         Err(NOT_BOUND.into())
     }
 
-    /// Ends the session, so the desktop stops reporting the shortcuts.
+    /// Ends the session, so the desktop stops reporting the shortcuts. A
+    /// bind still waiting on the desktop's dialog is not waited for; it
+    /// closes its session once the dialog answers, or when the app exits.
     pub async fn shutdown(&self) {
         #[cfg(target_os = "linux")]
-        if let Some(binding) = self.inner.session.lock().await.take() {
-            binding.close().await;
+        {
+            use std::sync::atomic::Ordering;
+            self.inner.generation.fetch_add(1, Ordering::SeqCst);
+            let binding = self.inner.session.lock().await.take();
+            if let Some(binding) = binding {
+                binding.close().await;
+            }
         }
     }
 }
@@ -256,7 +269,7 @@ fn keysym(key: &str) -> Option<String> {
 
 #[cfg(target_os = "linux")]
 mod portal {
-    use std::sync::Arc;
+    use std::sync::{Arc, atomic::Ordering};
 
     use ashpd::{
         AppID, Error, PortalError,
@@ -291,19 +304,32 @@ mod portal {
     }
 
     pub(super) async fn bind(inner: &Arc<Inner>, request: BindRequest) {
+        let generation = inner.generation.fetch_add(1, Ordering::SeqCst) + 1;
         // One session at a time, so a pressed key saves one capture.
-        let mut session = inner.session.lock().await;
-        if let Some(previous) = session.take() {
+        let previous = inner.session.lock().await.take();
+        if let Some(previous) = previous {
             previous.close().await;
         }
         inner.update(|state| {
             state.binding = true;
             state.error = None;
         });
-        match open(inner, &request).await {
+        // The lock isn't held while the desktop's dialog waits on the user,
+        // so shutdown, configure and a newer bind don't wait with it.
+        let opened = open(inner, &request).await;
+        let mut session = inner.session.lock().await;
+        if inner.generation.load(Ordering::SeqCst) != generation {
+            drop(session);
+            if let Ok((binding, _)) = opened {
+                binding.close().await;
+            }
+            return;
+        }
+        match opened {
             Ok((binding, shortcuts)) => {
                 let configurable = binding.proxy.version() >= 2;
                 *session = Some(binding);
+                drop(session);
                 inner.update(|state| {
                     state.binding = false;
                     state.shortcuts = shortcuts;
@@ -349,9 +375,14 @@ mod portal {
                 .map_err(|error| failure(&error))?,
         );
         // Listening starts before binding, so no press is missed.
-        let listeners = listen(inner, request, &proxy, &session)
-            .await
-            .map_err(|error| failure(&error))?;
+        let listeners = match listen(inner, request, &proxy, &session).await {
+            Ok(listeners) => listeners,
+            Err(error) => {
+                let message = failure(&error);
+                let _ = session.close().await;
+                return Err(message);
+            }
+        };
         let binding = Binding {
             proxy,
             session,

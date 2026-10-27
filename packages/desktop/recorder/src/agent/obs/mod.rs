@@ -486,12 +486,13 @@ pub(in crate::agent) unsafe fn game_capture_source_hooked(
     }
 
     // obs-vkcapture only has `get_hooked` from 1.5.6. On any version, a
-    // source with a frame size has a game's texture.
+    // source with a frame size has a game's texture. It has no hook signals
+    // either, so Linux answers from the live source each time rather than
+    // keeping the flag.
     #[cfg(target_os = "linux")]
     {
         let (width, height) = obs.source_size(source);
         if width > 0 && height > 0 {
-            GAME_CAPTURE_HOOKED.store(true, Ordering::SeqCst);
             return true;
         }
     }
@@ -517,6 +518,7 @@ pub(in crate::agent) unsafe fn game_capture_source_hooked(
         std::mem::size_of::<u8>(),
     );
     free_calldata(obs, &mut data);
+    #[cfg(windows)]
     if ok && hooked != 0 {
         GAME_CAPTURE_HOOKED.store(true, Ordering::SeqCst);
     }
