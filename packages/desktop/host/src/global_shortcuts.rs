@@ -6,12 +6,15 @@
 //! from then on; the saved hotkeys are just the triggers it suggests.
 //! Windows hooks the keys in the recorder instead.
 
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{
+    Arc, Mutex, MutexGuard, PoisonError,
+    atomic::{AtomicBool, Ordering},
+};
 
 use serde::Serialize;
 
-/// The desktop has no GlobalShortcuts portal.
-#[cfg(target_os = "linux")]
+/// The desktop has no GlobalShortcuts portal, or the platform doesn't bind
+/// shortcuts through the desktop at all.
 const UNAVAILABLE: &str = "Your desktop doesn't offer global shortcuts.";
 #[cfg(target_os = "linux")]
 const FAILED: &str = "Couldn't set up the shortcuts with your desktop.";
@@ -80,6 +83,10 @@ pub struct GlobalShortcuts {
 struct Inner {
     state: Mutex<ShortcutsState>,
     request: Mutex<Option<BindRequest>>,
+    /// Set by `shutdown` and cleared by `resume`. The server window can still
+    /// ask to bind again while the app quits or installs an update, and that
+    /// must not open a session for a stopped runtime.
+    stopped: AtomicBool,
     #[cfg(target_os = "linux")]
     session: tokio::sync::Mutex<Option<portal::Binding>>,
     /// Bumped by every bind and by shutdown. A bind still waiting on the
@@ -110,6 +117,7 @@ impl GlobalShortcuts {
                     ..ShortcutsState::default()
                 }),
                 request: Mutex::new(None),
+                stopped: AtomicBool::new(false),
                 #[cfg(target_os = "linux")]
                 session: tokio::sync::Mutex::new(None),
                 #[cfg(target_os = "linux")]
@@ -135,6 +143,9 @@ impl GlobalShortcuts {
 
     /// Binds the last requested shortcuts again in a new session.
     pub async fn rebind(&self) -> Result<ShortcutsState, String> {
+        if self.inner.stopped.load(Ordering::SeqCst) {
+            return Ok(self.state());
+        }
         let request = lock(&self.inner.request).clone().ok_or(NOT_BOUND)?;
         #[cfg(target_os = "linux")]
         portal::bind(&self.inner, request).await;
@@ -148,16 +159,18 @@ impl GlobalShortcuts {
         #[cfg(target_os = "linux")]
         return portal::configure(&self.inner).await;
         #[cfg(not(target_os = "linux"))]
-        Err(NOT_BOUND.into())
+        Err(UNAVAILABLE.into())
     }
 
     /// Ends the session, so the desktop stops reporting the shortcuts. A
     /// bind still waiting on the desktop's dialog stops waiting and closes
     /// its session.
     pub async fn shutdown(&self) {
+        // Before the generation moves, so a bind that starts after this sees
+        // it under the bind lock.
+        self.inner.stopped.store(true, Ordering::SeqCst);
         #[cfg(target_os = "linux")]
         {
-            use std::sync::atomic::Ordering;
             self.inner.generation.fetch_add(1, Ordering::SeqCst);
             self.inner.superseded.notify_waiters();
             let binding = self.inner.session.lock().await.take();
@@ -176,6 +189,7 @@ impl GlobalShortcuts {
     /// Binds the shortcuts again after `shutdown`, in the background, for a
     /// runtime that keeps running: an update that failed to install.
     pub fn resume(&self) {
+        self.inner.stopped.store(false, Ordering::SeqCst);
         #[cfg(target_os = "linux")]
         if let Some(request) = lock(&self.inner.request).clone() {
             let inner = Arc::clone(&self.inner);
@@ -351,7 +365,9 @@ mod portal {
         // One bind at a time, so two sessions never listen at once and a
         // press saves one capture.
         let _bind = inner.binds.lock().await;
-        if inner.generation.load(Ordering::SeqCst) != generation {
+        if inner.generation.load(Ordering::SeqCst) != generation
+            || inner.stopped.load(Ordering::SeqCst)
+        {
             return;
         }
         let previous = inner.session.lock().await.take();
