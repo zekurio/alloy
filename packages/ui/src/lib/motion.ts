@@ -1,17 +1,25 @@
+/*
+ * Enter/exit timings use tw-animate's `animation-duration-*`, never
+ * Tailwind's `duration-*`. `duration-*` also sets `transition-duration`,
+ * and with no `transition-property` that transitions every property, so a
+ * resize or breakpoint change would ease the popup's size and position and
+ * slide its contents around as they reflow.
+ */
+
 /**
  * Dialog timing: a settled ease-out entrance, and a quicker exit so closing
  * never feels like it lags behind the click. Shared by the backdrop and the
  * popup so the two move as one.
  */
 export const DIALOG_MOTION_CLASS_NAME =
-  "duration-200 data-open:ease-[var(--ease-out)] data-closed:duration-150 data-closed:ease-in"
+  "animation-duration-200 data-open:ease-[var(--ease-out)] data-closed:animation-duration-150 data-closed:ease-in"
 
 /**
  * Menu, select, popover and tooltip timing: the shared fast duration and
  * ease-out curve, so small popups answer the click without a lag.
  */
 export const POPUP_MOTION_CLASS_NAME =
-  "duration-[var(--duration-fast)] ease-[var(--ease-out)]"
+  "animation-duration-[var(--duration-fast)] ease-[var(--ease-out)]"
 
 type MotionDuration = "--duration-fast" | "--duration-base" | "--duration-slow"
 

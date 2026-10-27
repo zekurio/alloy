@@ -360,7 +360,7 @@ export function SearchResultsPopover() {
           className={cn(
             "absolute top-[calc(100%+0.5rem)] right-0 left-0 z-50",
             "alloy-blur overflow-hidden rounded-md border",
-            "animate-in duration-100 fade-in-0 zoom-in-95",
+            "animate-in animation-duration-100 fade-in-0 zoom-in-95",
           )}
           style={cssVariables({
             "--alloy-blur-opacity": "82%",
