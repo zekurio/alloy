@@ -2,9 +2,9 @@ name: desktop
 
 # Desktop CI: the native host and addon, the recorder, and the Electron
 # installer on Windows, and the Rust crates on Linux. JavaScript and TypeScript,
-# including the shell, is formatted, linted, and typechecked by `checks` on
-# ubuntu (no JS tests exist yet), so shared TS packages and docs do not start a
-# run. Files outside packages/desktop that the Rust tests or the installer
+# including the shell, is formatted, linted, typechecked, and built by `checks`
+# on ubuntu (no JS tests exist yet), so shared TS packages and docs do not start
+# a run. Files outside packages/desktop that the Rust tests or the installer
 # build read directly must be listed below.
 on:
   pull_request:
@@ -15,12 +15,9 @@ on:
       - "Cargo.lock"
       # The installer ships the logo.
       - "public/logo.png"
-      # The installer bundles the shell, which these packages build into;
-      # `tests/connection.rs` also embeds a contracts fixture.
-      - "packages/contracts/**"
-      - "packages/i18n/**"
-      - "packages/primitives/**"
-      - "packages/ui/**"
+      # `tests/connection.rs` embeds this fixture.
+      - "packages/contracts/fixtures/**"
+      # Electron and electron-builder are pinned here.
       - "pnpm-lock.yaml"
       - ".github/workflows/desktop.yml"
       - "!**/*.md"
