@@ -3,13 +3,8 @@ import { join } from "node:path"
 
 // Finishes the desktop release assets electron-builder wrote to
 // packages/desktop/release, after the installer has been signed with the
-// update key (`<installer>.sig`):
-//
-// - `latest.yml` gains the signature, which the app checks before it
-//   installs an update.
-// - `latest.json` offers the same installer to Tauri builds, whose updater
-//   reads that file and checks the same signature. Running it replaces the
-//   Tauri install with this one.
+// update key (`<installer>.sig`): `latest.yml` gains the signature, which the
+// app checks before it installs an update.
 
 const version = process.argv[2]
 if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
@@ -42,21 +37,4 @@ await writeFile(
   `${updateInfo.replace(/^alloySignature: .*\n/m, "").trimEnd()}\nalloySignature: '${signature}'\n`,
 )
 
-await writeFile(
-  join(output, "latest.json"),
-  `${JSON.stringify(
-    {
-      version,
-      pub_date: new Date().toISOString(),
-      platforms: {
-        "windows-x86_64": {
-          signature,
-          url: `https://github.com/zekurio/alloy/releases/download/v${version}/${installer}`,
-        },
-      },
-    },
-    null,
-    2,
-  )}\n`,
-)
 console.log(`Prepared desktop release ${version}.`)

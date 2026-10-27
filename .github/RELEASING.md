@@ -14,8 +14,6 @@ auto-update files:
 - `Alloy-Desktop-...-setup.exe` and its `.blockmap`
 - the installer `.sig`
 - `latest.yml`, which the desktop app's updater reads
-- `latest.json`, which Tauri builds of the desktop app read (see
-  [Moving from the Tauri build](#moving-from-the-tauri-build))
 - `checksums.txt`
 
 ## Cutting a Release
@@ -31,7 +29,7 @@ Dispatch the **publish** workflow from the Actions tab (it only runs on
 4. Builds the Windows desktop installer from the tagged commit.
 5. Builds and pushes the server container image tagged with the release
    version, then publishes the GitHub Release with categorized generated notes, the installer,
-   `latest.json`, update signatures, and checksums.
+   update signatures, and checksums.
 
 ## Container Images
 
@@ -90,24 +88,31 @@ signature the release adds to `latest.yml` (`alloySignature`), using the
 public key compiled into the build. A build without the key has automatic
 updates off; development builds never have it.
 
-The key pair is the one the Tauri updater used, so existing installs keep
-trusting releases. Configure the repository variable `ALLOY_UPDATER_PUBLIC_KEY`
-and the secrets `TAURI_SIGNING_PRIVATE_KEY` and
-`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` before releasing; keep the private key
-out of the repository. The publish workflow:
+The key pair lives in the repository variable `ALLOY_UPDATER_PUBLIC_KEY` and
+the secrets `ALLOY_UPDATE_SIGNING_KEY` and `ALLOY_UPDATE_SIGNING_KEY_PASSWORD`.
+Keep a copy of the private key and its password outside GitHub, which cannot
+show a secret again. The publish workflow:
 
 1. builds the installer with `ALLOY_UPDATER_PUBLIC_KEY` in the environment,
    which compiles it into the app;
 2. signs the installer with `packages/desktop/update-signer`, which writes
-   `<installer>.sig` in the format `tauri signer sign` wrote, binds the
-   signature to the release version, and fails unless the key pair matches
-   `ALLOY_UPDATER_PUBLIC_KEY`;
+   `<installer>.sig`, binds the signature to the release version, and fails
+   unless the key pair matches `ALLOY_UPDATER_PUBLIC_KEY`;
 3. runs `scripts/prepare-desktop-release.mjs`, which adds the signature to
-   `latest.yml` and writes `latest.json`.
+   `latest.yml`.
 
-`pnpm dlx @tauri-apps/cli signer generate` creates a key pair. A different key
-will not update an installed build unless that build already trusts the new
-key.
+To create a key pair, run the following and set a password when asked; the
+signer only takes password-protected keys:
+
+```sh
+nix run nixpkgs#minisign -- -G -p alloy-update.pub -s alloy-update.key
+```
+
+Store `base64 -w0 alloy-update.key` as `ALLOY_UPDATE_SIGNING_KEY`, the password
+as `ALLOY_UPDATE_SIGNING_KEY_PASSWORD`, and `base64 -w0 alloy-update.pub` as
+`ALLOY_UPDATER_PUBLIC_KEY`. Installed builds trust only the key they were
+built with, so after a key change they cannot update and need a manual
+reinstall.
 
 The installer is not Authenticode-signed, so Windows SmartScreen warns on a
 manual install. Updates are unaffected.
@@ -117,33 +122,18 @@ distribution.
 
 ## Moving from the Tauri Build
 
-Releases up to v0.0.19 shipped a Tauri app. Its updater reads `latest.json`,
-so every release keeps writing one that points at the Electron installer and
-carries the same signature. A Tauri install offers that release as a normal
-update; installing it runs the Electron installer, which:
+Releases up to v0.0.19 shipped a Tauri app. It cannot update to the Electron
+app, and it cannot connect to servers from the Electron release on, since the
+desktop bridge and its `/api/server-info` field were renamed. Each machine
+reinstalls by hand:
 
-- removes the Tauri app by running its uninstaller silently in update mode,
-  which drops its files and Apps & Features entry but keeps the user's data;
-- installs to `%LOCALAPPDATA%\Programs\alloy` and starts Alloy;
-- points an existing `Alloy` login item at the new executable.
+1. Uninstall Alloy from Apps & Features. Tick "delete the application data"
+   for a clean start; it also removes the old app's browser profiles.
+2. Install the Electron build from the release and sign in again.
 
-Settings, saved servers, the capture library, and logs stay where they were
-(`%APPDATA%\dev.zekurio.alloy` and `%LOCALAPPDATA%\dev.zekurio.alloy`). The
-browser profile does not carry over, so each server needs one new sign-in.
-
-If the handoff fails on a machine, install the Electron build by hand: run
-the installer from the release. It removes the Tauri app the same way.
-Uninstalling the Tauri app first also works and keeps the data, as long as
-its "delete the application data" box stays unchecked.
-
-The move leaves the Tauri build's leftovers, which the installer does not
-clean up: files in its old install folder (`%LOCALAPPDATA%\Alloy`), its
-WebView2 profiles (`EBWebView\` and `webviews\` in
-`%LOCALAPPDATA%\dev.zekurio.alloy`), which still hold its session cookies, and
-its installer's registry key (`HKCU\Software\zekurio\Alloy`). Removing them
-is safe once the Tauri app is gone.
-
-`latest.json` can be dropped once no Tauri installs remain.
+Uninstall the Tauri app first: its "delete the application data" also removes
+the folders the Electron build uses (`%APPDATA%\dev.zekurio.alloy` and
+`%LOCALAPPDATA%\dev.zekurio.alloy`).
 
 ## Recovery
 

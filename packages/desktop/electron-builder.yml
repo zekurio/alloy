@@ -62,8 +62,7 @@ win:
         - x64
   artifactName: Alloy-Desktop-${version}-win-${arch}-setup.${ext}
 nsis:
-  # One click, per user, like the Tauri installer it replaces. Updates run
-  # it silently.
+  # One click, per user. Updates run it silently.
   oneClick: true
   perMachine: false
   include: nsis/installer.nsh
