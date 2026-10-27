@@ -134,9 +134,11 @@ pub(in crate::agent) fn module_paths(
     module: &str,
 ) -> Vec<ModulePaths> {
     let file = format!("{module}.so");
-    // A libobs from the runtime folder only takes modules from that folder or
-    // beside it. One from the system or the user's OBS Studio may be built for
-    // another libobs, whose ABI isn't stable across versions.
+    // Modules only load into the libobs they were built with, since its ABI
+    // isn't stable across versions. A libobs from the runtime folder takes
+    // modules from that folder or beside it; any other libobs, including the
+    // system's when the folder's copy failed to load, never takes the
+    // folder's.
     let pinned = runtime_dir.is_some_and(|runtime| libobs_from_runtime(runtime, libobs));
     let mut paths = Vec::new();
     let mut push = |bin: PathBuf, data: PathBuf| {
@@ -145,7 +147,7 @@ pub(in crate::agent) fn module_paths(
         }
     };
 
-    if let Some(runtime) = runtime_dir {
+    if let Some(runtime) = runtime_dir.filter(|_| pinned) {
         for library in ["lib", "lib64"] {
             push(
                 runtime.join(library).join("obs-plugins").join(&file),

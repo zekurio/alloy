@@ -58,10 +58,10 @@ a caller needs them.
 
 The agent loads libobs from `ALLOY_OBS_RUNTIME_DIR`, an installed prefix with
 `lib/libobs.so.0`, `lib/obs-plugins`, and `share/obs`, or from the system. It
-opens only the modules it needs: from that prefix and beside its libobs, or,
-with the system's libobs, also from `OBS_PLUGINS_PATH`, the system, or
-`~/.config/obs-studio/plugins`, since a module built for another libobs may
-not load safely. `nix build .#alloy-obs-runtime`
+opens only the modules it needs, and only ones built with the libobs it
+loaded: from that prefix and beside its libobs, or, with the system's libobs,
+from beside it, `OBS_PLUGINS_PATH`, the system, or
+`~/.config/obs-studio/plugins`. `nix build .#alloy-obs-runtime`
 builds a matching prefix with every plugin below and libpipewire.
 
 - Game capture uses
