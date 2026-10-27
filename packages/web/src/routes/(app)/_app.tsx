@@ -196,7 +196,11 @@ function AppShellContent({ session }: { session: boolean }) {
     const closed = uploadEditorWasOpen.current && !uploadEditorOpen
     uploadEditorWasOpen.current = uploadEditorOpen
     if (!closed) return
-    const main = document.querySelector<HTMLElement>('[data-slot="app-main"]')
+    // The shell's own main region: the grid places pages by this slot, so
+    // every page under the outlet renders one as a direct child.
+    const main = document.querySelector<HTMLElement>(
+      '[data-slot="app-shell"] > [data-slot="app-main"]',
+    )
     if (main) animateWithMotionTokens(main, { opacity: [0, 1] })
   }, [uploadEditorOpen])
 

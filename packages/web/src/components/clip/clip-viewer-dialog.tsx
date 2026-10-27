@@ -55,10 +55,18 @@ export function ClipViewerDialog({
   // the desktop grid/sidebar layout hasn't kicked in yet.
   const isDesktop = useMediaQuery("(min-width: 1024px)")
   const open = clipId !== null
-  // The clip and list on screen. They outlive `clipId` so the viewer keeps
-  // its content, arrows included, while it animates closed.
+  // The clip, its row and the list on screen. They outlive `clipId` so the
+  // viewer keeps its content, arrows included, while it animates closed.
+  // The query itself follows `clipId`, so a clip deleted from the viewer
+  // isn't refetched (and found missing) during the close.
   const [shownClipId, setShownClipId] = useState(clipId)
   if (clipId !== null && clipId !== shownClipId) setShownClipId(clipId)
+  const query = useClipQuery(clipId ?? "")
+  const [shownRow, setShownRow] = useState(query.data)
+  if (open && query.data !== undefined && query.data !== shownRow) {
+    setShownRow(query.data)
+  }
+  const row = open ? query.data : shownRow
   const activeList = useActiveClipList()
   const [shownList, setShownList] = useState(activeList)
   // Closing clears the active list a render before `clipId` clears, so a
@@ -68,7 +76,6 @@ export function ClipViewerDialog({
   }
   const viewerClipId = clipId ?? shownClipId
   const list = activeList ?? shownList
-  const query = useClipQuery(viewerClipId ?? "")
 
   const closeViewer = useCallback(() => {
     setActiveClipList(null)
@@ -129,14 +136,15 @@ export function ClipViewerDialog({
       onOpenChangeComplete={(nextOpen) => {
         if (nextOpen) return
         setShownClipId(null)
+        setShownRow(undefined)
         setShownList(null)
       }}
     >
       {viewerClipId !== null ? (
-        query.data ? (
+        row ? (
           !isDesktop ? (
             <MobileClipViewerBody
-              row={query.data}
+              row={row}
               onDeleted={closeViewer}
               prev={prev}
               next={next}
@@ -144,7 +152,7 @@ export function ClipViewerDialog({
             />
           ) : (
             <ClipViewerDialogBody
-              row={query.data}
+              row={row}
               onDeleted={closeViewer}
               prev={prev}
               next={next}

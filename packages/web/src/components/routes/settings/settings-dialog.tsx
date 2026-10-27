@@ -267,28 +267,52 @@ function SettingsDialogContent({
   )
 }
 
+const MOBILE_HEADER_TITLE_CLASS_NAME =
+  "grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center"
+
 /**
- * Title bar for the phone layout: one button, then the title centred. Gives
- * way to the unsaved-changes banner while a form is dirty.
+ * Title bar for the phone layout: one button, then the title centred. In a
+ * section it gives way to the unsaved-changes banner while a form is dirty.
+ * The overview has no forms, so it keeps a plain header; otherwise a save
+ * that just finished would cover its title and close button.
  */
 function SettingsMobileHeader({
   title,
   leading,
+  saveBanner = false,
 }: {
   title: string
   leading: ReactNode
+  saveBanner?: boolean
 }) {
-  return (
-    <SettingsSaveHeader
-      className="h-13 px-1"
-      titleClassName="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center"
-      bannerClassName="px-3"
-      compact
-    >
+  const content = (
+    <>
       <div className="grid place-items-center">{leading}</div>
       <h2 className="text-foreground truncate text-center text-base font-semibold tracking-[var(--tracking-tight)]">
         {title}
       </h2>
+    </>
+  )
+  if (!saveBanner) {
+    return (
+      <header
+        className={cn(
+          "border-border bg-background h-13 shrink-0 border-b px-1",
+          MOBILE_HEADER_TITLE_CLASS_NAME,
+        )}
+      >
+        {content}
+      </header>
+    )
+  }
+  return (
+    <SettingsSaveHeader
+      className="h-13 px-1"
+      titleClassName={MOBILE_HEADER_TITLE_CLASS_NAME}
+      bannerClassName="px-3"
+      compact
+    >
+      {content}
     </SettingsSaveHeader>
   )
 }
@@ -538,6 +562,7 @@ function SettingsSectionView({
         {isMobile ? (
           <SettingsMobileHeader
             title={title}
+            saveBanner
             leading={
               <button
                 type="button"
