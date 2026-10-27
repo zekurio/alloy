@@ -553,7 +553,7 @@ function SettingsSectionView({
       </ScrollArea>
 
       {/* On a phone a section replaces the menu, so it pushes in over it. */}
-      <div className="max-md:animate-in max-md:fade-in-0 max-md:slide-in-from-right-4 flex min-w-0 flex-1 flex-col duration-200 motion-reduce:animate-none">
+      <div className="max-md:animate-in max-md:fade-in-0 max-md:slide-in-from-right-4 animation-duration-200 flex min-w-0 flex-1 flex-col motion-reduce:animate-none">
         {/* Discord-style title bar: the section name stays pinned while the
             panel below it scrolls, and turns into the save banner while
             edits are unsaved. A phone gets the way back to the menu in it;
@@ -607,7 +607,7 @@ function SettingsSectionView({
               last one. */}
           <div
             key={active.id}
-            className="animate-in fade-in-0 duration-[var(--duration-base)] motion-reduce:animate-none"
+            className="animate-in fade-in-0 animation-duration-[var(--duration-base)] motion-reduce:animate-none"
           >
             <Suspense fallback={<LoadingState variant="panel" />}>
               <ActivePanel />

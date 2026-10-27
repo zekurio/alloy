@@ -329,7 +329,7 @@ function MobileClipViewerBody({
               className={cn(
                 "pointer-events-none rounded-full border border-white/10 bg-[oklch(12%_0.01_250)]/35 px-3 py-1.5",
                 "text-xs font-semibold tracking-wide text-white/75 shadow-[0_8px_30px_-14px_rgb(0_0_0_/_0.9)] backdrop-blur-md",
-                "animate-in duration-200 fade-in-0 slide-in-from-bottom-1",
+                "animate-in animation-duration-200 fade-in-0 slide-in-from-bottom-1",
                 isImage
                   ? // The metadata overlay is bottom-anchored with a dynamic
                     // height; float the hint clear above it.
