@@ -25,6 +25,7 @@
   libnotify,
   libpulseaudio,
   libsecret,
+  libva,
   libx11,
   libxcb,
   libxcomposite,
@@ -49,7 +50,8 @@ let
   version = (lib.importJSON ../packages/desktop/package.json).devDependencies.electron;
 
   # Electron loads some of these by name at run time, so they go on its run
-  # path rather than being found from what it links.
+  # path rather than being found from what it links. Without libva, Chromium
+  # decodes video in software and can't play HEVC clips at all.
   libraryPath = lib.makeLibraryPath [
     alsa-lib
     at-spi2-atk
@@ -67,6 +69,7 @@ let
     libnotify
     libpulseaudio
     libsecret
+    libva
     libx11
     libxcb
     libxcomposite
