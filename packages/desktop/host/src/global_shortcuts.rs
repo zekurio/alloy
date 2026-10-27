@@ -86,6 +86,10 @@ struct Inner {
     /// desktop's dialog when it changes is stale, and drops its session.
     #[cfg(target_os = "linux")]
     generation: std::sync::atomic::AtomicU64,
+    /// Held for a whole bind, so two sessions never listen at once and a
+    /// press saves one capture. Shutdown and configure don't take it.
+    #[cfg(target_os = "linux")]
+    binds: tokio::sync::Mutex<()>,
 }
 
 impl Default for GlobalShortcuts {
@@ -107,6 +111,8 @@ impl GlobalShortcuts {
                 session: tokio::sync::Mutex::new(None),
                 #[cfg(target_os = "linux")]
                 generation: std::sync::atomic::AtomicU64::new(0),
+                #[cfg(target_os = "linux")]
+                binds: tokio::sync::Mutex::new(()),
             }),
         }
     }
@@ -152,6 +158,22 @@ impl GlobalShortcuts {
             if let Some(binding) = binding {
                 binding.close().await;
             }
+            // Until `resume`, no key is bound.
+            self.inner.update(|state| {
+                state.binding = false;
+                state.shortcuts.clear();
+                state.configurable = false;
+            });
+        }
+    }
+
+    /// Binds the shortcuts again after `shutdown`, in the background, for a
+    /// runtime that keeps running: an update that failed to install.
+    pub fn resume(&self) {
+        #[cfg(target_os = "linux")]
+        if let Some(request) = lock(&self.inner.request).clone() {
+            let inner = Arc::clone(&self.inner);
+            tokio::spawn(async move { portal::bind(&inner, request).await });
         }
     }
 }
@@ -304,6 +326,7 @@ mod portal {
     }
 
     pub(super) async fn bind(inner: &Arc<Inner>, request: BindRequest) {
+        let _bind = inner.binds.lock().await;
         let generation = inner.generation.fetch_add(1, Ordering::SeqCst) + 1;
         // One session at a time, so a pressed key saves one capture.
         let previous = inner.session.lock().await.take();

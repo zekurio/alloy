@@ -206,7 +206,11 @@ fn preferred_gpu_label(label: &str) -> bool {
             || normalized.contains("gtx")
             || normalized.contains("amd")
             || normalized.contains("radeon")
-            || (normalized.contains("intel") && normalized.contains("arc")))
+            // `Intel Arc A770`, or pci.ids' `Intel DG2 [Arc A380]`.
+            || (normalized.contains("intel")
+                && normalize_gpu_label_tokens(&normalized)
+                    .split_whitespace()
+                    .any(|token| token == "arc")))
 }
 
 fn software_gpu_label(label: &str) -> bool {

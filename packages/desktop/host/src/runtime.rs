@@ -522,6 +522,8 @@ impl DesktopRuntime {
         self.watch_downloads(replacement);
 
         self.recorder.restart().await.map_err(error)?;
+        // `shutdown` ended the shortcuts session.
+        self.shortcuts.resume();
         self.emit(json!({ "type": "settings", "settings": settings }));
         Ok(())
     }
