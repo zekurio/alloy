@@ -29,6 +29,7 @@ import {
   findProbe,
   formFromConfig,
   formsEqual,
+  sortTiers,
   type TranscodingForm,
   validateForm,
   AUDIO_BITRATES,
@@ -93,7 +94,8 @@ export function TranscodingSettingsContent({
       vaapiDevice: form.vaapiDevice.trim(),
       quality: form.quality,
       audioBitrateKbps: form.audioBitrateKbps,
-      tiers: form.tiers.map((tier) => {
+      // Rows stay put while being edited; they settle into order on save.
+      tiers: sortTiers(form.tiers).map((tier) => {
         const config: RenditionTierConfig = {
           height: tier.height,
           maxFps: tier.maxFps,

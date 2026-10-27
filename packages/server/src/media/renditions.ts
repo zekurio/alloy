@@ -2,6 +2,7 @@ import { mkdir, stat } from "node:fs/promises"
 import { join } from "node:path"
 
 import {
+  compareRenditions,
   deriveRenditionNames,
   type RenditionTierConfig,
   type TranscodingConfig,
@@ -99,9 +100,7 @@ export function effectiveLadder(
       og: Boolean(tier.og),
     })
   }
-  const steps = [...byOutput.values()].sort(
-    (a, b) => b.height - a.height || b.fps - a.fps,
-  )
+  const steps = [...byOutput.values()].sort(compareRenditions)
   const names = deriveRenditionNames(steps)
   const hasOgStep = steps.some((step) => step.og)
   return steps.map((step, index) => ({
