@@ -427,13 +427,30 @@ pub(in crate::agent) unsafe fn remember_display_restore_token(
         return;
     };
     let temporary = path.with_extension("tmp");
-    match fs::write(&temporary, &token).and_then(|()| fs::rename(&temporary, &path)) {
+    match write_private(&temporary, &token).and_then(|()| fs::rename(&temporary, &path)) {
         Ok(()) => *remembered = Some(token),
         Err(error) => {
             let _ = fs::remove_file(&temporary);
             eprintln!("[{SIDE_CAR_NAME}] could not keep the screen-sharing choice: {error}");
         }
     }
+}
+
+/// Writes `contents` to a new file only the user can read. The token lets a
+/// process on the user's session bus reopen the screencast without the
+/// dialog, so it is kept as private as the session itself.
+fn write_private(path: &Path, contents: &str) -> std::io::Result<()> {
+    use std::{io::Write, os::unix::fs::OpenOptionsExt};
+
+    // A file left by an interrupted write could have looser permissions,
+    // which opening it again would keep.
+    let _ = fs::remove_file(path);
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)?
+        .write_all(contents.as_bytes())
 }
 
 /// OBS starts its muxer helper from the folder of the running executable, so
