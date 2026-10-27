@@ -22,7 +22,7 @@ use super::{
     load_optional_symbol, load_symbol,
     platform::{
         cstring_path, graphics_module, libobs_candidates, library_path, module_paths,
-        platform_modules, ModulePaths,
+        own_runtime_dir, platform_modules, ModulePaths,
     },
     screenshot::ScreenshotBindings,
 };
@@ -474,7 +474,7 @@ impl LibObs {
         adapter: u32,
         capture: bool,
     ) -> Result<(), String> {
-        self.add_paths(runtime_dir);
+        self.add_paths(own_runtime_dir(runtime_dir, &self.library_path));
         // libobs renders through the session's display connection on Linux,
         // and reads the platform during startup.
         #[cfg(target_os = "linux")]

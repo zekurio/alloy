@@ -363,13 +363,9 @@ mod portal {
             state.error = None;
         });
 
-        let binding = match timeout(SETUP_TIMEOUT, prepare(inner, &request)).await {
-            Ok(Ok(binding)) => binding,
-            Ok(Err(message)) => return fail(inner, generation, message),
-            Err(_) => {
-                log::warn!("global shortcuts: the portal did not answer");
-                return fail(inner, generation, FAILED);
-            }
+        let binding = match prepare(inner, &request).await {
+            Ok(binding) => binding,
+            Err(message) => return fail(inner, generation, message),
         };
         // The dialog waits on the user, so it has no timeout.
         let asked = tokio::select! {
@@ -394,12 +390,13 @@ mod portal {
         }
         let configurable = binding.proxy.version() >= 2;
         *session = Some(binding);
-        drop(session);
+        // Published under the lock, so a shutdown's reset always comes after.
         inner.update(|state| {
             state.binding = false;
             state.shortcuts = shortcuts;
             state.configurable = configurable;
         });
+        drop(session);
     }
 
     /// Reports why the bind failed, unless a newer bind or a shutdown has
@@ -436,8 +433,9 @@ mod portal {
         }
     }
 
-    /// Registers the app, opens a session and starts listening: quick calls
-    /// that only a hung portal holds up.
+    /// Registers the app, opens a session and starts listening: quick calls,
+    /// each bounded, so a hung portal fails the bind and a session opened
+    /// before the hang is still closed.
     async fn prepare(inner: &Arc<Inner>, request: &BindRequest) -> Result<Binding, &'static str> {
         // Portals scope shortcuts to an app id, and an app started from a
         // terminal has none. Registering fails harmlessly when the app is
@@ -445,23 +443,16 @@ mod portal {
         // rebind on the same connection. A portal from before the registry
         // rejects it too, and then only a launcher's scope identifies us.
         match AppID::try_from(request.app_id.as_str()) {
-            Ok(app_id) => {
-                if let Err(error) = ashpd::register_host_app(app_id).await {
-                    log::info!("global shortcuts: app id not registered: {error}");
-                }
-            }
+            Ok(app_id) => match timeout(SETUP_TIMEOUT, ashpd::register_host_app(app_id)).await {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => log::info!("global shortcuts: app id not registered: {error}"),
+                Err(_) => log::info!("global shortcuts: app id registration timed out"),
+            },
             Err(error) => log::warn!("global shortcuts: invalid app id: {error}"),
         }
 
-        let proxy = GlobalShortcuts::new()
-            .await
-            .map_err(|error| failure(&error))?;
-        let session = Arc::new(
-            proxy
-                .create_session(Default::default())
-                .await
-                .map_err(|error| failure(&error))?,
-        );
+        let proxy = bounded(GlobalShortcuts::new()).await?;
+        let session = Arc::new(bounded(proxy.create_session(Default::default())).await?);
         // Signals are matched to the session by its path. Without it, a
         // press could reach an earlier session's listener too, so fail.
         let Some(own) = session_path(&session) else {
@@ -469,12 +460,12 @@ mod portal {
             let _ = timeout(CALL_TIMEOUT, session.close()).await;
             return Err(FAILED);
         };
-        // Listening starts before binding, so no press is missed.
-        let listeners = match listen(inner, request, &proxy, &session, own).await {
+        // Listening starts before binding, so no press is missed. Its tasks
+        // only start once every subscription is in place.
+        let listeners = match bounded(listen(inner, request, &proxy, &session, own)).await {
             Ok(listeners) => listeners,
-            Err(error) => {
-                let message = failure(&error);
-                let _ = session.close().await;
+            Err(message) => {
+                let _ = timeout(CALL_TIMEOUT, session.close()).await;
                 return Err(message);
             }
         };
@@ -483,6 +474,20 @@ mod portal {
             session,
             listeners,
         })
+    }
+
+    /// A setup call within `SETUP_TIMEOUT`, with its failure as the message
+    /// the settings show.
+    async fn bounded<T>(
+        call: impl std::future::Future<Output = Result<T, Error>>,
+    ) -> Result<T, &'static str> {
+        match timeout(SETUP_TIMEOUT, call).await {
+            Ok(result) => result.map_err(|error| failure(&error)),
+            Err(_) => {
+                log::warn!("global shortcuts: the portal did not answer");
+                Err(FAILED)
+            }
+        }
     }
 
     /// Binds the shortcuts in the session. The desktop may show a dialog

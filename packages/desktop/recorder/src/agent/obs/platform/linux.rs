@@ -81,6 +81,16 @@ fn libobs_from_runtime(runtime_dir: &Path, libobs: &Path) -> bool {
         .any(|candidate| fs::canonicalize(candidate).is_ok_and(|path| path == libobs))
 }
 
+/// The runtime folder whose data and module paths libobs may use: only the
+/// folder that provided it. A system libobs, including one loaded after the
+/// folder's copy failed, keeps to its own files.
+pub(in crate::agent) fn own_runtime_dir<'a>(
+    runtime_dir: Option<&'a Path>,
+    libobs: &Path,
+) -> Option<&'a Path> {
+    runtime_dir.filter(|runtime| libobs_from_runtime(runtime, libobs))
+}
+
 /// The file a loaded symbol came from. A library opened by soname has no path
 /// of its own, and its plugins and graphics module live beside it.
 pub(in crate::agent) fn library_path(candidate: &Path, symbol: *const c_void) -> PathBuf {

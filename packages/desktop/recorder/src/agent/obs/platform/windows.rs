@@ -214,6 +214,15 @@ pub(in crate::agent) fn graphics_module(_libobs: &Path) -> CString {
     c"libobs-d3d11".to_owned()
 }
 
+/// The runtime folder whose data and module paths libobs may use. Windows
+/// adds the bundled folder whatever libobs loaded.
+pub(in crate::agent) fn own_runtime_dir<'a>(
+    runtime_dir: Option<&'a Path>,
+    _libobs: &Path,
+) -> Option<&'a Path> {
+    runtime_dir
+}
+
 /// Where a module from `platform_modules` lives in the bundled runtime.
 /// Without a runtime, OBS loads every module from its own search paths.
 pub(in crate::agent) fn module_paths(
