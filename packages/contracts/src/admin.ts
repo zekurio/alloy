@@ -171,6 +171,19 @@ export function deriveRenditionNames(
   })
 }
 
+/**
+ * Orders renditions best first: taller, then higher frame rate. Ties (tiers
+ * that differ only in codec) compare equal, so a stable sort keeps their
+ * order. The admin ladder, the encoder, and the player menu all list
+ * renditions in this order.
+ */
+export function compareRenditions(
+  a: { height: number; fps: number },
+  b: { height: number; fps: number },
+): number {
+  return b.height - a.height || b.fps - a.fps
+}
+
 export const DEFAULT_RENDITION_TIERS: RenditionTierConfig[] = [
   { height: 1080, maxFps: 60, maxrateKbps: 8000, og: true },
   { height: 720, maxFps: 60, maxrateKbps: 5000 },

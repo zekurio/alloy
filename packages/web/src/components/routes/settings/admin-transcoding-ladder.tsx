@@ -30,6 +30,7 @@ import {
   newTierId,
   nextTierHeight,
   parseNumberInput,
+  sortTiers,
   suggestMaxrateKbps,
   VIDEO_CODEC_LABELS,
 } from "./admin-transcoding-validation"
@@ -82,7 +83,7 @@ export function TranscodingLadder({
       }
       return {
         ...current,
-        tiers: [...current.tiers, tier].sort((a, b) => b.height - a.height),
+        tiers: sortTiers([...current.tiers, tier]),
       }
     })
   }

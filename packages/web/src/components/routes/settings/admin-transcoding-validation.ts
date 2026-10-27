@@ -4,6 +4,7 @@ import type {
   TranscodingCapabilities,
   VideoCodec,
 } from "@alloy/api"
+import { compareRenditions } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 
 type TranscodingConfig = AdminRuntimeConfig["transcoding"]
@@ -74,7 +75,7 @@ export function formFromConfig(
     audioBitrateKbps: transcoding.audioBitrateKbps,
     // Position keys stay stable across saves, so rows don't remount every
     // time the server hands back the config.
-    tiers: transcoding.tiers.map((tier, index) => ({
+    tiers: sortTiers(transcoding.tiers).map((tier, index) => ({
       id: `saved-${index}`,
       height: tier.height,
       maxFps: tier.maxFps,
@@ -83,6 +84,20 @@ export function formFromConfig(
       og: tier.og ?? false,
     })),
   }
+}
+
+/**
+ * Tiers in rendition order, best first. A blank height or FPS sorts as zero,
+ * so a half-filled row sinks to the bottom.
+ */
+export function sortTiers<T extends { height: number; maxFps: number }>(
+  tiers: readonly T[],
+): T[] {
+  const quality = (tier: T) => ({
+    height: Number.isFinite(tier.height) ? tier.height : 0,
+    fps: Number.isFinite(tier.maxFps) ? tier.maxFps : 0,
+  })
+  return tiers.toSorted((a, b) => compareRenditions(quality(a), quality(b)))
 }
 
 /**
@@ -121,8 +136,11 @@ export function formsEqual(
   if (form.quality !== saved.quality) return false
   if (form.audioBitrateKbps !== saved.audioBitrateKbps) return false
   if (form.tiers.length !== saved.tiers.length) return false
+  // The form lists tiers sorted (see formFromConfig), whatever order an older
+  // save stored them in.
+  const savedTiers = sortTiers(saved.tiers)
   return form.tiers.every((tier, index) => {
-    const savedTier = saved.tiers[index]
+    const savedTier = savedTiers[index]
     return (
       tier.height === savedTier.height &&
       tier.maxFps === savedTier.maxFps &&

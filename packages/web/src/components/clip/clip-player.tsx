@@ -6,6 +6,7 @@ import {
   clipThumbnailUrl,
   type EncodeStage,
 } from "@alloy/api"
+import { compareRenditions } from "@alloy/contracts"
 import { contentTypeForFile } from "@alloy/contracts/desktop"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
@@ -251,6 +252,8 @@ function VideoClipPlayer({
   // A local file is eligible only when its whole content is the clip's
   // published media. Otherwise the server's media wins; the player never
   // simulates a trim by hiding a window within the original capture.
+  // Renditions follow the admin ladder's order, which both the quality menu
+  // and stall fallback (one step down the list) rely on.
   const sources = useMemo((): RenditionSource[] => {
     const remoteSources = [
       {
@@ -259,7 +262,7 @@ function VideoClipPlayer({
         codecs: sourceCodecs ?? "",
         contentType: playbackContentType ?? "video/mp4",
       },
-      ...renditions.map((rendition) => ({
+      ...renditions.toSorted(compareRenditions).map((rendition) => ({
         name: rendition.name,
         url: clipRenditionFileUrl(
           clipId,
