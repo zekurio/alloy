@@ -22,12 +22,15 @@ Dispatch the **publish** workflow from the Actions tab (it only runs on
 `dev`). Pick a `bump` of `patch`, `minor`, or `major`, or set an exact
 `version` override. The workflow then:
 
-1. Runs formatting, lint, and typecheck against the current `dev` head.
-2. Stamps the new version into all release version files.
-3. Commits `chore: release vX.Y.Z` to `dev` and tags that commit `vX.Y.Z`
+1. Checks that the update signing key opens with its password and matches
+   `ALLOY_UPDATER_PUBLIC_KEY`, so a broken signing setup stops the release
+   before anything is tagged.
+2. Runs formatting, lint, and typecheck against the current `dev` head.
+3. Stamps the new version into all release version files.
+4. Commits `chore: release vX.Y.Z` to `dev` and tags that commit `vX.Y.Z`
    (pushed atomically).
-4. Builds the Windows desktop installer from the tagged commit.
-5. Builds and pushes the server container image tagged with the release
+5. Builds the Windows desktop installer from the tagged commit.
+6. Builds and pushes the server container image tagged with the release
    version, then publishes the GitHub Release with categorized generated notes, the installer,
    update signatures, and checksums.
 
@@ -127,18 +130,19 @@ app, and it cannot connect to servers from the Electron release on, since the
 desktop bridge and its `/api/server-info` field were renamed. Each machine
 reinstalls by hand:
 
-1. Uninstall Alloy from Apps & Features and tick "delete the application
-   data". That removes the old app's settings, saved servers, browser
-   profiles, and cached import copies.
+1. Uninstall Alloy from Apps & Features. Ticking "delete the application
+   data" removes the old app's settings, saved servers, browser profiles,
+   cached import copies, and the capture library's metadata (titles, trims,
+   upload links); the videos in `Videos\Alloy` stay. To keep the settings
+   and metadata, leave it unticked and clean up as below.
 2. Install the Electron build from the release and sign in again.
 
-Uninstall the Tauri app first: its "delete the application data" also removes
-the folders the Electron build uses (`%APPDATA%\dev.zekurio.alloy` and
+Uninstall the Tauri app first: ticking the box also removes the folders the
+Electron build uses (`%APPDATA%\dev.zekurio.alloy` and
 `%LOCALAPPDATA%\dev.zekurio.alloy`).
 
-Without that box, the Tauri app leaves data in
-`%LOCALAPPDATA%\dev.zekurio.alloy` that nothing uses or cleans up any more.
-Delete it by hand:
+Left unticked, the Tauri app leaves data in `%LOCALAPPDATA%\dev.zekurio.alloy`
+that nothing uses or cleans up any more. Delete it by hand:
 
 - `EBWebView\` and `webviews\`, its browser profiles, which still hold
   session tokens;

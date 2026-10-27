@@ -28,9 +28,46 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Proves the update signing setup works before preflight pushes a release
+  # tag: the key opens with its password and matches the public key the app
+  # is built with. Only the signer is built, so no npm code runs beside the
+  # key.
+  signing:
+    name: check update signing
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: set up rust
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with:
+          toolchain: stable
+
+      - name: build update signer
+        run: cargo build --locked --release --package alloy-update-signer --target-dir target/update-signer
+
+      - name: sign a test file
+        env:
+          ALLOY_UPDATE_SIGNING_KEY: ${{ secrets.ALLOY_UPDATE_SIGNING_KEY }}
+          ALLOY_UPDATE_SIGNING_KEY_PASSWORD: ${{ secrets.ALLOY_UPDATE_SIGNING_KEY_PASSWORD }}
+          ALLOY_UPDATER_PUBLIC_KEY: ${{ vars.ALLOY_UPDATER_PUBLIC_KEY }}
+        run: |
+          probe="$RUNNER_TEMP/signing-check.bin"
+          head -c 1024 /dev/urandom > "$probe"
+          target/update-signer/release/alloy-update-signer "$probe" 0.0.0
+
   preflight:
     name: preflight
     if: github.ref == 'refs/heads/dev'
+    needs: [signing]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
