@@ -628,7 +628,14 @@ unsafe fn create_scaled_video_scene(
     (obs.obs_sceneitem_set_bounds_type)(item, OBS_BOUNDS_SCALE_INNER);
     (obs.obs_sceneitem_set_bounds_alignment)(item, OBS_ALIGN_CENTER);
     (obs.obs_sceneitem_set_bounds)(item, &bounds);
-    (obs.obs_sceneitem_set_scale_filter)(item, OBS_SCALE_BILINEAR);
+    // On Linux the capture draws straight into the scene, as OBS draws an
+    // item without a scale filter; its own draw samples bilinearly too. Drawn
+    // into a filter's texture instead, obs-vkcapture asks OBS to decode the
+    // game's frame from sRGB, which OBS's OpenGL renderer can't do for a
+    // dmabuf, so the frame is encoded twice and clips come out washed out.
+    if cfg!(windows) {
+        (obs.obs_sceneitem_set_scale_filter)(item, OBS_SCALE_BILINEAR);
+    }
 
     let output_source = (obs.obs_scene_get_source)(scene);
     if output_source.is_null() {
