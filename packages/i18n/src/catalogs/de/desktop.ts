@@ -450,8 +450,6 @@ export const DESKTOP_MESSAGES = {
   "Saved servers": "Gespeicherte Server",
   "Saves the configured replay buffer.":
     "Speichert den konfigurierten Replay-Puffer.",
-  "Screen sharing was cancelled. Restart the agent or change the display settings to choose a screen.":
-    "Die Bildschirmfreigabe wurde abgebrochen. Starte den Agenten neu oder ändere die Anzeigeeinstellungen, um einen Bildschirm zu wählen.",
   "Search games": "Spiele suchen",
   "Search processes": "Prozesse suchen",
   Seek: "Spulen",
@@ -473,7 +471,6 @@ export const DESKTOP_MESSAGES = {
     "Der Zustand des Serverfensters ist nicht verfügbar.",
   Servers: "Server",
   "Set up again": "Erneut einrichten",
-  "Set up the shortcuts first.": "Richte zuerst die Tastenkürzel ein.",
   Shift: "Shift",
   "Shortcut keys": "Tastenkürzel",
   "Show Alloy": "Alloy anzeigen",
@@ -563,16 +560,10 @@ export const DESKTOP_MESSAGES = {
     "Ohne Tastenkürzel-Portal lege stattdessen {clip} und {screenshot} in den Tastatureinstellungen deines Desktops fest.",
   "You can capture up to {count} audio sources at once.":
     "Du kannst bis zu {count} Audioquellen gleichzeitig aufnehmen.",
-  "Your desktop couldn't identify Alloy. It needs Alloy's desktop entry, dev.zekurio.alloy.desktop.":
-    "Dein Desktop konnte Alloy nicht erkennen. Er braucht Alloys Desktop-Eintrag dev.zekurio.alloy.desktop.",
-  "Your desktop doesn't offer global shortcuts.":
-    "Dein Desktop bietet keine globalen Tastenkürzel an.",
   "Your desktop owns these keys. Change them in its keyboard settings.":
     "Diese Tasten verwaltet dein Desktop. Ändere sie in seinen Tastatureinstellungen.",
   "Your desktop owns these keys. Change them in its settings.":
     "Diese Tasten verwaltet dein Desktop. Ändere sie in seinen Einstellungen.",
-  "Your desktop stopped the shortcuts. Set them up again.":
-    "Dein Desktop hat die Tastenkürzel beendet. Richte sie erneut ein.",
   "ffmpeg not detected": "ffmpeg nicht erkannt",
   fps: "fps",
   "{available} free of {total}": "{available} von {total} frei",

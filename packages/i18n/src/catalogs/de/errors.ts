@@ -77,7 +77,10 @@ export const ERRORS_MESSAGES = {
     "Passkey-Registrierung ist derzeit deaktiviert.",
   "Passkey sign-up is enabled, but this browser does not support passkeys.":
     "Passkey-Registrierung ist aktiviert, aber dieser Browser unterstützt keine Passkeys.",
+  "Screen sharing was cancelled. Restart the agent or change the display settings to choose a screen.":
+    "Die Bildschirmfreigabe wurde abgebrochen. Starte den Agenten neu oder ändere die Anzeigeeinstellungen, um einen Bildschirm zu wählen.",
   "Session not found.": "Sitzung nicht gefunden.",
+  "Set up the shortcuts first.": "Richte zuerst die Tastenkürzel ein.",
   "Sign out to end the current session.":
     "Melde dich ab, um die aktuelle Sitzung zu beenden.",
   "Something went wrong": "Etwas ist schiefgelaufen",
@@ -88,5 +91,11 @@ export const ERRORS_MESSAGES = {
     "Zeitüberschreitung beim Lesen der Videometadaten",
   "Too many requests": "Zu viele Anfragen",
   "You can save up to 50 themes.": "Du kannst bis zu 50 Themes speichern.",
+  "Your desktop couldn't identify Alloy. It needs Alloy's desktop entry, dev.zekurio.alloy.desktop.":
+    "Dein Desktop konnte Alloy nicht erkennen. Er braucht Alloys Desktop-Eintrag dev.zekurio.alloy.desktop.",
+  "Your desktop doesn't offer global shortcuts.":
+    "Dein Desktop bietet keine globalen Tastenkürzel an.",
+  "Your desktop stopped the shortcuts. Set them up again.":
+    "Dein Desktop hat die Tastenkürzel beendet. Richte sie erneut ein.",
   "{fallback}: {message}": "{fallback}: {message}",
 } satisfies TranslationCatalog

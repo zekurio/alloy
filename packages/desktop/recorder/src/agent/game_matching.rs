@@ -542,10 +542,22 @@ pub(in crate::agent) fn path_file_name(path: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+/// Windows paths, including the ones Wine runs Proton games from, ignore
+/// case; native Linux paths don't.
 pub(in crate::agent) fn paths_equal(left: &str, right: &str) -> bool {
-    normalized_path(left)
-        .trim_end_matches('/')
-        .eq_ignore_ascii_case(normalized_path(right).trim_end_matches('/'))
+    let (left, right) = (normalized_path(left), normalized_path(right));
+    let (left, right) = (left.trim_end_matches('/'), right.trim_end_matches('/'));
+    if cfg!(windows) || windows_path(left) || windows_path(right) {
+        left.eq_ignore_ascii_case(right)
+    } else {
+        left == right
+    }
+}
+
+/// A normalized path with a drive letter, such as `C:/Games/game.exe`.
+fn windows_path(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
 }
 
 pub(in crate::agent) fn normalized_path(path: &str) -> String {
