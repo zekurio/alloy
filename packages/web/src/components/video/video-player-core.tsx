@@ -143,13 +143,14 @@ export function PlayerCore({
   // the element mounted with display: none, which doesn't stop playback.
   // Hiding runs layout-effect cleanups, so pause here. Only while playing:
   // pausing a video that hasn't started yet (StrictMode's mount replay)
-  // would cancel its autoplay.
+  // would cancel its autoplay. Keyed on `controls` like the teardown above,
+  // since switching shells remounts the element.
   useLayoutEffect(() => {
     const video = videoRef.current
     return () => {
       if (video && !video.paused) video.pause()
     }
-  }, [])
+  }, [controls])
 
   useEffect(() => {
     onTimeUpdateRef.current = onTimeUpdate

@@ -61,9 +61,13 @@ export function ClipViewerDialog({
   if (clipId !== null && clipId !== shownClipId) setShownClipId(clipId)
   const activeList = useActiveClipList()
   const [shownList, setShownList] = useState(activeList)
-  if (open && activeList !== shownList) setShownList(activeList)
+  // Closing clears the active list a render before `clipId` clears, so a
+  // null list while open must not replace the one held for the close.
+  if (open && activeList !== null && activeList !== shownList) {
+    setShownList(activeList)
+  }
   const viewerClipId = clipId ?? shownClipId
-  const list = open ? activeList : shownList
+  const list = activeList ?? shownList
   const query = useClipQuery(viewerClipId ?? "")
 
   const closeViewer = useCallback(() => {
