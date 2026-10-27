@@ -211,6 +211,8 @@ export const ADMIN_MESSAGES = {
   "Only games without clips can be deleted.":
     "Nur Spiele ohne Clips können gelöscht werden.",
   "Open registrations": "Offene Registrierungen",
+  "Open registrations is off, but {providers} still creates accounts on first sign-in. Turn off Create accounts on the provider to stop it.":
+    "Offene Registrierungen sind aus, aber {providers} erstellt bei der ersten Anmeldung weiterhin Konten. Schalte „Konten erstellen“ beim Anbieter aus, um das zu beenden.",
   "Open registrations is off, but {providers} still create accounts on first sign-in. Turn off Create accounts on a provider to stop it.":
     "Offene Registrierungen sind aus, aber {providers} erstellen bei der ersten Anmeldung weiterhin Konten. Schalte „Konten erstellen“ bei einem Anbieter aus, um das zu beenden.",
   PKCE: "PKCE",

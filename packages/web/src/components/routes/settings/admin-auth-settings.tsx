@@ -3,7 +3,7 @@ import type {
   AdminOAuthProviderInput,
   AdminRuntimeConfig,
 } from "@alloy/api"
-import { t } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import { Callout } from "@alloy/ui/components/callout"
 import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
@@ -187,7 +187,9 @@ function SignUpProvidersNotice({ config }: { config: AdminRuntimeConfig }) {
     <Callout tone="info" className="mt-3 text-xs">
       <InfoIcon />
       <span>
-        {t(
+        {tp(
+          names.length,
+          "Open registrations is off, but {providers} still creates accounts on first sign-in. Turn off Create accounts on the provider to stop it.",
           "Open registrations is off, but {providers} still create accounts on first sign-in. Turn off Create accounts on a provider to stop it.",
           { providers: names.join(", ") },
         )}

@@ -359,7 +359,8 @@ export async function initializeConfigStore(): Promise<void> {
     const signUp = providers
       .filter((provider) => provider.allowSignUp)
       .map((provider) => provider.providerId)
-    if (signUp.length > 0) {
+    // Env-managed providers replace the stored list, so it is inactive.
+    if (signUp.length > 0 && env.authEnv.oauthProviders === null) {
       logger.warn(
         `OAuth providers ${signUp.join(", ")} keep creating accounts now that sign-up is a per-provider setting. Turning off open registrations no longer stops them; turn off Create accounts on each provider instead.`,
       )
