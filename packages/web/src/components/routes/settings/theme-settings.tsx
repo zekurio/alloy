@@ -279,12 +279,20 @@ function ColorSchemePicker({ theme }: { theme: ThemeState }) {
             )}
           >
             <span className="relative block">
-              <AppMiniature colors={mode === "dark" ? dark : light} />
               {mode === "system" ? (
-                <span className="absolute inset-0 [clip-path:inset(0_0_0_50%)]">
-                  <AppMiniature colors={dark} />
-                </span>
-              ) : null}
+                <>
+                  {/* Light stops just past the middle: underneath the whole
+                      dark half, its border showed through the dark edges. */}
+                  <span className="block [clip-path:inset(0_calc(50%_-_1px)_0_0)]">
+                    <AppMiniature colors={light} />
+                  </span>
+                  <span className="absolute inset-0 [clip-path:inset(0_0_0_50%)]">
+                    <AppMiniature colors={dark} />
+                  </span>
+                </>
+              ) : (
+                <AppMiniature colors={mode === "dark" ? dark : light} />
+              )}
             </span>
             <span className="truncate">{colorSchemeLabel(mode)}</span>
           </button>
