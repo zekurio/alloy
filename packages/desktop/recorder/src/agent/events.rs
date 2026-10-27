@@ -22,14 +22,25 @@ pub(super) fn claim_protocol_output() {
 fn protocol_output() -> Box<dyn Write + Send> {
     use std::{fs::File, os::fd::FromRawFd};
 
+    use crate::protocol::SIDE_CAR_NAME;
+
     // SAFETY: descriptors 1 and 2 are the process's standard streams; the
     // duplicate is owned by the returned file from here on.
     unsafe {
         let protocol = libc::fcntl(libc::STDOUT_FILENO, libc::F_DUPFD_CLOEXEC, 3);
         if protocol < 0 {
-            return Box::new(io::stdout());
+            eprintln!(
+                "[{SIDE_CAR_NAME}] could not reserve a private protocol stream, so helper output may split protocol lines: {}",
+                io::Error::last_os_error()
+            );
+            return Box::new(LineWriter::new(io::stdout()));
         }
-        libc::dup2(libc::STDERR_FILENO, libc::STDOUT_FILENO);
+        if libc::dup2(libc::STDERR_FILENO, libc::STDOUT_FILENO) < 0 {
+            eprintln!(
+                "[{SIDE_CAR_NAME}] could not move stdout to stderr, so helper output may split protocol lines: {}",
+                io::Error::last_os_error()
+            );
+        }
         Box::new(LineWriter::new(File::from_raw_fd(protocol)))
     }
 }
