@@ -42,7 +42,7 @@ The agent process lives under `recorder/src/agent/`:
   module list, and runtime layout. It does not depend on recorder state.
 - `platform/` discovers games, displays, GPUs, and audio, meters audio levels,
   and hooks hotkeys: Win32, WASAPI, and COM on Windows, `/proc`, sysfs, and
-  PulseAudio in `platform/linux/`. It does not depend on the recorder or
+  PipeWire in `platform/linux/`. It does not depend on the recorder or
   libobs.
 - `game_matching.rs` matches processes against the Discord catalog and the
   allow and deny lists. `quality.rs` resolves resolution, frame rate, and
@@ -60,7 +60,7 @@ The agent loads libobs from `ALLOY_OBS_RUNTIME_DIR`, an installed prefix with
 `lib/libobs.so.0`, `lib/obs-plugins`, and `share/obs`, or from the system. It
 opens only the modules it needs, from that prefix, `OBS_PLUGINS_PATH`, the
 system, or `~/.config/obs-studio/plugins`. `nix build .#alloy-obs-runtime`
-builds a matching prefix with every plugin below and libpulse.
+builds a matching prefix with every plugin below and libpipewire.
 
 - Game capture uses
   [obs-vkcapture](https://github.com/nowrep/obs-vkcapture), which captures
@@ -78,13 +78,17 @@ builds a matching prefix with every plugin below and libpulse.
   agent runs a GLib main loop for the portal's D-Bus replies, and stops the
   buffer if no picture arrives within two minutes. On X11 it captures a RandR
   monitor with OBS's `linux-capture`, listed through `xrandr`.
-- Audio devices come from PulseAudio (or PipeWire's PulseAudio server) through
-  OBS's `linux-pulseaudio`, keyed by source name: a sink's monitor for an
-  output. Application audio uses
+- Audio goes through PipeWire with
   [obs-pipewire-audio-capture](https://github.com/dimtpap/obs-pipewire-audio-capture),
-  matched by binary or, for Wine, by the application name Wine reports. The
-  agent lists devices and applications and meters their levels through
-  libpulse.
+  which the agent requires, since OBS has no PipeWire audio of its own.
+  Devices are keyed by node name, a sink for an output and a source for an
+  input; the plugin reconnects to that name whenever the node appears, and
+  follows the default device for `default`. Applications are matched by
+  binary or, for Wine, by the application name Wine reports. The agent loads
+  libpipewire like libobs, from the runtime prefix or the system, to list
+  devices, defaults, and applications and to meter their levels. The plugin
+  connects to a device once its node reports `audio.channels`; hardware
+  devices always do, but a virtual sink made for testing needs it set.
 - GPUs are DRM render nodes; the selected one is the VAAPI device. OBS's
   NVENC and QSV encoders work as on Windows.
 - `ffmpeg_muxer` and `replay_buffer` start OBS's `obs-ffmpeg-mux` from the

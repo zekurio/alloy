@@ -15,7 +15,7 @@ module. The development shell lives separately in `devenv.nix`.
   source, including nested workspace outputs.
 - `obs-runtime.nix` builds `.#alloy-obs-runtime`, the OBS prefix the Linux
   desktop recorder loads through `ALLOY_OBS_RUNTIME_DIR`: OBS with
-  obs-vkcapture, obs-pipewire-audio-capture, and libpulse. Build it from the
+  obs-vkcapture, obs-pipewire-audio-capture, and libpipewire. Build it from the
   same nixpkgs as the system, since libobs loads the system's graphics
   drivers.
 - `module.nix` defines `services.alloy-server`, including PostgreSQL,

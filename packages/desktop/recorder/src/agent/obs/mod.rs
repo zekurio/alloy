@@ -42,9 +42,9 @@ use self::{
     },
     platform::{
         audio_application_from_game, available_audio_applications, free_calldata,
-        platform_audio_devices, platform_default_audio_device_id, APPLICATION_AUDIO_PRIORITY,
-        APPLICATION_AUDIO_SOURCE_ID, APPLICATION_AUDIO_TARGET_KEY, AUDIO_INPUT_SOURCE_ID,
-        AUDIO_OUTPUT_SOURCE_ID, GAME_CAPTURE_SOURCE_ID,
+        platform_audio_devices, platform_default_audio_device_id, set_audio_device,
+        APPLICATION_AUDIO_PRIORITY, APPLICATION_AUDIO_SOURCE_ID, APPLICATION_AUDIO_TARGET_KEY,
+        AUDIO_INPUT_SOURCE_ID, AUDIO_OUTPUT_SOURCE_ID, GAME_CAPTURE_SOURCE_ID,
     },
     types::{AudioGraph, AudioSource, GameCaptureHookWait, OutputSourceKind, VideoGraph},
     video_config::EffectiveQuality,
@@ -659,7 +659,7 @@ pub(in crate::agent) unsafe fn create_audio_source(
 ) -> Result<*mut ObsSource, String> {
     let source = obs.with_data(|source_settings| {
         if let Some(device_id) = config.device_id.as_deref() {
-            obs.set_string(source_settings, c"device_id", device_id)?;
+            set_audio_device(obs, source_settings, device_id)?;
         }
         if let Some(window) = config.window.as_deref() {
             obs.set_string(source_settings, APPLICATION_AUDIO_TARGET_KEY, window)?;

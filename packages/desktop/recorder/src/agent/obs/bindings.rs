@@ -7,18 +7,22 @@ use std::{
 
 use libloading::Library;
 
+#[cfg(windows)]
+use crate::types::{RecordingAudioDevice, RecordingAudioDeviceKind};
 use crate::{
     agent::obs::types::{ObsEncoderDescriptor, ObsEncoderKind, ObsVideoConfig},
     protocol::SIDE_CAR_NAME,
-    types::{RecordingAudioDevice, RecordingAudioDeviceKind},
 };
 
+#[cfg(windows)]
+use super::platform::{
+    normalized_device_id, sort_audio_devices, AUDIO_INPUT_SOURCE_ID, AUDIO_OUTPUT_SOURCE_ID,
+};
 use super::{
     load_optional_symbol, load_symbol,
     platform::{
         cstring_path, graphics_module, libobs_candidates, library_path, module_paths,
-        normalized_device_id, platform_modules, sort_audio_devices, ModulePaths,
-        AUDIO_INPUT_SOURCE_ID, AUDIO_OUTPUT_SOURCE_ID,
+        platform_modules, ModulePaths,
     },
     screenshot::ScreenshotBindings,
 };
@@ -39,7 +43,9 @@ pub(in crate::agent) const OBS_ENCODER_VIDEO: c_int = 1;
 pub(in crate::agent) const OBS_ENCODER_CAP_DEPRECATED: u32 = 1 << 0;
 pub(in crate::agent) const OBS_ENCODER_CAP_PASS_TEXTURE: u32 = 1 << 1;
 pub(in crate::agent) const OBS_ENCODER_CAP_INTERNAL: u32 = 1 << 3;
+#[cfg(windows)]
 pub(in crate::agent) const OBS_PROPERTY_LIST: i32 = 6;
+#[cfg(windows)]
 pub(in crate::agent) const OBS_COMBO_FORMAT_STRING: i32 = 3;
 
 pub(in crate::agent) type ObsData = c_void;
@@ -48,7 +54,9 @@ pub(in crate::agent) type ObsEncoder = c_void;
 pub(in crate::agent) type ObsOutput = c_void;
 pub(in crate::agent) type ObsScene = c_void;
 pub(in crate::agent) type ObsSceneItem = c_void;
+#[cfg(windows)]
 pub(in crate::agent) type ObsProperties = c_void;
+#[cfg(windows)]
 pub(in crate::agent) type ObsProperty = c_void;
 pub(in crate::agent) type ObsVideo = c_void;
 pub(in crate::agent) type ObsAudio = c_void;
@@ -160,17 +168,25 @@ pub(in crate::agent) struct LibObs {
     obs_data_get_string: unsafe extern "C" fn(*mut ObsData, *const c_char) -> *const c_char,
     #[cfg(target_os = "linux")]
     obs_get_source_output_flags: Option<unsafe extern "C" fn(*const c_char) -> u32>,
+    #[cfg(windows)]
     pub(in crate::agent) obs_get_source_properties:
         unsafe extern "C" fn(*const c_char) -> *mut ObsProperties,
+    #[cfg(windows)]
     pub(in crate::agent) obs_properties_destroy: unsafe extern "C" fn(*mut ObsProperties),
+    #[cfg(windows)]
     pub(in crate::agent) obs_properties_get:
         unsafe extern "C" fn(*mut ObsProperties, *const c_char) -> *mut ObsProperty,
+    #[cfg(windows)]
     pub(in crate::agent) obs_property_get_type: unsafe extern "C" fn(*mut ObsProperty) -> i32,
+    #[cfg(windows)]
     pub(in crate::agent) obs_property_list_format: unsafe extern "C" fn(*mut ObsProperty) -> i32,
+    #[cfg(windows)]
     pub(in crate::agent) obs_property_list_item_count:
         unsafe extern "C" fn(*mut ObsProperty) -> usize,
+    #[cfg(windows)]
     pub(in crate::agent) obs_property_list_item_name:
         unsafe extern "C" fn(*mut ObsProperty, usize) -> *const c_char,
+    #[cfg(windows)]
     pub(in crate::agent) obs_property_list_item_string:
         unsafe extern "C" fn(*mut ObsProperty, usize) -> *const c_char,
     pub(in crate::agent) obs_source_create: unsafe extern "C" fn(
@@ -358,13 +374,21 @@ impl LibObs {
                 &library,
                 b"obs_get_source_output_flags\0",
             ),
+            #[cfg(windows)]
             obs_get_source_properties: load_symbol(&library, b"obs_get_source_properties\0")?,
+            #[cfg(windows)]
             obs_properties_destroy: load_symbol(&library, b"obs_properties_destroy\0")?,
+            #[cfg(windows)]
             obs_properties_get: load_symbol(&library, b"obs_properties_get\0")?,
+            #[cfg(windows)]
             obs_property_get_type: load_symbol(&library, b"obs_property_get_type\0")?,
+            #[cfg(windows)]
             obs_property_list_format: load_symbol(&library, b"obs_property_list_format\0")?,
+            #[cfg(windows)]
             obs_property_list_item_count: load_symbol(&library, b"obs_property_list_item_count\0")?,
+            #[cfg(windows)]
             obs_property_list_item_name: load_symbol(&library, b"obs_property_list_item_name\0")?,
+            #[cfg(windows)]
             obs_property_list_item_string: load_symbol(
                 &library,
                 b"obs_property_list_item_string\0",
@@ -779,6 +803,8 @@ impl LibObs {
         output_flags(id.as_ptr()) != 0
     }
 
+    /// WASAPI devices as OBS's own sources list them.
+    #[cfg(windows)]
     pub(in crate::agent) unsafe fn audio_devices(
         &self,
     ) -> Result<Vec<RecordingAudioDevice>, String> {
@@ -791,6 +817,7 @@ impl LibObs {
         Ok(devices)
     }
 
+    #[cfg(windows)]
     unsafe fn audio_devices_for_source(
         &self,
         source_id: &str,

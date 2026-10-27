@@ -1,6 +1,6 @@
 //! Platform discovery behind one API: games, displays, audio applications and
 //! level meters, and the hotkey hook. Windows reads windows, WASAPI and COM;
-//! Linux reads `/proc`, sysfs and PulseAudio in `linux`.
+//! Linux reads `/proc`, sysfs and PipeWire in `linux`.
 
 use std::process::Command;
 

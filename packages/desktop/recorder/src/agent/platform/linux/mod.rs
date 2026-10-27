@@ -1,11 +1,12 @@
 //! Linux discovery: games from `/proc`, displays from the Wayland or X11
 //! session, GPUs from DRM render nodes, and audio devices, applications and
-//! level meters through PulseAudio, which PipeWire serves as well.
+//! level meters from PipeWire.
 
 mod audio;
 mod displays;
 mod games;
 mod gpus;
+mod pipewire;
 pub(in crate::agent) mod session;
 
 pub(in crate::agent) use audio::{

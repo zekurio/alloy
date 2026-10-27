@@ -1,15 +1,15 @@
 //! libobs on Linux. OBS comes from a runtime folder (`ALLOY_OBS_RUNTIME_DIR`,
 //! the layout of an installed prefix) or from the system. Capture uses
 //! obs-vkcapture for games, the screen-sharing portal (Wayland) or OBS's X11
-//! screen capture for displays, PulseAudio sources for devices, and
-//! obs-pipewire-audio-capture for applications.
+//! screen capture for displays, and obs-pipewire-audio-capture for devices
+//! and applications.
 
 use std::{
     env,
     ffi::{c_char, c_int, c_void, CStr, CString},
     fs,
     path::{Path, PathBuf},
-    sync::{Mutex, Once, OnceLock},
+    sync::{Mutex, Once},
     thread,
 };
 
@@ -35,16 +35,19 @@ use crate::{
     },
 };
 
-use super::{sort_audio_devices, LibObs, ModulePaths, ObsModuleSpec};
+use super::{sort_audio_devices, LibObs, ModulePaths, ObsData, ObsModuleSpec};
 
 pub(in crate::agent) const GAME_CAPTURE_SOURCE_ID: &str = "vkcapture-source";
-pub(in crate::agent) const AUDIO_OUTPUT_SOURCE_ID: &str = "pulse_output_capture";
-pub(in crate::agent) const AUDIO_INPUT_SOURCE_ID: &str = "pulse_input_capture";
+pub(in crate::agent) const AUDIO_OUTPUT_SOURCE_ID: &str = "pipewire_audio_output_capture";
+pub(in crate::agent) const AUDIO_INPUT_SOURCE_ID: &str = "pipewire_audio_input_capture";
 pub(in crate::agent) const APPLICATION_AUDIO_SOURCE_ID: &str = "pipewire_audio_application_capture";
 /// The application name obs-pipewire-audio-capture matches, case-insensitively,
 /// against a stream's binary or application name.
 pub(in crate::agent) const APPLICATION_AUDIO_TARGET_KEY: &CStr = c"TargetName";
 pub(in crate::agent) const APPLICATION_AUDIO_PRIORITY: Option<i64> = None;
+
+/// The device sources' `TargetId` for following the default device.
+const PW_ID_ANY: i64 = u32::MAX as i64;
 
 const OBS_NIX_PLATFORM_X11_EGL: c_int = 1;
 const OBS_NIX_PLATFORM_WAYLAND: c_int = 2;
@@ -216,11 +219,6 @@ pub(in crate::agent) fn platform_modules() -> &'static [ObsModuleSpec] {
             capture: false,
         },
         ObsModuleSpec {
-            name: "linux-pulseaudio",
-            required: true,
-            capture: true,
-        },
-        ObsModuleSpec {
             name: "linux-vkcapture",
             required: false,
             capture: true,
@@ -235,9 +233,10 @@ pub(in crate::agent) fn platform_modules() -> &'static [ObsModuleSpec] {
             required: false,
             capture: true,
         },
+        // obs-pipewire-audio-capture: every audio source, devices included.
         ObsModuleSpec {
             name: "linux-pipewire-audio",
-            required: false,
+            required: true,
             capture: true,
         },
     ]
@@ -257,7 +256,9 @@ struct DisplayConnection {
     _library: Library,
 }
 
-static DISPLAY_CONNECTION: OnceLock<Result<DisplayConnection, String>> = OnceLock::new();
+/// Only a connection that opened is kept: the session may not be up yet when
+/// the agent starts, so the next OBS start tries again.
+static DISPLAY_CONNECTION: Mutex<Option<DisplayConnection>> = Mutex::new(None);
 static GLIB_MAIN_LOOP: Once = Once::new();
 
 /// Connects libobs to the session and starts the GLib main loop the
@@ -265,10 +266,13 @@ static GLIB_MAIN_LOOP: Once = Once::new();
 /// dependencies provide the Wayland, X11 and GLib libraries opened here.
 pub(in crate::agent) fn prepare_display_session() -> Result<NixDisplay, String> {
     start_glib_main_loop();
-    let connection = DISPLAY_CONNECTION
-        .get_or_init(connect_display)
-        .as_ref()
-        .map_err(Clone::clone)?;
+    let mut connection = DISPLAY_CONNECTION
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if connection.is_none() {
+        *connection = Some(connect_display()?);
+    }
+    let connection = connection.as_ref().expect("connected above");
     Ok(NixDisplay {
         platform: connection.platform,
         display: connection.display as *mut c_void,
@@ -471,20 +475,34 @@ pub(in crate::agent) fn mux_helper_ready() -> Result<(), String> {
     ))
 }
 
+/// Devices from PipeWire. OBS can't list them instead: the device sources
+/// only know their nodes once created.
 pub(in crate::agent) fn platform_audio_devices(
-    obs: Option<&LibObs>,
+    _obs: Option<&LibObs>,
 ) -> Result<Vec<RecordingAudioDevice>, String> {
-    match audio_devices() {
-        Ok(mut devices) => {
-            sort_audio_devices(&mut devices);
-            Ok(devices)
-        }
-        Err(error) => match obs {
-            // SAFETY: the caller only supplies a started libobs instance.
-            Some(obs) => unsafe { obs.audio_devices() },
-            None => Err(error),
-        },
+    let mut devices = audio_devices()?;
+    sort_audio_devices(&mut devices);
+    Ok(devices)
+}
+
+/// Points a device source at `device_id`. `default` follows the default
+/// device; any other `TargetId` makes the source reconnect to the node named
+/// `TargetName` whenever it appears, since node ids change between sessions.
+///
+/// # Safety
+///
+/// `settings` must be a live OBS data object.
+pub(in crate::agent) unsafe fn set_audio_device(
+    obs: &LibObs,
+    settings: *mut ObsData,
+    device_id: &str,
+) -> Result<(), String> {
+    if device_id == "default" {
+        obs.set_int(settings, c"TargetId", PW_ID_ANY);
+        return Ok(());
     }
+    obs.set_int(settings, c"TargetId", 0);
+    obs.set_string(settings, c"TargetName", device_id)
 }
 
 pub(in crate::agent) fn platform_default_audio_device_id(
@@ -523,9 +541,4 @@ pub(in crate::agent) fn audio_application_from_game(
         enabled,
         volume: 100,
     })
-}
-
-/// PulseAudio source names are case-sensitive.
-pub(in crate::agent) fn normalized_device_id(id: &str) -> String {
-    id.to_string()
 }

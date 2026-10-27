@@ -18,7 +18,7 @@ use crate::{
     types::{RecordingAudioApplicationSelection, RecordingAudioDevice, RecordingAudioDeviceKind},
 };
 
-use super::{sort_audio_devices, LibObs, ModulePaths, ObsModuleSpec};
+use super::{sort_audio_devices, LibObs, ModulePaths, ObsData, ObsModuleSpec};
 
 pub(in crate::agent) const GAME_CAPTURE_SOURCE_ID: &str = "game_capture";
 pub(in crate::agent) const AUDIO_OUTPUT_SOURCE_ID: &str = "wasapi_output_capture";
@@ -172,6 +172,19 @@ fn audio_application_id(game: &DetectedGame) -> String {
         game.game.window_class.as_deref(),
         game.game.process_id,
     )
+}
+
+/// Points a WASAPI source at an endpoint id, or at `default`.
+///
+/// # Safety
+///
+/// `settings` must be a live OBS data object.
+pub(in crate::agent) unsafe fn set_audio_device(
+    obs: &LibObs,
+    settings: *mut ObsData,
+    device_id: &str,
+) -> Result<(), String> {
+    obs.set_string(settings, c"device_id", device_id)
 }
 
 /// WASAPI endpoint ids are case-insensitive GUID paths; the settings store
