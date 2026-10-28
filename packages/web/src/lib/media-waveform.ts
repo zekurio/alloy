@@ -231,7 +231,7 @@ const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"])
  * `Access-Control-Allow-Credentials`, so a credentialed fetch to it is rejected
  * by the browser and the waveform never loads.
  */
-function mediaRequestCredentials(mediaUrl: string): RequestCredentials {
+export function mediaRequestCredentials(mediaUrl: string): RequestCredentials {
   const url = new URL(mediaUrl, window.location.href)
   if (url.protocol !== "http:" && url.protocol !== "https:") return "omit"
   if (url.origin === window.location.origin) return "include"

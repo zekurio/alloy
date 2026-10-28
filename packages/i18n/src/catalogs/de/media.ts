@@ -29,7 +29,6 @@ export const MEDIA_MESSAGES = {
   "Be the first to post one.": "Sei der Erste, der etwas postet.",
   Bitrate: "Bitrate",
   Blur: "Weichzeichnen",
-  "Cancel trim": "Zuschnitt verwerfen",
   "Choose an MP4 video file.": "Wähle eine MP4-Videodatei aus.",
   "Choose an MP4 video or a PNG, JPEG, or WebP image.":
     "Wähle ein MP4-Video oder ein Bild im Format PNG, JPEG oder WebP.",
@@ -263,6 +262,7 @@ export const MEDIA_MESSAGES = {
   "Share clip": "Clip teilen",
   "Show clips for {game}": "Clips für {game} anzeigen",
   "Show one more": "Ein weiteres anzeigen",
+  "Show the whole clip": "Ganzen Clip anzeigen",
   "Show {count} more": "{count} weitere anzeigen",
   "Sign in to see recommendations": "Melde dich an, um Empfehlungen zu sehen",
   Square: "Quadratisch",
