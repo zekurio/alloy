@@ -140,7 +140,6 @@ export const ADMIN_MESSAGES = {
   Height: "Höhe",
   "Height must be an even number from 144 to 4320.":
     "Die Höhe muss eine gerade Zahl von 144 bis 4320 sein.",
-  Hide: "Ausblenden",
   "How Alloy sends the client secret to the token endpoint.":
     "Wie Alloy das Client-Secret an den Token-Endpunkt sendet.",
   "How long a clip upload has to finish before its upload link expires.":
@@ -257,7 +256,6 @@ export const ADMIN_MESSAGES = {
   "Sets the role to admin or user on every sign-in.":
     "Setzt die Rolle bei jeder Anmeldung auf admin oder user.",
   "Setup token": "Setup-Token",
-  Show: "Anzeigen",
   "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.":
     "Zeig hinter dem Login-Formular eine schräge, scrollende Wand aus zufälligen Vorschaubildern öffentlicher Clips.",
   "Show the backdrop": "Hintergrund anzeigen",
