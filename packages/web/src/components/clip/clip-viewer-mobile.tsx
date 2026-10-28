@@ -9,10 +9,7 @@ import { XIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 
-import {
-  mobileOverlayCloseButtonClassName,
-  mobileSurfaceCloseButtonClassName,
-} from "@/components/app/mobile-close-button"
+import { mobileOverlayCloseButtonClassName } from "@/components/app/mobile-close-button"
 import { GameIcon } from "@/components/game/game-icon"
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
 import { startBrowserDownload } from "@/lib/browser-download"
@@ -172,14 +169,13 @@ function MobileClipViewerBody({
         initialFocus={initialFocusRef}
         className="h-dvh w-dvw rounded-none border-0 shadow-none"
       >
+        {/* A black page whatever the theme, like other phone video viewers.
+            The forced `dark` subtree keeps the details, tags and mentions on
+            the dark theme's colours, readable against it. */}
         <div
+          data-slot="mobile-clip-viewer"
           data-orientation={isLandscape ? "landscape" : "portrait"}
-          className={cn(
-            "group/viewer relative h-full touch-none overflow-hidden",
-            // Portrait follows the theme like the desktop viewer's dialog;
-            // landscape gives the screen to the video, so it stays black.
-            isLandscape ? "bg-black" : "bg-surface",
-          )}
+          className="group/viewer dark relative h-full touch-none overflow-hidden bg-black"
           {...paging.handlers}
         >
           {/* ---- Page track: neighbours wait above and below the clip ---- */}
@@ -286,10 +282,10 @@ function MobileClipViewerBody({
           {/* ---- Action rail: stays put while pages slide past ---- */}
           <div
             className={cn(
-              "absolute z-20 flex flex-col items-center",
+              "absolute z-20 flex flex-col items-center drop-shadow-[0_1px_3px_rgba(0,0,0,0.65)]",
               isLandscape
                 ? cn(
-                    "right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] bottom-[max(3.5rem,calc(env(safe-area-inset-bottom)+1rem))] w-9 gap-4 drop-shadow-[0_1px_3px_rgba(0,0,0,0.65)]",
+                    "right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] bottom-[max(3.5rem,calc(env(safe-area-inset-bottom)+1rem))] w-9 gap-4",
                     FADE_WITH_PLAYER_CHROME,
                   )
                 : "right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] bottom-[max(1.25rem,env(safe-area-inset-bottom))] gap-5",
@@ -298,16 +294,13 @@ function MobileClipViewerBody({
             <MobileActionsRail
               {...actionRailProps}
               iconSizeClassName={isLandscape ? "size-6" : "size-7"}
-              iconClassName={isLandscape ? "text-white" : "text-foreground"}
             />
           </div>
 
           {/* ---- Close button ---- */}
           <DialogClose
             className={cn(
-              isLandscape
-                ? mobileOverlayCloseButtonClassName
-                : mobileSurfaceCloseButtonClassName,
+              mobileOverlayCloseButtonClassName,
               "absolute top-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] z-30",
               isLandscape && FADE_WITH_PLAYER_CHROME,
             )}

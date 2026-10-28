@@ -105,8 +105,6 @@ type MobileActionsRailProps = {
   shareError: string | null
   shareDisabled: boolean
   iconSizeClassName: string
-  /** Glyph colour: white over the video, the theme's text on the page. */
-  iconClassName: string
   onShare: () => void
   onDownload: () => void
   onEdit: () => void
@@ -123,7 +121,6 @@ export function MobileActionsRail({
   shareError,
   shareDisabled,
   iconSizeClassName,
-  iconClassName,
   onShare,
   onDownload,
   onEdit,
@@ -142,7 +139,7 @@ export function MobileActionsRail({
         icon={
           shareState === "pending" ? (
             <LoaderCircleIcon
-              className={cn(iconSizeClassName, iconClassName, "animate-spin")}
+              className={cn(iconSizeClassName, "animate-spin text-white")}
             />
           ) : shareState === "success" ? (
             <CheckIcon className={cn(iconSizeClassName, "text-success")} />
@@ -151,7 +148,7 @@ export function MobileActionsRail({
               className={cn(iconSizeClassName, "text-destructive")}
             />
           ) : (
-            <Share2Icon className={cn(iconSizeClassName, iconClassName)} />
+            <Share2Icon className={cn(iconSizeClassName, "text-white")} />
           )
         }
       />
@@ -163,10 +160,10 @@ export function MobileActionsRail({
               className="flex flex-col items-center"
               aria-label={t("Clip actions")}
             >
-              {/* Same colour as the rail's other glyphs; the rotation makes
-                  the horizontal dots read as the usual vertical overflow menu. */}
+              {/* Same white as the rail's other glyphs; the rotation makes the
+                  horizontal dots read as the usual vertical overflow menu. */}
               <MoreHorizontalIcon
-                className={cn(iconSizeClassName, iconClassName, "rotate-90")}
+                className={cn(iconSizeClassName, "rotate-90 text-white")}
               />
             </button>
           </DrawerTrigger>
