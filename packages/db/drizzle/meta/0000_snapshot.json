@@ -612,12 +612,8 @@
           "name": "clip_author_id_user_id_fk",
           "tableFrom": "clip",
           "tableTo": "user",
-          "columnsFrom": [
-            "author_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["author_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -625,12 +621,8 @@
           "name": "clip_game_id_game_id_fk",
           "tableFrom": "clip",
           "tableTo": "game",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -705,12 +697,8 @@
           "name": "clip_mention_clip_id_clip_id_fk",
           "tableFrom": "clip_mention",
           "tableTo": "clip",
-          "columnsFrom": [
-            "clip_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["clip_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -718,12 +706,8 @@
           "name": "clip_mention_mentioned_user_id_user_id_fk",
           "tableFrom": "clip_mention",
           "tableTo": "user",
-          "columnsFrom": [
-            "mentioned_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["mentioned_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -731,10 +715,7 @@
       "compositePrimaryKeys": {
         "clip_mention_clip_id_mentioned_user_id_pk": {
           "name": "clip_mention_clip_id_mentioned_user_id_pk",
-          "columns": [
-            "clip_id",
-            "mentioned_user_id"
-          ]
+          "columns": ["clip_id", "mentioned_user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -844,12 +825,8 @@
           "name": "clip_rendition_clip_id_clip_id_fk",
           "tableFrom": "clip_rendition",
           "tableTo": "clip",
-          "columnsFrom": [
-            "clip_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["clip_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -908,12 +885,8 @@
           "name": "clip_tag_clip_id_clip_id_fk",
           "tableFrom": "clip_tag",
           "tableTo": "clip",
-          "columnsFrom": [
-            "clip_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["clip_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -921,10 +894,7 @@
       "compositePrimaryKeys": {
         "clip_tag_clip_id_tag_pk": {
           "name": "clip_tag_clip_id_tag_pk",
-          "columns": [
-            "clip_id",
-            "tag"
-          ]
+          "columns": ["clip_id", "tag"]
         }
       },
       "uniqueConstraints": {},
@@ -990,12 +960,8 @@
           "name": "clip_view_clip_id_clip_id_fk",
           "tableFrom": "clip_view",
           "tableTo": "clip",
-          "columnsFrom": [
-            "clip_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["clip_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1003,12 +969,8 @@
           "name": "clip_view_user_id_user_id_fk",
           "tableFrom": "clip_view",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1016,10 +978,7 @@
       "compositePrimaryKeys": {
         "clip_view_clip_id_viewer_key_pk": {
           "name": "clip_view_clip_id_viewer_key_pk",
-          "columns": [
-            "clip_id",
-            "viewer_key"
-          ]
+          "columns": ["clip_id", "viewer_key"]
         }
       },
       "uniqueConstraints": {},
@@ -1156,16 +1115,12 @@
         "game_steamgriddb_id_unique": {
           "name": "game_steamgriddb_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "steamgriddb_id"
-          ]
+          "columns": ["steamgriddb_id"]
         },
         "game_slug_unique": {
           "name": "game_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
@@ -1347,12 +1302,8 @@
           "name": "upload_ticket_owner_id_user_id_fk",
           "tableFrom": "upload_ticket",
           "tableTo": "user",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1362,9 +1313,7 @@
         "upload_ticket_storage_key_unique": {
           "name": "upload_ticket_storage_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "storage_key"
-          ]
+          "columns": ["storage_key"]
         }
       },
       "policies": {},
@@ -1458,12 +1407,8 @@
           "name": "block_blocker_id_user_id_fk",
           "tableFrom": "block",
           "tableTo": "user",
-          "columnsFrom": [
-            "blocker_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["blocker_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1471,12 +1416,8 @@
           "name": "block_blocked_id_user_id_fk",
           "tableFrom": "block",
           "tableTo": "user",
-          "columnsFrom": [
-            "blocked_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["blocked_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1713,12 +1654,8 @@
           "name": "user_theme_user_id_user_id_fk",
           "tableFrom": "user_theme",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1726,10 +1663,7 @@
       "compositePrimaryKeys": {
         "user_theme_user_id_id_pk": {
           "name": "user_theme_user_id_id_pk",
-          "columns": [
-            "user_id",
-            "id"
-          ]
+          "columns": ["user_id", "id"]
         }
       },
       "uniqueConstraints": {},
@@ -1990,12 +1924,8 @@
           "name": "webhook_delivery_webhook_id_webhook_id_fk",
           "tableFrom": "webhook_delivery",
           "tableTo": "webhook",
-          "columnsFrom": [
-            "webhook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["webhook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2003,12 +1933,8 @@
           "name": "webhook_delivery_clip_id_clip_id_fk",
           "tableFrom": "webhook_delivery",
           "tableTo": "clip",
-          "columnsFrom": [
-            "clip_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["clip_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2121,12 +2047,8 @@
           "name": "auth_account_user_id_user_id_fk",
           "tableFrom": "auth_account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2251,12 +2173,8 @@
           "name": "auth_challenge_user_id_user_id_fk",
           "tableFrom": "auth_challenge",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2379,12 +2297,8 @@
           "name": "auth_session_user_id_user_id_fk",
           "tableFrom": "auth_session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2394,9 +2308,7 @@
         "auth_session_token_hash_unique": {
           "name": "auth_session_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -2658,12 +2570,8 @@
           "name": "user_passkey_user_id_user_id_fk",
           "tableFrom": "user_passkey",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2673,9 +2581,7 @@
         "user_passkey_credential_id_unique": {
           "name": "user_passkey_credential_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "credential_id"
-          ]
+          "columns": ["credential_id"]
         }
       },
       "policies": {},
