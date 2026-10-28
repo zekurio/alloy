@@ -9,7 +9,10 @@ import { XIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 
-import { mobileOverlayCloseButtonClassName } from "@/components/app/mobile-close-button"
+import {
+  mobileOverlayCloseButtonClassName,
+  mobileSurfaceCloseButtonClassName,
+} from "@/components/app/mobile-close-button"
 import { GameIcon } from "@/components/game/game-icon"
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
 import { startBrowserDownload } from "@/lib/browser-download"
@@ -167,11 +170,16 @@ function MobileClipViewerBody({
     <>
       <DialogViewportContent
         initialFocus={initialFocusRef}
-        className="h-dvh w-dvw rounded-none border-0 bg-black shadow-none"
+        className="h-dvh w-dvw rounded-none border-0 shadow-none"
       >
         <div
           data-orientation={isLandscape ? "landscape" : "portrait"}
-          className="group/viewer relative h-full touch-none overflow-hidden bg-black"
+          className={cn(
+            "group/viewer relative h-full touch-none overflow-hidden",
+            // Portrait follows the theme like the desktop viewer's dialog;
+            // landscape gives the screen to the video, so it stays black.
+            isLandscape ? "bg-black" : "bg-surface",
+          )}
           {...paging.handlers}
         >
           {/* ---- Page track: neighbours wait above and below the clip ---- */}
@@ -222,7 +230,8 @@ function MobileClipViewerBody({
                     autoPlay
                     enableHorizontalSeekShortcuts={false}
                     className={cn(
-                      "data-[fullscreen=true]:rounded-none",
+                      // Letterboxing inside the frame is black, as on desktop.
+                      "bg-black data-[fullscreen=true]:rounded-none",
                       // Portrait fills the full width, so the player sits
                       // flush against the screen edges; rounded corners would
                       // float off them. Only round when landscape centers it
@@ -277,10 +286,10 @@ function MobileClipViewerBody({
           {/* ---- Action rail: stays put while pages slide past ---- */}
           <div
             className={cn(
-              "absolute z-20 flex flex-col items-center drop-shadow-[0_1px_3px_rgba(0,0,0,0.65)]",
+              "absolute z-20 flex flex-col items-center",
               isLandscape
                 ? cn(
-                    "right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] bottom-[max(3.5rem,calc(env(safe-area-inset-bottom)+1rem))] w-9 gap-4",
+                    "right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] bottom-[max(3.5rem,calc(env(safe-area-inset-bottom)+1rem))] w-9 gap-4 drop-shadow-[0_1px_3px_rgba(0,0,0,0.65)]",
                     FADE_WITH_PLAYER_CHROME,
                   )
                 : "right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] bottom-[max(1.25rem,env(safe-area-inset-bottom))] gap-5",
@@ -289,13 +298,16 @@ function MobileClipViewerBody({
             <MobileActionsRail
               {...actionRailProps}
               iconSizeClassName={isLandscape ? "size-6" : "size-7"}
+              iconClassName={isLandscape ? "text-white" : "text-foreground"}
             />
           </div>
 
           {/* ---- Close button ---- */}
           <DialogClose
             className={cn(
-              mobileOverlayCloseButtonClassName,
+              isLandscape
+                ? mobileOverlayCloseButtonClassName
+                : mobileSurfaceCloseButtonClassName,
               "absolute top-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] z-30",
               isLandscape && FADE_WITH_PLAYER_CHROME,
             )}
@@ -308,8 +320,8 @@ function MobileClipViewerBody({
             <div
               aria-hidden
               className={cn(
-                "pointer-events-none absolute inset-x-0 top-[max(1rem,calc(env(safe-area-inset-top)+0.5rem))] z-30 mx-auto w-fit rounded-full border border-white/10 bg-black/45 px-3 py-1.5",
-                "text-xs font-semibold tracking-wide text-white/75 shadow-[0_8px_30px_-14px_rgb(0_0_0_/_0.9)] backdrop-blur-md",
+                "border-border bg-surface-raised/90 pointer-events-none absolute inset-x-0 top-[max(1rem,calc(env(safe-area-inset-top)+0.5rem))] z-30 mx-auto w-fit rounded-full border px-3 py-1.5",
+                "text-foreground-muted text-xs font-semibold tracking-wide shadow-md backdrop-blur-md",
                 "animate-in animation-duration-200 fade-in-0 slide-in-from-top-1",
               )}
             >
@@ -347,8 +359,7 @@ function clipPageAspectRatio(row: ClipRow): number {
 
 /**
  * One page of the viewer: the media centred in the space above the clip's
- * details. Screenshots fill the screen and carry their details on a gradient
- * instead; landscape leaves the whole screen to the media. A neighbour page
+ * details; landscape leaves the whole screen to the media. A neighbour page
  * shares this layout, so the clip that slides in lands exactly where the
  * player then takes over.
  */
@@ -365,24 +376,16 @@ function ClipPage({
   className?: string
   inert?: boolean
 }) {
-  const overlayDetails = row.mediaKind === "image"
   return (
     <div
       className={cn("absolute inset-0 flex flex-col", className)}
       inert={inert}
       aria-hidden={inert}
     >
-      <div
-        className={cn(
-          "flex min-h-0 flex-1 items-center justify-center [container-type:size]",
-          overlayDetails && "absolute inset-0",
-        )}
-      >
+      <div className="[container-type:size] flex min-h-0 flex-1 items-center justify-center">
         {media}
       </div>
-      {isLandscape ? null : (
-        <ClipPageDetails row={row} overlay={overlayDetails} />
-      )}
+      {isLandscape ? null : <ClipPageDetails row={row} />}
     </div>
   )
 }
@@ -416,14 +419,14 @@ function NeighbourPage({
             src={thumbnail}
             alt=""
             className={cn(
-              "object-contain",
+              "bg-black object-contain",
               isLandscape ? "rounded-lg" : "rounded-none",
             )}
             style={frameStyle}
             decoding="async"
           />
         ) : (
-          <div style={frameStyle} />
+          <div className="bg-black" style={frameStyle} />
         )
       }
     />
@@ -431,7 +434,7 @@ function NeighbourPage({
 }
 
 /** Game, author, title and the rest, bottom-left beside the action rail. */
-function ClipPageDetails({ row, overlay }: { row: ClipRow; overlay: boolean }) {
+function ClipPageDetails({ row }: { row: ClipRow }) {
   const gameLabel = clipGameLabel(row)
   const gameRef = row.gameRef
   const gameIcon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null
@@ -445,14 +448,9 @@ function ClipPageDetails({ row, overlay }: { row: ClipRow; overlay: boolean }) {
   return (
     <div
       className={cn(
-        "flex max-h-[min(40dvh,16rem)] min-h-0 shrink-0 flex-col justify-end gap-2.5 overflow-hidden",
+        "relative z-10 flex max-h-[min(40dvh,16rem)] min-h-0 shrink-0 flex-col justify-end gap-2.5 overflow-hidden pt-4",
         // Room for the action rail, which sits outside the sliding page.
         "pr-[calc(max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))+2.75rem)] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]",
-        // Screenshots fill the screen, so their details overlay the bottom
-        // edge on a gradient instead of taking layout space.
-        overlay
-          ? "absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-24"
-          : "relative z-10 pt-4",
       )}
     >
       {gameRef ? (
@@ -466,12 +464,12 @@ function ClipPageDetails({ row, overlay }: { row: ClipRow; overlay: boolean }) {
             name={gameLabel}
             className="size-6 rounded"
           />
-          <span className="text-base font-semibold text-white/90">
+          <span className="text-foreground text-base font-semibold">
             {gameLabel}
           </span>
         </Link>
       ) : (
-        <span className="text-base font-semibold text-white/90">
+        <span className="text-foreground text-base font-semibold">
           {gameLabel}
         </span>
       )}
@@ -483,20 +481,19 @@ function ClipPageDetails({ row, overlay }: { row: ClipRow; overlay: boolean }) {
         author={row.authorUsername}
         size="md"
         className="inline-flex w-fit items-center gap-2"
-        textClassName="text-lg font-bold text-white"
+        textClassName="text-foreground text-lg font-bold"
       />
 
       <ClipTitleWithVisibility
         title={row.title}
         privacy={row.privacy}
-        titleClassName="line-clamp-2 min-w-0 text-base leading-tight font-semibold text-white"
-        badgeClassName="bg-white/10 text-white/75"
+        titleClassName="text-foreground line-clamp-2 min-w-0 text-base leading-tight font-semibold"
       />
 
       <ClipMentionsRow mentions={row.mentions ?? []} />
 
       {row.description ? (
-        <p className="line-clamp-3 text-sm leading-relaxed whitespace-pre-wrap text-white/65">
+        <p className="text-foreground-muted line-clamp-3 text-sm leading-relaxed whitespace-pre-wrap">
           {renderHashtagTokens(row.description)}
         </p>
       ) : null}
