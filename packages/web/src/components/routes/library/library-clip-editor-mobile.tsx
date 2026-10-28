@@ -233,7 +233,11 @@ function MobileTrimControls({
       <TrimTimeline
         waveform={media.waveform}
         frames={filmstrip.frames}
-        framesUnavailable={filmstrip.status === "error"}
+        // No source to decode (idle) or no decoder (error): no frames are
+        // coming, so the waveform takes the whole strip.
+        framesUnavailable={
+          filmstrip.status === "error" || filmstrip.status === "idle"
+        }
         durationMs={playback.durationMs}
         startMs={playback.trim.startMs}
         endMs={playback.trim.endMs}

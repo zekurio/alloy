@@ -139,6 +139,8 @@ function MobileClipViewerBody({
       isAdmin && row.status === "ready" && row.privacy === "public"
         ? {
             disabled: Boolean(row.encodeActive) || reannounce.isPending,
+            // The hook toasts both outcomes, and this component outlives the
+            // sheet that closes on tap.
             onReannounce: () => reannounce.mutate({ clipId: row.id }),
           }
         : null,

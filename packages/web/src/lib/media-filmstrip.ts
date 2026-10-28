@@ -45,9 +45,13 @@ export function useMediaFilmstrip(
   durationMs: number,
   offsetMs = 0,
 ): MediaFilmstripState {
+  // Whole milliseconds, so a sub-millisecond refinement of either can't
+  // restart a load whose key it wouldn't change.
+  const sourceDurationMs = Math.round(durationMs)
+  const sourceOffsetMs = Math.round(offsetMs)
   const key =
-    mediaUrl && cacheKey && durationMs > 0
-      ? `${cacheKey}:${Math.round(durationMs)}:${Math.round(offsetMs)}`
+    mediaUrl && cacheKey && sourceDurationMs > 0
+      ? `${cacheKey}:${sourceDurationMs}:${sourceOffsetMs}`
       : null
   const [state, setState] = useState<{
     key: string | null
@@ -64,8 +68,8 @@ export function useMediaFilmstrip(
     const frames: FilmstripFrame[] = []
     void loadFilmstrip(
       mediaUrl,
-      durationMs,
-      offsetMs,
+      sourceDurationMs,
+      sourceOffsetMs,
       controller.signal,
       (frame) => {
         frames.push(frame)
@@ -96,7 +100,7 @@ export function useMediaFilmstrip(
       },
     )
     return () => controller.abort()
-  }, [durationMs, key, mediaUrl, offsetMs])
+  }, [key, mediaUrl, sourceDurationMs, sourceOffsetMs])
 
   return state.key === key ? state.filmstrip : initialFilmstrip(key)
 }
