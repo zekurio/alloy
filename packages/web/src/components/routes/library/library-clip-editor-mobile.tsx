@@ -11,13 +11,14 @@ import {
   SaveIcon,
   ScissorsIcon,
 } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 import { MediaStage } from "@/components/clip-editor/media-stage"
 import { TrimElapsed } from "@/components/clip-editor/transport-controls"
 import { TrimTimeline } from "@/components/clip-editor/trim-timeline"
 import type { TrimRange } from "@/components/clip-editor/use-trim-playback"
 import { useExternalVideoVolume } from "@/components/video/video-player"
+import { useInertOutside } from "@/hooks/use-inert-outside"
 import { useMediaFilmstrip } from "@/lib/media-filmstrip"
 import { formatTrimMs } from "@/lib/media-time"
 
@@ -87,9 +88,14 @@ export function MobileClipEditor({
 }: MobileClipEditorProps) {
   const [trimming, setTrimming] = useState(false)
   const trimView = trimming && canTrim
+  const sectionRef = useRef<HTMLElement>(null)
+  // Covering the header and navigation must also take them out of reach for
+  // keyboards and screen readers, or they still drop the unsaved cut.
+  useInertOutside(sectionRef, trimView)
 
   return (
     <section
+      ref={sectionRef}
       aria-label={trimView ? t("Trim clip") : undefined}
       className={cn(
         "flex w-full flex-col",
