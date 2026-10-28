@@ -75,7 +75,7 @@ function DropdownMenuItem({
       className={cn(
         "group/dropdown-menu-item relative flex h-8 items-center gap-2.5 rounded-md px-3",
         "cursor-default text-sm leading-4 text-foreground-muted outline-none select-none",
-        "data-highlighted:bg-neutral-150 data-highlighted:text-foreground",
+        "data-highlighted:bg-foreground/6 data-highlighted:text-foreground",
         "data-inset:pl-6",
         "data-disabled:pointer-events-none data-disabled:opacity-50",
         "data-[variant=destructive]:text-danger",
@@ -105,7 +105,7 @@ function DropdownMenuCheckboxItem({
       data-inset={inset}
       className={cn(
         "relative flex h-8 cursor-default items-center gap-2.5 rounded-md pr-8 pl-3 text-sm leading-4 text-foreground-muted outline-none select-none",
-        "data-highlighted:bg-neutral-150 data-highlighted:text-foreground",
+        "data-highlighted:bg-foreground/6 data-highlighted:text-foreground",
         "data-inset:pl-6",
         "data-disabled:pointer-events-none data-disabled:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -146,7 +146,7 @@ function DropdownMenuRadioItem({
       data-inset={inset}
       className={cn(
         "relative flex h-8 cursor-default items-center gap-2.5 rounded-md pr-8 pl-3 text-sm leading-4 text-foreground-muted outline-none select-none",
-        "data-highlighted:bg-neutral-150 data-highlighted:text-foreground",
+        "data-highlighted:bg-foreground/6 data-highlighted:text-foreground",
         "data-inset:pl-6",
         "data-disabled:pointer-events-none data-disabled:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
