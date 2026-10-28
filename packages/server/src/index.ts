@@ -6,10 +6,12 @@ import {
   startAuthChallengeExpiryWorker,
   stopAuthChallengeExpiryWorker,
 } from "./auth/challenge-expiry"
+import { setupRequired } from "./auth/identity"
 import {
   startAuthSessionExpiryWorker,
   stopAuthSessionExpiryWorker,
 } from "./auth/session-expiry"
+import { announceSetupToken } from "./auth/setup-token"
 import { currentSignInConfig, signInConfigError } from "./auth/sign-in-config"
 import { configStore, initializeConfigStore } from "./config/store"
 import { warmDatabase } from "./db"
@@ -66,6 +68,7 @@ if (configStore.get("setupComplete")) {
     process.exit(1)
   }
 }
+if (await setupRequired()) announceSetupToken()
 
 const { app } = await import("./app")
 

@@ -29,6 +29,7 @@ export const ERRORS_MESSAGES = {
   "Could not start upload.": "Upload konnte nicht gestartet werden.",
   "Could not verify passkey.": "Passkey konnte nicht verifiziert werden.",
   "Couldn't copy error details": "Fehlerdetails konnten nicht kopiert werden",
+  "Enter the setup token first.": "Gib zuerst den Setup-Token ein.",
   "Error details copied": "Fehlerdetails kopiert",
   "Failed to fetch":
     "Der Server ist nicht erreichbar. Bitte versuche es erneut.",
@@ -81,9 +82,11 @@ export const ERRORS_MESSAGES = {
     "Die Bildschirmfreigabe wurde abgebrochen. Starte den Agenten neu oder ändere die Anzeigeeinstellungen, um einen Bildschirm zu wählen.",
   "Session not found.": "Sitzung nicht gefunden.",
   "Set up the shortcuts first.": "Richte zuerst die Tastenkürzel ein.",
+  "Setup is already complete.": "Die Einrichtung ist bereits abgeschlossen.",
   "Sign out to end the current session.":
     "Melde dich ab, um die aktuelle Sitzung zu beenden.",
   "Something went wrong": "Etwas ist schiefgelaufen",
+  "That setup token is not valid.": "Dieser Setup-Token ist nicht gültig.",
   "The page may have moved, been deleted, or never existed.":
     "Die Seite wurde vielleicht verschoben, gelöscht oder hat nie existiert.",
   "This view failed to load.": "Diese Ansicht konnte nicht geladen werden.",

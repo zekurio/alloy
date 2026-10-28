@@ -92,6 +92,12 @@ export function parseServerEnv(source: EnvSource = process.env) {
   // so a server without a key would be missing core features.
   const steamgriddbApiKey = requiredText(source, "ALLOY_STEAMGRIDDB_API_KEY")
   const ffmpegPath = resolveFfmpegPath(raw.ALLOY_FFMPEG_PATH)
+  const setupToken = envText(source, "ALLOY_SETUP_TOKEN") ?? null
+  if (setupToken !== null && setupToken.length < 16) {
+    throw new Error(
+      "[server/env] ALLOY_SETUP_TOKEN must be at least 16 characters.",
+    )
+  }
 
   return {
     NODE_ENV: raw.NODE_ENV,
@@ -113,6 +119,7 @@ export function parseServerEnv(source: EnvSource = process.env) {
     viewerCookieSecret,
     uploadHmacSecret,
     steamgriddbApiKey,
+    setupToken,
   } as const
 }
 

@@ -195,9 +195,15 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
           <TextField
             {...text("issuerUrl")}
             label={t("Issuer URL")}
-            description={t(
-              "The provider's issuer or the full URL of its discovery document.",
-            )}
+            description={
+              defaults.issuerUrl
+                ? t(
+                    "Set by ALLOY_OIDC_ISSUER_URL. You can replace it here; to use the endpoints under Advanced instead, unset the variable.",
+                  )
+                : t(
+                    "The provider's issuer or the full URL of its discovery document.",
+                  )
+            }
             type="url"
           />
           <TextField {...text("clientId")} label={t("Client ID")} />

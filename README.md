@@ -52,7 +52,11 @@ ALLOY_STEAMGRIDDB_API_KEY=replace-with-your-steamgriddb-api-key
 ```
 
 The module supplies PostgreSQL and filesystem storage defaults, and the server
-applies its database migrations on start. See
+applies its database migrations on start. Open the server in a browser to
+create the admin account. From outside the local network, setup first asks
+for the setup token that the server prints to its log, or the value of
+`ALLOY_SETUP_TOKEN`. The admin can then sign in with single sign-on, if
+`ALLOY_OIDC_*` configures it, or with a username and passkey. See
 [`.env.example`](.env.example) for authentication, storage, and transcoding
 options.
 

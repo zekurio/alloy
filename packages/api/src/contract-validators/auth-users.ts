@@ -23,6 +23,7 @@ import {
   type PublicDesktopAuthConfig,
   type PublicLoginSplashConfig,
   type PublicUser,
+  type SetupStatus,
   ThemeAccentsSchema,
   type UserProfile,
   type UserProfileViewer,
@@ -134,6 +135,22 @@ export function validatePublicAuthConfig(
   validatePublicDesktopAuthConfig(config.desktopAuth)
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as PublicAuthConfig
+}
+
+export function validateSetupStatus(value: ContractJsonInput): SetupStatus {
+  const status = objectRecord(value, "setup status")
+  for (const key of [
+    "adminAccountRequired",
+    "setupRequired",
+    "tokenRequired",
+  ] as const) {
+    validateBoolean(
+      status[key],
+      `Invalid setup status response: ${key} must be boolean`,
+    )
+  }
+  // SAFETY: The checks above validate every field in the asserted response contract.
+  return value as SetupStatus
 }
 
 export function validateAdminUserStorageRow(

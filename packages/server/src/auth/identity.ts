@@ -237,6 +237,20 @@ async function createUserIdentityWith(
   return created
 }
 
+/**
+ * Lock the admin invariant and confirm no admin can sign in yet. Callers
+ * create the first admin in the same transaction.
+ */
+export async function assertFirstAdminSetupOpen(
+  tx: DbTransaction,
+): Promise<void> {
+  await lockAdminAccessInvariant(tx)
+  // Same config as setupRequired(), so the setup page and this check agree.
+  if (await hasAdminSignInMethodWith(tx, currentSignInConfig())) {
+    throw new Error("Initial setup is already complete.")
+  }
+}
+
 export async function createRegistrationUserInTransaction(
   tx: DbTransaction,
   input: {
@@ -247,11 +261,7 @@ export async function createRegistrationUserInTransaction(
   const username = validateUsername(input.username)
 
   if (input.setupFirstAdmin) {
-    await lockAdminAccessInvariant(tx)
-    // Same config as setupRequired(), so the setup page and this check agree.
-    if (await hasAdminSignInMethodWith(tx, currentSignInConfig())) {
-      throw new Error("Initial setup is already complete.")
-    }
+    await assertFirstAdminSetupOpen(tx)
     // Setup creates a fresh admin because no verified attribute remains to claim.
     return createUserIdentityWith(tx, { username, role: "admin" })
   }

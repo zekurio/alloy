@@ -12,12 +12,15 @@ type OAuthSignInProps = {
   /** Same-origin return target (desktop browser-login handshake). */
   redirectTo?: string
   account?: OAuthSignInAccount
+  /** Create the first admin during setup. */
+  setup?: boolean
 }
 
 export function OAuthSignIn({
   provider,
   redirectTo,
   account,
+  setup,
 }: OAuthSignInProps) {
   const signIn = useMutation({
     // Resolves true once the browser is on its way to the provider.
@@ -26,6 +29,7 @@ export function OAuthSignIn({
         providerId: provider.providerId,
         callbackURL: authCallbackUrl(redirectTo ?? "/"),
         account,
+        setup,
       })
       if (error) {
         toastAuthAttemptFailure(

@@ -373,6 +373,17 @@ export interface PublicDesktopAuthConfig {
   version: number
 }
 
+/** Response of `GET /api/setup/status`, for the browser that asks. */
+export interface SetupStatus {
+  adminAccountRequired: boolean
+  setupRequired: boolean
+  /**
+   * This browser must present the setup token before it can create the
+   * admin: it is outside the local network and has not presented it yet.
+   */
+  tokenRequired: boolean
+}
+
 export interface PublicAuthConfig {
   adminAccountRequired: boolean
   setupRequired: boolean

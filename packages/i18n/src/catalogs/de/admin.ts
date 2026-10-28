@@ -64,6 +64,7 @@ export const ADMIN_MESSAGES = {
   "Couldn't update backdrop": "Hintergrund konnte nicht aktualisiert werden",
   "Couldn't update user": "Nutzer konnte nicht aktualisiert werden",
   "Couldn't update webhook": "Webhook konnte nicht aktualisiert werden",
+  "Couldn't verify the setup token": "Setup-Token konnte nicht geprüft werden",
   "Create accounts": "Konten erstellen",
   "Create an account the first time someone signs in with this provider. When off, only users who already linked it can sign in.":
     "Erstelle ein Konto, wenn sich jemand zum ersten Mal mit diesem Anbieter anmeldet. Ist dies aus, können sich nur Nutzer anmelden, die ihn bereits verknüpft haben.",
@@ -184,6 +185,8 @@ export const ADMIN_MESSAGES = {
   "Never used": "Nie verwendet",
   "New webhook": "Neuer Webhook",
   "No active jobs": "Keine aktiven Aufgaben",
+  "No sign-in method is available. Turn on passkeys, or configure single sign-on with the ALLOY_OIDC_* variables, then reload this page.":
+    "Keine Anmeldemethode verfügbar. Schalte Passkeys ein oder richte Single Sign-on mit den ALLOY_OIDC_*-Variablen ein und lade die Seite dann neu.",
   "No users yet": "Noch keine Nutzer",
   "No webhooks yet": "Noch keine Webhooks",
   "No {label} artwork on SteamGridDB.":
@@ -241,6 +244,9 @@ export const ADMIN_MESSAGES = {
   "Send test": "Test senden",
   "Separate scopes with spaces.": "Trenne Scopes mit Leerzeichen.",
   "Set by ALLOY_OIDC_CLIENT_SECRET": "Durch ALLOY_OIDC_CLIENT_SECRET gesetzt",
+  "Set by ALLOY_OIDC_ISSUER_URL. You can replace it here; to use the endpoints under Advanced instead, unset the variable.":
+    "Durch ALLOY_OIDC_ISSUER_URL gesetzt. Du kannst sie hier ersetzen; um stattdessen die Endpunkte unter „Erweitert“ zu nutzen, entferne die Variable.",
+  "Setup token": "Setup-Token",
   "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.":
     "Zeig hinter dem Login-Formular eine schräge, scrollende Wand aus zufälligen Vorschaubildern öffentlicher Clips.",
   "Show the backdrop": "Hintergrund anzeigen",
@@ -272,6 +278,8 @@ export const ADMIN_MESSAGES = {
   "Test delivered": "Test zugestellt",
   "Test sound": "Sound testen",
   "Test {title} sound": "{title}-Sound testen",
+  "The first account becomes the admin. Enter the setup token from the server log, or the value of ALLOY_SETUP_TOKEN if you set one.":
+    "Das erste Konto wird Admin. Gib den Setup-Token aus dem Server-Log ein oder den Wert von ALLOY_SETUP_TOKEN, falls du einen gesetzt hast.",
   "The game and its artwork will be removed. This can't be undone.":
     "Das Spiel und seine Bilder werden gelöscht. Das kann nicht rückgängig gemacht werden.",
   "The generated wall of clip thumbnails behind the login form.":
@@ -321,6 +329,8 @@ export const ADMIN_MESSAGES = {
     "Nutzer könnten diese Anmeldemethode sofort verlieren.",
   "VA-API": "VA-API",
   "VA-API device": "VA-API-Gerät",
+  "Verify that you run this server":
+    "Bestätige, dass du diesen Server betreibst",
   "Version {version}": "Version {version}",
   "Video codec": "Videocodec",
   "Video codec, hardware acceleration, quality, audio, and the rendition ladder for new uploads.":

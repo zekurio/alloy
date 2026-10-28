@@ -62,7 +62,6 @@ const OWN_BODY_LIMIT_ROUTES = [
   /^\/api\/assets\/upload\//,
   /^\/api\/users\/me\/(?:avatar|banner)\/upload$/,
   /^\/api\/clips\/[^/]+\/image$/,
-  /^\/api\/admin\/oauth-providers\/[^/]+\/icon$/,
   /^\/api\/admin\/games(?:\/[^/]+\/assets\/[^/]+)?$/,
 ]
 

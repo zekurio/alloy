@@ -310,7 +310,7 @@ in
         Optional systemd environment file containing secret Alloy environment
         variables such as ALLOY_VIEWER_COOKIE_SECRET,
         ALLOY_UPLOAD_HMAC_SECRET, ALLOY_STEAMGRIDDB_API_KEY, DATABASE_URL,
-        PGPASSWORD, and ALLOY_OIDC_CLIENT_SECRET. The file is read by systemd
+        PGPASSWORD, ALLOY_OIDC_CLIENT_SECRET, and ALLOY_SETUP_TOKEN. The file is read by systemd
         at service start and is not copied into the Nix store.
       '';
     };

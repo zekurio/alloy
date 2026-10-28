@@ -6,7 +6,10 @@ import {
   readOAuthPendingLinkCookie,
   setOAuthStateCookie,
 } from "@alloy/server/auth/cookies"
-import { unlinkOAuthAccountPreservingSignIn } from "@alloy/server/auth/identity"
+import {
+  setupRequired,
+  unlinkOAuthAccountPreservingSignIn,
+} from "@alloy/server/auth/identity"
 import {
   fallbackOAuthErrorRedirect,
   finishOAuthCallback,
@@ -27,8 +30,13 @@ import {
 import { publicLinkedAccountRow } from "@alloy/server/auth/security-responses"
 import { getSession, requireSession } from "@alloy/server/auth/session"
 import {
+  hasSetupAccess,
+  SETUP_ACCESS_REQUIRED,
+} from "@alloy/server/auth/setup-token"
+import {
   badRequest,
   badRequestFromCause,
+  forbidden,
   notFound,
   success,
   urlResponse,
@@ -56,6 +64,8 @@ const OAuthStartBody = t.object({
 
 const OAuthSignInBody = OAuthStartBody.extend({
   account: t.enum(OAUTH_SIGN_IN_ACCOUNTS).optional(),
+  /** Create the first admin; needs setup access. */
+  setup: t.boolean().optional(),
 })
 
 async function startOAuthResponse(
@@ -64,9 +74,15 @@ async function startOAuthResponse(
   fallback: string,
 ) {
   try {
+    if (input.setup) {
+      if (!(await setupRequired())) {
+        return badRequest(c, "Setup is already complete.")
+      }
+      if (!hasSetupAccess(c)) return forbidden(c, SETUP_ACCESS_REQUIRED)
+    }
     const result = input.userId
       ? await startOAuthLink({ ...input, userId: input.userId })
-      : await startOAuthSignIn(input)
+      : await startOAuthSignIn({ ...input, setupFirstAdmin: input.setup })
     setOAuthStateCookie(c, input.providerId, result.browserNonce)
     return urlResponse(c, result.url)
   } catch (cause) {

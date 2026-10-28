@@ -64,13 +64,6 @@
       "when": 1793047923288,
       "tag": "0008_theme_variants",
       "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1793199861886,
-      "tag": "0009_single_oidc_provider",
-      "breakpoints": true
     }
   ]
 }
