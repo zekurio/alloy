@@ -74,8 +74,8 @@ function SetupPage() {
 }
 
 /**
- * The first account becomes the admin, so a browser outside the server's
- * local network proves it belongs to whoever runs the server first.
+ * The first account becomes the admin, so the browser proves it belongs to
+ * whoever runs the server first.
  */
 function VerifyTokenStep() {
   const router = useRouter()

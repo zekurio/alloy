@@ -17,23 +17,6 @@ const trustedProxies = lazy(() => {
   return list
 })
 
-// Loopback, RFC 1918 private ranges, RFC 4193 unique local addresses, and
-// link-local addresses: a client here is on the server's own network.
-const localNetworks = lazy(() => {
-  const list = new BlockList()
-  list.addSubnet("127.0.0.0", 8, "ipv4")
-  list.addSubnet("10.0.0.0", 8, "ipv4")
-  list.addSubnet("172.16.0.0", 12, "ipv4")
-  list.addSubnet("192.168.0.0", 16, "ipv4")
-  list.addSubnet("169.254.0.0", 16, "ipv4")
-  list.addAddress("::1", "ipv6")
-  list.addSubnet("fc00::", 7, "ipv6")
-  list.addSubnet("fe80::", 10, "ipv6")
-  return list
-})
-
-const IPV4_MAPPED_PREFIX = "::ffff:"
-
 function normalizedIp(value: string | null | undefined): string | null {
   const trimmed = value?.trim()
   if (!trimmed) return null
@@ -72,43 +55,17 @@ function clientIp(input: {
   return nearest
 }
 
-function socketIp(c: Context): string | null {
-  try {
-    return normalizedIp(getConnInfo(c).remote.address)
-  } catch {
-    return null
-  }
-}
-
 export function requestIp(c: Context): string | null {
+  let socketAddress: string | null = null
+  try {
+    socketAddress = getConnInfo(c).remote.address ?? null
+  } catch {
+    socketAddress = null
+  }
+
   return clientIp({
     forwardedFor: c.req.header("x-forwarded-for"),
     realIp: c.req.header("x-real-ip"),
-    socketAddress: socketIp(c),
+    socketAddress: normalizedIp(socketAddress),
   })
-}
-
-function isLocalNetworkIp(ip: string): boolean {
-  const mapped = ip.toLowerCase().startsWith(IPV4_MAPPED_PREFIX)
-    ? ip.slice(IPV4_MAPPED_PREFIX.length)
-    : ip
-  const address = isIP(mapped) === 4 ? mapped : ip
-  return localNetworks.check(address, isIP(address) === 4 ? "ipv4" : "ipv6")
-}
-
-/**
- * Whether the client is on the server's local network. A request that an
- * untrusted peer forwarded proves nothing about the client: a reverse proxy
- * on the same host would make everyone look local, so it counts as remote
- * until ALLOY_TRUSTED_PROXIES vouches for the proxy.
- */
-export function isLocalNetworkRequest(c: Context): boolean {
-  const socket = socketIp(c)
-  if (!socket) return false
-  const forwarded = ["x-forwarded-for", "x-real-ip", "forwarded"].some(
-    (name) => c.req.header(name) !== undefined,
-  )
-  if (forwarded && !isTrustedProxy(socket)) return false
-  const ip = requestIp(c)
-  return ip !== null && isLocalNetworkIp(ip)
 }

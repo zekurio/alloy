@@ -93,9 +93,9 @@ export function parseServerEnv(source: EnvSource = process.env) {
   const steamgriddbApiKey = requiredText(source, "ALLOY_STEAMGRIDDB_API_KEY")
   const ffmpegPath = resolveFfmpegPath(raw.ALLOY_FFMPEG_PATH)
   const setupToken = envText(source, "ALLOY_SETUP_TOKEN") ?? null
-  if (setupToken !== null && setupToken.length < 16) {
+  if (setupToken !== null && setupToken.length < 32) {
     throw new Error(
-      "[server/env] ALLOY_SETUP_TOKEN must be at least 16 characters.",
+      "[server/env] ALLOY_SETUP_TOKEN must be at least 32 characters.",
     )
   }
 

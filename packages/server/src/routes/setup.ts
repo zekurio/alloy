@@ -14,7 +14,7 @@ import { requiredTrimmedString, tbValidator } from "./validation"
 
 const VerifyBody = t.object({ token: requiredTrimmedString() })
 
-// Guessing the token is the only way in from outside the local network.
+// Guessing the token is the only way to the admin account.
 const verifyRateLimit = rateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 10,
