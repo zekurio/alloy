@@ -107,7 +107,12 @@ function stringRecord(raw: string): Record<string, string> {
   const value = json(raw)
   if (!isObjectRecord(value)) throw new Error("Expected a JSON object")
   return Object.fromEntries(
-    Object.entries(value).map(([key, param]) => [key, String(param)]),
+    Object.entries(value).map(([key, param]) => {
+      if (param === null || Array.isArray(param) || isObjectRecord(param)) {
+        throw new Error(`Expected a string, number, or boolean for ${key}`)
+      }
+      return [key, String(param)]
+    }),
   )
 }
 

@@ -1,6 +1,7 @@
 import type { SetupStatus } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import {
+  announceSetupToken,
   hasSetupAccess,
   verifySetupToken,
 } from "@alloy/server/auth/setup-token"
@@ -23,6 +24,8 @@ const verifyRateLimit = rateLimiter({
 
 async function setupStatus(c: Context): Promise<SetupStatus> {
   const status = await getSetupStatus()
+  // Setup can reopen while the server runs, after startup announced nothing.
+  if (status.adminAccountRequired) announceSetupToken()
   return {
     ...status,
     tokenRequired: status.adminAccountRequired && !hasSetupAccess(c),

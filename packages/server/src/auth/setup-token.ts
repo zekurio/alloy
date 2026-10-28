@@ -21,8 +21,10 @@ const SETUP_ACCESS_TTL_MS = 60 * 60 * 1000
 // container port forwarding make internet visitors look local. Alloy runs as
 // one process, so the token and the browsers that presented it live in
 // memory. A restart before setup finishes prints a new token, unless
-// ALLOY_SETUP_TOKEN pins one.
+// ALLOY_SETUP_TOKEN pins one. Once the admin exists the generated token is
+// dropped, so setup that reopens later prints a fresh one.
 let generatedToken: string | null = null
+let announced = false
 const verifiedBrowsers = new Map<string, number>()
 
 /**
@@ -51,9 +53,13 @@ function digest(value: string): Buffer {
   return createHash("sha256").update(value).digest()
 }
 
-/** Log the token at startup, while the server still needs its first admin. */
+/**
+ * Log the token once while the server needs its first admin: at startup,
+ * and again when setup reopens while the server runs.
+ */
 export function announceSetupToken(): void {
-  if (!setupTokenEnforced()) return
+  if (announced || !setupTokenEnforced()) return
+  announced = true
   if (env.setupToken) {
     logger.info(
       "Setup is not finished. Enter the token in ALLOY_SETUP_TOKEN to create the admin account.",
@@ -99,9 +105,11 @@ export function hasSetupAccess(c: Context): boolean {
   return !setupTokenEnforced() || hasVerifiedBrowser(c)
 }
 
-/** Forget verified browsers once the admin exists. */
+/** Forget verified browsers and the generated token once the admin exists. */
 export function endSetupAccess(c: Context): void {
   verifiedBrowsers.clear()
+  generatedToken = null
+  announced = false
   deleteCookie(c, SETUP_ACCESS_COOKIE, {
     path: SETUP_ACCESS_COOKIE_PATH,
     secure: secureCookies(),
