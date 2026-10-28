@@ -35,6 +35,8 @@ const EDGE_SCROLL_ZONE_PX = 32
 const EDGE_SCROLL_MAX_PX = 10
 /** Fraction of the view kept behind the playhead when the view follows it. */
 const FOLLOW_LEAD = 0.1
+/** Travel before a finger on the strip starts scrubbing. */
+const SCRUB_SLOP_PX = 4
 
 type View = {
   /** Zoom relative to the whole clip fitting the track; 1 is fully out. */
@@ -44,7 +46,17 @@ type View = {
 }
 
 type Gesture =
-  | { kind: "scrub"; pointerId: number; clientX: number }
+  | {
+      kind: "scrub"
+      pointerId: number
+      clientX: number
+      startX: number
+      /**
+       * Not yet past the slop. A pinch starts with one finger, so the strip
+       * waits for movement, or a lift (a tap), before it seeks and pauses.
+       */
+      pending: boolean
+    }
   | {
       kind: "handle"
       pointerId: number
@@ -185,6 +197,7 @@ export function TrimTimeline({
     const gesture = gestureRef.current
     const rect = viewportRef.current?.getBoundingClientRect()
     if (!gesture || gesture.kind === "pinch" || !rect || !zoomed) return
+    if (gesture.kind === "scrub" && gesture.pending) return
     const trackLeft = rect.left + HANDLE_WIDTH_PX
     const trackRight = trackLeft + trackWidth
     const x = gesture.clientX
@@ -290,13 +303,13 @@ export function TrimTimeline({
       setActiveEdge(edge)
       return
     }
-    const gesture: Gesture = {
+    gestureRef.current = {
       kind: "scrub",
       pointerId: e.pointerId,
       clientX: e.clientX,
+      startX: e.clientX,
+      pending: true,
     }
-    gestureRef.current = gesture
-    applyDrag(gesture, view)
   }
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
@@ -330,6 +343,10 @@ export function TrimTimeline({
 
     if (gesture.pointerId !== e.pointerId) return
     gesture.clientX = e.clientX
+    if (gesture.kind === "scrub" && gesture.pending) {
+      if (Math.abs(e.clientX - gesture.startX) < SCRUB_SLOP_PX) return
+      gesture.pending = false
+    }
     applyDrag(gesture, view)
   }
 
@@ -344,6 +361,14 @@ export function TrimTimeline({
       // rather than scrubbing the playhead to wherever it rests.
       gestureRef.current = null
     } else if (gesture && gesture.pointerId === e.pointerId) {
+      // A tap on the strip seeks there.
+      if (
+        gesture.kind === "scrub" &&
+        gesture.pending &&
+        e.type === "pointerup"
+      ) {
+        applyDrag(gesture, view)
+      }
       gestureRef.current = null
       setActiveEdge(null)
     }
