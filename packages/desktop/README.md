@@ -244,8 +244,8 @@ pnpm --filter @alloy/desktop test:native
 
 Builds bundle the recorder, OBS, FFmpeg, and the addon as extra resources;
 `electron-builder.yml` lists them, and `nsis/installer.nsh` removes the login
-item, transient data, and the browser profiles in `electron\` on uninstall,
-but not on an update.
+item, the updater cache, temporary files, and `%LOCALAPPDATA%\dev.zekurio.alloy`
+on uninstall, but not on an update.
 `test:native` runs the host's integration tests. Unit tests have been removed;
 E2E testing is not configured yet. A successful build does not validate
 recording or playback. For affected flows, check on Windows:
@@ -273,7 +273,8 @@ values.
 
 - `%APPDATA%\dev.zekurio.alloy`: settings, saved servers, and capture manifest.
 - `%LOCALAPPDATA%\dev.zekurio.alloy`: caches, temporary media, the browser
-  profiles in `electron\`, and `logs\alloy-desktop.log`.
+  profiles in `electron\`, and `logs\alloy-desktop.log`. Uninstalling removes
+  it; the roaming folder and recordings stay.
 - `%LOCALAPPDATA%\Programs\alloy`: the app.
 - `%USERPROFILE%\Videos\Alloy`: default recordings folder.
 - `%TEMP%\Alloy\replay`: default replay buffer.

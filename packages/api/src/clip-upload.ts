@@ -18,8 +18,11 @@ class UploadTransportError extends Error {
   }
 }
 
+/** Where one request sends its bytes: a ticket, or one part of it. */
+type UploadTarget = Omit<UploadTicket, "strategy">
+
 type XhrUploadOptions<T> = {
-  ticket: UploadTicket
+  ticket: UploadTarget
   body: Blob
   timeoutMs: number
   signal?: AbortSignal
@@ -28,48 +31,17 @@ type XhrUploadOptions<T> = {
   readSuccess: (xhr: XMLHttpRequest) => T
 }
 
-export function uploadToTicket(
+/**
+ * Sends `body` to the ticket in numbered parts, then completes it. A failed
+ * part is retried on the same ticket; any other failure aborts the upload.
+ */
+export async function uploadToTicket(
   ticket: UploadTicket,
   body: Blob,
   onProgress: (loaded: number, total: number) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  if (ticket.strategy?.type === "chunked") {
-    return uploadChunkedToTicket(ticket, body, onProgress, signal)
-  }
-  return uploadSingleToTicket(ticket, body, onProgress, signal)
-}
-
-function uploadSingleToTicket(
-  ticket: UploadTicket,
-  body: Blob,
-  onProgress: (loaded: number, total: number) => void,
-  signal?: AbortSignal,
-): Promise<void> {
-  return uploadWithXhr({
-    ticket,
-    body,
-    signal,
-    timeoutMs: ticketTimeoutMs(ticket),
-    configure: (xhr) => setContentTypeHeader(xhr, ticket.headers, body),
-    onProgress: (event) => {
-      if (event.lengthComputable) onProgress(event.loaded, event.total)
-    },
-    readSuccess: () => undefined,
-  })
-}
-
-async function uploadChunkedToTicket(
-  ticket: UploadTicket,
-  body: Blob,
-  onProgress: (loaded: number, total: number) => void,
-  signal?: AbortSignal,
-): Promise<void> {
-  const strategy = ticket.strategy
-  if (strategy?.type !== "chunked") {
-    throw new Error("Upload ticket is not chunked")
-  }
-  const chunkSize = strategy.chunkSizeBytes
+  const chunkSize = ticket.strategy.chunkSizeBytes
   const partCount = Math.ceil(body.size / chunkSize)
   try {
     for (let index = 0; index < partCount; index += 1) {
@@ -80,7 +52,7 @@ async function uploadChunkedToTicket(
       // atomically, so a failed chunk is re-sent on the same ticket.
       await withTransientRetry(
         () =>
-          uploadSingleToTicket(
+          uploadPart(
             {
               uploadUrl: `${ticket.uploadUrl}/chunks/${index + 1}`,
               method: "PUT",
@@ -103,6 +75,25 @@ async function uploadChunkedToTicket(
     await abortTicketUpload(ticket.uploadUrl)
     throw err
   }
+}
+
+function uploadPart(
+  ticket: UploadTarget,
+  body: Blob,
+  onProgress: (loaded: number, total: number) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  return uploadWithXhr({
+    ticket,
+    body,
+    signal,
+    timeoutMs: ticketTimeoutMs(ticket),
+    configure: (xhr) => setContentTypeHeader(xhr, ticket.headers, body),
+    onProgress: (event) => {
+      if (event.lengthComputable) onProgress(event.loaded, event.total)
+    },
+    readSuccess: () => undefined,
+  })
 }
 
 async function withTransientRetry<T>(
@@ -231,7 +222,7 @@ function setContentTypeHeader(
   }
 }
 
-function ticketTimeoutMs(ticket: UploadTicket): number {
+function ticketTimeoutMs(ticket: UploadTarget): number {
   return Math.max(
     MIN_UPLOAD_TIMEOUT_MS,
     ticket.expiresAt * 1000 - Date.now() + UPLOAD_TIMEOUT_GRACE_MS,

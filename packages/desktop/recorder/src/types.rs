@@ -12,9 +12,8 @@ use serde_json::Value;
 pub struct Request {
     pub id: u64,
     pub method: String,
-    #[serde(default)]
     pub params: Value,
-    #[serde(default, rename = "deadlineUnixMs")]
+    #[serde(rename = "deadlineUnixMs")]
     pub deadline_unix_ms: Option<u64>,
 }
 

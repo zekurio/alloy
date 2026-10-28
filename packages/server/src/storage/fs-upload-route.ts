@@ -34,7 +34,7 @@ import {
   UploadPartTooLargeError,
 } from "./fs-driver"
 import { isOsErrorCode } from "./fs-driver-helpers"
-import type { UploadTokenMode, UploadTokenPayload } from "./fs-upload-token"
+import type { UploadTokenPayload } from "./fs-upload-token"
 
 const logger = createLogger("assets")
 
@@ -46,7 +46,6 @@ type UploadTicketRecord = {
 
 type ResolvedUploadTicket = {
   payload: UploadTokenPayload
-  mode: UploadTokenMode
   tokenExpired: boolean
   ticket: UploadTicketRecord
 }
@@ -55,80 +54,9 @@ type DecodedUploadTicket = Omit<ResolvedUploadTicket, "ticket">
 type UploadTicketLookupMode = "terminal" | "unused"
 
 export const storageRoute = new Hono()
-  .post("/upload/:token", (c) =>
-    withResolvedUploadTicket(
-      c.req.param("token"),
-      ["single"],
-      withUploadActivityStopped,
-      "terminal",
-      async (resolved) => {
-        const {
-          payload: { k: key, ct: expectedContentType, mb: maxBytes },
-          ticket,
-        } = resolved
-
-        const existing = await clipStorage.resolve(key)
-        const exactExisting =
-          existing &&
-          completedUploadMatches(existing, {
-            bytes: maxBytes,
-            contentType: expectedContentType,
-          })
-        if (exactExisting) {
-          if (ticket.usedAt === null) {
-            await persistCompletedUpload(ticket.id)
-          }
-          return noContent(c)
-        }
-
-        if (
-          !uploadTicketCanAcceptBytes(ticket, resolved.tokenExpired, new Date())
-        ) {
-          return unauthorizedResponse("Upload ticket has expired or was used")
-        }
-
-        const contentType = c.req.header("content-type")
-        if (contentType && contentType !== expectedContentType) {
-          return badRequest(c, "Content-Type does not match the upload ticket")
-        }
-
-        if (!c.req.raw.body) {
-          return badRequest(c, "Empty upload body")
-        }
-
-        let limitTripped = false
-
-        if (existing) {
-          // A crashed single-part write leaves its partial bytes at the final
-          // unique key. Only a still-live unused ticket may replace it.
-          await deletePartialUpload(key)
-        }
-
-        try {
-          await clipStorage.put(
-            key,
-            limitUploadBody(c.req.raw.body, maxBytes, () => {
-              limitTripped = true
-            }),
-            expectedContentType,
-          )
-        } catch (err) {
-          await deletePartialUpload(key)
-          if (limitTripped) {
-            return payloadTooLarge(c, "Upload exceeded declared size")
-          }
-          return uploadWriteFailed(c, err, "Upload write failed")
-        }
-
-        await persistCompletedUpload(ticket.id)
-        return noContent(c)
-      },
-    ),
-  )
   .put("/upload/:token/chunks/:partNumber", (c) =>
     withResolvedUploadTicket(
       c.req.param("token"),
-      ["fs-chunked"],
       withUploadActivity,
       "unused",
       async (resolved) => {
@@ -136,7 +64,6 @@ export const storageRoute = new Hono()
         if (!partNumber) return badRequest(c, "Invalid upload part number")
         const { payload } = resolved
         const partSizeBytes = payload.cs
-        if (!partSizeBytes) return badRequest(c, "Invalid upload ticket")
         if (!partNumberInRange(partNumber, partSizeBytes, payload.mb)) {
           return badRequest(c, "Upload part is outside declared size")
         }
@@ -170,13 +97,11 @@ export const storageRoute = new Hono()
   .post("/upload/:token/complete", (c) =>
     withResolvedUploadTicket(
       c.req.param("token"),
-      ["fs-chunked"],
       withUploadActivityStopped,
       "terminal",
       async (resolved) => {
         const { payload, ticket } = resolved
         const partSizeBytes = payload.cs
-        if (!partSizeBytes) return badRequest(c, "Invalid upload ticket")
 
         const existing = await clipStorage.resolve(payload.k)
         const exactExisting =
@@ -237,7 +162,6 @@ export const storageRoute = new Hono()
   .delete("/upload/:token", (c) =>
     withResolvedUploadTicket(
       c.req.param("token"),
-      ["single", "fs-chunked"],
       withUploadActivityStopped,
       "unused",
       async ({ ticket }) => {
@@ -256,12 +180,11 @@ export const storageRoute = new Hono()
 
 async function withResolvedUploadTicket(
   token: string,
-  allowedModes: readonly UploadTokenMode[],
   gate: typeof withUploadActivity,
   lookupMode: UploadTicketLookupMode,
   operation: (resolved: ResolvedUploadTicket) => Promise<Response>,
 ): Promise<Response> {
-  const decoded = await resolveUploadToken(token, allowedModes)
+  const decoded = await resolveUploadToken(token)
   if (decoded instanceof Response) return decoded
   return gate(decoded.payload.cid, async () => {
     const resolved = await selectUploadTicket(decoded, lookupMode)
@@ -314,7 +237,6 @@ function clientDisconnected(c: Context, cause: unknown): boolean {
 
 async function resolveUploadToken(
   token: string,
-  allowedModes: readonly UploadTokenMode[],
 ): Promise<DecodedUploadTicket | Response> {
   const decoded = await decodeUploadToken(
     token,
@@ -323,20 +245,14 @@ async function resolveUploadToken(
   if (!decoded.ok) {
     return unauthorizedResponse("Invalid upload ticket")
   }
-  const payload = decoded.payload
-  const mode = payload.m ?? "single"
-  if (!allowedModes.includes(mode)) {
-    return unauthorizedResponse("Upload ticket does not allow this operation")
-  }
-
-  return { payload, mode, tokenExpired: decoded.expired }
+  return { payload: decoded.payload, tokenExpired: decoded.expired }
 }
 
 async function selectUploadTicket(
   decoded: DecodedUploadTicket,
   lookupMode: UploadTicketLookupMode,
 ): Promise<ResolvedUploadTicket | Response> {
-  const { payload, mode, tokenExpired } = decoded
+  const { payload, tokenExpired } = decoded
   const [ticket] = await db
     .select({
       id: uploadTicket.id,
@@ -366,7 +282,7 @@ async function selectUploadTicket(
     )
   }
 
-  return { payload, mode, tokenExpired, ticket }
+  return { payload, tokenExpired, ticket }
 }
 
 function unauthorizedResponse(message: string): Response {
@@ -405,44 +321,5 @@ async function persistCompletedUpload(ticketId: string): Promise<void> {
     .limit(1)
   if (!completedUploadPersistenceSatisfied(adopted, refreshed ?? null)) {
     throw new Error("Completed upload ownership changed")
-  }
-}
-
-function limitUploadBody(
-  body: ReadableStream<Uint8Array>,
-  maxBytes: number,
-  onLimit: () => void,
-): ReadableStream<Uint8Array> {
-  const reader = body.getReader()
-  let bytes = 0
-
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      const { done, value } = await reader.read()
-      if (done) {
-        controller.close()
-        return
-      }
-
-      bytes += value.byteLength
-      if (bytes > maxBytes) {
-        onLimit()
-        await reader.cancel().catch(() => undefined)
-        throw new Error("upload exceeded maxBytes")
-      }
-
-      controller.enqueue(value)
-    },
-    cancel(reason) {
-      return reader.cancel(reason)
-    },
-  })
-}
-
-async function deletePartialUpload(key: string): Promise<void> {
-  try {
-    await clipStorage.delete(key)
-  } catch (err) {
-    logger.warn(`failed to remove partial upload ${key}:`, err)
   }
 }

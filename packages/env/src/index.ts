@@ -98,12 +98,11 @@ export function isPostgresUrl(value: string): boolean {
 }
 
 /**
- * Normalize a public server URL: drop a trailing `/api` path segment, query,
- * hash, and trailing slash so the result is a stable origin-ish base URL.
+ * Normalize a public server URL: drop the query, hash, and trailing slash so
+ * the result is a stable origin-ish base URL.
  */
 export function normalizePublicServerUrl(value: string): string {
   const url = new URL(value)
-  url.pathname = url.pathname.replace(/\/api\/?$/, "") || "/"
   url.search = ""
   url.hash = ""
   return url.toString().replace(/\/$/, "")

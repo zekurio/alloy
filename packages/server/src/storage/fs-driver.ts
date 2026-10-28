@@ -132,7 +132,6 @@ export class FsStorageDriver implements StorageDriver {
       exp: expiresAt,
       uid: input.userId,
       cid: input.clipId,
-      m: "fs-chunked",
       cs: FS_UPLOAD_CHUNK_SIZE_BYTES,
     }
     return mintFsUploadTicket({
