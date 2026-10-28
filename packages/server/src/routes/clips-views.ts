@@ -29,12 +29,14 @@ const withViewer = createMiddleware<ViewerEnv>(async (c, next) => {
  * A signed-in view counts once per user. An anonymous one counts once per
  * viewer cookie, which a client can drop to mint another, so anonymous views
  * are bounded per address instead: room for a visitor browsing clips, not for
- * a loop inflating counts and the view table.
+ * a loop inflating counts and the view table. Peers without a usable address
+ * share one bucket rather than going unlimited.
  */
 const anonymousViewRateLimit = rateLimiter<ViewerEnv>({
   windowMs: 10 * 60 * 1000,
   max: 60,
-  key: (c) => (c.var.viewer.userId === null ? requestIp(c) : null),
+  key: (c) =>
+    c.var.viewer.userId === null ? (requestIp(c) ?? "unknown") : null,
 })
 
 export const clipsViewRoutes = new Hono().post(
