@@ -164,10 +164,7 @@ export async function markUploadTicketUsedAndExtendDeadline(
       const [updated] = await tx
         .update(clip)
         .set({
-          upload_cleanup_at: sql<Date>`greatest(
-            coalesce(${clip.upload_cleanup_at}, ${cleanupAt}),
-            ${cleanupAt}
-          )`,
+          upload_cleanup_at: sql<Date>`greatest(${clip.upload_cleanup_at}, ${cleanupAt})`,
         })
         .where(and(...conditions))
         .returning({ id: clip.id })

@@ -33,7 +33,5 @@ export function adminUserFieldChanges(
 }
 
 export function adminUserIsBanned(user: AdminUserRow): boolean {
-  return user.adminSuspendedAt === undefined
-    ? user.status === "disabled"
-    : user.adminSuspendedAt !== null
+  return user.adminSuspendedAt !== null
 }

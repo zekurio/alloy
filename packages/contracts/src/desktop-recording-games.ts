@@ -22,17 +22,11 @@ export interface RecordingGameProcess {
 export const RECORDING_GAME_GUESS_SOURCES = [
   "discord-detectable",
   "manual",
-  "plays",
-  "steam-path",
-  "windows-store",
-  "heuristic",
 ] as const
 
 export const RECORDING_GAME_GUESS_MATCH_KINDS = [
   "executable",
-  "path",
   "manual",
-  "heuristic",
 ] as const
 
 export type RecordingGameGuessSource =

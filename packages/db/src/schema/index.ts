@@ -8,7 +8,7 @@ export * from "./theme"
 export * from "./webhook"
 
 import { clip, clipMention, clipRendition, clipTag, clipView } from "./clip"
-import { game, gameDetectionMapping } from "./game"
+import { game } from "./game"
 import { instanceSetting } from "./instance"
 import { uploadTicket } from "./recording"
 import { block } from "./social"
@@ -28,7 +28,6 @@ export const domainSchema = {
   clipMention,
   clipTag,
   game,
-  gameDetectionMapping,
   instanceSetting,
   block,
   storageDeletion,

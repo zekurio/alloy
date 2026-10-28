@@ -10,8 +10,6 @@ import type { ReactNode } from "react"
 
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 
-import { recorderSupports } from "./desktop-recording-capabilities"
-
 export function ModeSection({
   settings,
   status,
@@ -31,17 +29,9 @@ export function ModeSection({
       <SettingRows>
         <SettingRow
           title={t("Capture with Alloy")}
-          description={
-            // Without window capture (Linux), game mode still detects the
-            // game but records the selected display while it runs.
-            recorderSupports(status, "game-capture")
-              ? t(
-                  "Auto-detect a game or display and keep the replay buffer ready.",
-                )
-              : t(
-                  "Record the selected display while an allowed game runs, or all the time, and keep the replay buffer ready.",
-                )
-          }
+          description={t(
+            "Auto-detect a game or display and keep the replay buffer ready.",
+          )}
         >
           <Switch
             checked={settings.enabled}

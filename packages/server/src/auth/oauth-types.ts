@@ -24,11 +24,3 @@ export type OAuthProfile = {
   storageQuotaBytes?: number | null
   usernameHint: string | null
 }
-
-export type StoredTokens = {
-  accessToken: string | null
-  refreshToken: string | null
-  idToken: string | null
-  accessTokenExpiresAt: Date | null
-  scope: string | null
-}

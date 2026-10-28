@@ -136,8 +136,8 @@ export function formsEqual(
   if (form.quality !== saved.quality) return false
   if (form.audioBitrateKbps !== saved.audioBitrateKbps) return false
   if (form.tiers.length !== saved.tiers.length) return false
-  // The form lists tiers sorted (see formFromConfig), whatever order an older
-  // save stored them in.
+  // The form lists tiers sorted (see formFromConfig); the saved list, such
+  // as one from ALLOY_TRANSCODE_TIERS, may not be.
   const savedTiers = sortTiers(saved.tiers)
   return form.tiers.every((tier, index) => {
     const savedTier = savedTiers[index]

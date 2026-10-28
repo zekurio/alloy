@@ -54,7 +54,6 @@ pub struct SidecarVersion {
 pub struct RecordingSettings {
     #[serde(flatten)]
     pub recorder: RecorderSettings,
-    #[serde(default)]
     pub notification_sounds: RecordingNotificationSounds,
 }
 

@@ -97,12 +97,12 @@ export const authSession = pgTable(
     ip_address: text(),
     // Raw User-Agent of the client that signed in, kept for display only.
     user_agent: text(),
-    client_kind: text().$type<AuthSessionClientKind>().notNull().default("web"),
+    client_kind: text().$type<AuthSessionClientKind>().notNull(),
     // Computer name the desktop app reports at sign-in. Null for browsers.
     device_name: text(),
     created_at: timestamp().notNull().defaultNow(),
     updated_at: timestamp().notNull().defaultNow(),
-    last_seen_at: timestamp(),
+    last_seen_at: timestamp().notNull().defaultNow(),
   },
   (t) => [
     index("auth_session_user_idx").on(t.user_id),
@@ -150,15 +150,9 @@ export const authAccount = pgTable(
     provider_id: text().notNull(),
     provider_account_id: text().notNull(),
     // Human-readable label (provider username claim) so the owner can tell
-    // linked accounts apart in settings. Null until refreshed at sign-in;
+    // linked accounts apart in settings. Null when the provider sends none;
     // never populated from the provider's email claim.
     account_label: text(),
-    access_token: text(),
-    refresh_token: text(),
-    id_token: text(),
-    access_token_expires_at: timestamp(),
-    refresh_token_expires_at: timestamp(),
-    scope: text(),
     created_at: timestamp().notNull().defaultNow(),
     updated_at: timestamp().notNull().defaultNow(),
   },

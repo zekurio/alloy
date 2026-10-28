@@ -208,11 +208,6 @@ async function claimReconciliation(
               and c.thumb_failed_at is null
             )
             or (
-              (c.source_audio_codec is not null)
-              <> (c.waveform_key is not null)
-              and c.encode_failed_generation is distinct from $3::int
-            )
-            or (
               (
                 (c.trim_start_ms is not null and c.trim_end_ms is not null)
                 <> (c.cut_key is not null)

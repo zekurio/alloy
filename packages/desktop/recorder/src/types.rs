@@ -57,7 +57,6 @@ pub struct RecordingSettings {
     pub capture_mode: RecordingCaptureMode,
     pub selected_display_id: String,
     pub allowed_games: Vec<RecordingAllowedGame>,
-    #[serde(default)]
     pub denied_games: Vec<RecordingAllowedGame>,
     pub audio_mode: RecordingAudioMode,
     pub audio_devices: Vec<RecordingAudioDeviceSelection>,
@@ -83,9 +82,7 @@ pub struct RecordingAllowedGame {
     pub name: String,
     pub executable: Option<String>,
     pub path: Option<String>,
-    #[serde(default)]
     pub window_class: Option<String>,
-    #[serde(default)]
     pub icon_url: Option<String>,
 }
 
@@ -153,7 +150,6 @@ pub struct RecordingQualitySettings {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordingHotkeys {
-    #[serde(default)]
     pub screenshot: String,
     pub clip: String,
 }
@@ -197,7 +193,6 @@ pub struct RecordingAudioApplicationSelection {
     pub name: String,
     pub window: String,
     pub executable: Option<String>,
-    #[serde(default)]
     pub icon_url: Option<String>,
     pub process_id: Option<u32>,
     pub enabled: bool,

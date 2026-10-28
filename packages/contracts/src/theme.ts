@@ -114,8 +114,7 @@ export type ThemeColorRole = (typeof THEME_COLOR_ROLES)[number]
 
 /**
  * Made by the client and unique within its theme. The synced theme choice
- * points at a variant as `<theme id>:<variant id>`. Themes saved before
- * variants existed have `light` and `dark`.
+ * points at a variant as `<theme id>:<variant id>`.
  */
 export const UserThemeVariantIdSchema = t.string().regex(/^[a-z0-9]{1,16}$/)
 

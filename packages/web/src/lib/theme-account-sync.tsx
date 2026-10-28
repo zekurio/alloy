@@ -40,7 +40,8 @@ async function flushSave(): Promise<void> {
   if (saving) await saving
   const next = queued
   queued = null
-  // Ids stored by an older build may not fit the contract; keep them local.
+  // Local storage is not validated against the contract; ids that don't fit
+  // stay local.
   const parsed = next ? SyncedThemePreferencesSchema.safeParse(next) : null
   if (!parsed?.success) return
   saving = authClient

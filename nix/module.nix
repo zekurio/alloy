@@ -76,14 +76,6 @@ let
   hasAccelerationDevices = cfg.accelerationDevices != [ ];
 in
 {
-  imports = [
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "oauth" "socialAccountProvidersFile" ] ''
-      Alloy now has one OpenID Connect provider. Configure it with
-      services.alloy-server.auth.oidc and put ALLOY_OIDC_CLIENT_SECRET in
-      services.alloy-server.environmentFile.
-    '')
-  ];
-
   options.services.alloy-server = {
     enable = lib.mkEnableOption "Alloy";
 

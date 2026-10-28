@@ -29,7 +29,7 @@ export interface DesktopSavedServer {
   serverUrl: string
   lastConnectedAt: string
   /** Server version returned by the most recent successful native validation. */
-  serverVersion?: string
+  serverVersion: string
   /** Last exact desktop HTTP contract validated for this server. */
   httpContract: number
   /** Last exact native bridge contract advertised by this server's web app. */

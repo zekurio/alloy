@@ -46,7 +46,7 @@ import {
   scopesForProvider,
 } from "./oauth-client"
 import { savePendingOAuthLink } from "./oauth-pending-link"
-import { profileFromTokens, storedTokens } from "./oauth-profile"
+import { profileFromTokens } from "./oauth-profile"
 import type { OAuthChallengePayload, OAuthMode } from "./oauth-types"
 import { getSession } from "./session"
 import {
@@ -170,7 +170,6 @@ export async function finishOAuthCallback(
       pkceCodeVerifier: payload.codeVerifier,
     })
     const profile = await profileFromTokens(config, provider, tokens)
-    const stored = storedTokens(tokens)
 
     if (payload.mode === "link") {
       const session = await getSession(c)
@@ -184,7 +183,6 @@ export async function finishOAuthCallback(
       await linkAccountToUser({
         profile,
         provider,
-        tokens: stored,
         userId: session.user.id,
       })
       logger.info(
@@ -198,7 +196,6 @@ export async function finishOAuthCallback(
       const userId = await createFirstAdminForOAuthAccount({
         profile,
         provider,
-        tokens: stored,
       })
       endSetupAccess(c)
       logger.info(`${provider.providerId} sign-in created admin ${userId}`)
@@ -209,7 +206,6 @@ export async function finishOAuthCallback(
     const resolved = await resolveSignInUser({
       profile,
       provider,
-      tokens: stored,
       account: payload.account,
     })
     if (resolved.kind === "link-required") {
@@ -220,7 +216,6 @@ export async function finishOAuthCallback(
         callbackURL: payload.callbackURL,
         profile,
         providerId: provider.providerId,
-        tokens: stored,
       })
       setOAuthPendingLinkCookie(c, pendingToken)
       return {

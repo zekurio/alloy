@@ -72,13 +72,11 @@ export function DesktopAppPanel() {
           <DesktopUpdateSettings />
         </SettingRows>
       </SettingsSubsection>
-      {desktop ? (
-        <SettingsSubsection id="diagnostics" title={t("Diagnostics")}>
-          <SettingRows>
-            <DesktopLogSettings />
-          </SettingRows>
-        </SettingsSubsection>
-      ) : null}
+      <SettingsSubsection id="diagnostics" title={t("Diagnostics")}>
+        <SettingRows>
+          <DesktopLogSettings />
+        </SettingRows>
+      </SettingsSubsection>
     </SettingsSections>
   )
 }
@@ -437,11 +435,9 @@ function SavedServerRow({
         </div>
         <div className="mt-1 flex items-center gap-1.5 text-xs">
           <span className="text-foreground-dim min-w-0 break-words">
-            {server.serverVersion
-              ? t("Server version {version}", {
-                  version: server.serverVersion,
-                })
-              : t("Server version unknown")}
+            {t("Server version {version}", {
+              version: server.serverVersion,
+            })}
           </span>
           <span
             role="img"

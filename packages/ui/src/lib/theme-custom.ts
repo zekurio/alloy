@@ -490,15 +490,8 @@ function normalizeCustomTheme(value: ContractJsonInput): CustomTheme | null {
   }
   if (!isStringValue(name) || !name.trim()) return null
 
-  const variants = Array.isArray(value.variants)
-    ? normalizeStoredVariants(value.variants)
-    : // Cached before themes had variants.
-      THEME_APPEARANCES.flatMap((appearance): CustomThemeVariant[] => {
-        const colors = normalizeStoredColors(value[appearance])
-        return colors
-          ? [{ id: appearance, name: null, appearance, colors }]
-          : []
-      })
+  if (!Array.isArray(value.variants)) return null
+  const variants = normalizeStoredVariants(value.variants)
   if (variants.length === 0) return null
   return {
     id,

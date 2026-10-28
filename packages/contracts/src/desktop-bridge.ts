@@ -31,7 +31,7 @@ export const DesktopSavedServersSchema = t
     t.object({
       serverUrl: t.url(),
       lastConnectedAt: t.iso.datetime({ offset: true }),
-      serverVersion: t.string().trim().min(1).optional(),
+      serverVersion: t.string().trim().min(1),
       httpContract: t.number().int().positive(),
       bridgeContract: t.number().int().positive(),
     }),

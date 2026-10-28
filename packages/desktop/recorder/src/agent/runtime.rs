@@ -206,7 +206,7 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
 }
 
 fn prepare_agent_state(path: &Path) -> Result<(), String> {
-    fs::create_dir_all(path.join("jobs")).map_err(|error| {
+    fs::create_dir_all(path).map_err(|error| {
         format!(
             "Failed to create Alloy agent state folder {}: {error}",
             path.display()

@@ -123,9 +123,9 @@ function validateSessionRow(value: ContractJsonInput): SessionData["session"] {
     session.expiresAt,
     "Invalid auth session response: expiresAt must be a date string or null",
   )
-  validateNullableDateString(
+  validateIsoDateString(
     session.lastSeenAt,
-    "Invalid auth session response: lastSeenAt must be a date string or null",
+    "Invalid auth session response: lastSeenAt must be a date string",
   )
   validateIsoDateString(
     session.createdAt,

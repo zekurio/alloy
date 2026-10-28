@@ -32,11 +32,7 @@ import {
   synchronizeMediaGeneration,
   type MediaGeneration,
 } from "./media-generation"
-import {
-  runMediaProcessing,
-  runThumbnailBackfill,
-  runWaveformBackfill,
-} from "./media-run"
+import { runMediaProcessing, runThumbnailBackfill } from "./media-run"
 
 const logger = createLogger("media-worker")
 const HEARTBEAT_MS = 30_000
@@ -258,15 +254,6 @@ class ClipMediaWorker {
           // take the server down with it once more.
           logger.warn(ATTEMPTS_EXHAUSTED_REASON)
           await this.failRun(claim, snapshot, action, ATTEMPTS_EXHAUSTED_REASON)
-        } else if (action === "waveform") {
-          await runWaveformBackfill(
-            clipMediaStore,
-            claim.id,
-            claim.row,
-            claim.runId,
-            abort.signal,
-            completionFor(claim),
-          )
         } else if (action === "thumbnail") {
           await runThumbnailBackfill(
             clipMediaStore,
@@ -404,8 +391,6 @@ function actionFor(
     encodeFailedFingerprint: claim.encodeFailedFingerprint,
     encodeFailedGeneration: claim.encodeFailedGeneration,
     hasSource: claim.row.sourceKey !== null,
-    hasAudio: claim.row.sourceAudioCodec !== null,
-    hasWaveform: claim.row.waveformKey !== null,
     hasCut: claim.row.cutKey !== null,
     hasThumbnail: claim.row.thumbKey !== null,
     thumbnailFailed: claim.row.thumbFailedAt !== null,

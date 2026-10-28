@@ -35,14 +35,13 @@ export type {
 export function createGamesApi(context: ApiContext) {
   const games = context.rpc.api.games
 
-  /** `/api/games/:slug` takes a slug or a SteamGridDB id. */
   async function fetchById(
-    gameId: number | string,
+    gameSlug: string,
     media: MediaFilter = "video",
   ): Promise<GameDetail> {
     const res = await games[":slug"].$get({
       query: { media },
-      param: { slug: String(gameId) },
+      param: { slug: gameSlug },
     })
     return readJsonOrThrow(res, validateGameDetail)
   }
@@ -81,12 +80,12 @@ export function createGamesApi(context: ApiContext) {
     },
     fetchById,
     async fetchCreators(
-      gameId: number | string,
+      gameSlug: string,
       limit?: number,
       media: MediaFilter = "video",
     ): Promise<GameCreatorsResponse> {
       const res = await games[":slug"].creators.$get({
-        param: { slug: String(gameId) },
+        param: { slug: gameSlug },
         query: queryParams({ limit, media }),
       })
       return readJsonOrThrow(res, validateGameCreatorsResponse)

@@ -9,14 +9,12 @@ export type HomeSearch = {
 }
 
 interface HomeSearchInput {
-  feed?: unknown
   sort?: unknown
   game?: unknown
 }
 
 export function parseHomeSearch(search: HomeSearchInput): HomeSearch {
-  const sort =
-    search.feed === "recommended" ? "recommended" : parseClipSort(search.sort)
+  const sort = parseClipSort(search.sort)
   const game = searchString(search.game)
   const parsed: HomeSearch = {}
   if (sort) parsed.sort = sort
