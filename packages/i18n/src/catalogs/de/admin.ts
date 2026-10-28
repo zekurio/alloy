@@ -1,9 +1,7 @@
 import type { TranslationCatalog } from "../catalog"
 
 export const ADMIN_MESSAGES = {
-  "Add OAuth provider": "OAuth-Anbieter hinzufügen",
   "Add hashtag": "Hashtag hinzufügen",
-  "Add provider": "Anbieter hinzufügen",
   "Add tier": "Stufe hinzufügen",
   "Add user": "Nutzer hinzufügen",
   "Add webhook": "Webhook hinzufügen",
@@ -11,15 +9,13 @@ export const ADMIN_MESSAGES = {
   Administration: "Administration",
   Advanced: "Erweitert",
   "Alloy default": "Alloy-Standard",
-  "Allow users to sign in with this provider.":
-    "Erlaube Nutzern, sich mit diesem Anbieter anzumelden.",
   "Announce published clips to Discord or your own endpoint.":
     "Kündige veröffentlichte Clips auf Discord oder deinem eigenen Endpunkt an.",
   "Apple VideoToolbox": "Apple VideoToolbox",
+  "Applies to accounts created from now on and to upload links issued after saving.":
+    "Gilt für ab jetzt erstellte Konten und für Upload-Links, die nach dem Speichern ausgestellt werden.",
   "Applies to uploaded avatars and avatars synced from sign-in providers.":
     "Gilt für hochgeladene Avatare und mit Anmeldeanbietern synchronisierte Avatare.",
-  "Applies to uploaded provider icons and icons imported from a URL.":
-    "Gilt für hochgeladene Anbietersymbole und über eine URL importierte Symbole.",
   Authentication: "Authentifizierung",
   "Authentication setting saved": "Authentifizierungseinstellung gespeichert",
   "Authorization URL": "Autorisierungs-URL",
@@ -30,8 +26,6 @@ export const ADMIN_MESSAGES = {
   "Ban {username}?": "{username} sperren?",
   Banned: "Gesperrt",
   Branding: "Branding",
-  "Button color": "Button-Farbe",
-  "Button text color": "Button-Textfarbe",
   "Callback URL": "Callback-URL",
   "Callback URL copied": "Callback-URL kopiert",
   "Changes apply immediately to new uploads, screenshot edits, and queued screenshots when processing starts.":
@@ -47,8 +41,6 @@ export const ADMIN_MESSAGES = {
   "Codec & encoding": "Codec & Kodierung",
   "Colors buttons, links, and highlights in the Alloy theme for everyone on this server.":
     "Färbt Schaltflächen, Links und Hervorhebungen im Alloy-Theme für alle auf diesem Server.",
-  "Configure external OIDC and OAuth sign-in providers.":
-    "Konfiguriere externe OIDC- und OAuth-Anbieter für die Anmeldung.",
   "Copy callback URL": "Callback-URL kopieren",
   "Couldn't complete setup": "Einrichtung konnte nicht abgeschlossen werden",
   "Couldn't copy callback URL": "Callback-URL konnte nicht kopiert werden",
@@ -63,8 +55,6 @@ export const ADMIN_MESSAGES = {
   "Couldn't remove from queue":
     "Eintrag konnte nicht aus der Warteschlange entfernt werden",
   "Couldn't remove user": "Nutzer konnte nicht entfernt werden",
-  "Couldn't save OAuth providers":
-    "OAuth-Anbieter konnten nicht gespeichert werden",
   "Couldn't save transcoding settings":
     "Transkodierungs-Einstellungen konnten nicht gespeichert werden",
   "Couldn't save webhook": "Webhook konnte nicht gespeichert werden",
@@ -74,6 +64,7 @@ export const ADMIN_MESSAGES = {
   "Couldn't update backdrop": "Hintergrund konnte nicht aktualisiert werden",
   "Couldn't update user": "Nutzer konnte nicht aktualisiert werden",
   "Couldn't update webhook": "Webhook konnte nicht aktualisiert werden",
+  "Couldn't verify the setup token": "Setup-Token konnte nicht geprüft werden",
   "Create accounts": "Konten erstellen",
   "Create an account the first time someone signs in with this provider. When off, only users who already linked it can sign in.":
     "Erstelle ein Konto, wenn sich jemand zum ersten Mal mit diesem Anbieter anmeldet. Ist dies aus, können sich nur Nutzer anmelden, die ihn bereits verknüpft haben.",
@@ -84,8 +75,7 @@ export const ADMIN_MESSAGES = {
   "Default ({codec})": "Standard ({codec})",
   "Default codec for every rendition. Individual tiers in the ladder can override it.":
     "Standard-Codec für jede Qualitätsstufe. Einzelne Stufen der Leiter können ihn überschreiben.",
-  "Delete OAuth provider?": "OAuth-Anbieter löschen?",
-  "Delete provider": "Anbieter löschen",
+  "Default storage quota (GiB)": "Standard-Speicherkontingent (GiB)",
   "Delete this game?": "Dieses Spiel löschen?",
   "Delete this webhook?": "Diesen Webhook löschen?",
   "Delete user": "Nutzer löschen",
@@ -102,11 +92,7 @@ export const ADMIN_MESSAGES = {
   Discord: "Discord",
   "Discord renders the clip link as a playable preview.":
     "Discord rendert den Clip-Link als abspielbare Vorschau.",
-  "Discovery URL": "Discovery-URL",
   "Display name": "Anzeigename",
-  "Downloaded and stored on this server when you save.":
-    "Wird beim Speichern heruntergeladen und auf diesem Server gespeichert.",
-  "Edit OAuth provider": "OAuth-Anbieter bearbeiten",
   "Edit game": "Spiel bearbeiten",
   "Edit the generated clip backdrop shown on the login page.":
     "Bearbeite den generierten Clip-Hintergrund, der auf der Login-Seite angezeigt wird.",
@@ -125,6 +111,8 @@ export const ADMIN_MESSAGES = {
   "Encoding {tier} ({index}/{count})": "{tier} wird codiert ({index}/{count})",
   "Endpoint URL": "Endpunkt-URL",
   "Enter a VA-API render node path.": "Gib einen VA-API-Render-Node-Pfad an.",
+  "Enter a positive quota, or leave it empty, and an upload link lifetime from {min} to {max} minutes.":
+    "Gib ein positives Kontingent ein oder lass es leer, und eine Gültigkeit für Upload-Links von {min} bis {max} Minuten.",
   "Enter positive limits up to {size} MiB or {pixels} megapixels.":
     "Gib positive Limits bis zu {size} MiB oder {pixels} Megapixeln ein.",
   "Every public clip is announced once per webhook. Authors can opt out in their preferences.":
@@ -135,6 +123,7 @@ export const ADMIN_MESSAGES = {
   Fade: "Ausblendung",
   "Failed to load users": "Nutzer konnten nicht geladen werden",
   "Failed {time}": "Fehlgeschlagen {time}",
+  "Fetch user info": "Nutzerinfos abrufen",
   "File size limits before resizing. These images also have a 24-megapixel decoding limit.":
     "Dateigrößenlimits vor der Größenanpassung. Für diese Bilder gilt außerdem ein Dekodierungslimit von 24 Megapixeln.",
   "Finalizing the instance state.": "Instanzstatus wird abgeschlossen.",
@@ -149,13 +138,15 @@ export const ADMIN_MESSAGES = {
   Height: "Höhe",
   "Height must be an even number from 144 to 4320.":
     "Die Höhe muss eine gerade Zahl von 144 bis 4320 sein.",
+  "How long a clip upload has to finish before its upload link expires.":
+    "Wie lange ein Clip-Upload Zeit hat, bevor sein Upload-Link abläuft.",
   "How much of your quota your clips are using.":
     "Wie viel deines Kontingents deine Clips belegen.",
-  "Icon URL": "Symbol-URL",
   "Initial setup is already complete.":
     "Die Ersteinrichtung ist bereits abgeschlossen.",
   "Invalid quota": "Ungültiges Kontingent",
   "Invalid registration request.": "Ungültige Registrierungsanfrage.",
+  "Issuer URL": "Aussteller-URL",
   "It stops receiving announcements. Clips it already received are not re-sent if you add it back.":
     "Er erhält keine Ankündigungen mehr. Bereits zugestellte Clips werden nicht erneut gesendet, wenn du ihn wieder hinzufügst.",
   "Jellyfin FFmpeg": "Jellyfin FFmpeg",
@@ -165,12 +156,8 @@ export const ADMIN_MESSAGES = {
     "Leer lassen, um die aktuelle URL zu behalten.",
   "Leave blank to keep the current secret.":
     "Leer lassen, um das aktuelle Secret zu behalten.",
-  "Leave empty to use the theme color.":
-    "Leer lassen, um die Theme-Farbe zu verwenden.",
-  "Let anyone create an account with a passkey. Env-managed OAuth providers without allow_sign_up also follow this setting.":
-    "Erlaube allen, ein Konto mit einem Passkey zu erstellen. Per Umgebungsvariable verwaltete OAuth-Anbieter ohne allow_sign_up folgen ebenfalls dieser Einstellung.",
-  "Let anyone create an account with a passkey. OAuth providers have their own Create accounts setting.":
-    "Erlaube allen, ein Konto mit einem Passkey zu erstellen. OAuth-Anbieter haben ihre eigene Einstellung „Konten erstellen“.",
+  "Let anyone create an account with a passkey. Single sign-on has its own Create accounts setting.":
+    "Erlaube allen, ein Konto mit einem Passkey zu erstellen. Single Sign-on hat eine eigene Einstellung „Konten erstellen“.",
   "Link preview": "Link-Vorschau",
   "Loading quality settings": "Qualitätseinstellungen werden geladen",
   "Loading quality...": "Qualität wird geladen...",
@@ -181,9 +168,6 @@ export const ADMIN_MESSAGES = {
   "Login backdrop enabled": "Login-Hintergrund aktiviert",
   "Login page preview": "Vorschau der Login-Seite",
   Logo: "Logo",
-  "Lowercase letters, numbers, and hyphens only.":
-    "Nur Kleinbuchstaben, Zahlen und Bindestriche.",
-  "Managed by environment variable": "Durch Umgebungsvariable verwaltet",
   "Max FPS": "Max. FPS",
   "Max FPS must be from 1 to 240.": "Max. FPS muss zwischen 1 und 240 liegen.",
   "Max bitrate": "Max. Bitrate",
@@ -200,28 +184,22 @@ export const ADMIN_MESSAGES = {
   "NVIDIA NVENC": "NVIDIA NVENC",
   "Never used": "Nie verwendet",
   "New webhook": "Neuer Webhook",
-  "No OAuth providers configured": "Keine OAuth-Anbieter konfiguriert",
   "No active jobs": "Keine aktiven Aufgaben",
+  "No sign-in method is available. Turn on passkeys, or configure single sign-on with the ALLOY_OIDC_* variables, then reload this page.":
+    "Keine Anmeldemethode verfügbar. Schalte Passkeys ein oder richte Single Sign-on mit den ALLOY_OIDC_*-Variablen ein und lade die Seite dann neu.",
   "No users yet": "Noch keine Nutzer",
   "No webhooks yet": "Noch keine Webhooks",
   "No {label} artwork on SteamGridDB.":
     "Keine Bilder für {label} auf SteamGridDB.",
-  "OAuth providers": "OAuth-Anbieter",
-  "OAuth providers saved": "OAuth-Anbieter gespeichert",
   "Only games without clips can be deleted.":
     "Nur Spiele ohne Clips können gelöscht werden.",
   "Open registrations": "Offene Registrierungen",
-  "Open registrations is off, but {providers} still create accounts on first sign-in. Turn off Create accounts on a provider to stop it.":
-    "Offene Registrierungen sind aus, aber {providers} erstellen bei der ersten Anmeldung weiterhin Konten. Schalte „Konten erstellen“ bei einem Anbieter aus, um das zu beenden.",
-  "Open registrations is off, but {providers} still creates accounts on first sign-in. Turn off Create accounts on the provider to stop it.":
-    "Offene Registrierungen sind aus, aber {providers} erstellt bei der ersten Anmeldung weiterhin Konten. Schalte „Konten erstellen“ beim Anbieter aus, um das zu beenden.",
+  "Open registrations is off, but {provider} still creates accounts on first sign-in. Turn off Create accounts under Single sign-on to stop it.":
+    "Offene Registrierungen sind aus, aber {provider} erstellt bei der ersten Anmeldung weiterhin Konten. Schalte „Konten erstellen“ unter Single Sign-on aus, um das zu beenden.",
   PKCE: "PKCE",
-  "PNG, JPEG, WebP, or SVG, stored on this server and shown on the sign-in button. Size is controlled by Upload limits.":
-    "PNG, JPEG, WebP oder SVG, auf diesem Server gespeichert und auf der Anmeldeschaltfläche angezeigt. Die Größe wird unter Upload-Limits festgelegt.",
   "Profile banner size (MiB)": "Profilbanner-Größe (MiB)",
   "Profile images & artwork": "Profilbilder & Grafiken",
   Provider: "Anbieter",
-  "Provider ID": "Anbieter-ID",
   "Public clips are announced here as soon as they finish encoding.":
     "Öffentliche Clips werden hier angekündigt, sobald ihre Kodierung fertig ist.",
   Quality: "Qualität",
@@ -234,16 +212,18 @@ export const ADMIN_MESSAGES = {
   "Re-encode": "Neu codieren",
   "Re-encode started.": "Neukodierung gestartet.",
   "Re-encoding": "Wird neu codiert",
+  "Read claims from the user info endpoint as well as the ID token.":
+    "Liest Claims zusätzlich zum ID-Token auch vom User-Info-Endpunkt.",
   Reannounce: "Erneut ankündigen",
   "Redirect signed-out visitors to login before they can browse.":
     "Leite abgemeldete Besucher zum Login weiter, bevor sie browsen können.",
   "Register this redirect URI with the provider.":
     "Registriere diese Redirect-URI beim Anbieter.",
   Registration: "Registrierung",
-  "Registration, passkeys, browsing access, and OAuth sign-in providers.":
-    "Registrierung, Passkeys, Browsing-Zugriff und OAuth-Anmeldeanbieter.",
+  "Registration, passkeys, browsing access, and single sign-on.":
+    "Registrierung, Passkeys, Browsing-Zugriff und Single Sign-on.",
   Remove: "Entfernen",
-  "Remove icon": "Symbol entfernen",
+  "Remove the saved secret": "Gespeichertes Secret entfernen",
   "Remove tier": "Stufe entfernen",
   "Render node passed to ffmpeg for VA-API encoding.":
     "Render-Node, der ffmpeg für die VA-API-Kodierung übergeben wird.",
@@ -256,18 +236,29 @@ export const ADMIN_MESSAGES = {
   Scopes: "Scopes",
   "Screenshot resolution (megapixels)": "Screenshot-Auflösung (Megapixel)",
   "Screenshot size (MiB)": "Screenshot-Größe (MiB)",
-  "Screenshot size and resolution, profile images, game artwork, and sign-in provider icons.":
-    "Screenshot-Größe und -Auflösung, Profilbilder, Spielgrafiken und Anmeldeanbieter-Symbole.",
+  "Screenshot size and resolution, profile images, game artwork, storage quotas, and upload links.":
+    "Screenshot-Größe und -Auflösung, Profilbilder, Spielgrafiken, Speicherkontingente und Upload-Links.",
   "Secure the authorization flow with Proof Key for Code Exchange.":
     "Sichere den Autorisierungsablauf mit Proof Key for Code Exchange ab.",
   "Send test": "Test senden",
   "Separate scopes with spaces.": "Trenne Scopes mit Leerzeichen.",
+  "Set by ALLOY_OIDC_CLIENT_SECRET": "Durch ALLOY_OIDC_CLIENT_SECRET gesetzt",
+  "Set by ALLOY_OIDC_ISSUER_URL. You can replace it here; to use the endpoints under Advanced instead, unset the variable.":
+    "Durch ALLOY_OIDC_ISSUER_URL gesetzt. Du kannst sie hier ersetzen; um stattdessen die Endpunkte unter „Erweitert“ zu nutzen, entferne die Variable.",
+  "Setup token": "Setup-Token",
   "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.":
     "Zeig hinter dem Login-Formular eine schräge, scrollende Wand aus zufälligen Vorschaubildern öffentlicher Clips.",
   "Show the backdrop": "Hintergrund anzeigen",
-  "Sign-in button": "Anmeldebutton",
-  "Sign-in provider icon size (MiB)": "Anmeldeanbieter-Symbolgröße (MiB)",
+  "Show the sign-in button for this provider.":
+    "Zeigt die Anmeldeschaltfläche für diesen Anbieter.",
+  "Shown on the button as Continue with {name}.":
+    "Steht auf der Schaltfläche als „Weiter mit {name}“.",
+  "Sign in through an OpenID Connect provider. Empty fields use the value from the environment or Alloy's default, shown as the placeholder.":
+    "Anmeldung über einen OpenID-Connect-Anbieter. Leere Felder nutzen den Wert aus der Umgebung oder Alloys Standard, der als Platzhalter angezeigt wird.",
+  "Sign-in stays off until the provider has a client secret.":
+    "Die Anmeldung bleibt aus, bis der Anbieter ein Client-Secret hat.",
   "Signing secret": "Signatur-Secret",
+  "Single sign-on": "Single Sign-on",
   Slug: "Slug",
   "Software (CPU)": "Software (CPU)",
   "Source clips count toward your quota. Encoded copies do not.":
@@ -276,6 +267,9 @@ export const ADMIN_MESSAGES = {
   "Stereo AAC bitrate applied to every rendition.":
     "Stereo-AAC-Bitrate, die auf jede Qualitätsstufe angewendet wird.",
   Storage: "Speicher",
+  "Storage & uploads": "Speicher & Uploads",
+  "Storage each new account starts with. Leave empty for unlimited; admins can change it per user.":
+    "Speicher, mit dem jedes neue Konto startet. Leer lassen für unbegrenzt; Admins können es pro Nutzer ändern.",
   "Storage quota (GiB)": "Speicherkontingent (GiB)",
   "Suggested accents": "Vorgeschlagene Akzente",
   "Tag people": "Nutzer markieren",
@@ -283,10 +277,14 @@ export const ADMIN_MESSAGES = {
   "Test delivered": "Test zugestellt",
   "Test sound": "Sound testen",
   "Test {title} sound": "{title}-Sound testen",
+  "The first account becomes the admin. Enter the setup token from the server log, or the value of ALLOY_SETUP_TOKEN if you set one.":
+    "Das erste Konto wird Admin. Gib den Setup-Token aus dem Server-Log ein oder den Wert von ALLOY_SETUP_TOKEN, falls du einen gesetzt hast.",
   "The game and its artwork will be removed. This can't be undone.":
     "Das Spiel und seine Bilder werden gelöscht. Das kann nicht rückgängig gemacht werden.",
   "The generated wall of clip thumbnails behind the login form.":
     "Die generierte Wand aus Clip-Vorschaubildern hinter dem Anmeldeformular.",
+  "The provider's issuer or the full URL of its discovery document.":
+    "Der Aussteller des Anbieters oder die vollständige URL seines Discovery-Dokuments.",
   "The rolling window the clip hotkey saves.":
     "Das gleitende Zeitfenster, das der Clip-Hotkey speichert.",
   "The selected {backend} encoder isn't available for {codec} on this server.":
@@ -301,8 +299,6 @@ export const ADMIN_MESSAGES = {
     "Diesem ersten Konto wird die Admin-Rolle zugewiesen.",
   "This game has no SteamGridDB artwork":
     "Dieses Spiel hat keine SteamGridDB-Bilder",
-  "This immediately deletes every linked account for this provider. Users will need to link the provider again if it is added back.":
-    "Dadurch werden sofort alle verknüpften Konten dieses Anbieters gelöscht. Wenn der Anbieter erneut hinzugefügt wird, müssen Nutzer ihre Konten erneut verknüpfen.",
   "Tiers must differ in height, max FPS, or codec.":
     "Stufen müssen sich in Höhe, max. FPS oder Codec unterscheiden.",
   "Token URL": "Token-URL",
@@ -320,9 +316,9 @@ export const ADMIN_MESSAGES = {
   Unsaved: "Nicht gespeichert",
   "Update role and storage quota for {username}.":
     "Aktualisiere Rolle und Speicherkontingent für {username}.",
-  "Upload icon": "Symbol hochladen",
   "Upload limits": "Upload-Limits",
-  "Use the theme color": "Theme-Farbe verwenden",
+  "Upload link lifetime (minutes)": "Gültigkeit von Upload-Links (Minuten)",
+  "Use the secret from the environment": "Secret aus der Umgebung verwenden",
   "Use this {label} artwork": "Dieses Bild für {label} verwenden",
   "Used to sign each payload so your endpoint can verify it.":
     "Wird verwendet, um jede Nutzlast zu signieren, damit dein Endpunkt sie verifizieren kann.",
@@ -332,6 +328,8 @@ export const ADMIN_MESSAGES = {
     "Nutzer könnten diese Anmeldemethode sofort verlieren.",
   "VA-API": "VA-API",
   "VA-API device": "VA-API-Gerät",
+  "Verify that you run this server":
+    "Bestätige, dass du diesen Server betreibst",
   "Version {version}": "Version {version}",
   "Video codec": "Videocodec",
   "Video codec, hardware acceleration, quality, audio, and the rendition ladder for new uploads.":
@@ -348,8 +346,12 @@ export const ADMIN_MESSAGES = {
     "Dein Endpunkt erhält eine signierte JSON-Nutzlast.",
   "e.g. #clips": "z. B. #clips",
   kbps: "kbps",
+  "{blur} px blur, {darken}% darkening":
+    "{blur} px Unschärfe, {darken} % Abdunklung",
   "{codec} isn't available with {backend} on this server.":
     "{codec} ist auf diesem Server nicht mit {backend} verfügbar.",
+  "{count} rendition": "{count} Qualitätsstufe",
+  "{count} renditions": "{count} Qualitätsstufen",
   "{provider} renders the clip link as a playable preview.":
     "{provider} zeigt den Clip-Link als abspielbare Vorschau an.",
 } satisfies TranslationCatalog

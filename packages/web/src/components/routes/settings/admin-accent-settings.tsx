@@ -14,6 +14,7 @@ import { useForm, useStore } from "@tanstack/react-form"
 import { useEffect, useEffectEvent } from "react"
 
 import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
+import { AdminDefaultNote } from "@/components/routes/settings/admin-default-note"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
 import { api } from "@/lib/api"
@@ -47,6 +48,7 @@ export function AdminAccentSettings({
   config: AdminRuntimeConfig
 }) {
   const saved = config.appearance.accentColors
+  const defaults = config.defaults.appearance.accentColors
   const saveAccents = useAdminConfigMutation(
     (accentColors: ThemeAccents) =>
       api.admin.updateAppearanceConfig({ accentColors }),
@@ -82,9 +84,23 @@ export function AdminAccentSettings({
     <SettingsSubsection
       id="accent-color"
       title={t("Accent color")}
-      description={t(
-        "Colors buttons, links, and highlights in the Alloy theme for everyone on this server.",
-      )}
+      description={
+        <>
+          {t(
+            "Colors buttons, links, and highlights in the Alloy theme for everyone on this server.",
+          )}
+          <AdminDefaultNote
+            value={draft}
+            defaultValue={defaults}
+            label={accentLabel(defaults)}
+            disabled={saveAccents.isPending}
+            onReset={() => {
+              form.setFieldValue("light", defaults.light)
+              form.setFieldValue("dark", defaults.dark)
+            }}
+          />
+        </>
+      }
     >
       <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
         <div
@@ -159,6 +175,13 @@ export function AdminAccentSettings({
       </div>
     </SettingsSubsection>
   )
+}
+
+function accentLabel(accents: ThemeAccents): string {
+  if (!accents.light && !accents.dark) return t("Alloy default")
+  return THEME_APPEARANCES.map(
+    (appearance) => accents[appearance] ?? defaultThemeAccent(appearance),
+  ).join(" / ")
 }
 
 /** Alloy's own accent is stored as none, so the server keeps following it. */

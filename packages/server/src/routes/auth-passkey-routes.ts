@@ -22,6 +22,11 @@ import {
 } from "@alloy/server/auth/security-responses"
 import { createSession, requireSession } from "@alloy/server/auth/session"
 import {
+  endSetupAccess,
+  hasSetupAccess,
+  SETUP_ACCESS_REQUIRED,
+} from "@alloy/server/auth/setup-token"
+import {
   AUTHENTICATOR_TRANSPORTS,
   beginPasskeyAuthentication,
   beginPasskeyRegistration,
@@ -32,6 +37,7 @@ import { db } from "@alloy/server/db/index"
 import {
   badRequest,
   badRequestFromCause,
+  forbidden,
   notFound,
   success,
 } from "@alloy/server/runtime/http-response"
@@ -119,6 +125,9 @@ export const authPasskeyRoutes = new Hono()
       try {
         const body = c.req.valid("json")
         const setupFirstAdmin = await setupRequired()
+        if (setupFirstAdmin && !hasSetupAccess(c)) {
+          return forbidden(c, SETUP_ACCESS_REQUIRED)
+        }
         if (!setupFirstAdmin && !(await canOpenPasskeyRegistration())) {
           return badRequest(c, "Passkey sign-up is currently disabled.")
         }
@@ -146,12 +155,16 @@ export const authPasskeyRoutes = new Hono()
         if (!username) {
           return badRequest(c, "Invalid registration request.")
         }
+        if (setupFirstAdmin === true && !hasSetupAccess(c)) {
+          return forbidden(c, SETUP_ACCESS_REQUIRED)
+        }
         const userRow = await createPasskeyAccount({
           username,
           setupFirstAdmin: setupFirstAdmin === true,
           registration,
         })
 
+        if (setupFirstAdmin === true) endSetupAccess(c)
         const { token, data } = await createSession(c, userRow.id)
         clearAccountReactivationCookie(c)
         setSessionCookie(c, token)

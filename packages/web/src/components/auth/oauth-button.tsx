@@ -9,20 +9,13 @@ interface OAuthButtonProps extends ComponentProps<"button"> {
   /** Human-readable provider name, rendered as "Continue with {displayName}". */
   displayName: string
   pendingLabel?: string
-  buttonColor?: string
-  buttonTextColor?: string
-  iconUrl?: string
 }
 
 export function OAuthButton({
   providerId,
   displayName,
   pendingLabel,
-  buttonColor,
-  buttonTextColor,
-  iconUrl,
   className,
-  style,
   ...props
 }: OAuthButtonProps) {
   return (
@@ -32,18 +25,9 @@ export function OAuthButton({
       size="lg"
       className={cn("gap-3", className)}
       data-provider={providerId}
-      style={{
-        ...style,
-        backgroundColor: buttonColor ?? style?.backgroundColor,
-        color: buttonTextColor ?? style?.color,
-      }}
       {...props}
     >
-      {iconUrl ? (
-        <img src={iconUrl} alt="" className="size-4 object-contain" />
-      ) : (
-        <UserKeyIcon className="size-4" />
-      )}
+      <UserKeyIcon className="size-4" />
       <span className="truncate">
         {pendingLabel ?? t("Continue with {displayName}", { displayName })}
       </span>

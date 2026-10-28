@@ -1,30 +1,33 @@
+import { isDeepStrictEqual } from "node:util"
+
 import {
-  AppearanceConfigSchema,
-  DEFAULT_UPLOAD_LIMITS,
-  UploadLimitsSchema,
-  managedOAuthProviderIconKey,
+  isObjectRecord,
   RUNTIME_CONFIG_VERSION,
-  TranscodingConfigSchema,
-  type AppearanceConfig,
-  type AuthConfigLocks,
-  type OAuthProviderConfig,
+  type ContractJsonValue,
+  type OidcClientSecretSource,
   type RuntimeConfig,
-  type TranscodingConfig,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
-import { authAccount } from "@alloy/db/auth-schema"
+import type { SafeParseResult } from "@alloy/contracts/schema-validation"
 import { instanceSetting } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
 import { synchronizeMediaGeneration } from "@alloy/server/queue/media-generation"
-import {
-  cancelStorageDeletion,
-  enqueueStorageDeletions,
-} from "@alloy/server/storage/deletion-store"
-import { eq, inArray } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
-import { OAuthProvidersSchema, withSignUpDefault } from "./oauth-schema"
+import {
+  mergeConfig,
+  sectionOverrides,
+  valueAtPath,
+  type ConfigOverrides,
+} from "./overrides"
+import {
+  CONFIG_SECTION_NAMES,
+  configSection,
+  type ConfigSectionName,
+  type ConfigSectionValues,
+} from "./sections"
 
 const logger = createLogger("config-store")
 
@@ -34,48 +37,33 @@ const SetupSettingSchema = t.object({
 
 type SetupSetting = t.infer<typeof SetupSettingSchema>
 type StoredSettingValue = (typeof instanceSetting.$inferSelect)["value"]
+type SavedOverrides = { [Name in ConfigSectionName]: ConfigOverrides }
 
-// DB-side auth toggles. Each key is only consulted when its ALLOY_* env
-// variable is unset; the schema defaults double as the instance defaults.
-const AuthTogglesSchema = t.object({
-  openRegistrations: t.boolean().$default(false),
-  passkeyEnabled: t.boolean().$default(true),
-  requireAuthToBrowse: t.boolean().$default(true),
-})
-
-type AuthToggles = t.infer<typeof AuthTogglesSchema>
-
+const OIDC_CLIENT_SECRET_KEY = "oidcClientSecret"
 const DEFAULT_SETUP: SetupSetting = { setupComplete: false }
-const DEFAULT_AUTH: AuthToggles = AuthTogglesSchema.parse({})
-const DEFAULT_APPEARANCE: AppearanceConfig = AppearanceConfigSchema.parse({
-  loginSplash: {
-    enabled: false,
-    blurPx: 24,
-    darkenOpacity: 0.8,
-  },
-  accentColors: { light: null, dark: null },
-})
-const DEFAULT_TRANSCODING: TranscodingConfig = TranscodingConfigSchema.parse({})
+const NO_OVERRIDES: SavedOverrides = {
+  auth: {},
+  oidc: {},
+  appearance: {},
+  transcoding: {},
+  uploadLimits: {},
+  limits: {},
+}
 
-type DbOwnedConfigKey =
-  | "setupComplete"
-  | "appearance"
-  | "transcoding"
-  | "uploadLimits"
-
-let uploadLimitsSetting = deepFreeze(DEFAULT_UPLOAD_LIMITS)
 let setupSetting = deepFreeze(DEFAULT_SETUP)
-let authSetting = deepFreeze(DEFAULT_AUTH)
-let oauthProvidersSetting: readonly OAuthProviderConfig[] = deepFreeze([])
-let oauthClientSecretsSetting: Readonly<Record<string, string>> = deepFreeze({})
-let appearanceSetting = deepFreeze(DEFAULT_APPEARANCE)
-let transcodingSetting = deepFreeze(DEFAULT_TRANSCODING)
-// Built on first read rather than at import: buildRuntimeConfig() reads env,
-// and importing this module must not validate the environment as a side effect.
+let savedOverrides = deepFreeze(NO_OVERRIDES)
+let savedOidcClientSecret: string | null = null
+// Built on first read rather than at import: resolving reads env, and
+// importing this module must not validate the environment as a side effect.
+let values: Readonly<ConfigSectionValues> | null = null
 let state: Readonly<RuntimeConfig> | null = null
 
+function currentValues(): Readonly<ConfigSectionValues> {
+  return (values ??= deepFreeze(resolveValues()))
+}
+
 function currentState(): Readonly<RuntimeConfig> {
-  return (state ??= deepFreeze(buildRuntimeConfig()))
+  return (state ??= deepFreeze(buildRuntimeConfig(currentValues())))
 }
 
 type Listener = (
@@ -84,192 +72,157 @@ type Listener = (
 ) => void
 const listeners = new Set<Listener>()
 
-function effectiveOpenRegistrations(): boolean {
-  return env.authEnv.openRegistrations ?? authSetting.openRegistrations
+function parseSection<Name extends ConfigSectionName>(
+  name: Name,
+  overrides: ConfigOverrides,
+): SafeParseResult<ConfigSectionValues[Name]> {
+  return configSection(name).schema.safeParse(
+    mergeConfig(env.config.defaults[name], overrides),
+  )
 }
 
-function buildRuntimeConfig(): RuntimeConfig {
-  const openRegistrations = effectiveOpenRegistrations()
-  // Env providers can't be rewritten, so one without allow_sign_up keeps
-  // following open registrations.
-  const envProviders = env.authEnv.oauthProviders
+/**
+ * A section's defaults with its saved values on top. Saved values that no
+ * longer validate, say after an environment change, are skipped rather than
+ * failing startup.
+ */
+function resolveSection<Name extends ConfigSectionName>(
+  name: Name,
+  overrides: ConfigOverrides,
+): ConfigSectionValues[Name] {
+  const parsed = parseSection(name, overrides)
+  if (parsed.success) return parsed.data
+  logger.error(
+    `Ignoring the saved ${name} settings, which no longer validate: ${parsed.error.message}`,
+  )
+  return env.config.defaults[name]
+}
+
+function resolveValues(): ConfigSectionValues {
+  return {
+    auth: resolveSection("auth", savedOverrides.auth),
+    oidc: resolveSection("oidc", savedOverrides.oidc),
+    appearance: resolveSection("appearance", savedOverrides.appearance),
+    transcoding: resolveSection("transcoding", savedOverrides.transcoding),
+    uploadLimits: resolveSection("uploadLimits", savedOverrides.uploadLimits),
+    limits: resolveSection("limits", savedOverrides.limits),
+  }
+}
+
+function buildRuntimeConfig(config: ConfigSectionValues): RuntimeConfig {
   return {
     runtimeConfigVersion: RUNTIME_CONFIG_VERSION,
-    openRegistrations,
+    openRegistrations: config.auth.openRegistrations,
     setupComplete: setupSetting.setupComplete,
-    passkeyEnabled: env.authEnv.passkeyEnabled ?? authSetting.passkeyEnabled,
-    requireAuthToBrowse:
-      env.authEnv.requireAuthToBrowse ?? authSetting.requireAuthToBrowse,
-    oauthProviders: envProviders
-      ? withSignUpDefault(envProviders, openRegistrations)
-      : [...oauthProvidersSetting],
-    limits: env.limits,
-    uploadLimits: uploadLimitsSetting,
+    passkeyEnabled: config.auth.passkeyEnabled,
+    requireAuthToBrowse: config.auth.requireAuthToBrowse,
+    oidc: config.oidc,
+    limits: config.limits,
+    uploadLimits: config.uploadLimits,
     storage: env.storage,
-    appearance: appearanceSetting,
-    transcoding: transcodingSetting,
+    appearance: config.appearance,
+    transcoding: config.transcoding,
   }
 }
 
-/** Which auth config sections are env-managed (admin writes rejected). */
-export function authEnvLocks(): AuthConfigLocks {
-  return {
-    openRegistrations: env.authEnv.openRegistrations !== null,
-    passkeyEnabled: env.authEnv.passkeyEnabled !== null,
-    requireAuthToBrowse: env.authEnv.requireAuthToBrowse !== null,
-    oauthProviders: env.authEnv.oauthProviders !== null,
-  }
+/** What each section resolves to without the values saved in the admin UI. */
+export function configDefaults(): Readonly<ConfigSectionValues> {
+  return env.config.defaults
 }
-
-const AUTH_TOGGLE_ENV_NAMES = {
-  openRegistrations: "ALLOY_OPEN_REGISTRATIONS",
-  passkeyEnabled: "ALLOY_PASSKEY_ENABLED",
-  requireAuthToBrowse: "ALLOY_REQUIRE_AUTH_TO_BROWSE",
-} as const
 
 /**
- * Merge `patch` into the stored toggles. Like {@link setOAuthProviders}, this
- * reads the in-memory snapshot before writing, so callers hold
- * `withAdminAccessChange` to keep concurrent admin writes from losing fields.
+ * Validate a change to a section without saving it. `base: "current"` lays
+ * `input` over the section as it is now, for partial updates. `base:
+ * "defaults"` lays it over the defaults, for forms that submit every field
+ * they edit: a field the form leaves out goes back to its default.
  */
-export async function setAuthToggles(
-  patch: Partial<AuthToggles>,
+export function prepareConfigSection<Name extends ConfigSectionName>(
+  name: Name,
+  input: ContractJsonValue,
+  base: "current" | "defaults",
+): SafeParseResult<ConfigSectionValues[Name]> {
+  const from =
+    base === "current" ? currentValues()[name] : env.config.defaults[name]
+  return configSection(name).schema.safeParse(mergeConfig(from, input))
+}
+
+/**
+ * Save a section validated by {@link prepareConfigSection}. Only values that
+ * differ from the section's defaults are stored, so saving a default hands
+ * that setting back to the environment. Auth and OIDC callers hold
+ * `withAdminAccessChange` so the sign-in lockout checks see every write.
+ */
+export async function saveConfigSection<Name extends ConfigSectionName>(
+  name: Name,
+  value: ConfigSectionValues[Name],
 ): Promise<void> {
-  const locks = authEnvLocks()
-  // SAFETY: Object.keys reads the closed AUTH_TOGGLE_ENV_NAMES constant, so
-  // every returned key is one of its declared properties.
-  for (const key of Object.keys(AUTH_TOGGLE_ENV_NAMES) as Array<
-    keyof typeof AUTH_TOGGLE_ENV_NAMES
-  >) {
-    if (patch[key] !== undefined && locks[key]) {
-      throw new Error(
-        `This setting is managed by the ${AUTH_TOGGLE_ENV_NAMES[key]} environment variable. Unset it to edit the setting here.`,
+  const overrides = sectionOverrides(value, env.config.defaults[name])
+  await db.transaction(async (tx) => {
+    await writeOverrides(configSection(name).key, overrides, tx)
+    // New clips and the re-encode backlog follow the saved ladder, so the
+    // generation moves in the same transaction as the config.
+    if (name === "transcoding") {
+      await synchronizeMediaGeneration(
+        resolveSection("transcoding", overrides),
+        tx,
       )
     }
-  }
-
-  const next = AuthTogglesSchema.parse({ ...authSetting, ...patch })
-  await writeSetting("auth", next)
-  authSetting = deepFreeze(next)
-  refreshState()
-}
-
-/**
- * Replace the stored OAuth provider list. `secrets` carries new client secrets
- * by provider id; providers absent from it keep their stored secret, and
- * secrets and linked auth accounts for removed providers are pruned.
- *
- * Managed icon lifecycle: prewrite deletion reservations for every icon in the
- * new list are cancelled alongside the config write; managed icons the
- * previous list referenced but the next list does not are enqueued for
- * deletion in the same transaction. Callers must wake the storage deletion
- * worker when `queuedIconDeletions > 0`, and hold `withAdminAccessChange` so
- * concurrent saves cannot drop each other's kept secrets.
- */
-export async function setOAuthProviders(
-  providers: OAuthProviderConfig[],
-  secrets: Record<string, string>,
-): Promise<{ queuedIconDeletions: number }> {
-  if (env.authEnv.oauthProviders !== null) {
-    throw new Error(
-      "OAuth providers are managed by the ALLOY_SOCIALACCOUNT_PROVIDERS environment variable. Unset it to edit providers here.",
-    )
-  }
-
-  // Callers resolve allowSignUp, so the fallback is never used.
-  const nextProviders = withSignUpDefault(
-    OAuthProvidersSchema.parse(providers),
-    false,
-  )
-  const nextSecrets: Record<string, string> = {}
-  for (const provider of nextProviders) {
-    const incoming = secrets[provider.providerId]
-    const kept = oauthClientSecretsSetting[provider.providerId]
-    const value = incoming ?? kept
-    if (value) nextSecrets[provider.providerId] = value
-  }
-
-  const nextKeys = managedIconKeysByLowercase(nextProviders)
-  const nextProviderIds = new Set(
-    nextProviders.map((provider) => provider.providerId),
-  )
-  const removedProviderIds = oauthProvidersSetting
-    .map((provider) => provider.providerId)
-    .filter((providerId) => !nextProviderIds.has(providerId))
-  const orphanedIconKeys = [
-    ...managedIconKeysByLowercase(oauthProvidersSetting),
-  ]
-    .filter(([lower]) => !nextKeys.has(lower))
-    .map(([, key]) => key)
-
-  // One transaction: a failure between the writes must not leave a new
-  // provider list paired with a stale (or already-pruned) secret map, nor
-  // detach icon objects without a durable deletion intent.
-  await db.transaction(async (tx) => {
-    await writeSetting("oauthProviders", nextProviders, tx)
-    await writeSetting("oauthClientSecrets", nextSecrets, tx)
-    if (removedProviderIds.length > 0) {
-      await tx
-        .delete(authAccount)
-        .where(inArray(authAccount.provider_id, removedProviderIds))
-    }
-    for (const key of nextKeys.values()) {
-      await cancelStorageDeletion("assets", key, { tx })
-    }
-    await enqueueStorageDeletions(
-      orphanedIconKeys.map((key) => ({
-        namespace: "assets" as const,
-        key,
-        reason: "OAuth provider icon no longer referenced",
-        source: { type: "oauth-provider-icon" },
-      })),
-      { tx },
-    )
   })
-  oauthProvidersSetting = deepFreeze(nextProviders)
-  oauthClientSecretsSetting = deepFreeze(nextSecrets)
+  savedOverrides = deepFreeze({ ...savedOverrides, [name]: overrides })
   refreshState()
-  return { queuedIconDeletions: orphanedIconKeys.length }
-}
-
-function managedIconKeysByLowercase(
-  providers: readonly OAuthProviderConfig[],
-): Map<string, string> {
-  const keys = new Map<string, string>()
-  for (const provider of providers) {
-    const key = managedOAuthProviderIconKey(provider.iconUrl)
-    if (key) keys.set(key.toLowerCase(), key)
-  }
-  return keys
 }
 
 /**
- * Managed icon storage keys currently referenced by any provider source (the
- * DB-stored list even while env-locked, and the env list). The deletion
- * worker consults this before removing an object in the assets namespace.
+ * The OIDC client secret change a save makes: a string saves it, null drops
+ * the saved one, and undefined or "" keeps it, like an untouched password
+ * field.
  */
-export function referencedOAuthProviderIconKeys(): Set<string> {
-  const keys = new Set<string>()
-  for (const provider of [
-    ...oauthProvidersSetting,
-    ...(env.authEnv.oauthProviders ?? []),
-  ]) {
-    const key = managedOAuthProviderIconKey(provider.iconUrl)
-    if (key) keys.add(key.toLowerCase())
-  }
-  return keys
+export type OidcClientSecretChange = string | null | undefined
+
+function savedSecretChange(change: OidcClientSecretChange): string | null {
+  return change === undefined || change === "" ? savedOidcClientSecret : change
 }
 
-/**
- * Resolve an OAuth client secret ("" when unset) from whichever source owns
- * the provider list: the env JSON when ALLOY_SOCIALACCOUNT_PROVIDERS is set,
- * the settings table otherwise. Consumed via the secret-store facade.
- */
-export function storedOAuthClientSecret(providerId: string): string {
-  if (env.authEnv.oauthClientSecrets !== null) {
-    return env.authEnv.oauthClientSecrets[providerId] ?? ""
-  }
-  return oauthClientSecretsSetting[providerId] ?? ""
+/** The secret that applies after `change`, or "" when there is none. */
+export function oidcClientSecretAfter(change: OidcClientSecretChange): string {
+  return savedSecretChange(change) || env.config.oidcClientSecret || ""
+}
+
+/** The OIDC client secret in use, or "" when none is set. */
+export function oidcClientSecret(): string {
+  return oidcClientSecretAfter(undefined)
+}
+
+export function oidcClientSecretSource(): OidcClientSecretSource | null {
+  if (savedOidcClientSecret) return "settings"
+  return env.config.oidcClientSecret ? "environment" : null
+}
+
+/** Save the OIDC provider and its secret together. */
+export async function saveOidcConfig(
+  value: ConfigSectionValues["oidc"],
+  clientSecret: OidcClientSecretChange,
+): Promise<void> {
+  const overrides = sectionOverrides(value, env.config.defaults.oidc)
+  const nextSecret = savedSecretAfter(clientSecret)
+  await db.transaction(async (tx) => {
+    await writeOverrides(configSection("oidc").key, overrides, tx)
+    if (nextSecret === null) {
+      await deleteSetting(OIDC_CLIENT_SECRET_KEY, tx)
+    } else {
+      await writeSetting(OIDC_CLIENT_SECRET_KEY, nextSecret, tx)
+    }
+  })
+  savedOverrides = deepFreeze({ ...savedOverrides, oidc: overrides })
+  savedOidcClientSecret = nextSecret
+  refreshState()
+}
+
+// A saved secret equal to the environment's is no override, like any other
+// default value.
+function savedSecretAfter(change: OidcClientSecretChange): string | null {
+  const saved = savedSecretChange(change)
+  return saved === env.config.oidcClientSecret ? null : saved
 }
 
 function deepFreeze<T>(value: T): T {
@@ -294,7 +247,8 @@ function notify(next: RuntimeConfig, prev: RuntimeConfig): void {
 
 function refreshState(): void {
   const prev = currentState()
-  state = deepFreeze(buildRuntimeConfig())
+  values = deepFreeze(resolveValues())
+  state = deepFreeze(buildRuntimeConfig(values))
   notify(state, prev)
 }
 
@@ -323,70 +277,93 @@ async function writeSetting(
     })
 }
 
-export async function initializeConfigStore(): Promise<void> {
-  const [
-    setupValue,
-    authValue,
-    oauthProvidersValue,
-    oauthClientSecretsValue,
-    appearanceValue,
-    transcodingValue,
-    uploadLimitsValue,
-  ] = await Promise.all([
-    readSetting("setup"),
-    readSetting("auth"),
-    readSetting("oauthProviders"),
-    readSetting("oauthClientSecrets"),
-    readSetting("appearance"),
-    readSetting("transcoding"),
-    readSetting("uploadLimits"),
-  ])
+async function deleteSetting(
+  key: string,
+  executor: Pick<typeof db, "delete"> = db,
+): Promise<void> {
+  await executor.delete(instanceSetting).where(eq(instanceSetting.key, key))
+}
 
-  uploadLimitsSetting = deepFreeze(
-    UploadLimitsSchema.parse(uploadLimitsValue ?? {}),
-  )
-  setupSetting = deepFreeze(SetupSettingSchema.parse(setupValue ?? {}))
-  authSetting = deepFreeze(AuthTogglesSchema.parse(authValue ?? {}))
-  const storedProviders = OAuthProvidersSchema.parse(oauthProvidersValue ?? [])
-  const providers = withSignUpDefault(
-    storedProviders,
-    effectiveOpenRegistrations(),
-  )
-  // Save the resolved value once, so later open-registration changes no
-  // longer move a provider's sign-up setting.
-  if (storedProviders.some((provider) => provider.allowSignUp === undefined)) {
-    await writeSetting("oauthProviders", providers)
-    const signUp = providers
-      .filter((provider) => provider.allowSignUp)
-      .map((provider) => provider.providerId)
-    // Env-managed providers replace the stored list, so it is inactive.
-    if (signUp.length > 0 && env.authEnv.oauthProviders === null) {
-      logger.warn(
-        `OAuth providers ${signUp.join(", ")} keep creating accounts now that sign-up is a per-provider setting. Turning off open registrations no longer stops them; turn off Create accounts on each provider instead.`,
+/** Store a section's overrides; a section with none has no row. */
+async function writeOverrides(
+  key: string,
+  overrides: ConfigOverrides,
+  executor: Pick<typeof db, "insert" | "delete"> = db,
+): Promise<void> {
+  if (Object.keys(overrides).length === 0) {
+    await deleteSetting(key, executor)
+  } else {
+    await writeSetting(key, overrides, executor)
+  }
+}
+
+function storedOverrides(
+  value: StoredSettingValue | undefined,
+): ConfigOverrides {
+  return isObjectRecord(value) ? { ...value } : {}
+}
+
+/**
+ * Load the saved overrides, dropping any that now equal their default (the
+ * environment caught up with the admin's choice), and report environment
+ * variables that a saved value shadows.
+ */
+async function loadSection(name: ConfigSectionName): Promise<ConfigOverrides> {
+  const section = configSection(name)
+  const row = await readSetting(section.key)
+  const stored = storedOverrides(row)
+  const parsed = parseSection(name, stored)
+  if (!parsed.success) return stored
+
+  const overrides = sectionOverrides(parsed.data, env.config.defaults[name])
+  const empty = Object.keys(overrides).length === 0
+  if (row !== undefined && (empty || !isDeepStrictEqual(overrides, row))) {
+    await writeOverrides(section.key, overrides)
+  }
+  for (const setting of env.config.settings[name]) {
+    if (valueAtPath(overrides, setting.path) !== undefined) {
+      logger.info(
+        `${setting.name} is set, but a value saved in the admin settings overrides it.`,
       )
     }
   }
-  oauthProvidersSetting = deepFreeze(providers)
-  oauthClientSecretsSetting = deepFreeze(
-    t.record(t.string(), t.string()).parse(oauthClientSecretsValue ?? {}),
-  )
-  appearanceSetting = deepFreeze(
-    AppearanceConfigSchema.parse(appearanceValue ?? DEFAULT_APPEARANCE),
-  )
-  transcodingSetting = deepFreeze(
-    TranscodingConfigSchema.parse(transcodingValue ?? DEFAULT_TRANSCODING),
-  )
+  return overrides
+}
+
+export async function initializeConfigStore(): Promise<void> {
+  const [setupValue, secretValue] = await Promise.all([
+    readSetting("setup"),
+    readSetting(OIDC_CLIENT_SECRET_KEY),
+  ])
+  setupSetting = deepFreeze(SetupSettingSchema.parse(setupValue ?? {}))
+
+  const overrides: SavedOverrides = { ...NO_OVERRIDES }
+  for (const name of CONFIG_SECTION_NAMES) {
+    overrides[name] = await loadSection(name)
+  }
+  savedOverrides = deepFreeze(overrides)
+
+  const secret = t.string().safeParse(secretValue)
+  savedOidcClientSecret = secret.success && secret.data ? secret.data : null
+  if (
+    savedOidcClientSecret &&
+    savedOidcClientSecret === env.config.oidcClientSecret
+  ) {
+    await deleteSetting(OIDC_CLIENT_SECRET_KEY)
+    savedOidcClientSecret = null
+  }
+  if (savedOidcClientSecret && env.config.oidcClientSecret) {
+    logger.info(
+      "ALLOY_OIDC_CLIENT_SECRET is set, but a secret saved in the admin settings overrides it.",
+    )
+  }
   refreshState()
 }
 
 interface ConfigStore {
   get<K extends keyof RuntimeConfig>(key: K): RuntimeConfig[K]
   getAll(): Readonly<RuntimeConfig>
-  /** Persist a DB-owned key; every other key comes from env or Nix options. */
-  set<K extends DbOwnedConfigKey>(
-    key: K,
-    value: RuntimeConfig[K],
-  ): Promise<void>
+  setSetupComplete(value: boolean): Promise<void>
   subscribe(fn: Listener): () => void
 }
 
@@ -397,36 +374,10 @@ export const configStore: ConfigStore = {
   getAll() {
     return structuredClone(currentState())
   },
-  async set(key, value) {
-    switch (key) {
-      case "setupComplete": {
-        const next = SetupSettingSchema.parse({ setupComplete: value })
-        await writeSetting("setup", next)
-        setupSetting = deepFreeze(next)
-        break
-      }
-      case "appearance": {
-        const next = AppearanceConfigSchema.parse(value)
-        await writeSetting("appearance", next)
-        appearanceSetting = deepFreeze(next)
-        break
-      }
-      case "uploadLimits": {
-        const next = UploadLimitsSchema.parse(value)
-        await writeSetting("uploadLimits", next)
-        uploadLimitsSetting = deepFreeze(next)
-        break
-      }
-      case "transcoding": {
-        const next = TranscodingConfigSchema.parse(value)
-        await db.transaction(async (tx) => {
-          await writeSetting("transcoding", next, tx)
-          await synchronizeMediaGeneration(next, tx)
-        })
-        transcodingSetting = deepFreeze(next)
-        break
-      }
-    }
+  async setSetupComplete(value) {
+    const next = SetupSettingSchema.parse({ setupComplete: value })
+    await writeSetting("setup", next)
+    setupSetting = deepFreeze(next)
     refreshState()
   },
   subscribe(fn) {

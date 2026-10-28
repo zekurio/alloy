@@ -21,7 +21,11 @@ import {
   readOAuthStateCookie,
   setOAuthPendingLinkCookie,
 } from "./cookies"
-import { linkAccountToUser, resolveSignInUser } from "./oauth-accounts"
+import {
+  createFirstAdminForOAuthAccount,
+  linkAccountToUser,
+  resolveSignInUser,
+} from "./oauth-accounts"
 import {
   browserNonceMatches,
   consumeOAuthChallenge,
@@ -45,6 +49,11 @@ import { savePendingOAuthLink } from "./oauth-pending-link"
 import { profileFromTokens, storedTokens } from "./oauth-profile"
 import type { OAuthChallengePayload, OAuthMode } from "./oauth-types"
 import { getSession } from "./session"
+import {
+  endSetupAccess,
+  hasSetupAccess,
+  SETUP_ACCESS_REQUIRED,
+} from "./setup-token"
 
 const logger = createLogger("oauth")
 const OAuthChallengePayloadSchema = t.object({
@@ -54,6 +63,7 @@ const OAuthChallengePayloadSchema = t.object({
   codeVerifier: t.string().optional(),
   mode: t.enum(["sign-in", "link"]),
   providerId: t.string(),
+  setupFirstAdmin: t.boolean().optional(),
   userId: t.string().optional(),
 })
 
@@ -63,6 +73,7 @@ export async function startOAuthSignIn(input: {
   providerId: string
   callbackURL?: string | null
   account?: OAuthSignInAccount
+  setupFirstAdmin?: boolean
 }): Promise<{ browserNonce: string; url: string }> {
   return startOAuthFlow({ ...input, mode: "sign-in" })
 }
@@ -80,14 +91,14 @@ async function startOAuthFlow(input: {
   callbackURL?: string | null
   account?: OAuthSignInAccount
   mode: OAuthMode
+  setupFirstAdmin?: boolean
   userId?: string
 }): Promise<{ browserNonce: string; url: string }> {
   const provider = requireEnabledProvider(input.providerId)
 
   const state = randomState()
   const browserNonce = randomState()
-  const codeVerifier =
-    provider.pkce === false ? undefined : randomPKCECodeVerifier()
+  const codeVerifier = provider.pkce ? randomPKCECodeVerifier() : undefined
   const callbackURL = normalizeCallbackURL(input.callbackURL)
   const config = await oauthClient(provider)
   const scope = scopesForProvider(provider)
@@ -111,6 +122,7 @@ async function startOAuthFlow(input: {
     codeVerifier,
     mode: input.mode,
     providerId: provider.providerId,
+    setupFirstAdmin: input.setupFirstAdmin,
     userId: input.userId,
   }
 
@@ -181,6 +193,19 @@ export async function finishOAuthCallback(
       return { redirectTo: payload.callbackURL }
     }
 
+    if (payload.setupFirstAdmin) {
+      if (!hasSetupAccess(c)) throw new Error(SETUP_ACCESS_REQUIRED)
+      const userId = await createFirstAdminForOAuthAccount({
+        profile,
+        provider,
+        tokens: stored,
+      })
+      endSetupAccess(c)
+      logger.info(`${provider.providerId} sign-in created admin ${userId}`)
+      await completeAuthenticatedSignIn(c, userId)
+      return { redirectTo: payload.callbackURL }
+    }
+
     const resolved = await resolveSignInUser({
       profile,
       provider,
@@ -236,9 +261,12 @@ export async function finishOAuthCallback(
     // started (settings). A sign-in from the link page goes back to it to try
     // another method. Other failed sign-ins leave them logged out, so route to
     // /login where the error toast can actually surface.
+    // Setup keeps redirecting /login to /setup, so its errors go back there.
     return {
       redirectTo:
-        payload.mode === "link" || payload.account === "linked"
+        payload.mode === "link" ||
+        payload.account === "linked" ||
+        payload.setupFirstAdmin
           ? callbackURLWithOAuthError(payload.callbackURL, cause)
           : loginURLWithOAuthError(payload.callbackURL, cause),
     }

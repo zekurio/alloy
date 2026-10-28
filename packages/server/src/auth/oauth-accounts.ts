@@ -1,4 +1,8 @@
-import type { OAuthProviderConfig, OAuthSignInAccount } from "@alloy/contracts"
+import type {
+  OAuthProviderConfig,
+  OAuthSignInAccount,
+  UserRole,
+} from "@alloy/contracts"
 import { authAccount, user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
@@ -6,6 +10,7 @@ import { and, eq } from "drizzle-orm"
 
 import {
   assertCanRemoveAdminInTransaction,
+  assertFirstAdminSetupOpen,
   withAdminAccessInvariant,
 } from "./identity"
 import { syncOAuthAvatar } from "./oauth-avatar"
@@ -95,6 +100,46 @@ export async function createUserForOAuthAccount(
   })
 
   await syncOAuthUserRole(userId, input.profile)
+  await syncOAuthAvatar(userId, input.profile)
+  return userId
+}
+
+/**
+ * Create the first admin for an OIDC identity during setup. Sign-up and role
+ * claims do not apply: setup access already proved the person runs the
+ * server.
+ */
+export async function createFirstAdminForOAuthAccount(
+  input: OAuthIdentity,
+): Promise<string> {
+  const userId = await db.transaction(async (tx) => {
+    await assertFirstAdminSetupOpen(tx)
+    const row = await createOAuthUser(
+      input.profile,
+      async (values) => {
+        const [inserted] = await tx.insert(user).values(values).returning()
+        if (!inserted) throw new Error("Could not create user.")
+        return inserted
+      },
+      "admin",
+    )
+    const [linked] = await tx
+      .insert(authAccount)
+      .values(
+        accountValues(
+          row.id,
+          input.provider.providerId,
+          input.profile,
+          input.tokens,
+        ),
+      )
+      .onConflictDoNothing()
+      .returning({ id: authAccount.id })
+    if (!linked) {
+      throw new Error("OAuth account is already linked to another user.")
+    }
+    return row.id
+  })
   await syncOAuthAvatar(userId, input.profile)
   return userId
 }
@@ -221,11 +266,12 @@ async function createOAuthUser(
   insert: (
     values: typeof user.$inferInsert,
   ) => Promise<typeof user.$inferSelect>,
+  role: UserRole = profile.role ?? "user",
 ) {
   const username = await generateUniqueUsername({ name: profile.usernameHint })
   return insert({
     username,
-    role: profile.role ?? "user",
+    role,
     storage_quota_bytes:
       profile.storageQuotaBytes === undefined
         ? defaultOAuthStorageQuota()

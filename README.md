@@ -52,17 +52,27 @@ ALLOY_STEAMGRIDDB_API_KEY=replace-with-your-steamgriddb-api-key
 ```
 
 The module supplies PostgreSQL and filesystem storage defaults, and the server
-applies its database migrations on start. See
-[`.env.example`](.env.example) for authentication, storage, and transcoding
-options.
+applies its database migrations on start. Open the server in a browser to
+create the admin account. Setup first asks for the setup token that the
+server prints to its log, or the value of `ALLOY_SETUP_TOKEN`. The admin can
+then sign in with single sign-on, if `ALLOY_OIDC_*` configures it, or with a
+username and passkey. See [`.env.example`](.env.example) for authentication,
+storage, and transcoding options.
 
-Admins can change image upload limits under **Settings → Administration →
-Upload limits**. Defaults are 50 MiB and 64 megapixels for screenshots,
-5 MiB for avatars, 10 MiB for profile banners and game artwork, and 2 MiB for
-sign-in provider icons. Settings are stored in PostgreSQL and apply without
-a restart. Screenshot limits also apply to edits and to queued screenshots
-when processing starts; the size limit covers the stored PNG as well as the
-original upload. These settings do not change local desktop capture limits.
+Sign-in, single sign-on, appearance, upload limits, and transcoding can be
+set with `ALLOY_*` environment variables, or with the matching
+`services.alloy-server.auth` options for sign-in. Each variable is a default:
+admins can change the setting under **Settings → Administration**, the saved
+value applies without a restart, and resetting it returns to the variable.
+Single sign-on uses one OpenID Connect provider; register
+`<public URL>/api/auth/oauth2/callback/oidc` as its redirect URI and put
+`ALLOY_OIDC_CLIENT_SECRET` in the environment file.
+
+Upload limits default to 50 MiB and 64 megapixels for screenshots, 5 MiB for
+avatars, and 10 MiB for profile banners and game artwork. Screenshot limits
+also apply to edits and to queued screenshots when processing starts; the
+size limit covers the stored PNG as well as the original upload. These
+settings do not change local desktop capture limits.
 
 #### Container image
 

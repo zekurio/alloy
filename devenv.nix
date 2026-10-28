@@ -68,9 +68,9 @@ in
     PGHOST = postgresSocketDir;
     PGUSER = "postgres";
     PGDATABASE = "alloy";
-    # Auth toggles are intentionally NOT set here: unset variables leave them
-    # DB-owned, so dev exercises the admin-UI-managed path (the default for
-    # self-hosters). Export ALLOY_OPEN_REGISTRATIONS etc. to test env locking.
+    # Admin settings are intentionally NOT set here, so dev starts from the
+    # built-in defaults. Export ALLOY_OPEN_REGISTRATIONS etc. to test env
+    # defaults under admin overrides.
     ALLOY_STORAGE_FS_CLIPS_PATH = "${config.devenv.root}/data/storage/clips";
     ALLOY_STORAGE_FS_THUMBNAILS_PATH = "${config.devenv.root}/data/storage/thumbnails";
     ALLOY_STORAGE_FS_ASSETS_PATH = "${config.devenv.root}/data/storage/assets";

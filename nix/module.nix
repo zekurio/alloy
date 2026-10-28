@@ -147,8 +147,9 @@ in
       or set ALLOY_STEAMGRIDDB_API_KEY through services.alloy-server.environment.
     '')
     (lib.mkRemovedOptionModule [ "services" "alloy-server" "oauth" "socialAccountProvidersFile" ] ''
-      Put ALLOY_SOCIALACCOUNT_PROVIDERS in services.alloy-server.environmentFile,
-      or set ALLOY_SOCIALACCOUNT_PROVIDERS through services.alloy-server.environment.
+      Alloy now has one OpenID Connect provider. Configure it with
+      services.alloy-server.auth.oidc and put ALLOY_OIDC_CLIENT_SECRET in
+      services.alloy-server.environmentFile.
     '')
     (lib.mkRemovedOptionModule [ "services" "alloy-server" "cacheDir" ] ''
       Alloy now keeps temporary media work/cache files in the OS temp area.
@@ -309,23 +310,21 @@ in
         Optional systemd environment file containing secret Alloy environment
         variables such as ALLOY_VIEWER_COOKIE_SECRET,
         ALLOY_UPLOAD_HMAC_SECRET, ALLOY_STEAMGRIDDB_API_KEY, DATABASE_URL,
-        PGPASSWORD, and OAuth provider JSON. The file is read by systemd at service start and is
-        not copied into the Nix store.
+        PGPASSWORD, ALLOY_OIDC_CLIENT_SECRET, and ALLOY_SETUP_TOKEN. The file is read by systemd
+        at service start and is not copied into the Nix store.
       '';
     };
 
+    # These options set defaults. An admin can change each setting in the
+    # admin UI, and a value saved there wins until the admin resets it. Null
+    # leaves the server's built-in default.
     auth = {
-      # null leaves the setting DB-owned and editable in the admin UI. An
-      # explicit value makes it env-managed: the server uses it and the admin
-      # UI shows the setting read-only (declarative override).
       openRegistrations = lib.mkOption {
         type = lib.types.nullOr lib.types.bool;
         default = null;
         description = ''
-          Allow anyone to sign up with a passkey. OAuth providers decide
-          sign-up for themselves. When null the setting is managed in the
-          admin UI (server default: false); setting it here locks the admin
-          UI control.
+          Allow anyone to sign up with a passkey. Single sign-on decides
+          sign-up for itself. Null uses the server default (false).
         '';
       };
 
@@ -333,9 +332,8 @@ in
         type = lib.types.nullOr lib.types.bool;
         default = null;
         description = ''
-          Enable passkey sign-in and account bootstrap. When null the setting
-          is managed in the admin UI (server default: true); setting it here
-          locks the admin UI control.
+          Enable passkey sign-in and account bootstrap. Null uses the server
+          default (true).
         '';
       };
 
@@ -343,10 +341,64 @@ in
         type = lib.types.nullOr lib.types.bool;
         default = null;
         description = ''
-          Require sign-in before browsing clips, games, and profiles. When
-          null the setting is managed in the admin UI (server default: true);
-          setting it here locks the admin UI control.
+          Require sign-in before browsing clips, games, and profiles. Null
+          uses the server default (true).
         '';
+      };
+
+      oidc = {
+        enable = lib.mkOption {
+          type = lib.types.nullOr lib.types.bool;
+          default = null;
+          description = ''
+            Show the single sign-on button. Enabling it requires a client ID
+            and an issuer URL (or manual endpoints set through
+            services.alloy-server.environment), or the server refuses to
+            start. The button stays hidden until ALLOY_OIDC_CLIENT_SECRET is
+            set in services.alloy-server.environmentFile. Null uses the server
+            default (false).
+          '';
+        };
+
+        displayName = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          example = "Pocket ID";
+          description = "Provider name on the sign-in button. Null uses the server default (SSO).";
+        };
+
+        issuerUrl = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          example = "https://auth.example.com";
+          description = "The provider's issuer URL or the full URL of its discovery document.";
+        };
+
+        clientId = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "OAuth client ID registered with the provider.";
+        };
+
+        scopes = lib.mkOption {
+          type = lib.types.nullOr (lib.types.listOf lib.types.str);
+          default = null;
+          example = [
+            "openid"
+            "profile"
+            "email"
+          ];
+          description = "Scopes to request. Null uses the server default (openid profile).";
+        };
+
+        allowSignUp = lib.mkOption {
+          type = lib.types.nullOr lib.types.bool;
+          default = null;
+          description = ''
+            Create an account the first time someone signs in through the
+            provider. Null uses the server default (false).
+          '';
+        };
       };
     };
 
@@ -359,10 +411,10 @@ in
       };
 
       uploadTtlSec = lib.mkOption {
-        type = lib.types.nullOr lib.types.ints.positive;
+        type = lib.types.nullOr (lib.types.ints.between 60 86400);
         default = null;
         example = 3600;
-        description = "Upload ticket lifetime in seconds. Null uses the server default.";
+        description = "Upload ticket lifetime in seconds, from 60 to 86400. Null uses the server default (900).";
       };
     };
 
@@ -536,6 +588,24 @@ in
         }
         // lib.optionalAttrs (cfg.auth.requireAuthToBrowse != null) {
           ALLOY_REQUIRE_AUTH_TO_BROWSE = lib.boolToString cfg.auth.requireAuthToBrowse;
+        }
+        // lib.optionalAttrs (cfg.auth.oidc.enable != null) {
+          ALLOY_OIDC_ENABLED = lib.boolToString cfg.auth.oidc.enable;
+        }
+        // lib.optionalAttrs (cfg.auth.oidc.displayName != null) {
+          ALLOY_OIDC_DISPLAY_NAME = cfg.auth.oidc.displayName;
+        }
+        // lib.optionalAttrs (cfg.auth.oidc.issuerUrl != null) {
+          ALLOY_OIDC_ISSUER_URL = cfg.auth.oidc.issuerUrl;
+        }
+        // lib.optionalAttrs (cfg.auth.oidc.clientId != null) {
+          ALLOY_OIDC_CLIENT_ID = cfg.auth.oidc.clientId;
+        }
+        // lib.optionalAttrs (cfg.auth.oidc.scopes != null) {
+          ALLOY_OIDC_SCOPES = lib.concatStringsSep " " cfg.auth.oidc.scopes;
+        }
+        // lib.optionalAttrs (cfg.auth.oidc.allowSignUp != null) {
+          ALLOY_OIDC_ALLOW_SIGN_UP = lib.boolToString cfg.auth.oidc.allowSignUp;
         }
         // lib.optionalAttrs (cfg.limits.defaultStorageQuotaBytes != null) {
           ALLOY_DEFAULT_STORAGE_QUOTA_BYTES = toString cfg.limits.defaultStorageQuotaBytes;

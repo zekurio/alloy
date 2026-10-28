@@ -1,33 +1,25 @@
+import { OIDC_PROVIDER_ID } from "@alloy/contracts"
 import { authAccount, user, userPasskey } from "@alloy/db/auth-schema"
-import { isOAuthProviderUsable } from "@alloy/server/config/secret-store"
+import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
-import { and, eq, inArray, ne } from "drizzle-orm"
+import { and, eq, ne } from "drizzle-orm"
+
+import { usableOidcProvider } from "./oauth-config"
 
 export type SignInMethodConfig = {
   passkeyEnabled: boolean
-  oauthProviders: { enabled: boolean; providerId: string }[]
+  /** The OIDC provider is enabled and has a client secret. */
+  oidcUsable: boolean
 }
 
 type AuthDbExecutor = typeof db | DbTransaction
 
-export function usableSignInConfig(
-  config: SignInMethodConfig,
-  pendingSecret: (providerId: string) => boolean = () => false,
-): SignInMethodConfig {
+export function currentSignInConfig(): SignInMethodConfig {
   return {
-    passkeyEnabled: config.passkeyEnabled,
-    oauthProviders: config.oauthProviders.filter((provider) =>
-      isOAuthProviderUsable(provider, pendingSecret),
-    ),
+    passkeyEnabled: configStore.get("passkeyEnabled"),
+    oidcUsable: usableOidcProvider() !== null,
   }
-}
-
-function hasEnabledSignInMethod(config: SignInMethodConfig): boolean {
-  return (
-    config.passkeyEnabled ||
-    config.oauthProviders.some((provider) => provider.enabled)
-  )
 }
 
 export async function hasAdminSignInMethodForConfig(
@@ -56,33 +48,25 @@ export async function hasAdminSignInMethodWith(
     if (passkeyRows.length > 0) return true
   }
 
-  const providerIds = config.oauthProviders
-    .filter((provider) => provider.enabled)
-    .map((provider) => provider.providerId)
-  if (providerIds.length === 0) return false
+  if (!config.oidcUsable) return false
 
   const oauthRows = await executor
     .select({ id: user.id })
     .from(user)
     .innerJoin(authAccount, eq(authAccount.user_id, user.id))
-    .where(and(...conditions, inArray(authAccount.provider_id, providerIds)))
+    .where(and(...conditions, eq(authAccount.provider_id, OIDC_PROVIDER_ID)))
     .limit(1)
   return oauthRows.length > 0
 }
 
 export async function signInConfigError(
   config: SignInMethodConfig,
-  pendingSecret: (providerId: string) => boolean = () => false,
 ): Promise<string | null> {
-  // An OAuth provider only counts as a sign-in method if it's actually usable
-  // (enabled AND has a secret, stored or about to be written). Filtering here
-  // keeps lockout guards in sync with what the consumer layer will serve.
-  const usable = usableSignInConfig(config, pendingSecret)
-  if (!hasEnabledSignInMethod(usable)) {
+  if (!config.passkeyEnabled && !config.oidcUsable) {
     return "Keep at least one sign-in method enabled."
   }
-  if (!(await hasAdminSignInMethodForConfig(usable))) {
-    return "Keep at least one active admin sign-in method before disabling passkeys or OAuth."
+  if (!(await hasAdminSignInMethodForConfig(config))) {
+    return "Keep at least one active admin sign-in method before disabling passkeys or single sign-on."
   }
   return null
 }

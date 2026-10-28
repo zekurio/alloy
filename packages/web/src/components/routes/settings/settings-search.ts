@@ -277,23 +277,23 @@ const CATEGORIES = [
     label: message("Authentication"),
     title: message("Authentication"),
     description: message(
-      "Registration, passkeys, browsing access, and OAuth sign-in providers.",
+      "Registration, passkeys, browsing access, and single sign-on.",
     ),
     options: [
       message("Passkeys"),
       message("Registration"),
       message("Open registrations"),
       message("Require sign-in to browse"),
-      message("OAuth providers"),
+      message("Single sign-on"),
     ],
     aliases: [
       alias("auth", message("Authentication")),
-      alias("oauth", message("OAuth providers")),
-      alias("oidc", message("OAuth providers")),
-      alias("sso", message("OAuth providers")),
+      alias("oauth", message("Single sign-on")),
+      alias("oidc", message("Single sign-on")),
+      alias("sso", message("Single sign-on")),
       alias("registrations", message("Registration")),
       alias("passkey", message("Passkeys")),
-      alias("providers", message("OAuth providers")),
+      alias("provider", message("Single sign-on")),
     ],
   },
   {
@@ -301,7 +301,7 @@ const CATEGORIES = [
     group: "admin",
     label: message("Upload limits"),
     description: message(
-      "Screenshot size and resolution, profile images, game artwork, and sign-in provider icons.",
+      "Screenshot size and resolution, profile images, game artwork, storage quotas, and upload links.",
     ),
     options: [
       message("Screenshots"),
@@ -310,9 +310,15 @@ const CATEGORIES = [
       message("Avatar size (MiB)"),
       message("Profile banner size (MiB)"),
       message("Game artwork size (MiB)"),
-      message("Sign-in provider icon size (MiB)"),
+      message("Default storage quota (GiB)"),
+      message("Upload link lifetime (minutes)"),
     ],
-    aliases: [alias("image limits"), alias("file size"), alias("megapixels")],
+    aliases: [
+      alias("image limits"),
+      alias("file size"),
+      alias("megapixels"),
+      alias("quota", message("Default storage quota (GiB)")),
+    ],
   },
   {
     id: "transcoding",

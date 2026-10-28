@@ -37,7 +37,6 @@ export const UploadLimitsSchema = t.object({
   avatarMaxBytes: BytesSchema.$default(5 * 1024 * 1024),
   bannerMaxBytes: BytesSchema.$default(10 * 1024 * 1024),
   gameAssetMaxBytes: BytesSchema.$default(10 * 1024 * 1024),
-  oauthProviderIconMaxBytes: BytesSchema.$default(2 * 1024 * 1024),
 })
 
 export type UploadLimits = t.infer<typeof UploadLimitsSchema>

@@ -50,10 +50,13 @@ export function TranscodingLadder({
   values,
   validation,
   setTiers,
+  note,
 }: {
   values: TranscodingForm
   validation: ReturnType<typeof validateForm>
   setTiers: (update: (tiers: LadderTier[]) => LadderTier[]) => void
+  /** Inline content after the description, such as a default note. */
+  note?: ReactNode
 }) {
   const tierNames = useMemo(
     () =>
@@ -111,9 +114,14 @@ export function TranscodingLadder({
     <SettingsSubsection
       id="ladder"
       title={t("Rendition ladder")}
-      description={t(
-        "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the selected link preview tier powers social embeds.",
-      )}
+      description={
+        <>
+          {t(
+            "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the selected link preview tier powers social embeds.",
+          )}
+          {note}
+        </>
+      }
       action={
         <Button
           type="button"

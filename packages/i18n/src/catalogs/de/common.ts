@@ -25,6 +25,7 @@ export const COMMON_MESSAGES = {
   "Ctrl K": "Strg K",
   Current: "Aktuell",
   Custom: "Nutzerdefiniert",
+  "Default: {value}": "Standard: {value}",
   Delete: "Löschen",
   Deleting: "Wird gelöscht",
   "Deleting…": "Wird gelöscht…",
@@ -59,6 +60,7 @@ export const COMMON_MESSAGES = {
   "Redirecting…": "Weiterleitung…",
   "Removing…": "Wird entfernt…",
   Replace: "Ersetzen",
+  Reset: "Zurücksetzen",
   "Retrying…": "Wird wiederholt…",
   Save: "Speichern",
   "Saving...": "Wird gespeichert...",
@@ -85,5 +87,6 @@ export const COMMON_MESSAGES = {
   "{count} selected": "{count} ausgewählt",
   "{label} is required": "{label} ist erforderlich",
   "{label} · No longer configured": "{label} · Nicht mehr konfiguriert",
+  "{size} GiB": "{size} GiB",
   "…": "…",
 } satisfies TranslationCatalog

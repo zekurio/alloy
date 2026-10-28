@@ -204,6 +204,8 @@ function createPasskeyActions(
         providerId: string
         callbackURL?: string
         account?: OAuthSignInAccount
+        /** Create the first admin; the browser needs setup access. */
+        setup?: boolean
       }) =>
         redirectResult(
           request,

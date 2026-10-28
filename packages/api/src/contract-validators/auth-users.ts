@@ -8,7 +8,6 @@ import {
   validateNullableDateString,
   validateNullablePositiveInteger,
   validateNullableString,
-  validateOptionalAuthProviderIconString,
   validateRequiredString,
 } from "@alloy/api/runtime-validation"
 import {
@@ -24,6 +23,7 @@ import {
   type PublicDesktopAuthConfig,
   type PublicLoginSplashConfig,
   type PublicUser,
+  type SetupStatus,
   ThemeAccentsSchema,
   type UserProfile,
   type UserProfileViewer,
@@ -34,7 +34,6 @@ import { validateGameListRow } from "./games-media"
 import {
   USER_ROLE_SET,
   USER_STATUS_SET,
-  validateAuthProviderColors,
   validateBackdropTreatment,
 } from "./shared"
 const PUBLIC_AUTH_BOOLEAN_FIELDS = [
@@ -55,11 +54,6 @@ function validatePublicAuthProvider(
   validateBoolean(
     provider.allowSignUp,
     "Invalid auth config response: provider.allowSignUp must be boolean",
-  )
-  validateAuthProviderColors(provider, "auth config response: provider")
-  validateOptionalAuthProviderIconString(
-    provider.iconUrl,
-    "Invalid auth config response: provider.iconUrl must be a managed icon path",
   )
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as PublicAuthProvider
@@ -141,6 +135,22 @@ export function validatePublicAuthConfig(
   validatePublicDesktopAuthConfig(config.desktopAuth)
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as PublicAuthConfig
+}
+
+export function validateSetupStatus(value: ContractJsonInput): SetupStatus {
+  const status = objectRecord(value, "setup status")
+  for (const key of [
+    "adminAccountRequired",
+    "setupRequired",
+    "tokenRequired",
+  ] as const) {
+    validateBoolean(
+      status[key],
+      `Invalid setup status response: ${key} must be boolean`,
+    )
+  }
+  // SAFETY: The checks above validate every field in the asserted response contract.
+  return value as SetupStatus
 }
 
 export function validateAdminUserStorageRow(

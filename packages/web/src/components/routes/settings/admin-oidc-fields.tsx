@@ -16,7 +16,7 @@ import {
 } from "@alloy/ui/components/select"
 import { Switch } from "@alloy/ui/components/switch"
 import { CopyIcon } from "lucide-react"
-import type { ComponentProps } from "react"
+import type { ComponentProps, ReactNode } from "react"
 
 import { copyTextToClipboard } from "@/lib/clipboard"
 import { useActionFeedback } from "@/lib/use-action-feedback"
@@ -26,20 +26,7 @@ const TOKEN_AUTH_METHODS = [
   OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD,
 ] as const
 
-export function ProviderTextField({
-  fieldId,
-  editingProviderId,
-  ...props
-}: {
-  fieldId: string
-  editingProviderId: string | null
-} & Omit<ComponentProps<typeof TextField>, "id">) {
-  return (
-    <TextField id={providerFieldId(fieldId, editingProviderId)} {...props} />
-  )
-}
-
-function TextField({
+export function TextField({
   id,
   label,
   description,
@@ -110,11 +97,14 @@ export function TokenAuthMethodField({
 export function ToggleField({
   label,
   description,
+  note,
   checked,
   onCheckedChange,
 }: {
   label: string
   description: string
+  /** Inline content after the description, such as a default note. */
+  note?: ReactNode
   checked: boolean
   onCheckedChange: (checked: boolean) => void
 }) {
@@ -122,7 +112,10 @@ export function ToggleField({
     <div className="flex items-center justify-between gap-4 self-end">
       <div className="min-w-0">
         <div className="text-sm font-medium">{label}</div>
-        <p className="text-foreground-dim mt-0.5 text-xs">{description}</p>
+        <p className="text-foreground-dim mt-0.5 text-xs">
+          {description}
+          {note}
+        </p>
       </div>
       <Switch
         checked={checked}
@@ -179,11 +172,7 @@ export function CallbackUrlField({ id, value }: { id: string; value: string }) {
   )
 }
 
-export function providerFieldId(field: string, providerId: string | null) {
-  return providerId ? `${field}-${providerId}` : `new-${field}`
-}
-
-function tokenAuthMethodLabel(method: OAuthTokenAuthMethod) {
+export function tokenAuthMethodLabel(method: OAuthTokenAuthMethod) {
   if (method === OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD) {
     return t("Client secret basic")
   }

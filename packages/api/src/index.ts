@@ -10,6 +10,7 @@ import { createFeedApi } from "./feed"
 import { createGamesApi } from "./games"
 import { createSearchApi } from "./search"
 import { createServerInfoApi } from "./server-info"
+import { createSetupApi } from "./setup"
 import { createTagsApi } from "./tags"
 import { createUsersApi } from "./users"
 
@@ -24,6 +25,7 @@ export * from "./http"
 export * from "./paths"
 export * from "./search"
 export * from "./server-info"
+export * from "./setup"
 export * from "./tags"
 export * from "./users"
 
@@ -35,6 +37,7 @@ export interface AlloyApi extends ApiContext {
   games: ReturnType<typeof createGamesApi>
   search: ReturnType<typeof createSearchApi>
   serverInfo: ReturnType<typeof createServerInfoApi>
+  setup: ReturnType<typeof createSetupApi>
   tags: ReturnType<typeof createTagsApi>
   users: ReturnType<typeof createUsersApi>
 }
@@ -51,6 +54,7 @@ export function createApi(options: CreateApiOptions): AlloyApi {
     games: createGamesApi(context),
     search: createSearchApi(context),
     serverInfo: createServerInfoApi(context),
+    setup: createSetupApi(context),
     tags: createTagsApi(context),
     users: createUsersApi(context),
   }

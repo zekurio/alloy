@@ -66,18 +66,18 @@ export async function oauthClient(
 async function createOAuthClient(
   provider: OAuthProviderConfig,
 ): Promise<Configuration> {
-  const clientSecret = secretStore.oauthClientSecret(provider.providerId)
+  const clientSecret = secretStore.oidcClientSecret()
   const metadata = {
     client_secret: clientSecret,
   }
   const clientAuth = clientAuthForProvider(provider, clientSecret)
-  if (provider.discoveryUrl) {
+  if (provider.issuerUrl) {
     return discovery(
-      new URL(provider.discoveryUrl),
+      new URL(provider.issuerUrl),
       provider.clientId,
       metadata,
       clientAuth,
-      insecureOptions(provider.discoveryUrl),
+      insecureOptions(provider.issuerUrl),
     )
   }
 
@@ -141,8 +141,8 @@ function oauthClientCacheKey(provider: OAuthProviderConfig): string {
   return JSON.stringify({
     authorizationUrl: provider.authorizationUrl,
     clientId: provider.clientId,
-    clientSecret: secretStore.oauthClientSecret(provider.providerId),
-    discoveryUrl: provider.discoveryUrl,
+    clientSecret: secretStore.oidcClientSecret(),
+    issuerUrl: provider.issuerUrl,
     providerId: provider.providerId,
     tokenAuthMethod: provider.tokenAuthMethod,
     tokenUrl: provider.tokenUrl,
@@ -168,7 +168,7 @@ function insecureOptions(url: string) {
 
 function usesInsecureEndpoint(provider: OAuthProviderConfig): boolean {
   return [
-    provider.discoveryUrl,
+    provider.issuerUrl,
     provider.authorizationUrl,
     provider.tokenUrl,
     provider.userInfoUrl,
@@ -176,8 +176,7 @@ function usesInsecureEndpoint(provider: OAuthProviderConfig): boolean {
 }
 
 export function scopesForProvider(provider: OAuthProviderConfig): string {
-  const scopes = provider.scopes?.map((scope) => scope.trim()).filter(Boolean)
-  return scopes && scopes.length > 0 ? scopes.join(" ") : "openid profile"
+  return provider.scopes.join(" ")
 }
 
 function providerUsesOpenId(provider: OAuthProviderConfig): boolean {

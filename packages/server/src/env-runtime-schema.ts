@@ -74,20 +74,10 @@ function serverEnvSchema(defaultPublicServerUrl: string) {
       )
       .$default("")
       .transform(splitList),
-    ALLOY_OPEN_REGISTRATIONS: envBoolOrNull(),
-    ALLOY_PASSKEY_ENABLED: envBoolOrNull(),
-    ALLOY_REQUIRE_AUTH_TO_BROWSE: envBoolOrNull(),
     // OAuth avatar sync refuses provider avatar URLs that resolve to
     // private/loopback addresses (SSRF guard). Self-hosted LAN IdPs whose
     // avatar URLs live on the private network can opt back in here.
     ALLOY_OAUTH_AVATAR_ALLOW_PRIVATE_URLS: envBool(false),
-    ALLOY_DEFAULT_STORAGE_QUOTA_BYTES: optionalPositiveIntegerOrNull(),
-    ALLOY_UPLOAD_TTL_SEC: t.coerce
-      .number()
-      .int()
-      .min(60)
-      .max(24 * 60 * 60)
-      .$default(900),
     ALLOY_STORAGE_FS_CLIPS_PATH: t
       .string()
       .trim()
@@ -133,31 +123,6 @@ function envBool(defaultValue: boolean) {
       return boolValues.get(stringValue.data.trim().toLowerCase()) ?? value
     }, t.boolean())
     .$default(defaultValue)
-}
-
-// An unset (or empty) variable parses to null: the setting is DB-owned and
-// editable in the admin UI. An explicit value makes the key env-managed and
-// locks the admin UI for it.
-function envBoolOrNull() {
-  return t
-    .preprocess((value) => {
-      if (value === undefined || value === "") return null
-      const booleanValue = EnvBooleanSchema.safeParse(value)
-      if (booleanValue.success || value === null) return value
-      const stringValue = EnvStringSchema.safeParse(value)
-      if (!stringValue.success) return value
-      return boolValues.get(stringValue.data.trim().toLowerCase()) ?? value
-    }, t.boolean().nullable())
-    .$default(null)
-}
-
-function optionalPositiveIntegerOrNull() {
-  return t
-    .preprocess((value) => {
-      if (value === undefined || value === "") return null
-      return value
-    }, t.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable())
-    .$default(null)
 }
 
 function splitList(value: string): string[] {

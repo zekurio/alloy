@@ -1,8 +1,6 @@
 import {
-  OAUTH_AVATAR_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
-  OAUTH_USERNAME_CLAIM_DEFAULT,
   type OAuthProviderConfig,
   USER_ROLES,
   type UserRole,
@@ -33,7 +31,7 @@ export async function profileFromTokens(
   const claims = tokens.claims() ?? {}
   const expectedSubject = stringClaim(claims, "sub") ?? skipSubjectCheck
   const userInfo =
-    provider.fetchUserInfo !== false && tokens.access_token
+    provider.fetchUserInfo && tokens.access_token
       ? await fetchOAuthUserInfo(
           config,
           provider,
@@ -42,22 +40,16 @@ export async function profileFromTokens(
         )
       : {}
   const raw = { ...claims, ...userInfo }
-  const uidClaim = provider.uidClaim ?? "sub"
+  const uidClaim = provider.uidClaim
   const providerAccountId =
     stringClaim(raw, uidClaim) ??
     (uidClaim === "sub" ? stringClaim(raw, "id") : null)
-  const usernameHint = stringClaim(
-    raw,
-    provider.usernameClaim ?? OAUTH_USERNAME_CLAIM_DEFAULT,
-  )
+  const usernameHint = stringClaim(raw, provider.usernameClaim)
 
   if (!providerAccountId) throw new Error("OAuth profile is missing a subject.")
 
   return {
-    avatarUrl: httpUrlClaim(
-      raw,
-      provider.avatarClaim ?? OAUTH_AVATAR_CLAIM_DEFAULT,
-    ),
+    avatarUrl: httpUrlClaim(raw, provider.avatarClaim),
     providerAccountId,
     role: roleFromProfile(raw, provider.roleClaim),
     storageQuotaBytes: quotaFromProfile(raw, provider.quotaClaim),
