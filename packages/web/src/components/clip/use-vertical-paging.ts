@@ -43,7 +43,8 @@ function prefersReducedMotion(): boolean {
  * Feed-style vertical paging for a full-screen viewer: the page follows the
  * finger, a long drag or a flick turns it, and anything short of that springs
  * back. Neighbours render above and below the track, so the next entry slides
- * in under the finger. Touches inside `[data-zoomed]` belong to that element.
+ * in under the finger. Touches inside `[data-zoomed]` belong to that element,
+ * and touches in portaled sheets and dialogs are ignored.
  *
  * `pageKey` identifies the page on screen; when it changes the track snaps
  * back to rest in the same frame, so the new page replaces the neighbour that
@@ -129,9 +130,12 @@ export function useVerticalPaging<T>({
       springBack()
       return
     }
+    // React touch events bubble through portals: drags inside a sheet or
+    // dialog opened from the page must not move the page behind it.
     if (
-      event.target instanceof Element &&
-      event.target.closest("[data-zoomed]")
+      !(event.target instanceof Node) ||
+      !event.currentTarget.contains(event.target) ||
+      (event.target instanceof Element && event.target.closest("[data-zoomed]"))
     ) {
       return
     }
