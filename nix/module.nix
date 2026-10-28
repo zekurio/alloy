@@ -409,10 +409,10 @@ in
       };
 
       uploadTtlSec = lib.mkOption {
-        type = lib.types.nullOr lib.types.ints.positive;
+        type = lib.types.nullOr (lib.types.ints.between 60 86400);
         default = null;
         example = 3600;
-        description = "Upload ticket lifetime in seconds. Null uses the server default (900).";
+        description = "Upload ticket lifetime in seconds, from 60 to 86400. Null uses the server default (900).";
       };
     };
 

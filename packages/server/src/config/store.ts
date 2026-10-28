@@ -158,7 +158,7 @@ export async function saveConfigSection<Name extends ConfigSectionName>(
 ): Promise<void> {
   const overrides = sectionOverrides(value, env.config.defaults[name])
   await db.transaction(async (tx) => {
-    await writeSetting(configSection(name).key, overrides, tx)
+    await writeOverrides(configSection(name).key, overrides, tx)
     // New clips and the re-encode backlog follow the saved ladder, so the
     // generation moves in the same transaction as the config.
     if (name === "transcoding") {
@@ -174,14 +174,18 @@ export async function saveConfigSection<Name extends ConfigSectionName>(
 
 /**
  * The OIDC client secret change a save makes: a string saves it, null drops
- * the saved one, undefined keeps it.
+ * the saved one, and undefined or "" keeps it, like an untouched password
+ * field.
  */
 export type OidcClientSecretChange = string | null | undefined
 
+function savedSecretChange(change: OidcClientSecretChange): string | null {
+  return change === undefined || change === "" ? savedOidcClientSecret : change
+}
+
 /** The secret that applies after `change`, or "" when there is none. */
 export function oidcClientSecretAfter(change: OidcClientSecretChange): string {
-  const saved = change === undefined ? savedOidcClientSecret : change
-  return saved || env.config.oidcClientSecret || ""
+  return savedSecretChange(change) || env.config.oidcClientSecret || ""
 }
 
 /** The OIDC client secret in use, or "" when none is set. */
@@ -202,11 +206,9 @@ export async function saveOidcConfig(
   const overrides = sectionOverrides(value, env.config.defaults.oidc)
   const nextSecret = savedSecretAfter(clientSecret)
   await db.transaction(async (tx) => {
-    await writeSetting(configSection("oidc").key, overrides, tx)
+    await writeOverrides(configSection("oidc").key, overrides, tx)
     if (nextSecret === null) {
-      await tx
-        .delete(instanceSetting)
-        .where(eq(instanceSetting.key, OIDC_CLIENT_SECRET_KEY))
+      await deleteSetting(OIDC_CLIENT_SECRET_KEY, tx)
     } else {
       await writeSetting(OIDC_CLIENT_SECRET_KEY, nextSecret, tx)
     }
@@ -219,7 +221,7 @@ export async function saveOidcConfig(
 // A saved secret equal to the environment's is no override, like any other
 // default value.
 function savedSecretAfter(change: OidcClientSecretChange): string | null {
-  const saved = change === undefined ? savedOidcClientSecret : change || null
+  const saved = savedSecretChange(change)
   return saved === env.config.oidcClientSecret ? null : saved
 }
 
@@ -275,6 +277,26 @@ async function writeSetting(
     })
 }
 
+async function deleteSetting(
+  key: string,
+  executor: Pick<typeof db, "delete"> = db,
+): Promise<void> {
+  await executor.delete(instanceSetting).where(eq(instanceSetting.key, key))
+}
+
+/** Store a section's overrides; a section with none has no row. */
+async function writeOverrides(
+  key: string,
+  overrides: ConfigOverrides,
+  executor: Pick<typeof db, "insert" | "delete"> = db,
+): Promise<void> {
+  if (Object.keys(overrides).length === 0) {
+    await deleteSetting(key, executor)
+  } else {
+    await writeSetting(key, overrides, executor)
+  }
+}
+
 function storedOverrides(
   value: StoredSettingValue | undefined,
 ): ConfigOverrides {
@@ -288,13 +310,15 @@ function storedOverrides(
  */
 async function loadSection(name: ConfigSectionName): Promise<ConfigOverrides> {
   const section = configSection(name)
-  const stored = storedOverrides(await readSetting(section.key))
+  const row = await readSetting(section.key)
+  const stored = storedOverrides(row)
   const parsed = parseSection(name, stored)
   if (!parsed.success) return stored
 
   const overrides = sectionOverrides(parsed.data, env.config.defaults[name])
-  if (!isDeepStrictEqual(overrides, stored)) {
-    await writeSetting(section.key, overrides)
+  const empty = Object.keys(overrides).length === 0
+  if (row !== undefined && (empty || !isDeepStrictEqual(overrides, row))) {
+    await writeOverrides(section.key, overrides)
   }
   for (const setting of env.config.settings[name]) {
     if (valueAtPath(overrides, setting.path) !== undefined) {
@@ -325,9 +349,7 @@ export async function initializeConfigStore(): Promise<void> {
     savedOidcClientSecret &&
     savedOidcClientSecret === env.config.oidcClientSecret
   ) {
-    await db
-      .delete(instanceSetting)
-      .where(eq(instanceSetting.key, OIDC_CLIENT_SECRET_KEY))
+    await deleteSetting(OIDC_CLIENT_SECRET_KEY)
     savedOidcClientSecret = null
   }
   if (savedOidcClientSecret && env.config.oidcClientSecret) {

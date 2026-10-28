@@ -108,8 +108,9 @@ export interface AdminAuthConfigPatch {
 /**
  * Admin update of the provider. `clientSecret` is write-only: a value saves a
  * new secret, null drops the saved one so the environment's applies again,
- * and absent or empty keeps it.
+ * and absent or empty keeps it. Auth params come from ALLOY_OIDC_AUTH_PARAMS
+ * only.
  */
-export type AdminOidcConfigPatch = Partial<OidcConfig> & {
+export type AdminOidcConfigPatch = Partial<Omit<OidcConfig, "authParams">> & {
   clientSecret?: string | null
 }

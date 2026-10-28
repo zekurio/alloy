@@ -51,6 +51,8 @@ const AuthConfigPatch = t
   )
 
 // Every field the form edits. A field left out falls back to its default.
+// Auth params are left out on purpose: a merged map could never drop a key
+// the environment sets, so ALLOY_OIDC_AUTH_PARAMS alone owns them.
 const OidcConfigBody = t.object({
   enabled: t.boolean().optional(),
   displayName: t.string().optional(),
@@ -64,7 +66,6 @@ const OidcConfigBody = t.object({
   pkce: t.boolean().optional(),
   tokenAuthMethod: t.enum(OAUTH_TOKEN_AUTH_METHODS).optional(),
   fetchUserInfo: t.boolean().optional(),
-  authParams: t.record(t.string(), t.string()).optional(),
   uidClaim: t.string().optional(),
   usernameClaim: t.string().optional(),
   avatarClaim: t.string().optional(),
