@@ -488,6 +488,14 @@ html[data-theme-inspecting] *:not([data-theme-editor], [data-theme-editor] *) {
     transition-duration: var(--duration-slow);
   }
 
+  /* The mobile clip viewer is black on every theme. On the light theme the
+     usual backdrop tint would lay a white wash over it, so sheets and dialogs
+     opened from it dim it instead. */
+  :root.light:has([data-slot="mobile-clip-viewer"])
+    :is([data-slot="drawer-overlay"], [data-slot="dialog-overlay"]) {
+    background-color: rgb(0 0 0 / 0.5);
+  }
+
   [data-slot="drawer-content"] {
     transform: translate3d(
       var(--drawer-swipe-movement-x, 0px),

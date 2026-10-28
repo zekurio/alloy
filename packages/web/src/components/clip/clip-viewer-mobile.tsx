@@ -1,35 +1,34 @@
-import { type ClipRow, clipSourceFileUrl, clipThumbnailUrl } from "@alloy/api"
+import { clipDownloadUrl, type ClipRow, clipThumbnailUrl } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { DialogClose, DialogViewportContent } from "@alloy/ui/components/dialog"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
+import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { XIcon } from "lucide-react"
-import { useCallback, useEffect, useRef, useState } from "react"
-import type { TouchEvent } from "react"
+import { useEffect, useRef, useState } from "react"
+import type { CSSProperties, ReactNode } from "react"
 
 import { mobileOverlayCloseButtonClassName } from "@/components/app/mobile-close-button"
 import { GameIcon } from "@/components/game/game-icon"
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
+import { startBrowserDownload } from "@/lib/browser-download"
 import {
   readSessionStorageItem,
   writeSessionStorageItem,
 } from "@/lib/browser-storage"
 import { clipGameLabel } from "@/lib/clip-format"
+import { useReannounceClipMutation } from "@/lib/clip-queries"
 import { recordClipViewBestEffort } from "@/lib/clip-view-tracking"
 import { apiOrigin } from "@/lib/env"
 import { exitFullscreenBestEffort } from "@/lib/fullscreen"
 import { userAvatar } from "@/lib/user-display"
 
-import {
-  clipBrowserDownloadActionSupported,
-  ClipBrowserDownloadMenuItem,
-} from "./clip-download-button"
+import { clipBrowserDownloadActionSupported } from "./clip-download-button"
 import type { ClipListEntry } from "./clip-list-context"
 import { ClipMentionsRow } from "./clip-mentions-row"
 import { ClipTitleWithVisibility, ClipVisibilityBadge } from "./clip-meta"
 import { ClipPlayer } from "./clip-player"
-import { ClipReannounceMenuItem } from "./clip-reannounce-menu-item"
 import { ClipTagsRow } from "./clip-tags-row"
 import { ClipAuthorLink, MobileActionsRail } from "./clip-viewer-mobile-actions"
 import { renderHashtagTokens } from "./description-tokens"
@@ -37,8 +36,16 @@ import { useClipAccess } from "./use-clip-access"
 import { useClipRetry } from "./use-clip-retry"
 import { useClipShare } from "./use-clip-share"
 import { useClipViewerDelete } from "./use-clip-viewer-delete"
+import { useVerticalPaging } from "./use-vertical-paging"
 
 const MOBILE_SWIPE_HINT_SEEN_KEY = "alloy.mobileClipSwipeHintSeen"
+/** Videos keep the 16:9 frame the desktop viewer uses. */
+const VIDEO_ASPECT_RATIO = 16 / 9
+/** Hides landscape overlays while the player hides its own controls. */
+const FADE_WITH_PLAYER_CHROME = cn(
+  "transition-opacity duration-300",
+  "group-has-[[data-chrome=hidden]]/viewer:pointer-events-none group-has-[[data-chrome=hidden]]/viewer:opacity-0",
+)
 
 interface MobileClipViewerBodyProps {
   row: ClipRow
@@ -66,12 +73,8 @@ function MobileClipViewerBody({
     username: handle,
     image: row.authorImage,
   })
-  const gameLabel = clipGameLabel(row)
-  const thumbnail = row.thumbKey
-    ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
-    : null
+  const thumbnail = clipThumbnail(row)
   const gameRef = row.gameRef
-  const gameIcon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null
 
   const share = useClipShare({
     clipId: row.id,
@@ -108,34 +111,17 @@ function MobileClipViewerBody({
   }, [showSwipeHint])
 
   /* ---- swipe gesture ---- */
-  const touchRef = useRef<{ y: number; t: number } | null>(null)
-
-  const onTouchStart = useCallback((e: TouchEvent) => {
-    const touch = e.touches.item(0)
-    if (!touch) return
-    touchRef.current = { y: touch.clientY, t: Date.now() }
-  }, [])
-
-  const onTouchEnd = useCallback(
-    (e: TouchEvent) => {
-      if (!touchRef.current) return
-      const touch = e.changedTouches.item(0)
-      if (!touch) return
-      const dy = touch.clientY - touchRef.current.y
-      const dt = Date.now() - touchRef.current.t
-      touchRef.current = null
-      if (dt > 400 || Math.abs(dy) < 60) return
-      if (dy < 0 && next && onNavigate) onNavigate(next)
-      else if (dy > 0 && prev && onNavigate) onNavigate(prev)
-    },
-    [next, prev, onNavigate],
-  )
+  const paging = useVerticalPaging({
+    prev: prev ?? null,
+    next: next ?? null,
+    onPage: onNavigate ?? null,
+    pageKey: row.id,
+  })
 
   const avatarStyle = { background: avatar.bg, color: avatar.fg } as const
   const initialFocusRef = useRef<HTMLDivElement>(null)
 
   const isLandscape = useMediaQuery("(orientation: landscape)")
-  const isImage = row.mediaKind === "image"
 
   useEffect(() => {
     return () => {
@@ -143,24 +129,31 @@ function MobileClipViewerBody({
     }
   }, [])
 
+  const reannounce = useReannounceClipMutation()
   const actionRailProps = {
-    announcementAction:
-      isAdmin && row.status === "ready" && row.privacy === "public" ? (
-        <ClipReannounceMenuItem
-          clipId={row.id}
-          disabled={Boolean(row.encodeActive)}
-        />
-      ) : undefined,
+    clipTitle: row.title,
     canManage,
     deleting,
-    downloadAction: clipBrowserDownloadActionSupported(row) ? (
-      <ClipBrowserDownloadMenuItem row={row} />
-    ) : undefined,
+    canDownload: clipBrowserDownloadActionSupported(row),
+    reannounce:
+      isAdmin && row.status === "ready" && row.privacy === "public"
+        ? {
+            disabled: Boolean(row.encodeActive) || reannounce.isPending,
+            // The hook toasts both outcomes, and this component outlives the
+            // sheet that closes on tap.
+            onReannounce: () => reannounce.mutate({ clipId: row.id }),
+          }
+        : null,
     shareState: share.feedback.state,
     shareError:
       share.feedback.state === "error" ? share.feedback.message : null,
     shareDisabled: row.privacy === "private",
     onShare: share.share,
+    onDownload: () => {
+      if (!startBrowserDownload(clipDownloadUrl(row.id, apiOrigin()))) {
+        toast.error(t("Couldn't start download"))
+      }
+    },
     onEdit: () => {
       // The edit view lives at its own route; navigating there drops the
       // `clip` search param and closes this viewer.
@@ -178,25 +171,93 @@ function MobileClipViewerBody({
         initialFocus={initialFocusRef}
         className="h-dvh w-dvw rounded-none border-0 shadow-none"
       >
+        {/* A black page whatever the theme, like other phone video viewers.
+            The forced `dark` subtree keeps the details, tags and mentions on
+            the dark theme's colours, readable against it. */}
         <div
+          data-slot="mobile-clip-viewer"
           data-orientation={isLandscape ? "landscape" : "portrait"}
-          className="relative flex h-full flex-col bg-[oklch(12%_0.01_250)]"
-          onTouchStart={onTouchStart}
-          onTouchEnd={onTouchEnd}
+          className="group/viewer dark relative h-full touch-none overflow-hidden bg-black"
+          {...paging.handlers}
         >
-          {/* ---- Blurred thumbnail background (full-screen) ---- */}
-          {thumbnail ? (
-            <img
-              src={thumbnail}
-              alt=""
-              aria-hidden
-              className="pointer-events-none absolute inset-0 z-0 size-full scale-[1.2] object-cover blur-2xl brightness-[0.35] saturate-150"
+          {/* ---- Page track: neighbours wait above and below the clip ---- */}
+          <div ref={paging.trackRef} className="absolute inset-0">
+            {prev?.row ? (
+              <NeighbourPage
+                row={prev.row}
+                isLandscape={isLandscape}
+                className="-translate-y-full"
+              />
+            ) : null}
+
+            <ClipPage
+              row={row}
+              isLandscape={isLandscape}
+              media={
+                <div
+                  ref={initialFocusRef}
+                  tabIndex={-1}
+                  className="w-full outline-none"
+                >
+                  <ClipPlayer
+                    clipId={row.id}
+                    aspectRatio={clipPageAspectRatio(row)}
+                    playbackContentType={row.playbackContentType}
+                    sourceCodecs={row.sourceCodecs}
+                    sourceVersion={row.sourceVersion}
+                    renditions={row.renditions}
+                    durationMs={row.durationMs}
+                    trimStartMs={row.trimStartMs}
+                    trimEndMs={row.trimEndMs}
+                    thumbnail={thumbnail}
+                    thumbnailBlurHash={row.thumbBlurHash}
+                    fallbackSeed={row.gameId ?? row.id}
+                    status={row.status}
+                    encodeProgress={row.encodeProgress}
+                    encodeStage={row.encodeStage}
+                    encodeTier={row.encodeTier}
+                    encodeTierIndex={row.encodeTierIndex}
+                    encodeTierCount={row.encodeTierCount}
+                    failureReason={row.failureReason}
+                    canRetry={retry.canRetry}
+                    onRetry={retry.onRetry}
+                    retryPending={retry.retryPending}
+                    maxDisplayHeight="100cqh"
+                    chromeSize="compact"
+                    onPlayThreshold={() => recordClipViewBestEffort(row.id)}
+                    autoPlay
+                    enableHorizontalSeekShortcuts={false}
+                    className={cn(
+                      // Letterboxing inside the frame is black, as on desktop.
+                      "bg-black data-[fullscreen=true]:rounded-none",
+                      // Portrait fills the full width, so the player sits
+                      // flush against the screen edges; rounded corners would
+                      // float off them. Only round when landscape centers it
+                      // with side margins.
+                      isLandscape ? "rounded-lg" : "rounded-none",
+                    )}
+                  />
+                </div>
+              }
             />
-          ) : null}
+
+            {next?.row ? (
+              <NeighbourPage
+                row={next.row}
+                isLandscape={isLandscape}
+                className="translate-y-full"
+              />
+            ) : null}
+          </div>
 
           {/* ---- Landscape metadata overlay ---- */}
           {isLandscape ? (
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-3 bg-gradient-to-b from-black/70 via-black/35 to-transparent pt-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] pr-[calc(max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))+3rem)] pb-10 pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]">
+            <div
+              className={cn(
+                "pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-3 bg-gradient-to-b from-black/70 via-black/35 to-transparent pt-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] pr-[calc(max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))+3rem)] pb-10 pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]",
+                FADE_WITH_PLAYER_CHROME,
+              )}
+            >
               <ClipAuthorLink
                 handle={handle}
                 avatar={avatar}
@@ -220,211 +281,48 @@ function MobileClipViewerBody({
             </div>
           ) : null}
 
-          {/* ---- Landscape action rail ---- */}
-          {isLandscape ? (
-            <div className="pointer-events-auto absolute right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] bottom-[max(3.5rem,calc(env(safe-area-inset-bottom)+1rem))] z-20 flex w-9 flex-col items-center gap-4 drop-shadow-[0_1px_3px_rgba(0,0,0,0.65)]">
-              <MobileActionsRail
-                {...actionRailProps}
-                iconSizeClassName="size-6"
-              />
-            </div>
-          ) : null}
+          {/* ---- Action rail: stays put while pages slide past ---- */}
+          <div
+            className={cn(
+              "absolute z-20 flex flex-col items-center drop-shadow-[0_1px_3px_rgba(0,0,0,0.65)]",
+              isLandscape
+                ? cn(
+                    "right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] bottom-[max(3.5rem,calc(env(safe-area-inset-bottom)+1rem))] w-9 gap-4",
+                    FADE_WITH_PLAYER_CHROME,
+                  )
+                : "right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] bottom-[max(1.25rem,env(safe-area-inset-bottom))] gap-5",
+            )}
+          >
+            <MobileActionsRail
+              {...actionRailProps}
+              iconSizeClassName={isLandscape ? "size-6" : "size-7"}
+            />
+          </div>
 
           {/* ---- Close button ---- */}
           <DialogClose
             className={cn(
               mobileOverlayCloseButtonClassName,
               "absolute top-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] z-30",
+              isLandscape && FADE_WITH_PLAYER_CHROME,
             )}
             aria-label={t("Close")}
           >
             <XIcon />
           </DialogClose>
 
-          {/* ---- Top spacer (keeps the player higher while metadata stays bottom-pinned) ---- */}
-          {isLandscape || isImage ? null : (
-            <div className="h-[clamp(4rem,28dvh,16rem)] min-h-0 shrink" />
-          )}
-
-          {/* ---- Video player ---- */}
-          <div
-            ref={initialFocusRef}
-            tabIndex={-1}
-            className={cn(
-              "relative z-10 outline-none",
-              isImage
-                ? "flex min-h-0 flex-1 items-center justify-center [container-type:size]"
-                : isLandscape
-                  ? "flex min-h-0 flex-1 items-center"
-                  : "shrink-0",
-            )}
-          >
-            {isImage && row.status === "ready" ? (
-              // Blurred cover-fit copy of the screenshot behind the fitted
-              // player. Both share the same center, so the sharp image
-              // appears to bleed into the blur. The player loads the same
-              // URL, so the backdrop costs no extra request.
-              <img
-                src={clipSourceFileUrl(
-                  row.id,
-                  apiOrigin(),
-                  row.sourceVersion ?? undefined,
-                )}
-                alt=""
-                aria-hidden
-                className="pointer-events-none absolute inset-0 size-full scale-110 object-cover blur-2xl brightness-[0.65] saturate-150"
-              />
-            ) : null}
-            <ClipPlayer
-              clipId={row.id}
-              aspectRatio={
-                row.mediaKind === "image" && row.width && row.height
-                  ? row.width / row.height
-                  : undefined
-              }
-              playbackContentType={row.playbackContentType}
-              sourceCodecs={row.sourceCodecs}
-              sourceVersion={row.sourceVersion}
-              renditions={row.renditions}
-              durationMs={row.durationMs}
-              trimStartMs={row.trimStartMs}
-              trimEndMs={row.trimEndMs}
-              thumbnail={thumbnail}
-              thumbnailBlurHash={row.thumbBlurHash}
-              fallbackSeed={row.gameId ?? row.id}
-              status={row.status}
-              encodeProgress={row.encodeProgress}
-              encodeStage={row.encodeStage}
-              encodeTier={row.encodeTier}
-              encodeTierIndex={row.encodeTierIndex}
-              encodeTierCount={row.encodeTierCount}
-              failureReason={row.failureReason}
-              canRetry={retry.canRetry}
-              onRetry={retry.onRetry}
-              retryPending={retry.retryPending}
-              maxDisplayHeight={
-                isImage
-                  ? "100cqh"
-                  : isLandscape
-                    ? "100dvh"
-                    : "min(72dvh, calc(100dvh - 18rem))"
-              }
-              chromeSize="compact"
-              onPlayThreshold={() => recordClipViewBestEffort(row.id)}
-              autoPlay
-              enableHorizontalSeekShortcuts={false}
-              className={cn(
-                "data-[fullscreen=true]:rounded-none",
-                // Portrait fills the full width, so the player sits flush
-                // against the screen edges; rounded corners would float off
-                // them. Only round when landscape centers it with side margins.
-                isLandscape ? "rounded-lg" : "rounded-none",
-              )}
-            />
-          </div>
-
           {showSwipeHint && !isLandscape ? (
             <div
               aria-hidden
               className={cn(
-                "pointer-events-none rounded-full border border-white/10 bg-[oklch(12%_0.01_250)]/35 px-3 py-1.5",
-                "text-xs font-semibold tracking-wide text-white/75 shadow-[0_8px_30px_-14px_rgb(0_0_0_/_0.9)] backdrop-blur-md",
-                "animate-in animation-duration-200 fade-in-0 slide-in-from-bottom-1",
-                isImage
-                  ? // The metadata overlay is bottom-anchored with a dynamic
-                    // height; float the hint clear above it.
-                    "absolute inset-x-0 bottom-[max(17rem,38dvh)] z-30 mx-auto w-fit"
-                  : "relative z-20 mx-auto mt-3",
+                "border-border bg-surface-raised/90 pointer-events-none absolute inset-x-0 top-[max(1rem,calc(env(safe-area-inset-top)+0.5rem))] z-30 mx-auto w-fit rounded-full border px-3 py-1.5",
+                "text-foreground-muted text-xs font-semibold tracking-wide shadow-md backdrop-blur-md",
+                "animate-in animation-duration-200 fade-in-0 slide-in-from-top-1",
               )}
             >
               {t("Swipe to navigate")}
             </div>
           ) : null}
-
-          {isLandscape || isImage ? null : <div className="min-h-0 flex-1" />}
-
-          {/* ---- Bottom section ---- */}
-          <div
-            className={cn(
-              "flex max-h-[min(40dvh,16rem)] overflow-hidden",
-              // Images fit the full screen, so the metadata overlays their
-              // bottom edge on a gradient instead of taking layout space.
-              isImage
-                ? "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 via-black/40 to-transparent"
-                : "relative z-10 shrink-0",
-              isLandscape && "hidden",
-            )}
-          >
-            {/* Left: metadata cluster */}
-            <div
-              className={cn(
-                "flex min-h-0 flex-1 flex-col justify-end gap-2.5 overflow-hidden pr-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]",
-                isImage ? "pt-24" : "pt-4",
-              )}
-            >
-              {/* Game badge */}
-              {gameRef ? (
-                <Link
-                  to="/games/$gameId"
-                  params={{ gameId: gameRef.slug }}
-                  className="inline-flex w-fit items-center gap-2"
-                >
-                  <GameIcon
-                    src={gameIcon}
-                    name={gameLabel}
-                    className="size-6 rounded"
-                  />
-                  <span className="text-base font-semibold text-white/90">
-                    {gameLabel}
-                  </span>
-                </Link>
-              ) : (
-                <span className="text-base font-semibold text-white/90">
-                  {gameLabel}
-                </span>
-              )}
-
-              {/* Author with avatar */}
-              <ClipAuthorLink
-                handle={handle}
-                avatar={avatar}
-                avatarStyle={avatarStyle}
-                author={author}
-                size="md"
-                className="inline-flex w-fit items-center gap-2"
-                textClassName="text-lg font-bold text-white"
-              />
-
-              {/* Title */}
-              <ClipTitleWithVisibility
-                title={row.title}
-                privacy={row.privacy}
-                titleClassName="line-clamp-2 min-w-0 text-base leading-tight font-semibold text-white"
-                badgeClassName="bg-white/10 text-white/75"
-              />
-
-              {/* Mentions */}
-              <ClipMentionsRow mentions={row.mentions ?? []} />
-
-              {/* Description */}
-              {row.description ? (
-                <p className="line-clamp-3 text-sm leading-relaxed whitespace-pre-wrap text-white/65">
-                  {renderHashtagTokens(row.description)}
-                </p>
-              ) : null}
-
-              {/* Hashtags */}
-              <ClipTagsRow tags={row.tags} />
-            </div>
-
-            {/* Right: action buttons */}
-            <div className="flex flex-col items-center justify-end gap-5 pr-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-3">
-              <MobileActionsRail
-                {...actionRailProps}
-                iconSizeClassName="size-7"
-              />
-            </div>
-          </div>
         </div>
       </DialogViewportContent>
 
@@ -439,6 +337,164 @@ function MobileClipViewerBody({
         onConfirm={deleteFlow.confirm}
       />
     </>
+  )
+}
+
+function clipThumbnail(row: ClipRow): string | null {
+  return row.thumbKey
+    ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
+    : null
+}
+
+function clipPageAspectRatio(row: ClipRow): number {
+  return row.mediaKind === "image" && row.width && row.height
+    ? row.width / row.height
+    : VIDEO_ASPECT_RATIO
+}
+
+/**
+ * One page of the viewer: the media centred in the space above the clip's
+ * details; landscape leaves the whole screen to the media. A neighbour page
+ * shares this layout, so the clip that slides in lands exactly where the
+ * player then takes over.
+ */
+function ClipPage({
+  row,
+  isLandscape,
+  media,
+  className,
+  inert,
+}: {
+  row: ClipRow
+  isLandscape: boolean
+  media: ReactNode
+  className?: string
+  inert?: boolean
+}) {
+  return (
+    <div
+      className={cn("absolute inset-0 flex flex-col", className)}
+      inert={inert}
+      aria-hidden={inert}
+    >
+      <div className="[container-type:size] flex min-h-0 flex-1 items-center justify-center">
+        {media}
+      </div>
+      {isLandscape ? null : <ClipPageDetails row={row} />}
+    </div>
+  )
+}
+
+/** A neighbouring clip's poster and details, shown while a swipe pulls it in. */
+function NeighbourPage({
+  row,
+  isLandscape,
+  className,
+}: {
+  row: ClipRow
+  isLandscape: boolean
+  className: string
+}) {
+  const thumbnail = clipThumbnail(row)
+  const ratio = clipPageAspectRatio(row)
+  const frameStyle: CSSProperties = {
+    aspectRatio: String(ratio),
+    width: `min(100%, calc(100cqh * ${ratio}))`,
+    maxHeight: "100cqh",
+  }
+  return (
+    <ClipPage
+      row={row}
+      isLandscape={isLandscape}
+      className={className}
+      inert
+      media={
+        thumbnail ? (
+          <img
+            src={thumbnail}
+            alt=""
+            className={cn(
+              "bg-black object-contain",
+              isLandscape ? "rounded-lg" : "rounded-none",
+            )}
+            style={frameStyle}
+            decoding="async"
+          />
+        ) : (
+          <div className="bg-black" style={frameStyle} />
+        )
+      }
+    />
+  )
+}
+
+/** Game, author, title and the rest, bottom-left beside the action rail. */
+function ClipPageDetails({ row }: { row: ClipRow }) {
+  const gameLabel = clipGameLabel(row)
+  const gameRef = row.gameRef
+  const gameIcon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null
+  const avatar = userAvatar({
+    id: row.authorId,
+    username: row.authorUsername,
+    image: row.authorImage,
+  })
+  const avatarStyle = { background: avatar.bg, color: avatar.fg } as const
+
+  return (
+    <div
+      className={cn(
+        "relative z-10 flex max-h-[min(40dvh,16rem)] min-h-0 shrink-0 flex-col justify-end gap-2.5 overflow-hidden pt-4",
+        // Room for the action rail, which sits outside the sliding page.
+        "pr-[calc(max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))+2.75rem)] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]",
+      )}
+    >
+      {gameRef ? (
+        <Link
+          to="/games/$gameId"
+          params={{ gameId: gameRef.slug }}
+          className="inline-flex w-fit items-center gap-2"
+        >
+          <GameIcon
+            src={gameIcon}
+            name={gameLabel}
+            className="size-6 rounded"
+          />
+          <span className="text-foreground text-base font-semibold">
+            {gameLabel}
+          </span>
+        </Link>
+      ) : (
+        <span className="text-foreground text-base font-semibold">
+          {gameLabel}
+        </span>
+      )}
+
+      <ClipAuthorLink
+        handle={row.authorUsername}
+        avatar={avatar}
+        avatarStyle={avatarStyle}
+        author={row.authorUsername}
+        size="md"
+        className="inline-flex w-fit items-center gap-2"
+        textClassName="text-foreground text-lg font-bold"
+      />
+
+      <ClipTitleWithVisibility
+        title={row.title}
+        privacy={row.privacy}
+        titleClassName="text-foreground line-clamp-2 min-w-0 text-base leading-tight font-semibold"
+      />
+
+      <ClipMentionsRow mentions={row.mentions ?? []} />
+
+      {row.description ? (
+        <p className="text-foreground-muted line-clamp-3 text-sm leading-relaxed whitespace-pre-wrap">
+          {renderHashtagTokens(row.description)}
+        </p>
+      ) : null}
+
+      <ClipTagsRow tags={row.tags} />
+    </div>
   )
 }
 

@@ -1,5 +1,6 @@
 import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import type { KeyboardEvent } from "react"
 
 import { formatTrimMs } from "@/lib/media-time"
@@ -13,13 +14,15 @@ export function trimNudgeMs(e: KeyboardEvent<HTMLElement>): number | null {
 
 /**
  * Grab bar at one end of the kept range. The `bar` variant is the slim edge
- * of the desktop trim bar; `timeline` is wide enough for a fingertip.
+ * of the desktop trim bar; `timeline` is the touch trimmer's chevron bar,
+ * which sits just outside the range it frames.
  */
 export function TrimHandle({
   edge,
   valueMs,
   durationMs,
   variant,
+  active = false,
   disabled,
   onKeyDown,
 }: {
@@ -27,6 +30,8 @@ export function TrimHandle({
   valueMs: number
   durationMs: number
   variant: "bar" | "timeline"
+  /** The bar is being dragged. */
+  active?: boolean
   disabled?: boolean
   onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => void
 }) {
@@ -55,17 +60,21 @@ export function TrimHandle({
               start ? "rounded-l-md" : "rounded-r-md",
             )
           : cn(
-              "z-10 w-6 after:-inset-x-2",
-              start ? "rounded-l-sm" : "rounded-r-sm",
+              "pointer-events-auto z-10 w-4 text-accent-foreground transition-[filter]",
+              start
+                ? "rounded-l-md after:-right-1 after:-left-4"
+                : "rounded-r-md after:-right-4 after:-left-1",
+              active && "brightness-125",
             ),
       )}
     >
-      <span
-        className={cn(
-          "bg-accent-foreground/80 rounded-full",
-          variant === "bar" ? "h-5 w-0.5" : "h-8 w-1",
-        )}
-      />
+      {variant === "bar" ? (
+        <span className="bg-accent-foreground/80 h-5 w-0.5 rounded-full" />
+      ) : start ? (
+        <ChevronLeftIcon className="size-4 stroke-[3]" />
+      ) : (
+        <ChevronRightIcon className="size-4 stroke-[3]" />
+      )}
     </div>
   )
 }

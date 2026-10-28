@@ -115,8 +115,7 @@ async function loadMediaWaveform(
             ? AbortSignal.any([signal, init.signal])
             : signal,
         }),
-      getRetryDelay: (attempt) =>
-        attempt < 3 ? 0.25 * 2 ** Math.max(0, attempt - 1) : null,
+      getRetryDelay: boundedMediaRetryDelay,
     }),
     formats: ALL_FORMATS,
   })
@@ -222,6 +221,14 @@ async function loadMediaWaveform(
   }
 }
 
+/**
+ * Gives up on a media request after three attempts. Mediabunny's default
+ * retries forever, which would leave an editor waiting on a broken source.
+ */
+export function boundedMediaRetryDelay(attempt: number): number | null {
+  return attempt < 3 ? 0.25 * 2 ** Math.max(0, attempt - 1) : null
+}
+
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"])
 
 /**
@@ -231,7 +238,7 @@ const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"])
  * `Access-Control-Allow-Credentials`, so a credentialed fetch to it is rejected
  * by the browser and the waveform never loads.
  */
-function mediaRequestCredentials(mediaUrl: string): RequestCredentials {
+export function mediaRequestCredentials(mediaUrl: string): RequestCredentials {
   const url = new URL(mediaUrl, window.location.href)
   if (url.protocol !== "http:" && url.protocol !== "https:") return "omit"
   if (url.origin === window.location.origin) return "include"

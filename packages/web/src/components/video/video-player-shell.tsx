@@ -17,7 +17,7 @@ import {
   shouldHandleVideoShortcut,
   type VideoKeyCommand,
 } from "./video-keyboard"
-import type { LoadStatus } from "./video-player-store"
+import { type LoadStatus, usePlayerState } from "./video-player-store"
 
 export { ChromeBar } from "./video-player-chrome"
 
@@ -117,6 +117,8 @@ export function ChromeShell({
   bar?: ReactNode
   children: ReactNode
 }) {
+  // Mirrored onto the root so surrounding overlays can fade with the chrome.
+  const chromeVisible = usePlayerState((state) => state.chromeVisible)
   const mediaSizingStyle = useMemo<CSSProperties | undefined>(() => {
     if (isFullscreen) return undefined
     // The shell owns the aspect-ratio so there is a single rounded box defining
@@ -147,7 +149,7 @@ export function ChromeShell({
       data-slot="video-player"
       data-mode="chrome"
       data-playing={playing ? "true" : "false"}
-      data-chrome="visible"
+      data-chrome={chromeVisible ? "visible" : "hidden"}
       data-fullscreen={isFullscreen ? "true" : "false"}
       role="group"
       aria-label={t("Video player")}

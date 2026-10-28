@@ -132,6 +132,8 @@ function ScreenshotPlayer({
       ) : (
         <div
           ref={view.viewportRef}
+          // Pans of a zoomed screenshot are not swipes between clips.
+          data-zoomed={view.zoom > 1 ? "" : undefined}
           className={cn(
             "absolute inset-0 grid touch-none place-items-center overflow-hidden",
             view.zoom > 1 && "touch-none cursor-grab active:cursor-grabbing",

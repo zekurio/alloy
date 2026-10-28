@@ -10,15 +10,16 @@ import {
   RotateCcwIcon,
   SaveIcon,
   ScissorsIcon,
-  SquareIcon,
 } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 import { MediaStage } from "@/components/clip-editor/media-stage"
 import { TrimElapsed } from "@/components/clip-editor/transport-controls"
 import { TrimTimeline } from "@/components/clip-editor/trim-timeline"
 import type { TrimRange } from "@/components/clip-editor/use-trim-playback"
 import { useExternalVideoVolume } from "@/components/video/video-player"
+import { useInertOutside } from "@/hooks/use-inert-outside"
+import { useMediaFilmstrip } from "@/lib/media-filmstrip"
 import { formatTrimMs } from "@/lib/media-time"
 
 import { ClipEditorDetails } from "./library-clip-editor-details"
@@ -58,17 +59,20 @@ interface MobileClipEditorProps {
   }
 }
 
-/**
- * Caps the stage in both views, so entering the trimmer leaves the player
- * exactly where it was and only the controls underneath it change.
- */
+/** Caps the stage on the details view, so the sheet below stays in reach. */
 const STAGE_MAX_HEIGHT = "56dvh"
 
 /**
- * Touch layout for the uploaded clip editor: one fixed player stage with a
+ * Touch layout for the uploaded clip editor: one player stage with a
  * swappable body below it. The body is either the details sheet or the
  * trimmer — the desktop stage's transport row and trim bar are too wide to
  * sit beside a details sheet in a phone-width column.
+ *
+ * Trimming takes over the screen, like a phone's photo editor: the app's
+ * header and navigation go away (they would drop the unsaved cut with one
+ * tap), the player grows into the free space, and the trimmer and its commit
+ * row sit at the bottom under the thumb. The stage stays mounted across both
+ * views, so the player keeps its frame and position.
  */
 export function MobileClipEditor({
   row,
@@ -84,46 +88,61 @@ export function MobileClipEditor({
 }: MobileClipEditorProps) {
   const [trimming, setTrimming] = useState(false)
   const trimView = trimming && canTrim
+  const sectionRef = useRef<HTMLElement>(null)
+  // Covering the header and navigation must also take them out of reach for
+  // keyboards and screen readers, or they still drop the unsaved cut.
+  useInertOutside(sectionRef, trimView)
 
   return (
     <section
+      ref={sectionRef}
+      aria-label={trimView ? t("Trim clip") : undefined}
       className={cn(
-        "flex w-full flex-col gap-4",
-        // The trim view fills the shell so the commit row can sit at the bottom
-        // of the screen, under the thumb, while the trimmer's controls stay with
-        // the player. Only the trim view needs the height; the details sheet
-        // sizes itself.
-        trimView &&
-          "min-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-2rem)]",
+        "flex w-full flex-col",
+        trimView
+          ? // Panning anywhere would scroll the page underneath; every
+            // control in the trimmer handles its own pointer input.
+            "bg-background fixed inset-0 z-50 touch-none gap-3 pt-[max(0.75rem,env(safe-area-inset-top))] pr-[env(safe-area-inset-right)] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)]"
+          : "gap-4",
       )}
     >
-      <MediaStage aspectRatio={media.aspectRatio} maxHeight={STAGE_MAX_HEIGHT}>
-        {media.playbackSrc ? (
-          <MobileClipVideo
-            row={row}
-            media={media}
-            playback={playback}
-            trimming={trimView}
+      <div
+        className={cn(
+          trimView &&
+            "flex min-h-0 flex-1 items-center justify-center px-3 [container-type:size]",
+        )}
+      >
+        <MediaStage
+          aspectRatio={media.aspectRatio}
+          maxHeight={trimView ? "100cqh" : STAGE_MAX_HEIGHT}
+        >
+          {media.playbackSrc ? (
+            <MobileClipVideo
+              row={row}
+              media={media}
+              playback={playback}
+              trimming={trimView}
+            />
+          ) : (
+            <ClipEditorPreviewPlaceholder media={media} />
+          )}
+          {/* Navigating to the next entry would drop unsaved handles. */}
+          {trimView ? null : (
+            <>
+              <LibraryEntryNavButton side="left" target={prevEntry} />
+              <LibraryEntryNavButton side="right" target={nextEntry} />
+            </>
+          )}
+          <LibraryHandoffPosterOverlay
+            poster={media.publishHandoffPoster}
+            ready={media.cloudFrameReady}
           />
-        ) : (
-          <ClipEditorPreviewPlaceholder media={media} />
-        )}
-        {/* Navigating to the next entry would drop unsaved handles. */}
-        {trimView ? null : (
-          <>
-            <LibraryEntryNavButton side="left" target={prevEntry} />
-            <LibraryEntryNavButton side="right" target={nextEntry} />
-          </>
-        )}
-        <LibraryHandoffPosterOverlay
-          poster={media.publishHandoffPoster}
-          ready={media.cloudFrameReady}
-        />
-      </MediaStage>
+        </MediaStage>
+      </div>
 
       {trimView ? (
         <MobileTrimControls
-          clipId={row.id}
+          row={row}
           media={media}
           playback={playback}
           canManage={canManage}
@@ -178,11 +197,11 @@ export function MobileClipEditor({
 }
 
 /**
- * The trimmer's body, rendered under the shared stage. Precision comes from
- * panning against the centred playhead and pinching to zoom the time scale.
+ * The trimmer under the full-screen stage: the kept range's times, the
+ * filmstrip trimmer, a transport row, and the commit row.
  */
 function MobileTrimControls({
-  clipId,
+  row,
   media,
   playback,
   canManage,
@@ -192,7 +211,7 @@ function MobileTrimControls({
   onSaveTrim,
   onCancel,
 }: {
-  clipId: string
+  row: ClipRow
   media: ClipEditorMediaState
   playback: ClipEditorPlaybackState
   canManage: boolean
@@ -203,90 +222,87 @@ function MobileTrimControls({
   onCancel: () => void
 }) {
   const playerVolume = useExternalVideoVolume(playback.playerRef)
+  const filmstrip = useMediaFilmstrip(
+    media.previewUnavailable ? null : media.playbackSrc,
+    `clip:${row.id}:${media.mediaVersion}:${media.playbackSrc}`,
+    playback.durationMs,
+    (media.playbackRange?.start ?? 0) * 1000,
+  )
   return (
-    <>
-      <div className="flex w-full flex-col gap-3">
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon"
-            aria-label={playback.playing ? t("Pause") : t("Play")}
-            onClick={playback.togglePlayback}
-          >
-            {playback.playing ? <PauseIcon /> : <PlayIcon />}
-          </Button>
+    <div className="flex w-full flex-col gap-3 px-4">
+      <TrimTimeline
+        waveform={media.waveform}
+        frames={filmstrip.frames}
+        // No source to decode (idle) or no decoder (error): no frames are
+        // coming, so the waveform takes the whole strip.
+        framesUnavailable={
+          filmstrip.status === "error" || filmstrip.status === "idle"
+        }
+        durationMs={playback.durationMs}
+        startMs={playback.trim.startMs}
+        endMs={playback.trim.endMs}
+        subscribeCurrentMs={playback.subscribeCurrentMs}
+        getCurrentMs={playback.getCurrentMs}
+        onScrub={(sourceMs) => {
+          playback.playerRef.current?.pause()
+          playback.seek(sourceMs)
+        }}
+        onStartChange={playback.handleTrimStartChange}
+        onEndChange={playback.handleTrimEndChange}
+      />
+
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          className="rounded-full"
+          aria-label={playback.playing ? t("Pause") : t("Play")}
+          onClick={playback.togglePlayback}
+        >
+          {playback.playing ? <PauseIcon /> : <PlayIcon />}
+        </Button>
+        <span className="text-foreground-muted ml-2 font-mono text-sm tabular-nums">
+          <TrimElapsed playback={playback} /> / {formatTrimMs(playback.rangeMs)}
+        </span>
+        <div className="ml-auto flex items-center">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            aria-label={t("Stop")}
-            onClick={playback.stopPlayback}
+            aria-label={t("Reset trim")}
+            disabled={!playback.trimmed}
+            onClick={playback.resetTrim}
+            className={cn(
+              "text-foreground-faint transition-opacity",
+              !playback.trimmed && "pointer-events-none opacity-0",
+            )}
           >
-            <SquareIcon />
+            <RotateCcwIcon />
           </Button>
-          <span className="text-foreground-muted ml-1 font-mono text-sm tabular-nums">
-            <TrimElapsed playback={playback} /> /{" "}
-            {formatTrimMs(playback.rangeMs)}
-          </span>
-          <div className="ml-auto flex items-center">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={t("Reset trim")}
-              disabled={!playback.trimmed}
-              onClick={playback.resetTrim}
-              className={cn(
-                "text-foreground-faint transition-opacity",
-                !playback.trimmed && "pointer-events-none opacity-0",
-              )}
-            >
-              <RotateCcwIcon />
-            </Button>
-            {canManage ? (
-              <SetPosterButton clipId={clipId} playback={playback} compact />
-            ) : null}
-            {media.playbackSrc && !media.previewUnavailable ? (
-              <EditorVolumeControl
-                playerVolume={playerVolume}
-                iconClassName="size-9 rounded-md"
-              />
-            ) : null}
-          </div>
+          {canManage ? (
+            <SetPosterButton clipId={row.id} playback={playback} compact />
+          ) : null}
+          {media.playbackSrc && !media.previewUnavailable ? (
+            <EditorVolumeControl
+              playerVolume={playerVolume}
+              iconClassName="size-9 rounded-md"
+            />
+          ) : null}
         </div>
-
-        <div className="border-border bg-surface-raised overflow-hidden rounded-lg border">
-          <TrimTimeline
-            waveform={media.waveform}
-            durationMs={playback.durationMs}
-            startMs={playback.trim.startMs}
-            endMs={playback.trim.endMs}
-            subscribeCurrentMs={playback.subscribeCurrentMs}
-            getCurrentMs={playback.getCurrentMs}
-            onScrub={(sourceMs) => {
-              playback.playerRef.current?.pause()
-              playback.seek(sourceMs)
-            }}
-            onStartChange={playback.handleTrimStartChange}
-            onEndChange={playback.handleTrimEndChange}
-          />
-        </div>
-
-        <p className="text-foreground-faint text-center text-xs">
-          {t("Drag to scrub, pinch to zoom")}
-        </p>
-
-        {trimError ? (
-          <p role="alert" className="text-destructive text-center text-sm">
-            {trimError}
-          </p>
-        ) : null}
       </div>
 
-      {/* The controls stay with the player; only the commit row is pushed to
-          the bottom of the shell, so it sits under the thumb. */}
-      <div className="mt-auto flex items-center justify-between gap-2">
+      <p className="text-foreground-faint -mt-1 text-center text-xs">
+        {t("Drag to scrub, pinch to zoom")}
+      </p>
+
+      {trimError ? (
+        <p role="alert" className="text-destructive text-center text-sm">
+          {trimError}
+        </p>
+      ) : null}
+
+      <div className="flex items-center justify-between gap-2">
         <Button
           type="button"
           variant="ghost"
@@ -294,7 +310,7 @@ function MobileTrimControls({
           disabled={trimPending}
           onClick={onCancel}
         >
-          {t("Cancel trim")}
+          {t("Cancel")}
         </Button>
         <FeedbackButton
           type="button"
@@ -310,7 +326,7 @@ function MobileTrimControls({
           {t("Save trim")}
         </FeedbackButton>
       </div>
-    </>
+    </div>
   )
 }
 

@@ -1,6 +1,7 @@
+import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
+import { ShrinkIcon } from "lucide-react"
 import {
-  useCallback,
   useEffect,
   useEffectEvent,
   useLayoutEffect,
@@ -14,44 +15,76 @@ import {
   WaveformCanvas,
   WaveformStatus,
 } from "@/components/media/waveform-canvas"
-import { formatMediaDurationMs, formatTrimMs } from "@/lib/media-time"
+import type { FilmstripFrame } from "@/lib/media-filmstrip"
+import { formatTrimMs } from "@/lib/media-time"
 import type { MediaWaveformState } from "@/lib/media-waveform"
 
 import { TrimHandle, trimNudgeMs } from "./trim-handle"
 
-/** Rendered strip width, in viewport widths, so panning is a GPU transform. */
-const CONTENT_SPAN = 2
+/** Grab bars sit outside the kept range; the track leaves room for both. */
+const HANDLE_WIDTH_PX = 16
+const FRAME_LANE_PX = 48
+const WAVE_LANE_PX = 20
+/** Width of one filmstrip tile: narrow crops, like a phone's photo trimmer. */
+const TILE_WIDTH_PX = 30
 /** Ceiling on the time scale: ~1px per 2.5ms, finer than a 60fps frame. */
 const MAX_ZOOM_PX_PER_MS = 0.4
-/** Smallest gap between two labelled ruler ticks. */
-const MIN_TICK_GAP_PX = 72
-const RULER_HEIGHT_PX = 20
-const STRIP_HEIGHT_PX = 60
-const RULER_STEPS_MS = [
-  250, 500, 1_000, 2_000, 5_000, 10_000, 15_000, 30_000, 60_000, 120_000,
-  300_000, 600_000,
-]
+/** A drag this close to a zoomed track's edge scrolls the view. */
+const EDGE_SCROLL_ZONE_PX = 32
+/** View travel per frame at the very edge of the scroll zone. */
+const EDGE_SCROLL_MAX_PX = 10
+/** Fraction of the view kept behind the playhead when the view follows it. */
+const FOLLOW_LEAD = 0.1
+/** Travel before a finger on the strip starts scrubbing. */
+const SCRUB_SLOP_PX = 4
+
+type View = {
+  /** Zoom relative to the whole clip fitting the track; 1 is fully out. */
+  scale: number
+  /** Source time at the track's left edge. */
+  startMs: number
+}
 
 type Gesture =
-  | { kind: "pan"; pointerId: number; startX: number; startMs: number }
+  | {
+      kind: "scrub"
+      pointerId: number
+      clientX: number
+      startX: number
+      /**
+       * Not yet past the slop. A pinch starts with one finger, so the strip
+       * waits for movement, or a lift (a tap), before it seeks and pauses.
+       */
+      pending: boolean
+    }
   | {
       kind: "handle"
       pointerId: number
       edge: "start" | "end"
-      startX: number
-      startMs: number
+      /** Finger distance from the cut point, kept for the whole drag. */
+      grabOffsetPx: number
+      clientX: number
     }
-  | { kind: "pinch"; startDistance: number; startZoom: number }
+  | {
+      kind: "pinch"
+      startDistance: number
+      startScale: number
+      /** Source time under the pinch midpoint when it began. */
+      anchorMs: number
+    }
 
 /**
- * Touch trimmer built like a mobile editor timeline: the playhead is pinned
- * to the centre and the media travels under it. Dragging the strip scrubs,
- * pinching zooms the time scale, and the kept range's handles resize the cut
- * — zoom is what buys frame-level precision, so no numeric nudge controls are
- * needed beside it.
+ * Touch trimmer in the shape phone photo editors use: the whole clip fits the
+ * width as a filmstrip over its waveform, the kept range is framed by two grab
+ * bars outside it, and the cut-away ends are dimmed. Dragging a bar moves that
+ * cut while the (paused) player shows its frame; dragging anywhere else
+ * scrubs. Pinching zooms the time scale for frame-level cuts, and a zoomed
+ * view scrolls when a drag reaches its edge.
  */
 export function TrimTimeline({
   waveform,
+  frames,
+  framesUnavailable = false,
   durationMs,
   startMs,
   endMs,
@@ -65,10 +98,14 @@ export function TrimTimeline({
 }: {
   /** Audio peak data for the source media. */
   waveform: MediaWaveformState
+  /** Video frames across the source, in time order; may still be filling. */
+  frames: FilmstripFrame[]
+  /** No frames are coming (no WebCodecs); the waveform takes the strip. */
+  framesUnavailable?: boolean
   durationMs: number
   startMs: number
   endMs: number
-  /** Playhead store in source time; the strip follows it without re-rendering. */
+  /** Playhead store in source time; the playhead follows it without re-rendering. */
   subscribeCurrentMs: (listener: () => void) => () => void
   getCurrentMs: () => number
   /** Moves the playhead (caller pauses and clamps). */
@@ -80,86 +117,159 @@ export function TrimTimeline({
   className?: string
 }) {
   const viewportRef = useRef<HTMLDivElement | null>(null)
-  const contentRef = useRef<HTMLDivElement | null>(null)
+  const playheadRef = useRef<HTMLDivElement | null>(null)
   const gestureRef = useRef<Gesture | null>(null)
   const pointersRef = useRef(new Map<number, { x: number; y: number }>())
   const { width } = useElementSize(viewportRef)
-  const [zoom, setZoom] = useState(0)
-  // Left edge of the rendered strip, in source time. The strip covers more
-  // than the viewport so ordinary playback only shifts a transform; it is
-  // re-anchored (and repainted) once the playhead nears its edge.
-  const [anchorMs, setAnchorMs] = useState(0)
+  const [view, setView] = useState<View>({ scale: 1, startMs: 0 })
+  const [activeEdge, setActiveEdge] = useState<"start" | "end" | null>(null)
   const [gesturing, setGesturing] = useState(false)
 
-  const fitZoom = width > 0 && durationMs > 0 ? width / durationMs : 0
-  // The whole clip is the zoomed-out limit: adopt it on first measure, and
-  // raise a scale that no longer fills the viewport (late duration, rotation).
-  if (fitZoom > 0 && zoom < fitZoom) setZoom(fitZoom)
-  const ready = fitZoom > 0 && zoom > 0
-  const contentWidth = width * CONTENT_SPAN
-  const contentMs = ready ? contentWidth / zoom : 0
+  const trackWidth = Math.max(0, width - HANDLE_WIDTH_PX * 2)
+  const ready = trackWidth > 0 && durationMs > 0
+  const fitPxPerMs = ready ? trackWidth / durationMs : 0
+  const maxScale = ready ? Math.max(1, MAX_ZOOM_PX_PER_MS / fitPxPerMs) : 1
+  const pxPerMs = fitPxPerMs * view.scale
+  const spanMs = ready ? durationMs / view.scale : 0
+  const zoomed = view.scale > 1.001
 
-  const applyOffset = useCallback(() => {
-    const content = contentRef.current
-    if (!content || !ready) return
-    const offset = width / 2 - (getCurrentMs() - anchorMs) * zoom
-    content.style.transform = `translateX(${offset}px)`
-  }, [anchorMs, getCurrentMs, ready, width, zoom])
-
-  const reanchor = useCallback(() => {
-    if (!ready) return
-    const currentMs = getCurrentMs()
-    if (
-      currentMs >= anchorMs + contentMs * 0.25 &&
-      currentMs <= anchorMs + contentMs * 0.75
-    ) {
-      return
+  const clampView = (next: View): View => {
+    const scale = Math.min(maxScale, Math.max(1, next.scale))
+    const span = durationMs / scale
+    return {
+      scale,
+      startMs: Math.min(Math.max(0, next.startMs), durationMs - span),
     }
-    setAnchorMs(currentMs - contentMs / 2)
-  }, [anchorMs, contentMs, getCurrentMs, ready])
+  }
 
-  useLayoutEffect(applyOffset, [applyOffset])
-  useEffect(reanchor, [reanchor])
-  useEffect(() => {
-    return subscribeCurrentMs(() => {
-      applyOffset()
-      reanchor()
-    })
-  }, [applyOffset, reanchor, subscribeCurrentMs])
+  /** Viewport x of a source time; the track starts after the start bar. */
+  const xOf = (ms: number) => HANDLE_WIDTH_PX + (ms - view.startMs) * pxPerMs
+  const msAt = (clientX: number, at: View = view) => {
+    const left = viewportRef.current?.getBoundingClientRect().left ?? 0
+    const scale = fitPxPerMs * at.scale
+    return at.startMs + (clientX - left - HANDLE_WIDTH_PX) / scale
+  }
 
-  const clampZoom = useCallback(
-    (next: number) => Math.min(MAX_ZOOM_PX_PER_MS, Math.max(fitZoom, next)),
-    [fitZoom],
+  // The playhead moves every animation frame while playing; it is positioned
+  // straight from the store so the strip doesn't re-render at 60fps. Only a
+  // moving playhead (playback, nudges) drags a zoomed view along; a re-render
+  // after the user pinched elsewhere leaves their view alone.
+  const placePlayhead = useEffectEvent((follow: boolean) => {
+    const playhead = playheadRef.current
+    if (!playhead || !ready) return
+    const currentMs = getCurrentMs()
+    const x = xOf(currentMs)
+    playhead.style.transform = `translateX(${x}px)`
+    playhead.style.opacity =
+      x < HANDLE_WIDTH_PX - 1 || x > HANDLE_WIDTH_PX + trackWidth + 1
+        ? "0"
+        : "1"
+    // A zoomed view pages along with playback instead of losing the playhead.
+    if (
+      follow &&
+      zoomed &&
+      gestureRef.current === null &&
+      (currentMs < view.startMs || currentMs > view.startMs + spanMs)
+    ) {
+      setView(clampView({ ...view, startMs: currentMs - spanMs * FOLLOW_LEAD }))
+    }
+  })
+  useLayoutEffect(() => placePlayhead(false))
+  useEffect(
+    () => subscribeCurrentMs(() => placePlayhead(true)),
+    [subscribeCurrentMs],
   )
 
-  // Pointer devices get the same two gestures: a trackpad pinch (which the
-  // platform reports as ctrl+wheel) zooms, horizontal wheel scrubs. Vertical
-  // wheel is left alone so the page still scrolls over the timeline.
-  const onWheel = useEffectEvent((event: WheelEvent) => {
-    if (event.ctrlKey || event.metaKey) {
-      event.preventDefault()
-      setZoom((current) => clampZoom(current * Math.exp(-event.deltaY / 240)))
+  const applyDrag = (gesture: Gesture, at: View) => {
+    if (gesture.kind === "scrub") {
+      onScrub(Math.min(durationMs, Math.max(0, msAt(gesture.clientX, at))))
       return
     }
-    if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return
+    if (gesture.kind !== "handle") return
+    const ms = msAt(gesture.clientX - gesture.grabOffsetPx, at)
+    if (gesture.edge === "start") onStartChange(ms)
+    else onEndChange(ms)
+  }
+
+  // While a drag rests in a zoomed track's edge zone, keep scrolling the view
+  // and re-apply the drag, so a cut can be carried past what's on screen.
+  const edgeScroll = useEffectEvent(() => {
+    const gesture = gestureRef.current
+    const rect = viewportRef.current?.getBoundingClientRect()
+    if (!gesture || gesture.kind === "pinch" || !rect || !zoomed) return
+    if (gesture.kind === "scrub" && gesture.pending) return
+    const trackLeft = rect.left + HANDLE_WIDTH_PX
+    const trackRight = trackLeft + trackWidth
+    const x = gesture.clientX
+    const depth =
+      x < trackLeft + EDGE_SCROLL_ZONE_PX
+        ? -(trackLeft + EDGE_SCROLL_ZONE_PX - x) / EDGE_SCROLL_ZONE_PX
+        : x > trackRight - EDGE_SCROLL_ZONE_PX
+          ? (x - (trackRight - EDGE_SCROLL_ZONE_PX)) / EDGE_SCROLL_ZONE_PX
+          : 0
+    if (depth === 0) return
+    const shift =
+      (Math.max(-1, Math.min(1, depth)) * EDGE_SCROLL_MAX_PX) / pxPerMs
+    const next = clampView({ ...view, startMs: view.startMs + shift })
+    if (next.startMs === view.startMs) return
+    setView(next)
+    applyDrag(gesture, next)
+  })
+  useEffect(() => {
+    if (!gesturing || !zoomed) return
+    let frame = requestAnimationFrame(function tick() {
+      edgeScroll()
+      frame = requestAnimationFrame(tick)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [gesturing, zoomed])
+
+  // A trackpad pinch (reported as ctrl+wheel) zooms around the pointer;
+  // horizontal wheel pans a zoomed view. Vertical wheel still scrolls the page.
+  const onWheel = useEffectEvent((event: WheelEvent) => {
+    if (!ready) return
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault()
+      const anchorMs = msAt(event.clientX)
+      const scale = view.scale * Math.exp(-event.deltaY / 240)
+      const left = viewportRef.current?.getBoundingClientRect().left ?? 0
+      const offsetPx = event.clientX - left - HANDLE_WIDTH_PX
+      setView(
+        clampView({
+          scale,
+          startMs: anchorMs - offsetPx / (fitPxPerMs * scale),
+        }),
+      )
+      return
+    }
+    if (!zoomed || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return
     event.preventDefault()
-    onScrub(getCurrentMs() + event.deltaX / zoom)
+    setView(
+      clampView({ ...view, startMs: view.startMs + event.deltaX / pxPerMs }),
+    )
   })
   useEffect(() => {
     const viewport = viewportRef.current
-    if (!viewport || !ready) return
+    if (!viewport) return
     const handleWheel = (event: WheelEvent) => onWheel(event)
     viewport.addEventListener("wheel", handleWheel, { passive: false })
     return () => viewport.removeEventListener("wheel", handleWheel)
-  }, [ready])
+  }, [])
 
-  const startPan = (pointerId: number, clientX: number) => {
+  const startPinch = () => {
+    const [first, second] = [...pointersRef.current.values()]
+    if (!first || !second) return
+    const midX = (first.x + second.x) / 2
     gestureRef.current = {
-      kind: "pan",
-      pointerId,
-      startX: clientX,
-      startMs: getCurrentMs(),
+      kind: "pinch",
+      startDistance: Math.max(
+        1,
+        Math.hypot(first.x - second.x, first.y - second.y),
+      ),
+      startScale: view.scale,
+      anchorMs: msAt(midX),
     }
+    setActiveEdge(null)
   }
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -169,21 +279,10 @@ export function TrimTimeline({
     setGesturing(true)
 
     if (pointersRef.current.size === 2) {
-      const [first, second] = [...pointersRef.current.values()]
-      gestureRef.current = {
-        kind: "pinch",
-        startDistance: Math.max(
-          1,
-          Math.hypot(
-            (first?.x ?? 0) - (second?.x ?? 0),
-            (first?.y ?? 0) - (second?.y ?? 0),
-          ),
-        ),
-        startZoom: zoom,
-      }
+      startPinch()
       return
     }
-    if (pointersRef.current.size > 1) return
+    if (pointersRef.current.size > 2) return
 
     const handleEl =
       e.target instanceof Element
@@ -195,12 +294,22 @@ export function TrimTimeline({
         kind: "handle",
         pointerId: e.pointerId,
         edge,
-        startX: e.clientX,
-        startMs: edge === "start" ? startMs : endMs,
+        grabOffsetPx:
+          e.clientX -
+          ((viewportRef.current?.getBoundingClientRect().left ?? 0) +
+            xOf(edge === "start" ? startMs : endMs)),
+        clientX: e.clientX,
       }
+      setActiveEdge(edge)
       return
     }
-    startPan(e.pointerId, e.clientX)
+    gestureRef.current = {
+      kind: "scrub",
+      pointerId: e.pointerId,
+      clientX: e.clientX,
+      startX: e.clientX,
+      pending: true,
+    }
   }
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
@@ -211,28 +320,34 @@ export function TrimTimeline({
 
     if (gesture.kind === "pinch") {
       const [first, second] = [...pointersRef.current.values()]
-      if (first === undefined || second === undefined) return
+      if (!first || !second) return
       const distance = Math.max(
         1,
         Math.hypot(first.x - second.x, first.y - second.y),
       )
-      setZoom(clampZoom(gesture.startZoom * (distance / gesture.startDistance)))
+      const scale = Math.min(
+        maxScale,
+        Math.max(1, gesture.startScale * (distance / gesture.startDistance)),
+      )
+      // Keep the moment under the fingers there, so pinching also pans.
+      const left = viewportRef.current?.getBoundingClientRect().left ?? 0
+      const midX = (first.x + second.x) / 2 - left - HANDLE_WIDTH_PX
+      setView(
+        clampView({
+          scale,
+          startMs: gesture.anchorMs - midX / (fitPxPerMs * scale),
+        }),
+      )
       return
     }
 
     if (gesture.pointerId !== e.pointerId) return
-    const deltaMs = (e.clientX - gesture.startX) / zoom
-    // Dragging right pulls earlier material under the playhead, like sliding
-    // a waveform past a fixed gate.
-    if (gesture.kind === "pan") {
-      onScrub(gesture.startMs - deltaMs)
-      return
+    gesture.clientX = e.clientX
+    if (gesture.kind === "scrub" && gesture.pending) {
+      if (Math.abs(e.clientX - gesture.startX) < SCRUB_SLOP_PX) return
+      gesture.pending = false
     }
-    if (gesture.edge === "start") {
-      onStartChange(gesture.startMs + deltaMs)
-      return
-    }
-    onEndChange(gesture.startMs + deltaMs)
+    applyDrag(gesture, view)
   }
 
   const finishPointer = (e: PointerEvent<HTMLDivElement>) => {
@@ -240,20 +355,28 @@ export function TrimTimeline({
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId)
     }
-    if (pointersRef.current.size === 0) setGesturing(false)
     const gesture = gestureRef.current
-    if (!gesture) return
-    if (gesture.kind === "pinch") {
-      // Lifting one finger of a pinch hands the drag back to the other.
-      const [remaining] = [...pointersRef.current.entries()]
-      if (!remaining) {
-        gestureRef.current = null
-        return
+    if (gesture?.kind === "pinch") {
+      // The finger left over from a pinch does nothing until it lifts too,
+      // rather than scrubbing the playhead to wherever it rests.
+      gestureRef.current = null
+    } else if (gesture && gesture.pointerId === e.pointerId) {
+      // A tap on the strip seeks there.
+      if (
+        gesture.kind === "scrub" &&
+        gesture.pending &&
+        e.type === "pointerup"
+      ) {
+        applyDrag(gesture, view)
       }
-      startPan(remaining[0], remaining[1].x)
-      return
+      gestureRef.current = null
+      setActiveEdge(null)
     }
-    if (gesture.pointerId === e.pointerId) gestureRef.current = null
+    if (pointersRef.current.size === 0) {
+      gestureRef.current = null
+      setGesturing(false)
+      setActiveEdge(null)
+    }
   }
 
   const handleKeyDown =
@@ -263,123 +386,167 @@ export function TrimTimeline({
       if (deltaMs === null) return
       e.preventDefault()
       e.stopPropagation()
-      if (edge === "start") {
-        onStartChange(startMs + deltaMs)
-        return
-      }
-      onEndChange(endMs + deltaMs)
+      if (edge === "start") onStartChange(startMs + deltaMs)
+      else onEndChange(endMs + deltaMs)
     }
 
-  // Only the part of the strip that has media is painted; the rest of the
-  // travel is empty track, so the clip's ends read as ends.
-  const paintStartMs = Math.max(0, anchorMs)
-  const paintEndMs = Math.min(durationMs, anchorMs + contentMs)
-  const paintWidth = ready ? Math.max(0, (paintEndMs - paintStartMs) * zoom) : 0
-  const x = (ms: number) => (ms - anchorMs) * zoom
+  const viewEndMs = view.startMs + spanMs
+  const startX = xOf(startMs)
+  const endX = xOf(endMs)
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("flex flex-col gap-2", className)}>
+      <div className="flex items-center gap-2 px-1 font-mono text-xs tabular-nums">
+        <span
+          className={cn(
+            "transition-colors",
+            activeEdge === "start"
+              ? "text-foreground"
+              : "text-foreground-muted",
+          )}
+        >
+          {formatTrimMs(startMs)}
+        </span>
+        <span className="text-foreground mx-auto font-sans text-sm font-semibold">
+          {formatTrimMs(endMs - startMs)}
+        </span>
+        {zoomed ? (
+          <button
+            type="button"
+            className="text-foreground-muted hover:text-foreground border-border bg-surface-raised inline-flex h-6 items-center gap-1 rounded-full border px-2 font-sans text-[11px] font-semibold"
+            aria-label={t("Show the whole clip")}
+            onClick={() => setView({ scale: 1, startMs: 0 })}
+          >
+            <ShrinkIcon className="size-3" />
+            {`${view.scale.toFixed(1)}×`}
+          </button>
+        ) : null}
+        <span
+          className={cn(
+            "transition-colors",
+            activeEdge === "end" ? "text-foreground" : "text-foreground-muted",
+          )}
+        >
+          {formatTrimMs(endMs)}
+        </span>
+      </div>
+
       <div
         ref={viewportRef}
-        className={cn(
-          "relative touch-none overflow-hidden select-none",
-          ready && (gesturing ? "cursor-grabbing" : "cursor-grab"),
-        )}
-        style={{ height: RULER_HEIGHT_PX + STRIP_HEIGHT_PX }}
+        className="relative touch-none overflow-hidden select-none"
+        style={{ height: FRAME_LANE_PX + WAVE_LANE_PX }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={finishPointer}
         onPointerCancel={finishPointer}
       >
-        {/* Sunken track under the strip: the run with no media reads as
-            empty runway rather than as part of the waveform. */}
+        {/* Media lanes, clipped to the track between the two bar gutters. */}
         <div
-          aria-hidden
-          className="bg-surface-sunken absolute inset-x-0 bottom-0"
-          style={{ height: STRIP_HEIGHT_PX }}
-        />
-
-        <div
-          ref={contentRef}
-          className="absolute inset-y-0 left-0 will-change-transform"
-          style={{ width: contentWidth }}
+          className="bg-surface-sunken absolute inset-y-0 overflow-hidden rounded-xs"
+          style={{ left: HANDLE_WIDTH_PX, width: trackWidth }}
         >
           {ready ? (
-            <RulerTicks
-              anchorMs={anchorMs}
-              contentMs={contentMs}
-              durationMs={durationMs}
-              zoom={zoom}
+            <FilmstripTiles
+              frames={frames}
+              viewStartMs={view.startMs}
+              viewEndMs={viewEndMs}
+              pxPerMs={pxPerMs}
             />
           ) : null}
-
           <div
-            className="absolute inset-x-0 bottom-0"
-            style={{ height: STRIP_HEIGHT_PX }}
+            className="bg-surface absolute inset-x-0 bottom-0"
+            style={{
+              height:
+                framesUnavailable && frames.length === 0
+                  ? FRAME_LANE_PX + WAVE_LANE_PX
+                  : WAVE_LANE_PX,
+            }}
           >
-            {paintWidth > 0 ? (
-              <div
-                className="bg-surface absolute inset-y-0 overflow-hidden"
-                style={{ left: x(paintStartMs), width: paintWidth }}
-              >
-                <WaveformCanvas
-                  peaks={waveform.peaks}
-                  durationMs={durationMs}
-                  status={waveform.status}
-                  startMs={paintStartMs}
-                  endMs={paintEndMs}
-                />
-                {waveform.status !== "ready" ? (
-                  <WaveformStatus status={waveform.status} />
-                ) : null}
-                {/* Cut-away material stays visible but dimmed, so the handles
-                    can always be dragged back out to recover it. */}
-                <div
-                  aria-hidden
-                  className="bg-surface-sunken/65 absolute inset-y-0 left-0"
-                  style={{
-                    width: Math.max(0, (startMs - paintStartMs) * zoom),
-                  }}
-                />
-                <div
-                  aria-hidden
-                  className="bg-surface-sunken/65 absolute inset-y-0 right-0"
-                  style={{ width: Math.max(0, (paintEndMs - endMs) * zoom) }}
-                />
-              </div>
-            ) : null}
-
             {ready ? (
-              <div
-                className="border-accent absolute inset-y-0 rounded-md border-2"
-                style={{ left: x(startMs), width: (endMs - startMs) * zoom }}
-              >
-                <TrimHandle
-                  edge="start"
-                  valueMs={startMs}
-                  durationMs={durationMs}
-                  variant="timeline"
-                  disabled={!canTrim}
-                  onKeyDown={handleKeyDown("start")}
-                />
-                <TrimHandle
-                  edge="end"
-                  valueMs={endMs}
-                  durationMs={durationMs}
-                  variant="timeline"
-                  disabled={!canTrim}
-                  onKeyDown={handleKeyDown("end")}
-                />
-              </div>
+              <WaveformCanvas
+                peaks={waveform.peaks}
+                durationMs={durationMs}
+                status={waveform.status}
+                startMs={view.startMs}
+                endMs={viewEndMs}
+              />
+            ) : null}
+            {waveform.status !== "ready" ? (
+              <WaveformStatus status={waveform.status} />
             ) : null}
           </div>
+          {/* Cut-away material stays visible but dimmed, so a bar can always
+              be dragged back out to recover it. */}
+          {ready ? (
+            <>
+              <div
+                aria-hidden
+                className="absolute inset-y-0 left-0 bg-black/55"
+                style={{ width: Math.max(0, startX - HANDLE_WIDTH_PX) }}
+              />
+              <div
+                aria-hidden
+                className="absolute inset-y-0 right-0 bg-black/55"
+                style={{
+                  width: Math.max(0, HANDLE_WIDTH_PX + trackWidth - endX),
+                }}
+              />
+              {/* The kept range's frame, joining the two bars. */}
+              <div
+                aria-hidden
+                className="bg-accent absolute top-0 h-[3px]"
+                style={{
+                  left: startX - HANDLE_WIDTH_PX,
+                  width: endX - startX,
+                }}
+              />
+              <div
+                aria-hidden
+                className="bg-accent absolute bottom-0 h-[3px]"
+                style={{
+                  left: startX - HANDLE_WIDTH_PX,
+                  width: endX - startX,
+                }}
+              />
+            </>
+          ) : null}
         </div>
 
+        {ready ? (
+          <div
+            className="pointer-events-none absolute inset-y-0"
+            style={{
+              left: startX - HANDLE_WIDTH_PX,
+              width: endX - startX + HANDLE_WIDTH_PX * 2,
+            }}
+          >
+            <TrimHandle
+              edge="start"
+              valueMs={startMs}
+              durationMs={durationMs}
+              variant="timeline"
+              active={activeEdge === "start"}
+              disabled={!canTrim}
+              onKeyDown={handleKeyDown("start")}
+            />
+            <TrimHandle
+              edge="end"
+              valueMs={endMs}
+              durationMs={durationMs}
+              variant="timeline"
+              active={activeEdge === "end"}
+              disabled={!canTrim}
+              onKeyDown={handleKeyDown("end")}
+            />
+          </div>
+        ) : null}
+
         <div
+          ref={playheadRef}
           aria-hidden
-          className="bg-foreground pointer-events-none absolute inset-y-0 left-1/2 z-20 w-0.5 -translate-x-1/2 rounded-full shadow-[0_0_4px_rgba(0,0,0,0.6)]"
+          className="pointer-events-none absolute -top-0.5 -bottom-0.5 left-0 z-20 w-0"
         >
-          <span className="bg-foreground absolute -top-0.5 left-1/2 size-2.5 -translate-x-1/2 rounded-full" />
+          <div className="absolute inset-y-0 -left-[1.5px] w-[3px] rounded-full bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.35),0_0_6px_rgba(0,0,0,0.5)]" />
         </div>
       </div>
     </div>
@@ -387,49 +554,56 @@ export function TrimTimeline({
 }
 
 /**
- * Time ruler over the strip: labelled ticks at a step wide enough to read,
- * halved by a minor dot, both in content (source-time) coordinates.
+ * Narrow frame crops laid along the visible time window. Tiles are anchored
+ * to source time so they travel with a pan, and each shows the loaded frame
+ * nearest its middle — a zoomed strip repeats frames rather than going blank.
  */
-function RulerTicks({
-  anchorMs,
-  contentMs,
-  durationMs,
-  zoom,
+function FilmstripTiles({
+  frames,
+  viewStartMs,
+  viewEndMs,
+  pxPerMs,
 }: {
-  anchorMs: number
-  contentMs: number
-  durationMs: number
-  zoom: number
+  frames: FilmstripFrame[]
+  viewStartMs: number
+  viewEndMs: number
+  pxPerMs: number
 }) {
-  const stepMs =
-    RULER_STEPS_MS.find((step) => step * zoom >= MIN_TICK_GAP_PX) ??
-    RULER_STEPS_MS[RULER_STEPS_MS.length - 1]
-  const halfStepMs = stepMs / 2
-  const firstIndex = Math.ceil(Math.max(0, anchorMs) / halfStepMs)
-  const lastIndex = Math.floor(
-    Math.min(durationMs, anchorMs + contentMs) / halfStepMs,
-  )
-
-  const ticks = []
-  for (let index = firstIndex; index <= lastIndex; index++) {
-    const ms = index * halfStepMs
-    ticks.push(
-      <div
+  if (frames.length === 0 || pxPerMs <= 0) return null
+  const tileMs = TILE_WIDTH_PX / pxPerMs
+  const first = Math.floor(viewStartMs / tileMs)
+  const last = Math.ceil(viewEndMs / tileMs)
+  const tiles = []
+  for (let index = first; index < last; index++) {
+    const frame = nearestFrame(frames, (index + 0.5) * tileMs)
+    if (!frame) break
+    tiles.push(
+      <img
         key={index}
-        className="absolute top-0 flex -translate-x-1/2 flex-col items-center"
-        style={{ left: (ms - anchorMs) * zoom, height: RULER_HEIGHT_PX }}
-      >
-        {index % 2 === 0 ? (
-          <span className="text-foreground-faint text-[10px] leading-5 tabular-nums">
-            {/* Sub-second steps need the tenths, or neighbouring ticks read
-                as the same second. */}
-            {stepMs < 1000 ? formatTrimMs(ms) : formatMediaDurationMs(ms)}
-          </span>
-        ) : (
-          <span className="bg-foreground-faint/50 mt-2 size-1 rounded-full" />
-        )}
-      </div>,
+        src={frame.url}
+        alt=""
+        draggable={false}
+        className="absolute top-0 object-cover"
+        style={{
+          left: (index * tileMs - viewStartMs) * pxPerMs,
+          width: TILE_WIDTH_PX + 0.5,
+          height: FRAME_LANE_PX,
+        }}
+      />,
     )
   }
-  return <div className="absolute inset-x-0 top-0">{ticks}</div>
+  return <div aria-hidden>{tiles}</div>
+}
+
+function nearestFrame(
+  frames: FilmstripFrame[],
+  ms: number,
+): FilmstripFrame | null {
+  let best: FilmstripFrame | null = null
+  for (const frame of frames) {
+    if (!best || Math.abs(frame.timeMs - ms) < Math.abs(best.timeMs - ms)) {
+      best = frame
+    }
+  }
+  return best
 }

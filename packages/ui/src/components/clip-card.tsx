@@ -267,42 +267,53 @@ function ClipCard({
           <div className="text-foreground col-span-2 truncate text-lg leading-6 font-semibold">
             {titleButton}
           </div>
-          {showAttributionRow ? (
-            <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-base leading-5">
-              {author ? (
-                <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                  <AuthorLabel
-                    author={author}
-                    href={authorHref}
-                    renderLink={renderAuthorLink}
-                  />
-                  {gameLabel ? (
-                    <>
-                      <MetaSeparator className="text-foreground-faint" />
-                      {gameLabel}
-                    </>
-                  ) : null}
-                </span>
-              ) : (
-                gameLabel
-              )}
-            </div>
-          ) : null}
+          {/* Phones share one line between the attribution and the stats,
+              and drop the stats to a line of their own when both don't fit,
+              rather than squeezing the names down to an ellipsis. Wider
+              layouts give the stats their own row. */}
           <div
             className={cn(
-              "text-foreground-faint flex min-w-0 items-center justify-end gap-1.5 text-sm leading-5 tabular-nums md:mt-0.5 md:justify-start",
-              author
-                ? "col-start-3 row-start-2 md:col-span-2 md:col-start-2 md:row-start-3"
-                : "col-start-2 row-start-2 md:col-span-2 md:col-start-1 md:row-start-3",
+              "col-span-2 flex min-w-0 flex-wrap items-center justify-between gap-x-3 md:contents",
+              author ? "col-start-2" : "col-start-1",
             )}
           >
-            {metaContent ?? (
-              <ClipCardStats
-                views={viewsLabel}
-                postedAt={postedAt}
-                postedAtClassName="shrink-0"
-              />
-            )}
+            {showAttributionRow ? (
+              <div className="text-foreground-dim flex max-w-full min-w-0 items-center gap-1.5 text-base leading-5">
+                {author ? (
+                  <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                    <AuthorLabel
+                      author={author}
+                      href={authorHref}
+                      renderLink={renderAuthorLink}
+                    />
+                    {gameLabel ? (
+                      <>
+                        <MetaSeparator className="text-foreground-faint" />
+                        {gameLabel}
+                      </>
+                    ) : null}
+                  </span>
+                ) : (
+                  gameLabel
+                )}
+              </div>
+            ) : null}
+            <div
+              className={cn(
+                "text-foreground-faint flex max-w-full min-w-0 items-center gap-1.5 text-sm leading-5 tabular-nums md:mt-0.5",
+                author
+                  ? "md:col-span-2 md:col-start-2 md:row-start-3"
+                  : "md:col-span-2 md:col-start-1 md:row-start-3",
+              )}
+            >
+              {metaContent ?? (
+                <ClipCardStats
+                  views={viewsLabel}
+                  postedAt={postedAt}
+                  postedAtClassName="shrink-0"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}
