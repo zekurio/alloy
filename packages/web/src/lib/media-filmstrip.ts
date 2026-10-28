@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react"
 
-import { mediaRequestCredentials } from "./media-waveform"
+import {
+  boundedMediaRetryDelay,
+  mediaRequestCredentials,
+} from "./media-waveform"
 
 /** Frames sampled across the whole source. */
 const FRAME_COUNT = 14
@@ -137,6 +140,7 @@ async function loadFilmstrip(
             ? AbortSignal.any([signal, init.signal])
             : signal,
         }),
+      getRetryDelay: boundedMediaRetryDelay,
     }),
     formats: ALL_FORMATS,
   })
