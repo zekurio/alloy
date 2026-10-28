@@ -351,9 +351,11 @@ in
           type = lib.types.nullOr lib.types.bool;
           default = null;
           description = ''
-            Show the single sign-on button. It only works once the provider
-            has a client ID, an issuer URL, and ALLOY_OIDC_CLIENT_SECRET in
-            services.alloy-server.environmentFile. Null uses the server
+            Show the single sign-on button. Enabling it requires a client ID
+            and an issuer URL (or manual endpoints set through
+            services.alloy-server.environment), or the server refuses to
+            start. The button stays hidden until ALLOY_OIDC_CLIENT_SECRET is
+            set in services.alloy-server.environmentFile. Null uses the server
             default (false).
           '';
         };
