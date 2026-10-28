@@ -9,6 +9,7 @@ import { useMemo } from "react"
 import { LoginAppearancePreview } from "@/components/routes/admin-settings/login-appearance-preview"
 import { AdminAccentSettings } from "@/components/routes/settings/admin-accent-settings"
 import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
+import { AdminDefaultNote } from "@/components/routes/settings/admin-default-note"
 import {
   SettingsSections,
   SettingsSubsection,
@@ -34,6 +35,7 @@ export function AppearanceSettingsContent({
   )
   const treatmentPending = saveSplashTreatment.isPending
   const splash = config.appearance.loginSplash
+  const defaultSplash = config.defaults.appearance.loginSplash
   // The enabled switch applies immediately; only the blur/darkening treatment
   // is deferred, so that's what goes through the unified save bar.
   const form = useForm({
@@ -75,9 +77,20 @@ export function AppearanceSettingsContent({
             <SettingRows>
               <SettingRow
                 title={t("Show the backdrop")}
-                description={t(
-                  "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.",
-                )}
+                description={
+                  <>
+                    {t(
+                      "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.",
+                    )}
+                    <AdminDefaultNote
+                      value={splash.enabled}
+                      defaultValue={defaultSplash.enabled}
+                      label={defaultSplash.enabled ? t("On") : t("Off")}
+                      disabled={toggleSplash.isPending}
+                      onReset={() => toggleSplash.mutate(defaultSplash.enabled)}
+                    />
+                  </>
+                }
                 align="start"
               >
                 <div className="flex flex-col items-end gap-1.5">
@@ -112,6 +125,27 @@ export function AppearanceSettingsContent({
                 form.setFieldValue("darkenOpacity", value)
               }
             />
+            <p className="text-xs">
+              <AdminDefaultNote
+                value={treatment}
+                defaultValue={{
+                  blurPx: defaultSplash.blurPx,
+                  darkenOpacity: defaultSplash.darkenOpacity,
+                }}
+                label={t("{blur} px blur, {darken}% darkening", {
+                  blur: defaultSplash.blurPx,
+                  darken: Math.round(defaultSplash.darkenOpacity * 100),
+                })}
+                disabled={treatmentPending}
+                onReset={() => {
+                  form.setFieldValue("blurPx", defaultSplash.blurPx)
+                  form.setFieldValue(
+                    "darkenOpacity",
+                    defaultSplash.darkenOpacity,
+                  )
+                }}
+              />
+            </p>
           </SettingsSubsection>
         </SettingsSections>
       </SectionContent>

@@ -11,7 +11,6 @@ import { configStore } from "./config/store"
 import { env } from "./env"
 import { adminRoute } from "./routes/admin"
 import { gameAssetsRoute } from "./routes/admin-games"
-import { oauthProviderIconAssetsRoute } from "./routes/admin-oauth-provider-icons"
 import { authRoute } from "./routes/auth"
 import { authConfigRoute } from "./routes/auth-config"
 import { LOOPBACK_FORM_ACTION_SOURCES } from "./routes/auth-desktop-helpers"
@@ -223,7 +222,6 @@ const apiApp = new Hono()
   .route("/api/assets", storageRoute)
   .route("/api/assets/users", userAssetsRoute)
   .route("/api/assets/games", gameAssetsRoute)
-  .route("/api/assets/auth", oauthProviderIconAssetsRoute)
   .onError((err, c) => {
     const requestId =
       getLogContext().req ?? c.res.headers.get("X-Request-Id") ?? undefined

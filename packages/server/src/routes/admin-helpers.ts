@@ -1,44 +1,46 @@
 import type {
-  AdminOAuthProvider,
   AdminRuntimeConfig,
   AdminUserStorageRow,
-  OAuthProviderConfig,
   RuntimeConfig,
   UserRole,
   UserStatus,
 } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
-import { secretStore } from "@alloy/server/config/secret-store"
-import { authEnvLocks } from "@alloy/server/config/store"
+import {
+  configDefaults,
+  oidcClientSecretSource,
+} from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import { selectSourceStorageUsedBytesByUserIds } from "@alloy/server/storage/quota"
 import { and, desc, eq, ilike, inArray, lt, ne, or, sql } from "drizzle-orm"
 
-function toAdminOAuthProvider(
-  provider: OAuthProviderConfig,
-): AdminOAuthProvider {
-  return {
-    ...provider,
-    clientSecretSet: secretStore.hasOAuthClientSecret(provider.providerId),
-  }
-}
-
 /**
- * Build the admin runtime config response from the (secret-free) stored config
- * plus secret-presence flags. The return type carries no secret values, so no
- * secret can be leaked here by construction.
+ * Build the admin runtime config response from the (secret-free) config plus
+ * the defaults each setting falls back to and where the OIDC secret comes
+ * from. The return type carries no secret values, so no secret can be leaked
+ * here by construction.
  */
 export function adminRuntimeConfigResponse(
   config: Readonly<RuntimeConfig>,
 ): AdminRuntimeConfig {
+  const defaults = configDefaults()
   return {
     ...config,
-    oauthProviders: config.oauthProviders.map(toAdminOAuthProvider),
-    storage: config.storage,
-    authLocks: authEnvLocks(),
+    oidc: { ...config.oidc, clientSecretSource: oidcClientSecretSource() },
+    defaults: {
+      ...defaults.auth,
+      oidc: {
+        ...defaults.oidc,
+        clientSecretSource: env.config.oidcClientSecret ? "environment" : null,
+      },
+      appearance: defaults.appearance,
+      transcoding: defaults.transcoding,
+      uploadLimits: defaults.uploadLimits,
+      limits: defaults.limits,
+    },
     authBaseURL: env.PUBLIC_SERVER_URL,
   }
 }

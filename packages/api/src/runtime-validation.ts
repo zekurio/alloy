@@ -6,7 +6,6 @@ import {
   isFiniteNumberValue,
   isObjectRecord,
   isStringValue,
-  managedOAuthProviderIconKey,
 } from "@alloy/contracts"
 
 export function objectRecord(
@@ -174,19 +173,6 @@ export function validatePublicImageSrcString(
 ): asserts value is string {
   validateString(value, message)
   if (isHttpUrlString(value) || isPublicAssetPath(value)) return
-  throw new Error(message)
-}
-
-/**
- * Public auth provider icons must be Alloy-managed same-origin assets.
- */
-export function validateOptionalAuthProviderIconString(
-  value: ContractJsonInput,
-  message: string,
-) {
-  if (value === undefined) return
-  validateString(value, message)
-  if (managedOAuthProviderIconKey(value)) return
   throw new Error(message)
 }
 

@@ -219,7 +219,6 @@ export const MEDIA_MESSAGES = {
   "Preparing...": "Wird vorbereitet...",
   "Press Enter to add {name}": "Drück Enter, um {name} hinzuzufügen.",
   "Press Tab to add #{tag}": "Drück Tab, um #{tag} hinzuzufügen.",
-  Preview: "Vorschau",
   "Preview unavailable in this browser — scrubbing and trimming still work.":
     "Vorschau in diesem Browser nicht verfügbar — Scrubbing und Zuschneiden funktionieren weiterhin.",
   "Previous clip": "Vorheriger Clip",

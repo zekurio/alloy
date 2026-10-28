@@ -49,9 +49,6 @@ export function OAuthSignIn({
     <OAuthButton
       providerId={provider.providerId}
       displayName={provider.displayName}
-      buttonColor={provider.buttonColor}
-      buttonTextColor={provider.buttonTextColor}
-      iconUrl={provider.iconUrl}
       pendingLabel={pending ? t("Redirecting…") : undefined}
       className="w-full"
       disabled={pending}

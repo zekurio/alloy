@@ -21,9 +21,9 @@ import {
   withAdminAccessInvariant,
 } from "./admin-access"
 import {
+  currentSignInConfig,
   hasAdminSignInMethodForConfig,
   hasAdminSignInMethodWith,
-  usableSignInConfig,
 } from "./sign-in-config"
 import {
   generateUniqueUsername,
@@ -60,7 +60,7 @@ async function assertUsernameAvailable(
 }
 
 async function hasAdminSignInMethod(): Promise<boolean> {
-  return hasAdminSignInMethodForConfig(currentUsableSignInConfig())
+  return hasAdminSignInMethodForConfig(currentSignInConfig())
 }
 
 export async function setupRequired(): Promise<boolean> {
@@ -71,15 +71,8 @@ async function hasOtherAdminSignInMethod(
   executor: AuthDbExecutor,
   excludeUserId: string,
 ): Promise<boolean> {
-  return hasAdminSignInMethodWith(executor, currentUsableSignInConfig(), {
+  return hasAdminSignInMethodWith(executor, currentSignInConfig(), {
     excludeUserId,
-  })
-}
-
-function currentUsableSignInConfig() {
-  return usableSignInConfig({
-    passkeyEnabled: configStore.get("passkeyEnabled"),
-    oauthProviders: configStore.get("oauthProviders"),
   })
 }
 
@@ -256,7 +249,7 @@ export async function createRegistrationUserInTransaction(
   if (input.setupFirstAdmin) {
     await lockAdminAccessInvariant(tx)
     // Same config as setupRequired(), so the setup page and this check agree.
-    if (await hasAdminSignInMethodWith(tx, currentUsableSignInConfig())) {
+    if (await hasAdminSignInMethodWith(tx, currentSignInConfig())) {
       throw new Error("Initial setup is already complete.")
     }
     // Setup creates a fresh admin because no verified attribute remains to claim.

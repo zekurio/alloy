@@ -5,7 +5,7 @@ import type {
 } from "@alloy/api"
 import {
   DESKTOP_AUTH_CAPABILITY_VERSION,
-  publicOAuthProviderIconUrl,
+  OIDC_PROVIDER_ID,
 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Slider } from "@alloy/ui/components/slider"
@@ -39,16 +39,15 @@ function toPublicAuthConfig(
     passkeyEnabled: config.passkeyEnabled,
     requireAuthToBrowse: config.requireAuthToBrowse,
     desktopAuth: { version: DESKTOP_AUTH_CAPABILITY_VERSION },
-    providers: config.oauthProviders
-      .filter((provider) => provider.enabled)
-      .map((provider) => ({
-        providerId: provider.providerId,
-        displayName: provider.displayName,
-        allowSignUp: provider.allowSignUp,
-        buttonColor: provider.buttonColor,
-        buttonTextColor: provider.buttonTextColor,
-        iconUrl: publicOAuthProviderIconUrl(provider.iconUrl),
-      })),
+    providers: config.oidc.enabled
+      ? [
+          {
+            providerId: OIDC_PROVIDER_ID,
+            displayName: config.oidc.displayName,
+            allowSignUp: config.oidc.allowSignUp,
+          },
+        ]
+      : [],
     loginSplash,
     accentColors: config.appearance.accentColors,
   }

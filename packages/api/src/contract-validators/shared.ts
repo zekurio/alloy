@@ -5,7 +5,6 @@ import {
   validateNullableEnumString,
   validateNullablePositiveInteger,
   validateNullableString,
-  validateOptionalString,
 } from "@alloy/api/runtime-validation"
 import {
   CLIP_STATUS,
@@ -23,18 +22,6 @@ export const USER_ROLE_SET: ReadonlySet<string> = new Set(USER_ROLES)
 export const USER_STATUS_SET: ReadonlySet<string> = new Set(USER_STATUSES)
 export const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
 const ENCODE_STAGE_SET: ReadonlySet<string> = new Set(ENCODE_STAGE)
-
-export function validateAuthProviderColors(
-  provider: Record<string, ContractJsonValue>,
-  label: string,
-) {
-  for (const key of ["buttonColor", "buttonTextColor"] as const) {
-    validateOptionalString(
-      provider[key],
-      `Invalid ${label}: ${key} must be a string`,
-    )
-  }
-}
 
 /** Encode progress fields shared by clip rows and upload queue rows. */
 export function validateEncodeFields(

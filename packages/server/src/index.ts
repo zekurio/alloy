@@ -10,7 +10,7 @@ import {
   startAuthSessionExpiryWorker,
   stopAuthSessionExpiryWorker,
 } from "./auth/session-expiry"
-import { signInConfigError } from "./auth/sign-in-config"
+import { currentSignInConfig, signInConfigError } from "./auth/sign-in-config"
 import { configStore, initializeConfigStore } from "./config/store"
 import { warmDatabase } from "./db"
 import { env } from "./env"
@@ -60,7 +60,7 @@ try {
 }
 
 if (configStore.get("setupComplete")) {
-  const authError = await signInConfigError(configStore.getAll())
+  const authError = await signInConfigError(currentSignInConfig())
   if (authError) {
     logger.error(`unsafe sign-in configuration: ${authError}`)
     process.exit(1)

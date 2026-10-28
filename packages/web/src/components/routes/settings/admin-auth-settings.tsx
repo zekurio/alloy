@@ -1,46 +1,35 @@
-import type {
-  AdminAuthConfigPatch,
-  AdminOAuthProviderInput,
-  AdminRuntimeConfig,
-} from "@alloy/api"
-import { t, tp } from "@alloy/i18n"
+import type { AdminAuthConfigPatch, AdminRuntimeConfig } from "@alloy/api"
+import { t } from "@alloy/i18n"
 import { Callout } from "@alloy/ui/components/callout"
 import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { CircleAlertIcon, InfoIcon } from "lucide-react"
 
-import {
-  useAdminConfigMutation,
-  useRefreshAuthConfig,
-} from "@/components/routes/settings/admin-config-context"
-import { EnvManagedNote } from "@/components/routes/settings/admin-env-note"
+import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
 import {
   SettingsSections,
   SettingsSubsection,
 } from "@/components/routes/settings/settings-panel"
-import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 
-import { OAuthProviderSettings } from "./admin-auth-provider-settings"
-import type { ProviderIconUpload } from "./admin-auth-provider-utils"
+import { AdminDefaultNote } from "./admin-default-note"
+import { OidcSettings } from "./admin-oidc-settings"
+
 type AuthToggleKey = keyof AdminAuthConfigPatch
 
 const AUTH_TOGGLES: {
   key: AuthToggleKey
   label: string
   description: string
-  envName: string
 }[] = [
   {
     key: "openRegistrations",
     label: t("Open registrations"),
     description: t(
-      "Let anyone create an account with a passkey. OAuth providers have their own Create accounts setting.",
+      "Let anyone create an account with a passkey. Single sign-on has its own Create accounts setting.",
     ),
-    envName: "ALLOY_OPEN_REGISTRATIONS",
   },
   {
     key: "passkeyEnabled",
@@ -48,7 +37,6 @@ const AUTH_TOGGLES: {
     description: t(
       "Enable password-free sign-in and registration with passkeys.",
     ),
-    envName: "ALLOY_PASSKEY_ENABLED",
   },
   {
     key: "requireAuthToBrowse",
@@ -56,7 +44,6 @@ const AUTH_TOGGLES: {
     description: t(
       "Redirect signed-out visitors to login before they can browse.",
     ),
-    envName: "ALLOY_REQUIRE_AUTH_TO_BROWSE",
   },
 ]
 
@@ -65,50 +52,15 @@ export function AuthSettingsContent({
 }: {
   config: AdminRuntimeConfig
 }) {
-  const queryClient = useQueryClient()
   const toggle = useAdminConfigMutation(
     ({ key, enabled }: { key: AuthToggleKey; enabled: boolean }) =>
       api.admin.updateAuthConfig({ [key]: enabled }),
     { authConfigChanged: true },
   )
   const pendingToggle = toggle.isPending ? toggle.variables.key : null
-  const refreshAuthConfig = useRefreshAuthConfig()
-  const providersMutation = useMutation({
-    mutationFn: async ({
-      providers,
-      iconUpload,
-    }: {
-      providers: AdminOAuthProviderInput[]
-      iconUpload?: ProviderIconUpload
-    }) => {
-      // Apply the list update before the icon upload so a failed upload still
-      // leaves the saved provider list visible (with the error shown).
-      const updated = await api.admin.updateOAuthProviders(providers)
-      queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
-      refreshAuthConfig()
-      if (iconUpload) {
-        const withIcon = await api.admin.uploadOAuthProviderIcon(
-          iconUpload.providerId,
-          iconUpload.file,
-        )
-        queryClient.setQueryData(adminKeys.runtimeConfig(), withIcon)
-        refreshAuthConfig()
-      }
-    },
-  })
-  const providerError = providersMutation.error
-    ? errorMessage(providersMutation.error, t("Couldn't save OAuth providers"))
-    : null
 
-  async function saveProviders(
-    providers: AdminOAuthProviderInput[],
-    iconUpload?: ProviderIconUpload,
-  ) {
-    if (providersMutation.isPending) return false
-    return providersMutation.mutateAsync({ providers, iconUpload }).then(
-      () => true,
-      () => false,
-    )
+  function setToggle(key: AuthToggleKey, enabled: boolean) {
+    if (!toggle.isPending) toggle.mutate({ key, enabled })
   }
 
   return (
@@ -124,21 +76,34 @@ export function AuthSettingsContent({
           >
             <SettingRows>
               {AUTH_TOGGLES.map((item) => (
-                <AuthToggleRow
+                <SettingRow
                   key={item.key}
-                  item={item}
-                  description={toggleDescription(item, config)}
-                  checked={config[item.key]}
-                  locked={config.authLocks[item.key]}
-                  pending={pendingToggle === item.key}
-                  onChange={(enabled) => {
-                    if (!toggle.isPending)
-                      toggle.mutate({ key: item.key, enabled })
-                  }}
-                />
+                  title={item.label}
+                  description={
+                    <>
+                      {item.description}
+                      <AdminDefaultNote
+                        value={config[item.key]}
+                        defaultValue={config.defaults[item.key]}
+                        label={config.defaults[item.key] ? t("On") : t("Off")}
+                        disabled={pendingToggle !== null}
+                        onReset={() =>
+                          setToggle(item.key, config.defaults[item.key])
+                        }
+                      />
+                    </>
+                  }
+                  align="start"
+                >
+                  <Switch
+                    checked={config[item.key]}
+                    onCheckedChange={(enabled) => setToggle(item.key, enabled)}
+                    disabled={pendingToggle === item.key}
+                  />
+                </SettingRow>
               ))}
             </SettingRows>
-            <SignUpProvidersNotice config={config} />
+            <SignUpNotice config={config} />
             {toggle.error ? (
               <Callout tone="destructive" className="mt-3 text-xs">
                 <CircleAlertIcon />
@@ -152,12 +117,7 @@ export function AuthSettingsContent({
             ) : null}
           </SettingsSubsection>
 
-          <OAuthProviderSettings
-            config={config}
-            pending={providersMutation.isPending}
-            error={providerError}
-            onSave={saveProviders}
-          />
+          <OidcSettings config={config} />
         </SettingsSections>
       </SectionContent>
     </Section>
@@ -165,81 +125,26 @@ export function AuthSettingsContent({
 }
 
 /**
- * Env-managed providers without allow_sign_up still follow open
- * registrations, since the server can't save a value for them.
+ * Open registrations does not close single sign-on sign-up, so say so while
+ * the provider still creates accounts.
  */
-function toggleDescription(
-  item: (typeof AUTH_TOGGLES)[number],
-  config: AdminRuntimeConfig,
-): string {
-  if (item.key !== "openRegistrations" || !config.authLocks.oauthProviders) {
-    return item.description
+function SignUpNotice({ config }: { config: AdminRuntimeConfig }) {
+  if (
+    config.openRegistrations ||
+    !config.oidc.enabled ||
+    !config.oidc.allowSignUp
+  ) {
+    return null
   }
-  return t(
-    "Let anyone create an account with a passkey. Env-managed OAuth providers without allow_sign_up also follow this setting.",
-  )
-}
-
-/**
- * Open registrations no longer closes OAuth sign-up, so say which providers
- * still create accounts while it is off.
- */
-function SignUpProvidersNotice({ config }: { config: AdminRuntimeConfig }) {
-  if (config.openRegistrations) return null
-  const names = config.oauthProviders
-    .filter((provider) => provider.enabled && provider.allowSignUp)
-    .map((provider) => provider.displayName)
-  if (names.length === 0) return null
   return (
     <Callout tone="info" className="mt-3 text-xs">
       <InfoIcon />
       <span>
-        {tp(
-          names.length,
-          "Open registrations is off, but {providers} still creates accounts on first sign-in. Turn off Create accounts on the provider to stop it.",
-          "Open registrations is off, but {providers} still create accounts on first sign-in. Turn off Create accounts on a provider to stop it.",
-          { providers: names.join(", ") },
+        {t(
+          "Open registrations is off, but {provider} still creates accounts on first sign-in. Turn off Create accounts under Single sign-on to stop it.",
+          { provider: config.oidc.displayName },
         )}
       </span>
     </Callout>
-  )
-}
-
-function AuthToggleRow({
-  item,
-  description,
-  checked,
-  locked,
-  pending,
-  onChange,
-}: {
-  item: (typeof AUTH_TOGGLES)[number]
-  description: string
-  checked: boolean
-  locked: boolean
-  pending: boolean
-  onChange: (next: boolean) => void
-}) {
-  return (
-    <SettingRow
-      title={item.label}
-      description={
-        locked ? (
-          <>
-            {description}
-            <EnvManagedNote envName={item.envName} />
-          </>
-        ) : (
-          description
-        )
-      }
-      align="start"
-    >
-      <Switch
-        checked={checked}
-        onCheckedChange={onChange}
-        disabled={locked || pending}
-      />
-    </SettingRow>
   )
 }

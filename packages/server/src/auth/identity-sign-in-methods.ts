@@ -1,11 +1,11 @@
 import { authAccount, user, userPasskey } from "@alloy/db/auth-schema"
-import { isOAuthProviderUsable } from "@alloy/server/config/secret-store"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
-import { and, eq, inArray, sql } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 
 import { withAdminAccessChange } from "./admin-access"
+import { usableOidcProvider } from "./oauth-config"
 
 type AuthExecutor = typeof db | DbTransaction
 
@@ -14,11 +14,8 @@ async function countEnabledOAuthAccounts(
   excludeAccount?: { providerId: string; providerAccountId: string },
   executor: AuthExecutor = db,
 ): Promise<number> {
-  const providerIds = configStore
-    .get("oauthProviders")
-    .filter((provider) => isOAuthProviderUsable(provider))
-    .map((provider) => provider.providerId)
-  if (providerIds.length === 0) return 0
+  const provider = usableOidcProvider()
+  if (!provider) return 0
 
   const rows = await executor
     .select({
@@ -29,7 +26,7 @@ async function countEnabledOAuthAccounts(
     .where(
       and(
         eq(authAccount.user_id, userId),
-        inArray(authAccount.provider_id, providerIds),
+        eq(authAccount.provider_id, provider.providerId),
       ),
     )
 

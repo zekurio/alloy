@@ -317,7 +317,7 @@ function LinkRow(props: {
   return (
     <ListItem>
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <ProviderIcon provider={props.provider} />
+        <ProviderIcon />
         <div className="min-w-0">
           <div className="text-sm font-medium">{props.label}</div>
           <p className="text-foreground-dim text-xs">{t("Not linked")}</p>
@@ -355,7 +355,7 @@ function AccountRow(props: AccountRowProps) {
   return (
     <ListItem>
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <ProviderIcon provider={props.provider} />
+        <ProviderIcon />
         <div className="min-w-0">
           <div className="text-sm font-medium">{props.label}</div>
           <p className="text-foreground-dim text-xs">{props.sublabel}</p>
@@ -384,20 +384,10 @@ function AccountRow(props: AccountRowProps) {
   )
 }
 
-function ProviderIcon({ provider }: { provider?: Provider }) {
+function ProviderIcon() {
   return (
-    <span
-      className="border-border inline-flex size-8 shrink-0 items-center justify-center rounded-md border"
-      style={{
-        backgroundColor: provider?.buttonColor,
-        color: provider?.buttonTextColor,
-      }}
-    >
-      {provider?.iconUrl ? (
-        <img src={provider.iconUrl} alt="" className="size-4 object-contain" />
-      ) : (
-        <UserKeyIcon className="size-4" />
-      )}
+    <span className="border-border inline-flex size-8 shrink-0 items-center justify-center rounded-md border">
+      <UserKeyIcon className="size-4" />
     </span>
   )
 }

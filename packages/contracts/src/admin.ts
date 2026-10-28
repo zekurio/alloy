@@ -1,8 +1,7 @@
 import {
-  AdminOAuthProviderSchema,
-  AuthConfigLocksSchema,
+  AdminOidcConfigSchema,
   NonEmptyStringSchema,
-  OAuthProviderConfigSchema,
+  OidcConfigSchema,
   UrlStringSchema,
 } from "./admin-auth"
 import { t } from "./schema"
@@ -11,41 +10,55 @@ import { ThemeAccentsSchema, type ThemeAccents } from "./theme"
 import { DEFAULT_UPLOAD_LIMITS, UploadLimitsSchema } from "./upload-limits"
 
 export {
-  AdminOAuthProviderSchema,
-  AuthConfigLocksSchema,
-  managedOAuthProviderIconKey,
+  AdminOidcConfigSchema,
   OAUTH_AVATAR_CLAIM_DEFAULT,
-  OAUTH_PROVIDER_ICON_KEY_RE,
-  OAUTH_PROVIDER_ICON_PATH_PREFIX,
-  oauthProviderIconPath,
-  publicOAuthProviderIconUrl,
   OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD,
   OAUTH_CLIENT_SECRET_POST_AUTH_METHOD,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_TOKEN_AUTH_METHODS,
   OAUTH_USERNAME_CLAIM_DEFAULT,
-  OAuthProviderConfigSchema,
+  OIDC_CLIENT_SECRET_SOURCES,
+  OIDC_DISPLAY_NAME_DEFAULT,
+  OIDC_PROVIDER_ID,
+  OIDC_SCOPES_DEFAULT,
+  OidcConfigSchema,
 } from "./admin-auth"
 export type {
   AdminAuthConfigPatch,
-  AdminOAuthProvider,
-  AdminOAuthProviderInput,
-  AuthConfigLocks,
+  AdminOidcConfig,
+  AdminOidcConfigPatch,
   OAuthProviderConfig,
   OAuthTokenAuthMethod,
+  OidcClientSecretSource,
+  OidcConfig,
   UsernameClaim,
 } from "./admin-auth"
 
 const PositiveIntegerSchema = t.number().int().positive()
-const NullablePositiveIntegerSchema = PositiveIntegerSchema.nullable()
 
-export const AdminLimitsConfigSchema = t.looseObject({
-  defaultStorageQuotaBytes: NullablePositiveIntegerSchema,
-  uploadTtlSec: PositiveIntegerSchema,
+export const UPLOAD_TTL_MIN_SEC = 60
+export const UPLOAD_TTL_MAX_SEC = 24 * 60 * 60
+
+export const LimitsConfigSchema = t.object({
+  /** Storage quota for new accounts; null means unlimited. */
+  defaultStorageQuotaBytes: t
+    .number()
+    .int()
+    .positive()
+    .max(Number.MAX_SAFE_INTEGER)
+    .nullable()
+    .$default(null),
+  /** How long an upload link stays valid after it is issued. */
+  uploadTtlSec: t
+    .number()
+    .int()
+    .min(UPLOAD_TTL_MIN_SEC)
+    .max(UPLOAD_TTL_MAX_SEC)
+    .$default(900),
 })
 
-export type AdminLimitsConfig = t.infer<typeof AdminLimitsConfigSchema>
+export type LimitsConfig = t.infer<typeof LimitsConfigSchema>
 
 export const StorageConfigSchema = t.looseObject({
   /**
@@ -292,9 +305,10 @@ export interface AdminUpdateUserInput {
 export const RUNTIME_CONFIG_VERSION = 1
 
 /**
- * Secret-free server configuration as exposed through admin responses. Most
- * fields are deploy-time env/Nix config; DB-backed settings include setup,
- * authentication, appearance, transcoding, and image upload limits.
+ * Secret-free server configuration as exposed through admin responses.
+ * Storage is deploy-time env; setup state lives in Postgres. Every other
+ * section starts from built-in defaults, takes ALLOY_* environment variables
+ * on top, and then any value an admin saved in the settings UI.
  */
 export const RuntimeConfigSchema = t.looseObject({
   runtimeConfigVersion: PositiveIntegerSchema.refine(
@@ -305,8 +319,8 @@ export const RuntimeConfigSchema = t.looseObject({
   setupComplete: t.boolean(),
   passkeyEnabled: t.boolean(),
   requireAuthToBrowse: t.boolean(),
-  oauthProviders: t.array(OAuthProviderConfigSchema),
-  limits: AdminLimitsConfigSchema,
+  oidc: OidcConfigSchema,
+  limits: LimitsConfigSchema,
   uploadLimits: UploadLimitsSchema.$default(DEFAULT_UPLOAD_LIMITS),
   storage: StorageConfigSchema,
   appearance: AppearanceConfigSchema,
@@ -316,12 +330,31 @@ export const RuntimeConfigSchema = t.looseObject({
 export type RuntimeConfig = t.infer<typeof RuntimeConfigSchema>
 
 /**
+ * What each editable setting resolves to without the settings UI: the
+ * environment's value, else the built-in default. A setting whose value
+ * differs from its default was saved in the UI; saving the default value
+ * again hands the setting back to the environment.
+ */
+export const AdminConfigDefaultsSchema = t.looseObject({
+  openRegistrations: t.boolean(),
+  passkeyEnabled: t.boolean(),
+  requireAuthToBrowse: t.boolean(),
+  oidc: AdminOidcConfigSchema,
+  limits: LimitsConfigSchema,
+  uploadLimits: UploadLimitsSchema,
+  appearance: AppearanceConfigSchema,
+  transcoding: TranscodingConfigSchema,
+})
+
+export type AdminConfigDefaults = t.infer<typeof AdminConfigDefaultsSchema>
+
+/**
  * Admin runtime config response. Built from {@link RuntimeConfig} plus
- * secret-presence flags — it carries no secret values.
+ * secret-source flags; it carries no secret values.
  */
 export const AdminRuntimeConfigSchema = RuntimeConfigSchema.extend({
-  oauthProviders: t.array(AdminOAuthProviderSchema),
-  authLocks: AuthConfigLocksSchema,
+  oidc: AdminOidcConfigSchema,
+  defaults: AdminConfigDefaultsSchema,
   authBaseURL: UrlStringSchema,
 })
 
@@ -332,9 +365,6 @@ export interface PublicAuthProvider {
   displayName: string
   /** Whether signing in with this provider can create a new account. */
   allowSignUp: boolean
-  buttonColor?: string
-  buttonTextColor?: string
-  iconUrl?: string
 }
 
 export const DESKTOP_AUTH_CAPABILITY_VERSION = 1

@@ -4,7 +4,7 @@ import {
   HARDWARE_ACCELERATIONS,
   TRANSCODE_VIDEO_CODECS,
 } from "@alloy/api"
-import { t } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Callout } from "@alloy/ui/components/callout"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
@@ -22,8 +22,10 @@ import { useForm, useStore } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { RefreshCwIcon, TriangleAlertIcon } from "lucide-react"
 import { useMemo } from "react"
+import type { ReactNode } from "react"
 
 import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
+import { AdminDefaultNote } from "@/components/routes/settings/admin-default-note"
 import { TranscodingLadder } from "@/components/routes/settings/admin-transcoding-ladder"
 import {
   ffmpegBadgeLabel,
@@ -56,6 +58,10 @@ export function TranscodingSettingsContent({
   config: AdminRuntimeConfig
 }) {
   const saved = config.transcoding
+  const defaults = useMemo(
+    () => formFromConfig(config.defaults.transcoding),
+    [config.defaults.transcoding],
+  )
   const saveTranscoding = useAdminConfigMutation(
     api.admin.updateTranscodingConfig,
   )
@@ -191,13 +197,42 @@ export function TranscodingSettingsContent({
                 onChange={(videoCodec) =>
                   form.setFieldValue("videoCodec", videoCodec)
                 }
+                note={
+                  <AdminDefaultNote
+                    value={values.videoCodec}
+                    defaultValue={defaults.videoCodec}
+                    label={VIDEO_CODEC_LABELS[defaults.videoCodec]}
+                    onReset={() =>
+                      form.setFieldValue("videoCodec", defaults.videoCodec)
+                    }
+                  />
+                }
               />
 
               <SettingRow
                 title={t("Hardware acceleration")}
-                description={t(
-                  "Encoder used for GPU-accelerated encoding. Decoding and scaling always stay on the CPU.",
-                )}
+                description={
+                  <>
+                    {t(
+                      "Encoder used for GPU-accelerated encoding. Decoding and scaling always stay on the CPU.",
+                    )}
+                    <AdminDefaultNote
+                      value={values.hardwareAcceleration}
+                      defaultValue={defaults.hardwareAcceleration}
+                      label={
+                        HARDWARE_ACCELERATION_LABELS[
+                          defaults.hardwareAcceleration
+                        ]
+                      }
+                      onReset={() =>
+                        form.setFieldValue(
+                          "hardwareAcceleration",
+                          defaults.hardwareAcceleration,
+                        )
+                      }
+                    />
+                  </>
+                }
                 htmlFor="transcoding-hwaccel"
                 align="start"
                 stack
@@ -258,9 +293,22 @@ export function TranscodingSettingsContent({
               {values.hardwareAcceleration === "vaapi" ? (
                 <SettingRow
                   title={t("VA-API device")}
-                  description={t(
-                    "Render node passed to ffmpeg for VA-API encoding.",
-                  )}
+                  description={
+                    <>
+                      {t("Render node passed to ffmpeg for VA-API encoding.")}
+                      <AdminDefaultNote
+                        value={values.vaapiDevice.trim()}
+                        defaultValue={defaults.vaapiDevice}
+                        label={defaults.vaapiDevice}
+                        onReset={() =>
+                          form.setFieldValue(
+                            "vaapiDevice",
+                            defaults.vaapiDevice,
+                          )
+                        }
+                      />
+                    </>
+                  }
                   htmlFor="transcoding-vaapi-device"
                   align="start"
                   stack
@@ -302,6 +350,21 @@ export function TranscodingSettingsContent({
                 onChange={(audioBitrateKbps) =>
                   form.setFieldValue("audioBitrateKbps", audioBitrateKbps)
                 }
+                note={
+                  <AdminDefaultNote
+                    value={values.audioBitrateKbps}
+                    defaultValue={defaults.audioBitrateKbps}
+                    label={t("{kbps} kbps", {
+                      kbps: defaults.audioBitrateKbps,
+                    })}
+                    onReset={() =>
+                      form.setFieldValue(
+                        "audioBitrateKbps",
+                        defaults.audioBitrateKbps,
+                      )
+                    }
+                  />
+                }
               />
             </SettingRows>
           </SettingsSubsection>
@@ -310,6 +373,18 @@ export function TranscodingSettingsContent({
             values={values}
             validation={validation}
             setTiers={(update) => form.setFieldValue("tiers", update)}
+            note={
+              <AdminDefaultNote
+                value={comparableTiers(values.tiers)}
+                defaultValue={comparableTiers(defaults.tiers)}
+                label={tp(
+                  defaults.tiers.length,
+                  "{count} rendition",
+                  "{count} renditions",
+                )}
+                onReset={() => form.setFieldValue("tiers", defaults.tiers)}
+              />
+            }
           />
 
           <p className="text-foreground-dim text-xs">
@@ -323,9 +398,15 @@ export function TranscodingSettingsContent({
   )
 }
 
+/** Ladder tiers without their row ids, in display order. */
+function comparableTiers(tiers: TranscodingForm["tiers"]) {
+  return sortTiers(tiers).map(({ id: _id, ...tier }) => tier)
+}
+
 function TranscodingChoiceSetting<T extends string | number>({
   title,
   description,
+  note,
   id,
   value,
   options,
@@ -334,6 +415,8 @@ function TranscodingChoiceSetting<T extends string | number>({
 }: {
   title: string
   description: string
+  /** Inline content after the description, such as a default note. */
+  note?: ReactNode
   id: string
   value: T
   options: readonly T[]
@@ -343,7 +426,12 @@ function TranscodingChoiceSetting<T extends string | number>({
   return (
     <SettingRow
       title={title}
-      description={description}
+      description={
+        <>
+          {description}
+          {note}
+        </>
+      }
       htmlFor={id}
       align="start"
       stack

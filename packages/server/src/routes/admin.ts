@@ -1,39 +1,26 @@
 import {
   HardwareAccelerationSchema,
-  UploadLimitsSchema,
+  OAUTH_TOKEN_AUTH_METHODS,
   RenditionTierConfigSchema,
-  TranscodingConfigSchema,
   VideoCodecSchema,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { withAdminAccessChange } from "@alloy/server/auth/admin-access"
-import {
-  abandonIngestedOAuthProviderIcons,
-  ingestSubmittedOAuthProviderIcons,
-  uploadOAuthProviderIcon,
-} from "@alloy/server/auth/oauth-provider-icons"
 import { requireAdmin } from "@alloy/server/auth/session"
-import { signInConfigError } from "@alloy/server/auth/sign-in-config"
 import {
-  OAuthProviderSubmissionSchema,
-  type OAuthProviderSubmission,
-} from "@alloy/server/config/oauth-schema"
+  currentSignInConfig,
+  signInConfigError,
+} from "@alloy/server/auth/sign-in-config"
 import {
-  authEnvLocks,
   configStore,
-  setAuthToggles,
-  setOAuthProviders,
+  oidcClientSecretAfter,
+  prepareConfigSection,
+  saveConfigSection,
+  saveOidcConfig,
 } from "@alloy/server/config/store"
 import { probeTranscodingCapabilities } from "@alloy/server/media/capabilities"
 import { forceReconcileClipMedia } from "@alloy/server/queue/clip-media-worker"
-import {
-  badRequest,
-  batchProgress,
-  conflict,
-  errorResult,
-} from "@alloy/server/runtime/http-response"
-import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
-import { imageBodyLimit } from "@alloy/server/uploads/image-body-limit"
+import { batchProgress, conflict } from "@alloy/server/runtime/http-response"
 import { Hono } from "hono"
 
 import { adminGamesRoute } from "./admin-games"
@@ -41,6 +28,9 @@ import { adminRuntimeConfigResponse } from "./admin-helpers"
 import { adminUsersRoute } from "./admin-users"
 import { adminWebhooksRoute } from "./admin-webhooks"
 import { tbValidator, validationErrorBody } from "./validation"
+
+// Bodies here only shape the request. Each section's own schema validates
+// the merged result, so a body field may be loose.
 
 const RuntimeConfigPatch = t.object({
   setupComplete: t.boolean().optional(),
@@ -60,50 +50,37 @@ const AuthConfigPatch = t
     { message: "No updates provided" },
   )
 
-// Mirrors OAuthProvidersSchema's array-level constraints for the submission
-// shape (write-only clientSecret per provider).
-const OAuthProvidersBody = t.object({
-  providers: t
-    .array(OAuthProviderSubmissionSchema)
-    .max(16)
-    .superRefine((providers, ctx) => {
-      const seen = new Set<string>()
-      for (const [index, provider] of providers.entries()) {
-        if (!seen.has(provider.providerId)) {
-          seen.add(provider.providerId)
-          continue
-        }
-        ctx.addIssue({
-          code: "custom",
-          path: [index, "providerId"],
-          message: "Provider ID must be unique.",
-        })
-      }
-    }),
+// Every field the form edits. A field left out falls back to its default.
+const OidcConfigBody = t.object({
+  enabled: t.boolean().optional(),
+  displayName: t.string().optional(),
+  clientId: t.string().optional(),
+  issuerUrl: t.string().optional(),
+  authorizationUrl: t.string().optional(),
+  tokenUrl: t.string().optional(),
+  userInfoUrl: t.string().optional(),
+  scopes: t.array(t.string()).optional(),
+  allowSignUp: t.boolean().optional(),
+  pkce: t.boolean().optional(),
+  tokenAuthMethod: t.enum(OAUTH_TOKEN_AUTH_METHODS).optional(),
+  fetchUserInfo: t.boolean().optional(),
+  authParams: t.record(t.string(), t.string()).optional(),
+  uidClaim: t.string().optional(),
+  usernameClaim: t.string().optional(),
+  avatarClaim: t.string().optional(),
+  quotaClaim: t.string().optional(),
+  roleClaim: t.string().optional(),
+  /** Write-only. Absent or empty keeps the secret; null drops the saved one. */
+  clientSecret: t.string().nullable().optional(),
 })
-
-const OAuthProviderIconParam = t.object({
-  providerId: t
-    .string()
-    .min(1)
-    .max(64)
-    .regex(/^[a-z0-9-]+$/),
-})
-
-const OAuthProviderIconForm = t.object({
-  file: t.instanceof(File, { message: "Expected an uploaded image file" }),
-})
-
-const OAUTH_PROVIDERS_ENV_MANAGED_ERROR =
-  "OAuth providers are managed by the ALLOY_SOCIALACCOUNT_PROVIDERS environment variable. Unset it to edit providers here."
 
 const TranscodingPatch = t.object({
   videoCodec: VideoCodecSchema.optional(),
   hardwareAcceleration: HardwareAccelerationSchema.optional(),
-  vaapiDevice: t.string().trim().min(1).optional(),
-  quality: t.number().int().min(10).max(51).optional(),
-  audioBitrateKbps: t.number().int().min(64).max(320).optional(),
-  tiers: t.array(RenditionTierConfigSchema).min(1).max(6).optional(),
+  vaapiDevice: t.string().optional(),
+  quality: t.number().optional(),
+  audioBitrateKbps: t.number().optional(),
+  tiers: t.array(RenditionTierConfigSchema).optional(),
 })
 
 const AccentPatch = t
@@ -117,11 +94,26 @@ const AppearancePatch = t.object({
   loginSplash: t
     .object({
       enabled: t.boolean().optional(),
-      blurPx: t.number().min(0).max(48).optional(),
-      darkenOpacity: t.number().min(0).max(1).optional(),
+      blurPx: t.number().optional(),
+      darkenOpacity: t.number().optional(),
     })
     .optional(),
-  accentColors: t.object({ light: AccentPatch, dark: AccentPatch }).optional(),
+  accentColors: t
+    .object({ light: AccentPatch.optional(), dark: AccentPatch.optional() })
+    .optional(),
+})
+
+const UploadLimitsBody = t.object({
+  screenshotMaxBytes: t.number().optional(),
+  screenshotMaxPixels: t.number().optional(),
+  avatarMaxBytes: t.number().optional(),
+  bannerMaxBytes: t.number().optional(),
+  gameAssetMaxBytes: t.number().optional(),
+})
+
+const LimitsBody = t.object({
+  defaultStorageQuotaBytes: t.number().nullable().optional(),
+  uploadTtlSec: t.number().optional(),
 })
 
 export const adminRoute = new Hono()
@@ -138,175 +130,95 @@ export const adminRoute = new Hono()
     async (c) => {
       const body = c.req.valid("json")
       if (body.setupComplete !== undefined) {
-        await configStore.set("setupComplete", body.setupComplete)
+        await configStore.setSetupComplete(body.setupComplete)
       }
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     },
   )
-  .put("/upload-limits", tbValidator("json", UploadLimitsSchema), async (c) => {
-    await configStore.set("uploadLimits", c.req.valid("json"))
+  .put("/upload-limits", tbValidator("json", UploadLimitsBody), async (c) => {
+    const next = prepareConfigSection(
+      "uploadLimits",
+      c.req.valid("json"),
+      "defaults",
+    )
+    if (!next.success) {
+      return c.json(validationErrorBody("json", next.error), 400)
+    }
+    await saveConfigSection("uploadLimits", next.data)
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+  })
+  .put("/limits", tbValidator("json", LimitsBody), async (c) => {
+    const next = prepareConfigSection("limits", c.req.valid("json"), "defaults")
+    if (!next.success) {
+      return c.json(validationErrorBody("json", next.error), 400)
+    }
+    await saveConfigSection("limits", next.data)
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
   .patch("/auth-config", tbValidator("json", AuthConfigPatch), async (c) => {
     const patch = c.req.valid("json")
-    const locks = authEnvLocks()
-    for (const key of [
-      "openRegistrations",
-      "passkeyEnabled",
-      "requireAuthToBrowse",
-    ] as const) {
-      if (patch[key] !== undefined && locks[key]) {
-        return badRequest(
-          c,
-          "This setting is env-managed. Unset its ALLOY_* environment variable to edit it here.",
-        )
-      }
-    }
-
     return withAdminAccessChange(async () => {
       // Snapshot, validate, persist, and refresh the process config under the
       // same mutex as every admin-access-removing user transition.
-      if (patch.passkeyEnabled === false) {
-        const error = await signInConfigError({
-          passkeyEnabled: false,
-          oauthProviders: configStore.get("oauthProviders"),
-        })
-        if (error) return conflict(c, error)
+      const next = prepareConfigSection("auth", patch, "current")
+      if (!next.success) {
+        return c.json(validationErrorBody("json", next.error), 400)
       }
+      const error = await signInConfigError({
+        ...currentSignInConfig(),
+        passkeyEnabled: next.data.passkeyEnabled,
+      })
+      if (error) return conflict(c, error)
 
-      await setAuthToggles(patch)
+      await saveConfigSection("auth", next.data)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     })
   })
-  .put(
-    "/oauth-providers",
-    tbValidator("json", OAuthProvidersBody),
-    async (c) => {
-      if (authEnvLocks().oauthProviders) {
-        return badRequest(c, OAUTH_PROVIDERS_ENV_MANAGED_ERROR)
+  .put("/oidc", tbValidator("json", OidcConfigBody), async (c) => {
+    const { clientSecret, ...fields } = c.req.valid("json")
+    // An empty secret field means "unchanged", like a password form.
+    const secretChange =
+      clientSecret === null ? null : clientSecret?.trim() || undefined
+    return withAdminAccessChange(async () => {
+      const next = prepareConfigSection("oidc", fields, "defaults")
+      if (!next.success) {
+        return c.json(validationErrorBody("json", next.error), 400)
       }
-
-      const submissions = c.req.valid("json").providers
-      // Non-empty submitted secrets become the new stored secret; absent or
-      // empty keeps the provider's existing one (write-only semantics).
-      const newSecrets: Record<string, string> = {}
-      for (const submission of submissions) {
-        const secret = submission.clientSecret?.trim()
-        if (secret) newSecrets[submission.providerId] = secret
-      }
-      const submitted = submissions.map(
-        ({
-          clientSecret: _clientSecret,
-          ...provider
-        }: OAuthProviderSubmission) => provider,
-      )
-
-      // External icon source URLs are downloaded into managed asset storage
-      // before the config write, so stored providers only ever reference
-      // same-origin icon paths.
-      const ingestion = await ingestSubmittedOAuthProviderIcons(submitted)
-      if (!ingestion.ok) return errorResult(c, ingestion)
-
-      try {
-        return await withAdminAccessChange(async () => {
-          // A submission without allowSignUp keeps the saved value; a new
-          // provider only signs in existing users until the admin opts in.
-          // Read under the lock, from the list this save replaces.
-          const saved = configStore.get("oauthProviders")
-          const providers = ingestion.providers.map((provider) => ({
-            ...provider,
-            allowSignUp:
-              provider.allowSignUp ??
-              saved.find(
-                (existing) => existing.providerId === provider.providerId,
-              )?.allowSignUp ??
-              false,
-          }))
-          const error = await signInConfigError(
-            {
-              passkeyEnabled: configStore.get("passkeyEnabled"),
-              oauthProviders: providers,
-            },
-            (providerId) => Object.hasOwn(newSecrets, providerId),
-          )
-          if (error) {
-            await abandonIngestedOAuthProviderIcons(
-              ingestion.newIcons,
-              "provider save conflicted",
-            )
-            return conflict(c, error)
-          }
-
-          const { queuedIconDeletions } = await setOAuthProviders(
-            providers,
-            newSecrets,
-          )
-          if (queuedIconDeletions > 0) wakeStorageDeletionWorker()
-          return c.json(adminRuntimeConfigResponse(configStore.getAll()))
-        })
-      } catch (cause) {
-        await abandonIngestedOAuthProviderIcons(
-          ingestion.newIcons,
-          "provider save failed",
-        )
-        throw cause
-      }
-    },
-  )
-  .post(
-    "/oauth-providers/:providerId/icon",
-    imageBodyLimit("oauthProviderIconMaxBytes"),
-    tbValidator("param", OAuthProviderIconParam),
-    tbValidator("form", OAuthProviderIconForm),
-    async (c) => {
-      if (authEnvLocks().oauthProviders) {
-        return badRequest(c, OAUTH_PROVIDERS_ENV_MANAGED_ERROR)
-      }
-      const { providerId } = c.req.valid("param")
-      const file = c.req.valid("form").file
-
-      // Serialized with the other provider-list writes; an icon change never
-      // alters which providers exist, so no sign-in lockout check is needed.
-      return withAdminAccessChange(async () => {
-        const result = await uploadOAuthProviderIcon(
-          configStore.get("oauthProviders"),
-          providerId,
-          file,
-        )
-        if (!result.ok) return errorResult(c, result)
-        return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+      const error = await signInConfigError({
+        passkeyEnabled: configStore.get("passkeyEnabled"),
+        oidcUsable:
+          next.data.enabled && oidcClientSecretAfter(secretChange) !== "",
       })
-    },
-  )
-  .patch("/appearance", tbValidator("json", AppearancePatch), async (c) => {
-    const patch = c.req.valid("json")
-    const current = configStore.get("appearance")
-    const next = { ...current, loginSplash: { ...current.loginSplash } }
-    if (patch.loginSplash?.enabled !== undefined) {
-      next.loginSplash.enabled = patch.loginSplash.enabled
-    }
-    if (patch.loginSplash?.blurPx !== undefined) {
-      next.loginSplash.blurPx = patch.loginSplash.blurPx
-    }
-    if (patch.loginSplash?.darkenOpacity !== undefined) {
-      next.loginSplash.darkenOpacity = patch.loginSplash.darkenOpacity
-    }
-    if (patch.accentColors) next.accentColors = patch.accentColors
-    await configStore.set("appearance", next)
-    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
-  })
-  .patch("/transcoding", tbValidator("json", TranscodingPatch), async (c) => {
-    const patch = c.req.valid("json")
-    // Ladder rules (distinct tiers, at most one link preview tier) span the
-    // merged config, so check it here: set() would reject it as a 500.
-    const next = TranscodingConfigSchema.safeParse({
-      ...configStore.get("transcoding"),
-      ...patch,
+      if (error) return conflict(c, error)
+
+      await saveOidcConfig(next.data, secretChange)
+      return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     })
+  })
+  .patch("/appearance", tbValidator("json", AppearancePatch), async (c) => {
+    const next = prepareConfigSection(
+      "appearance",
+      c.req.valid("json"),
+      "current",
+    )
     if (!next.success) {
       return c.json(validationErrorBody("json", next.error), 400)
     }
-    await configStore.set("transcoding", next.data)
+    await saveConfigSection("appearance", next.data)
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+  })
+  .patch("/transcoding", tbValidator("json", TranscodingPatch), async (c) => {
+    // Ladder rules (distinct tiers, at most one link preview tier) span the
+    // merged config, so they are checked on the merged section.
+    const next = prepareConfigSection(
+      "transcoding",
+      c.req.valid("json"),
+      "current",
+    )
+    if (!next.success) {
+      return c.json(validationErrorBody("json", next.error), 400)
+    }
+    await saveConfigSection("transcoding", next.data)
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
   .get("/transcoding/capabilities", async (c) => {

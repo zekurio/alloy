@@ -86,8 +86,7 @@ async function startOAuthFlow(input: {
 
   const state = randomState()
   const browserNonce = randomState()
-  const codeVerifier =
-    provider.pkce === false ? undefined : randomPKCECodeVerifier()
+  const codeVerifier = provider.pkce ? randomPKCECodeVerifier() : undefined
   const callbackURL = normalizeCallbackURL(input.callbackURL)
   const config = await oauthClient(provider)
   const scope = scopesForProvider(provider)

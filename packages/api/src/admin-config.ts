@@ -1,10 +1,11 @@
 import type {
   AdminAuthConfigPatch,
-  AdminOAuthProviderInput,
+  AdminOidcConfigPatch,
   AdminRuntimeConfig,
   ContractJsonInput,
   HardwareAcceleration,
   RenditionTierConfig,
+  LimitsConfig,
   ThemeAccents,
   TranscodingCapabilities,
   UploadLimits,
@@ -16,7 +17,6 @@ import {
 } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
-import { blobAsFile } from "./form-file"
 import { readJsonOrThrow } from "./http"
 export type RuntimeConfigPatch = {
   setupComplete?: boolean
@@ -28,8 +28,8 @@ export type AppearanceConfigPatch = {
     blurPx?: number
     darkenOpacity?: number
   }
-  /** `#rrggbb` per appearance, or null to restore Alloy's own accent. */
-  accentColors?: ThemeAccents
+  /** `#rrggbb` per appearance, or null for Alloy's own accent. */
+  accentColors?: Partial<ThemeAccents>
 }
 
 export type TranscodingConfigPatch = {
@@ -58,9 +58,15 @@ export function createAdminConfigApi(context: ApiContext) {
 
   return {
     async updateUploadLimits(
-      limits: UploadLimits,
+      limits: Partial<UploadLimits>,
     ): Promise<AdminRuntimeConfig> {
       const res = await admin["upload-limits"].$put({ json: limits })
+      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+    },
+    async updateLimits(
+      limits: Partial<LimitsConfig>,
+    ): Promise<AdminRuntimeConfig> {
+      const res = await admin.limits.$put({ json: limits })
       return readJsonOrThrow(res, validateAdminRuntimeConfig)
     },
     async fetchRuntimeConfig(): Promise<AdminRuntimeConfig> {
@@ -91,20 +97,14 @@ export function createAdminConfigApi(context: ApiContext) {
       const res = await admin["auth-config"].$patch({ json: patch })
       return readJsonOrThrow(res, validateAdminRuntimeConfig)
     },
-    async updateOAuthProviders(
-      providers: AdminOAuthProviderInput[],
+    /**
+     * Save the OIDC provider. Fields left out fall back to their defaults;
+     * see {@link AdminOidcConfigPatch} for the write-only secret.
+     */
+    async updateOidcConfig(
+      config: AdminOidcConfigPatch,
     ): Promise<AdminRuntimeConfig> {
-      const res = await admin["oauth-providers"].$put({ json: { providers } })
-      return readJsonOrThrow(res, validateAdminRuntimeConfig)
-    },
-    async uploadOAuthProviderIcon(
-      providerId: string,
-      blob: Blob,
-    ): Promise<AdminRuntimeConfig> {
-      const res = await admin["oauth-providers"][":providerId"].icon.$post({
-        param: { providerId },
-        form: { file: blobAsFile(blob, "icon") },
-      })
+      const res = await admin.oidc.$put({ json: config })
       return readJsonOrThrow(res, validateAdminRuntimeConfig)
     },
     async fetchTranscodingCapabilities(options?: {
