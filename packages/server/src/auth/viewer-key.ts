@@ -10,7 +10,7 @@ import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
 const COOKIE_NAME = "alloy_viewer"
 const COOKIE_MAX_AGE_SEC = 365 * 24 * 60 * 60
 
-interface ResolvedViewer {
+export interface ResolvedViewer {
   /**
    * Opaque, namespaced key suitable for hashing into a cache key. Never
    * collides between signed-in and anonymous viewers.
