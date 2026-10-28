@@ -8,6 +8,7 @@ import { OIDC_PROVIDER_ID } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
+import { SettingRows } from "@alloy/ui/components/setting-row"
 import { useForm, useStore } from "@tanstack/react-form"
 import { ChevronDownIcon, InfoIcon } from "lucide-react"
 import { useState } from "react"
@@ -20,11 +21,11 @@ import { api } from "@/lib/api"
 
 import { AdminDefaultNote, sameConfigValue } from "./admin-default-note"
 import {
-  CallbackUrlField,
-  TextField,
-  TokenAuthMethodField,
+  CallbackUrlRow,
+  TextRow,
+  ToggleRow,
+  TokenAuthMethodRow,
   tokenAuthMethodLabel,
-  ToggleField,
 } from "./admin-oidc-fields"
 
 /** Text fields hold only a saved value; empty shows the default instead. */
@@ -139,9 +140,9 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
     saving: saveOidc.isPending,
   })
 
-  const text = (key: TextFieldKey): ComponentProps<typeof TextField> => ({
+  const text = (key: TextFieldKey): ComponentProps<typeof TextRow> => ({
     id: `oidc-${key}`,
-    label: "",
+    title: "",
     value: draft[key],
     placeholder: defaults[key],
     onChange: (value) => setField(key, value),
@@ -157,26 +158,26 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
   )
 
   return (
-    <SettingsSubsection
-      id="single-sign-on"
-      title={t("Single sign-on")}
-      description={t(
-        "Sign in through an OpenID Connect provider. Empty fields use the value from the environment or Alloy's default, shown as the placeholder.",
-      )}
-    >
-      <div className="flex flex-col gap-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <ToggleField
-            label={t("Enabled")}
+    <>
+      <SettingsSubsection
+        id="single-sign-on"
+        title={t("Single sign-on")}
+        description={t(
+          "Sign in through an OpenID Connect provider. Empty fields use the value from the environment or Alloy's default, shown as the placeholder.",
+        )}
+      >
+        <SettingRows>
+          <ToggleRow
+            title={t("Enabled")}
             description={t("Show the sign-in button for this provider.")}
             note={toggleNote("enabled")}
             checked={draft.enabled}
             onCheckedChange={(enabled) => setField("enabled", enabled)}
           />
-          <ToggleField
-            label={t("Create accounts")}
+          <ToggleRow
+            title={t("Create accounts")}
             description={t(
-              "Create an account the first time someone signs in with this provider. When off, only users who already linked it can sign in.",
+              "Give people an account on their first sign-in. When off, only accounts that are already linked can sign in.",
             )}
             note={toggleNote("allowSignUp")}
             checked={draft.allowSignUp}
@@ -184,17 +185,17 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
               setField("allowSignUp", allowSignUp)
             }
           />
-          <TextField
+          <TextRow
             {...text("displayName")}
-            label={t("Display name")}
+            title={t("Display name")}
             description={t("Shown on the button as Continue with {name}.", {
               name: draft.displayName.trim() || defaults.displayName,
             })}
             maxLength={64}
           />
-          <TextField
+          <TextRow
             {...text("issuerUrl")}
-            label={t("Issuer URL")}
+            title={t("Issuer URL")}
             description={
               defaults.issuerUrl
                 ? t(
@@ -205,37 +206,36 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
                   )
             }
             type="url"
+            wide
           />
-          <TextField {...text("clientId")} label={t("Client ID")} />
-          <ClientSecretField
+          <TextRow {...text("clientId")} title={t("Client ID")} wide />
+          <ClientSecretRow
             config={config.oidc}
             defaults={defaults}
             draft={draft}
             onChange={setField}
           />
-          <CallbackUrlField
+          <CallbackUrlRow
             id="oidc-callback-url"
             value={callbackURL(config.authBaseURL)}
           />
-        </div>
+        </SettingRows>
+      </SettingsSubsection>
 
-        {draft.enabled && !secretAvailable(config.oidc, defaults, draft) ? (
-          <Callout tone="info" className="text-xs">
-            <InfoIcon />
-            <span>
-              {t("Sign-in stays off until the provider has a client secret.")}
-            </span>
-          </Callout>
-        ) : null}
-
-        <div className="border-border rounded-lg border">
+      <SettingsSubsection
+        id="single-sign-on-advanced"
+        title={t("Advanced")}
+        description={t(
+          "Endpoints are only needed when the provider has no discovery document. Claims name the profile fields Alloy reads.",
+        )}
+        action={
           <Button
             type="button"
-            variant="ghost"
-            className="flex w-full justify-between rounded-lg px-3 py-2"
+            variant="secondary"
+            aria-expanded={advancedOpen}
             onClick={() => setAdvancedOpen(!advancedOpen)}
           >
-            <span>{t("Advanced")}</span>
+            {advancedOpen ? t("Hide") : t("Show")}
             <ChevronDownIcon
               className={
                 advancedOpen
@@ -244,81 +244,104 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
               }
             />
           </Button>
-          {advancedOpen ? (
-            <div className="border-border grid gap-4 border-t p-3 md:grid-cols-2">
-              <TextField
-                {...text("authorizationUrl")}
-                label={t("Authorization URL")}
-                type="url"
-              />
-              <TextField
-                {...text("tokenUrl")}
-                label={t("Token URL")}
-                type="url"
-              />
-              <TextField
-                {...text("userInfoUrl")}
-                label={t("User info URL")}
-                type="url"
-              />
-              <TextField
-                id="oidc-scopes"
-                label={t("Scopes")}
-                value={draft.scopes}
-                placeholder={defaults.scopes.join(" ")}
-                onChange={(scopes) => setField("scopes", scopes)}
-                description={t("Separate scopes with spaces.")}
-              />
-              <div className="flex flex-col gap-1">
-                <TokenAuthMethodField
-                  id="oidc-token-auth"
+        }
+      >
+        {advancedOpen ? (
+          <SettingRows>
+            <TextRow
+              {...text("authorizationUrl")}
+              title={t("Authorization URL")}
+              type="url"
+              wide
+            />
+            <TextRow
+              {...text("tokenUrl")}
+              title={t("Token URL")}
+              type="url"
+              wide
+            />
+            <TextRow
+              {...text("userInfoUrl")}
+              title={t("User info URL")}
+              type="url"
+              wide
+            />
+            <TextRow
+              id="oidc-scopes"
+              title={t("Scopes")}
+              description={t("Separate scopes with spaces.")}
+              value={draft.scopes}
+              placeholder={defaults.scopes.join(" ")}
+              onChange={(scopes) => setField("scopes", scopes)}
+            />
+            <TokenAuthMethodRow
+              id="oidc-token-auth"
+              value={draft.tokenAuthMethod}
+              note={
+                <AdminDefaultNote
                   value={draft.tokenAuthMethod}
-                  onChange={(method) => setField("tokenAuthMethod", method)}
+                  defaultValue={defaults.tokenAuthMethod}
+                  label={tokenAuthMethodLabel(defaults.tokenAuthMethod)}
+                  onReset={() =>
+                    setField("tokenAuthMethod", defaults.tokenAuthMethod)
+                  }
                 />
-                <p className="text-xs">
-                  <AdminDefaultNote
-                    value={draft.tokenAuthMethod}
-                    defaultValue={defaults.tokenAuthMethod}
-                    label={tokenAuthMethodLabel(defaults.tokenAuthMethod)}
-                    onReset={() =>
-                      setField("tokenAuthMethod", defaults.tokenAuthMethod)
-                    }
-                  />
-                </p>
-              </div>
-              <ToggleField
-                label={t("PKCE")}
-                description={t(
-                  "Secure the authorization flow with Proof Key for Code Exchange.",
-                )}
-                note={toggleNote("pkce")}
-                checked={draft.pkce}
-                onCheckedChange={(pkce) => setField("pkce", pkce)}
-              />
-              <ToggleField
-                label={t("Fetch user info")}
-                description={t(
-                  "Read claims from the user info endpoint as well as the ID token.",
-                )}
-                note={toggleNote("fetchUserInfo")}
-                checked={draft.fetchUserInfo}
-                onCheckedChange={(fetchUserInfo) =>
-                  setField("fetchUserInfo", fetchUserInfo)
-                }
-              />
-              <TextField {...text("uidClaim")} label={t("UID claim")} />
-              <TextField
-                {...text("usernameClaim")}
-                label={t("Username claim")}
-              />
-              <TextField {...text("avatarClaim")} label={t("Avatar claim")} />
-              <TextField {...text("quotaClaim")} label={t("Quota claim")} />
-              <TextField {...text("roleClaim")} label={t("Role claim")} />
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </SettingsSubsection>
+              }
+              onChange={(method) => setField("tokenAuthMethod", method)}
+            />
+            <ToggleRow
+              title={t("PKCE")}
+              description={t(
+                "Secure the authorization flow with Proof Key for Code Exchange.",
+              )}
+              note={toggleNote("pkce")}
+              checked={draft.pkce}
+              onCheckedChange={(pkce) => setField("pkce", pkce)}
+            />
+            <ToggleRow
+              title={t("Fetch user info")}
+              description={t(
+                "Read claims from the user info endpoint as well as the ID token.",
+              )}
+              note={toggleNote("fetchUserInfo")}
+              checked={draft.fetchUserInfo}
+              onCheckedChange={(fetchUserInfo) =>
+                setField("fetchUserInfo", fetchUserInfo)
+              }
+            />
+            <TextRow
+              {...text("uidClaim")}
+              title={t("UID claim")}
+              description={t(
+                "Identifies the account at the provider. Changing it breaks existing links.",
+              )}
+            />
+            <TextRow
+              {...text("usernameClaim")}
+              title={t("Username claim")}
+              description={t("Suggests the username for new accounts.")}
+            />
+            <TextRow
+              {...text("avatarClaim")}
+              title={t("Avatar claim")}
+              description={t("Profile picture URL, synced on every sign-in.")}
+            />
+            <TextRow
+              {...text("quotaClaim")}
+              title={t("Quota claim")}
+              description={t("Storage quota in GiB for new accounts.")}
+            />
+            <TextRow
+              {...text("roleClaim")}
+              title={t("Role claim")}
+              description={t(
+                "Sets the role to admin or user on every sign-in.",
+              )}
+            />
+          </SettingRows>
+        ) : null}
+      </SettingsSubsection>
+    </>
   )
 }
 
@@ -339,7 +362,7 @@ function secretAvailable(
   return config.clientSecretSource !== null
 }
 
-function ClientSecretField({
+function ClientSecretRow({
   config,
   defaults,
   draft,
@@ -362,18 +385,11 @@ function ClientSecretField({
       : t("Not set")
 
   return (
-    <div className="flex flex-col gap-1">
-      <TextField
-        id="oidc-client-secret"
-        label={t("Client secret")}
-        type="password"
-        autoComplete="new-password"
-        value={draft.clientSecret}
-        placeholder={placeholder}
-        onChange={(secret) => onChange("clientSecret", secret)}
-      />
-      {savedHere ? (
-        <p className="text-xs">
+    <TextRow
+      id="oidc-client-secret"
+      title={t("Client secret")}
+      description={
+        savedHere ? (
           <button
             type="button"
             className="text-foreground-dim hover:text-foreground underline underline-offset-2"
@@ -386,8 +402,24 @@ function ClientSecretField({
               ? t("Use the secret from the environment")
               : t("Remove the saved secret")}
           </button>
-        </p>
-      ) : null}
-    </div>
+        ) : undefined
+      }
+      footer={
+        draft.enabled && !secretAvailable(config, defaults, draft) ? (
+          <Callout tone="info" className="text-xs">
+            <InfoIcon />
+            <span>
+              {t("Sign-in stays off until the provider has a client secret.")}
+            </span>
+          </Callout>
+        ) : undefined
+      }
+      type="password"
+      autoComplete="new-password"
+      value={draft.clientSecret}
+      placeholder={placeholder}
+      onChange={(secret) => onChange("clientSecret", secret)}
+      wide
+    />
   )
 }

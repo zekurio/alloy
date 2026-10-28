@@ -25,7 +25,7 @@ type PasskeySignUpFormState = {
 }
 
 type PasskeySignUpFormProps = {
-  redirectTo?: "/" | "/setup" | "/settings"
+  redirectTo?: "/" | "/setup"
 }
 
 function usePasskeySignUpSubmit({ redirectTo = "/" }: PasskeySignUpFormProps) {
