@@ -1011,9 +1011,9 @@ async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHost
     }
     {
         let current = inner.session.lock().await;
-        if !current
+        if current
             .as_ref()
-            .is_some_and(|current| current.id == session.id)
+            .is_none_or(|current| current.id != session.id)
         {
             return Err(RecorderHostError::Process(
                 "Alloy recorder exited during startup.".into(),

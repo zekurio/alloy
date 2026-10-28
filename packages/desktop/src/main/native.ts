@@ -13,12 +13,16 @@ export interface NativeAddon {
   normalizeServerOrigin(input: string): string
   /** Validates the URL and the server's HTTP and bridge contracts. */
   prepareServer(input: string): Promise<PreparedServer>
-  /** Rejects unless the file matches its minisign release signature. */
+  /**
+   * True when a key in `publicKeys` signed the downloaded installer for its
+   * file name and `version`, which is newer than `currentVersion`; false
+   * otherwise. Rejects only when the file cannot be read.
+   */
   verifyUpdateSignature(
-    publicKey: string,
+    publicKeys: string,
     signature: string,
-    path: string,
-  ): Promise<void>
+    update: DownloadedUpdate,
+  ): Promise<boolean>
   Preferences: new (stateDirectory: string) => NativePreferences
   startBrowserSignIn(server: string): Promise<NativeBrowserSignIn>
   createRuntime(
@@ -28,6 +32,15 @@ export interface NativeAddon {
 }
 
 export type LogLevel = "info" | "warn" | "error"
+
+export interface DownloadedUpdate {
+  /** The installer electron-updater downloaded. */
+  path: string
+  /** The version the release feed offers. */
+  version: string
+  /** The running app's version. */
+  currentVersion: string
+}
 
 export interface PreparedServer {
   /** The server origin, e.g. `https://alloy.example`. */

@@ -84,21 +84,47 @@ pub async fn prepare_server(input: String) -> Result<PreparedServer> {
     })
 }
 
+#[napi(object)]
+pub struct DownloadedUpdate {
+    /// The installer electron-updater downloaded.
+    pub path: String,
+    /// The version the release feed offers.
+    pub version: String,
+    /// The running app's version.
+    pub current_version: String,
+}
+
 /// Checks a downloaded update against its release signature with the
-/// updater public key. Rejects with "The update signature is invalid." when
-/// it does not match.
+/// trusted updater public keys. Resolves to false when the signature does not
+/// verify or is not for this file and a newer version; rejects with "Could
+/// not read the downloaded update." when the file cannot be read.
 #[napi]
 pub async fn verify_update_signature(
-    public_key: String,
+    public_keys: String,
     signature: String,
-    path: String,
-) -> Result<()> {
-    napi::bindgen_prelude::spawn_blocking(move || {
-        alloy_desktop::update_signature::verify_file(&public_key, &signature, &PathBuf::from(path))
+    update: DownloadedUpdate,
+) -> Result<bool> {
+    use alloy_desktop::update_signature::{ExpectedUpdate, UpdateSignatureError, verify_file};
+
+    let verified = napi::bindgen_prelude::spawn_blocking(move || {
+        let expected = ExpectedUpdate {
+            version: &update.version,
+            current_version: &update.current_version,
+        };
+        verify_file(
+            &public_keys,
+            &signature,
+            &PathBuf::from(update.path),
+            &expected,
+        )
     })
     .await
-    .map_err(|error| reject(error.to_string()))?
-    .map_err(reject)
+    .map_err(|error| reject(error.to_string()))?;
+    match verified {
+        Ok(()) => Ok(true),
+        Err(UpdateSignatureError::Invalid) => Ok(false),
+        Err(error @ UpdateSignatureError::Unreadable) => Err(reject(error.to_string())),
+    }
 }
 
 #[napi(object)]

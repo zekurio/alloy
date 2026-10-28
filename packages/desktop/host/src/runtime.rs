@@ -651,7 +651,19 @@ impl DesktopRuntime {
         let library = self.library.read().await.clone();
         match operation {
             "recording.getSettings" => to_value(self.recorder.get_settings().await),
-            "recording.setSettings" => to_value(self.apply_settings(arg(args, 0)?).await?),
+            "recording.setSettings" => {
+                let settings: RecordingSettings = arg(args, 0)?;
+                // Only the folder picker (`set_output_folder`) chooses a new
+                // capture folder; the web app may keep the current one or
+                // reset it to the default.
+                let current = self.recorder.get_settings().await;
+                if !settings.output_folder.is_empty()
+                    && settings.output_folder != current.output_folder
+                {
+                    return Err(OUTPUT_FOLDER_PICKER_ONLY.into());
+                }
+                to_value(self.apply_settings(settings).await?)
+            }
             "recording.restartBackend" => {
                 self.output_swept().await;
                 to_value(self.recorder.restart().await.map_err(error)?)
@@ -900,6 +912,7 @@ impl DesktopRuntime {
 
 const NOT_SELECTED: &str = "The server window is no longer active.";
 const INVALID_ARGUMENT: &str = "Invalid native argument.";
+const OUTPUT_FOLDER_PICKER_ONLY: &str = "Choose a new capture folder with the folder picker.";
 
 fn set_item_urls(
     library: &LibraryRuntime,

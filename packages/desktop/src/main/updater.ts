@@ -1,3 +1,6 @@
+import { rm } from "node:fs/promises"
+import { basename, dirname, join } from "node:path"
+
 import type {
   DesktopUpdateState,
   DesktopUpdateStatus,
@@ -8,6 +11,7 @@ import electronUpdater, {
   type UpdateDownloadedEvent,
   type UpdateInfo,
 } from "electron-updater"
+import { z } from "zod"
 
 import { asError, log } from "./log"
 import type { NativeAddon } from "./native"
@@ -21,6 +25,8 @@ const UPDATE_UNSUPPORTED_ERROR =
 const CHECK_FAILED = "Couldn't check for updates."
 const DOWNLOAD_FAILED = "Couldn't download the update."
 const RESTART_FAILED = "Couldn't restart to update."
+const UPDATE_UNVERIFIED =
+  "The update couldn't be verified. Reinstall Alloy from the releases page."
 /**
  * How long after launch the first release check waits, so restoring the
  * saved server and starting the recorder are not competing with it.
@@ -35,24 +41,47 @@ const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000
 const INSTALL_START_TIMEOUT_MS = 10_000
 
 /**
- * The release key's public half, base64 of the minisign public key file.
- * Release builds set it from `ALLOY_UPDATER_PUBLIC_KEY`; without it, as in
- * development, automatic updates are off.
+ * The trusted release keys: one or more base64 minisign public key files,
+ * separated by whitespace or commas. Release builds set them from
+ * `ALLOY_UPDATER_PUBLIC_KEY`; without them, as in development, automatic
+ * updates are off.
  */
-const UPDATE_PUBLIC_KEY = __ALLOY_UPDATER_PUBLIC_KEY__
+const UPDATE_PUBLIC_KEYS = __ALLOY_UPDATER_PUBLIC_KEY__
+
+const SignatureSchema = z.string().trim().min(1)
 
 /** The installer's minisign signature, which the release adds to `latest.yml`. */
 function releaseSignature(info: UpdateInfo): string | null {
   // SAFETY: `latest.yml` is parsed as is, so fields the release adds stay on
-  // the update info; a missing or non-string field fails the check below.
-  const signature = (info as UpdateInfo & { alloySignature?: string })
+  // the update info; the schema rejects a missing or non-string field.
+  const signature = (info as UpdateInfo & { alloySignature?: unknown })
     .alloySignature
-  return signature?.trim() ? signature : null
+  const parsed = SignatureSchema.safeParse(signature)
+  return parsed.success ? parsed.data : null
 }
 
 /** What electron-updater reported downloading, once it has. */
 interface DownloadedUpdate {
   event: UpdateDownloadedEvent | null
+}
+
+/** The downloaded installer failed its signature check. */
+class UnverifiedUpdateError extends Error {}
+
+/**
+ * Deletes an installer that failed its signature check, with the record
+ * electron-updater keeps beside it in its `pending` cache folder, so the
+ * next attempt downloads it again instead of reusing it. The blockmap it
+ * copied into the cache folder above goes too: a differential download
+ * would take it for the installed version's.
+ */
+async function discardDownload(file: string): Promise<void> {
+  const pending = dirname(file)
+  await Promise.all([
+    rm(file, { force: true }),
+    rm(join(pending, "update-info.json"), { force: true }),
+    rm(join(dirname(pending), "current.blockmap"), { force: true }),
+  ])
 }
 
 /** Why `restartToInstall` returned instead of restarting. */
@@ -90,6 +119,7 @@ export class Updates {
       supported: Updates.supported(),
       lastCheckedAt: null,
       downloadProgress: null,
+      error: null,
     }
     if (!this.state.supported) return
     autoUpdater.logger = {
@@ -113,7 +143,7 @@ export class Updates {
     return (
       app.isPackaged &&
       process.platform === "win32" &&
-      UPDATE_PUBLIC_KEY.trim() !== ""
+      UPDATE_PUBLIC_KEYS.trim() !== ""
     )
   }
 
@@ -175,19 +205,27 @@ export class Updates {
       return this.getState()
     }
     if (info) {
-      if (this.state.version !== info.version) {
-        this.pending = info
-        this.downloaded = false
-      }
-      this.update({
+      const changes: Partial<DesktopUpdateState> = {
         status: "available",
         version: info.version,
         lastCheckedAt: checkedAt,
-      })
+      }
+      if (this.state.version !== info.version) {
+        this.pending = info
+        this.downloaded = false
+        // A different release may be signed properly.
+        changes.error = null
+      }
+      this.update(changes)
     } else {
       this.pending = null
       this.downloaded = false
-      this.update({ status: "idle", version: null, lastCheckedAt: checkedAt })
+      this.update({
+        status: "idle",
+        version: null,
+        lastCheckedAt: checkedAt,
+        error: null,
+      })
     }
     return this.getState()
   }
@@ -198,7 +236,7 @@ export class Updates {
       return this.getState()
     }
     this.downloadInFlight = true
-    this.setStatus("downloading")
+    this.update({ status: "downloading", downloadProgress: 0, error: null })
     // electron-updater downloads the release its latest check found, which a
     // background check may have replaced since; its event names the release
     // and the file, so the signature always belongs to what gets installed.
@@ -222,16 +260,19 @@ export class Updates {
       await autoUpdater.downloadUpdate()
       const update = downloaded.event
       if (!update) throw new Error("The download reported no installer.")
-      const signature = releaseSignature(update)
-      if (!signature) throw new Error("The release has no update signature.")
-      await this.native.verifyUpdateSignature(
-        UPDATE_PUBLIC_KEY,
-        signature,
-        update.downloadedFile,
-      )
+      await this.verify(update)
       version = update.version
     } catch (cause) {
       this.downloadInFlight = false
+      if (cause instanceof UnverifiedUpdateError) {
+        this.update({
+          status: "available",
+          downloadProgress: null,
+          error: "unverified",
+        })
+        log.warn(`${UPDATE_UNVERIFIED} %s`, cause)
+        throw new Error(UPDATE_UNVERIFIED)
+      }
       this.setStatus("available")
       log.warn(`${DOWNLOAD_FAILED} %s`, asError(cause))
       throw new Error(DOWNLOAD_FAILED)
@@ -295,6 +336,32 @@ export class Updates {
       log.warn(`${RESTART_FAILED} %s`, asError(cause))
       throw new RestartError(RESTART_FAILED, true)
     }
+  }
+
+  /**
+   * Checks the downloaded installer against the release signature, which
+   * must name its file and its version, newer than the running app. An
+   * installer that fails is deleted, and the failure is an
+   * `UnverifiedUpdateError`.
+   */
+  private async verify(update: UpdateDownloadedEvent): Promise<void> {
+    const signature = releaseSignature(update)
+    const verified =
+      signature !== null &&
+      (await this.native.verifyUpdateSignature(UPDATE_PUBLIC_KEYS, signature, {
+        path: update.downloadedFile,
+        version: update.version,
+        currentVersion: app.getVersion(),
+      }))
+    if (verified) return
+    await discardDownload(update.downloadedFile).catch((cause: Error) => {
+      log.warn("Couldn't delete the unverified update. %s", cause)
+    })
+    throw new UnverifiedUpdateError(
+      signature === null
+        ? "The release has no update signature."
+        : `${basename(update.downloadedFile)} failed its signature check.`,
+    )
   }
 
   /** Read through a call: the status changes while a check is awaited. */

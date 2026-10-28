@@ -8,6 +8,12 @@ export type DesktopUpdateStatus =
   | "available"
   | "downloading"
   | "downloaded"
+/**
+ * Why the last download of the pending update failed, when the user has to
+ * act on it. "unverified": the installer failed its signature check and was
+ * deleted, so the user should reinstall from the releases page.
+ */
+export type DesktopUpdateError = "unverified"
 export interface DesktopUpdateState {
   /** False when this build has no native updater configuration. */
   supported: boolean
@@ -26,6 +32,11 @@ export interface DesktopUpdateState {
    * "downloading"; null otherwise.
    */
   downloadProgress: number | null
+  /**
+   * Set while `status` is "available" after a download failed in a way the
+   * user has to act on; null otherwise.
+   */
+  error: DesktopUpdateError | null
 }
 
 /** Desktop auto-update state and controls exposed through the native bridge. */

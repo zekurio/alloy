@@ -244,7 +244,8 @@ pnpm --filter @alloy/desktop test:native
 
 Builds bundle the recorder, OBS, FFmpeg, and the addon as extra resources;
 `electron-builder.yml` lists them, and `nsis/installer.nsh` removes the login
-item and transient data on uninstall.
+item, transient data, and the browser profiles in `electron\` on uninstall,
+but not on an update.
 `test:native` runs the host's integration tests. Unit tests have been removed;
 E2E testing is not configured yet. A successful build does not validate
 recording or playback. For affected flows, check on Windows:

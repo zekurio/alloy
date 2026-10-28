@@ -15,6 +15,9 @@ import {
   useDesktopUpdateState,
 } from "@/lib/desktop-updates"
 
+/** Where a user reinstalls when an update fails its signature check. */
+const RELEASES_URL = "https://github.com/zekurio/alloy/releases/latest"
+
 /**
  * A ring around the rail icon that fills as the update downloads. The item's
  * own styles size every icon in it, so the ring sets its size inline.
@@ -56,9 +59,10 @@ function DownloadProgressRing({ percent }: { percent: number }) {
 /**
  * Device-local "update ready" control pinned in the nav rail's bottom cluster.
  * The rail shows an icon, ringed with the download's progress while it
- * downloads. Its tooltip shows the current update state. Renders nothing in a
- * regular browser or until an update is available, downloading, or ready to
- * install.
+ * downloads. Its tooltip shows the current update state. An update that
+ * failed its signature check turns it into a link to the releases page.
+ * Renders nothing in a regular browser or until an update is available,
+ * downloading, or ready to install.
  */
 export function DesktopUpdatePill() {
   const updateState = useDesktopUpdateState()
@@ -82,6 +86,27 @@ export function DesktopUpdatePill() {
     status !== "downloaded"
   ) {
     return null
+  }
+
+  if (status === "available" && updateState.error === "unverified") {
+    const message = t(
+      "The update couldn't be verified. Reinstall Alloy from the releases page.",
+    )
+    return (
+      <AppSidebarItemTooltip
+        label={message}
+        render={
+          // Opens in the user's browser, like every link off the server.
+          <AppSidebarItem
+            render={<a href={RELEASES_URL} target="_blank" rel="noreferrer" />}
+            aria-label={message}
+            className="text-accent bg-accent/12 hover:bg-accent/20 cursor-pointer"
+          >
+            <CircleAlertIcon className="text-destructive" />
+          </AppSidebarItem>
+        }
+      />
+    )
   }
 
   const downloaded = status === "downloaded"

@@ -100,6 +100,8 @@ export const DESKTOP_MESSAGES = {
   "Checking for updates": "Suche nach Updates",
   "Checking...": "Wird geprüft...",
   "Choose Display": "Display wählen",
+  "Choose a new capture folder with the folder picker.":
+    "Wähle einen neuen Aufnahmeordner über die Ordnerauswahl.",
   "Choose where clips are saved and review local disk usage.":
     "Wähle, wo Clips gespeichert werden, und prüfe die lokale Festplattennutzung.",
   "Clear shortcut": "Tastenkürzel löschen",
@@ -524,6 +526,8 @@ export const DESKTOP_MESSAGES = {
     "Das Serverfenster ist nicht mehr aktiv.",
   "The server window is not authorized for this server.":
     "Das Serverfenster ist für diesen Server nicht autorisiert.",
+  "The update couldn't be verified. Reinstall Alloy from the releases page.":
+    "Das Update konnte nicht verifiziert werden. Installiere Alloy erneut über die Release-Seite.",
   "This changes whether Alloy starts when you sign in.":
     "Dadurch wird geändert, ob Alloy bei der Anmeldung gestartet wird.",
   "This moves the recording file to the system trash.":
