@@ -5,7 +5,6 @@ import {
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
-import { Field, FieldDescription, FieldLabel } from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
 import {
   Select,
@@ -14,7 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
+import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
+import { cn } from "@alloy/ui/lib/utils"
 import { CopyIcon } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 
@@ -26,82 +27,56 @@ const TOKEN_AUTH_METHODS = [
   OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD,
 ] as const
 
-export function TextField({
+/** A setting edited in a text input, with the input on the right. */
+export function TextRow({
   id,
-  label,
+  title,
   description,
+  footer,
   value,
   onChange,
-  className,
+  wide = false,
   ...props
 }: {
   id: string
-  label: string
-  description?: string
+  title: string
+  description?: ReactNode
+  footer?: ReactNode
   value: string
   onChange: (value: string) => void
-  /** Wrapper class, for grid placement. */
-  className?: string
+  /** URLs get the wide input; names and claims fit the narrow one. */
+  wide?: boolean
 } & Omit<
   ComponentProps<typeof Input>,
   "id" | "value" | "onChange" | "className"
 >) {
   return (
-    <Field className={className}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+    <SettingRow
+      title={title}
+      description={description}
+      footer={footer}
+      htmlFor={id}
+      stack
+    >
       <Input
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        className={cn("w-full", wide ? "@lg:w-96" : "@lg:w-56")}
         {...props}
       />
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
-    </Field>
+    </SettingRow>
   )
 }
 
-export function TokenAuthMethodField({
-  id,
-  value,
-  onChange,
-}: {
-  id: string
-  value: OAuthTokenAuthMethod
-  onChange: (value: OAuthTokenAuthMethod) => void
-}) {
-  return (
-    <Field>
-      <FieldLabel htmlFor={id}>{t("Token auth method")}</FieldLabel>
-      <Select
-        value={value}
-        onValueChange={(next) => {
-          const method = TOKEN_AUTH_METHODS.find((option) => option === next)
-          if (method) onChange(method)
-        }}
-      >
-        <SelectTrigger id={id}>
-          <SelectValue>{tokenAuthMethodLabel(value)}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {TOKEN_AUTH_METHODS.map((method) => (
-            <SelectItem key={method} value={method}>
-              {tokenAuthMethodLabel(method)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </Field>
-  )
-}
-
-export function ToggleField({
-  label,
+export function ToggleRow({
+  title,
   description,
   note,
   checked,
   onCheckedChange,
 }: {
-  label: string
+  title: string
   description: string
   /** Inline content after the description, such as a default note. */
   note?: ReactNode
@@ -109,24 +84,67 @@ export function ToggleField({
   onCheckedChange: (checked: boolean) => void
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 self-end">
-      <div className="min-w-0">
-        <div className="text-sm font-medium">{label}</div>
-        <p className="text-foreground-dim mt-0.5 text-xs">
+    <SettingRow
+      title={title}
+      description={
+        <>
           {description}
           {note}
-        </p>
-      </div>
-      <Switch
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        className="shrink-0"
-      />
-    </div>
+        </>
+      }
+      align="start"
+    >
+      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+    </SettingRow>
   )
 }
 
-export function CallbackUrlField({ id, value }: { id: string; value: string }) {
+export function TokenAuthMethodRow({
+  id,
+  value,
+  note,
+  onChange,
+}: {
+  id: string
+  value: OAuthTokenAuthMethod
+  note?: ReactNode
+  onChange: (value: OAuthTokenAuthMethod) => void
+}) {
+  return (
+    <SettingRow
+      title={t("Token auth method")}
+      description={
+        <>
+          {t("How Alloy sends the client secret to the token endpoint.")}
+          {note}
+        </>
+      }
+      htmlFor={id}
+      stack
+    >
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          const method = TOKEN_AUTH_METHODS.find((option) => option === next)
+          if (method) onChange(method)
+        }}
+      >
+        <SelectTrigger id={id} size="sm" className="w-full @lg:w-56">
+          <SelectValue>{tokenAuthMethodLabel(value)}</SelectValue>
+        </SelectTrigger>
+        <SelectContent align="end">
+          {TOKEN_AUTH_METHODS.map((method) => (
+            <SelectItem key={method} value={method}>
+              {tokenAuthMethodLabel(method)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </SettingRow>
+  )
+}
+
+export function CallbackUrlRow({ id, value }: { id: string; value: string }) {
   const copyFeedback = useActionFeedback()
   async function copyCallbackUrl() {
     await copyFeedback.run(async () => {
@@ -141,34 +159,40 @@ export function CallbackUrlField({ id, value }: { id: string; value: string }) {
   }
 
   return (
-    <Field className="md:col-span-2">
-      <FieldLabel htmlFor={id}>{t("Callback URL")}</FieldLabel>
-      <div className="flex gap-2">
-        <Input id={id} value={value} readOnly className="font-mono" />
-        <FeedbackButton
-          type="button"
-          variant="outline"
-          size="icon"
-          className="shrink-0"
-          aria-label={t("Copy callback URL")}
-          state={copyFeedback.feedback.state}
-          pendingLabel={<span className="sr-only">{t("Copying…")}</span>}
-          successLabel={<span className="sr-only">{t("Copied")}</span>}
-          errorLabel={<span className="sr-only">{t("Try again")}</span>}
-          title={
-            copyFeedback.feedback.state === "error"
-              ? copyFeedback.feedback.message
-              : undefined
-          }
-          onClick={() => void copyCallbackUrl()}
-        >
-          <CopyIcon />
-        </FeedbackButton>
-      </div>
-      <FieldDescription>
-        {t("Register this redirect URI with the provider.")}
-      </FieldDescription>
-    </Field>
+    <SettingRow
+      title={t("Callback URL")}
+      description={
+        <>
+          {t("Register this redirect URI with the provider.")}
+          <code
+            id={id}
+            className="text-foreground mt-1 block font-mono break-all select-all"
+          >
+            {value}
+          </code>
+        </>
+      }
+      align="start"
+    >
+      <FeedbackButton
+        type="button"
+        variant="outline"
+        size="icon"
+        aria-label={t("Copy callback URL")}
+        state={copyFeedback.feedback.state}
+        pendingLabel={<span className="sr-only">{t("Copying…")}</span>}
+        successLabel={<span className="sr-only">{t("Copied")}</span>}
+        errorLabel={<span className="sr-only">{t("Try again")}</span>}
+        title={
+          copyFeedback.feedback.state === "error"
+            ? copyFeedback.feedback.message
+            : undefined
+        }
+        onClick={() => void copyCallbackUrl()}
+      >
+        <CopyIcon />
+      </FeedbackButton>
+    </SettingRow>
   )
 }
 
