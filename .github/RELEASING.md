@@ -23,16 +23,18 @@ Dispatch the **publish** workflow from the Actions tab (it only runs on
 `version` override. The workflow then:
 
 1. Checks that the update signing key opens with its password and matches
-   `ALLOY_UPDATER_PUBLIC_KEY`, so a broken signing setup stops the release
-   before anything is tagged.
+   one of the keys in `ALLOY_UPDATER_PUBLIC_KEY`, so a broken signing setup
+   stops the release before anything is tagged.
 2. Runs formatting, lint, and typecheck against the current `dev` head.
 3. Stamps the new version into all release version files.
 4. Commits `chore: release vX.Y.Z` to `dev` and tags that commit `vX.Y.Z`
    (pushed atomically).
-5. Builds the Windows desktop installer from the tagged commit.
+5. Builds the Windows desktop installer from the tagged commit, then signs
+   it in a separate job.
 6. Builds and pushes the server container image tagged with the release
    version, then publishes the GitHub Release with categorized generated notes, the installer,
    update signatures, and checksums.
+7. Moves the `latest` container image tag to the new release.
 
 ## Container Images
 
@@ -88,65 +90,69 @@ The desktop app updates through electron-updater, which reads `latest.yml`
 from the latest GitHub release and downloads the NSIS installer it names.
 Before it installs one, the app checks the installer against the minisign
 signature the release adds to `latest.yml` (`alloySignature`), using the
-public key compiled into the build. A build without the key has automatic
-updates off; development builds never have it.
+public keys compiled into the build. The signature's trusted comment names
+the installer file and the release version, and the app accepts it only for
+the file it downloaded and the version `latest.yml` offers, which must be
+newer than the running app. An installer that fails the check is deleted,
+and the app asks the user to reinstall from the releases page. A build
+without keys has automatic updates off; development builds never have them.
 
-The key pair lives in the repository variable `ALLOY_UPDATER_PUBLIC_KEY` and
-the secrets `ALLOY_UPDATE_SIGNING_KEY` and `ALLOY_UPDATE_SIGNING_KEY_PASSWORD`.
-Keep a copy of the private key and its password outside GitHub, which cannot
-show a secret again. The publish workflow:
+The keys live in the repository variable `ALLOY_UPDATER_PUBLIC_KEY` and the
+secrets `ALLOY_UPDATE_SIGNING_KEY` and `ALLOY_UPDATE_SIGNING_KEY_PASSWORD`.
+`ALLOY_UPDATER_PUBLIC_KEY` lists one or more public keys, each the base64 of
+a `.pub` file, separated by whitespace or commas. The app trusts every listed
+key and checks a signature with the one whose key ID it names. The secrets
+hold a single private key, which must match one of the listed keys. Keep a
+copy of the private key and its password outside GitHub, which cannot show a
+secret again. The publish workflow:
 
-1. builds the installer with `ALLOY_UPDATER_PUBLIC_KEY` in the environment,
-   which compiles it into the app;
-2. signs the installer with `packages/desktop/update-signer`, which writes
-   `<installer>.sig`, binds the signature to the release version, and fails
-   unless the key pair matches `ALLOY_UPDATER_PUBLIC_KEY`;
-3. runs `scripts/prepare-desktop-release.mjs`, which adds the signature to
-   `latest.yml`.
+1. builds the installer in the `desktop` job with `ALLOY_UPDATER_PUBLIC_KEY`
+   in the environment, which compiles the keys into the app. This job runs
+   npm code, so it gets no secrets;
+2. signs the installer in the `sign` job, which builds only
+   `packages/desktop/update-signer` from `Cargo.lock` and runs no npm code.
+   The signer writes `<installer>.sig`, binds the signature to the installer's
+   file name and the release version, and fails unless the key pair matches
+   one of the keys in `ALLOY_UPDATER_PUBLIC_KEY`;
+3. runs `scripts/prepare-desktop-release.mjs` in the `sign` job, which adds
+   the signature to `latest.yml`.
 
-To create a key pair, run the following and set a password when asked; the
-signer only takes password-protected keys:
+### Update Keys
+
+Generate two key pairs, the release key and a spare. Run the following and
+set a password for each when asked; the signer only takes password-protected
+keys:
 
 ```sh
 nix run nixpkgs#minisign -- -G -p alloy-update.pub -s alloy-update.key
+nix run nixpkgs#minisign -- -G -p alloy-update-spare.pub -s alloy-update-spare.key
 ```
 
-Store `base64 -w0 alloy-update.key` as `ALLOY_UPDATE_SIGNING_KEY`, the password
-as `ALLOY_UPDATE_SIGNING_KEY_PASSWORD`, and `base64 -w0 alloy-update.pub` as
-`ALLOY_UPDATER_PUBLIC_KEY`. Installed builds trust only the key they were
-built with, so after a key change they cannot update and need a manual
-reinstall.
+Store `base64 -w0 alloy-update.key` as `ALLOY_UPDATE_SIGNING_KEY` and its
+password as `ALLOY_UPDATE_SIGNING_KEY_PASSWORD`. List both public keys in
+`ALLOY_UPDATER_PUBLIC_KEY`:
+
+```sh
+echo "$(base64 -w0 alloy-update.pub) $(base64 -w0 alloy-update-spare.pub)"
+```
+
+Keep the spare's private key and its password offline only, never in GitHub
+or on a machine that builds releases.
+
+Installed builds trust only the keys they were built with. To rotate, for
+example when the release key may have leaked, store the spare as
+`ALLOY_UPDATE_SIGNING_KEY` and `ALLOY_UPDATE_SIGNING_KEY_PASSWORD` and drop
+the old public key from `ALLOY_UPDATER_PUBLIC_KEY`. Installed builds already
+trust the spare, so they take the next release, and that build no longer
+trusts the old key. Then generate a new spare and add its public key to the
+list. An installed build that trusts none of the keys a release is signed
+with cannot update to it and needs a manual reinstall.
 
 The installer is not Authenticode-signed, so Windows SmartScreen warns on a
 manual install. Updates are unaffected.
 
 Test a signed update on Windows before using the release workflow for
 distribution.
-
-## Moving from the Tauri Build
-
-Releases up to v0.0.19 shipped a Tauri app. It cannot update to the Electron
-app, and it cannot connect to servers from the Electron release on, since the
-desktop bridge and its `/api/server-info` field were renamed. Each machine
-reinstalls by hand:
-
-1. Uninstall Alloy from Apps & Features. Ticking "delete the application
-   data" removes the old app's settings, saved servers, browser profiles,
-   cached import copies, and the capture library's metadata (titles, trims,
-   upload links); the videos in `Videos\Alloy` stay. To keep the settings
-   and metadata, leave it unticked and clean up as below.
-2. Install the Electron build from the release and sign in again.
-
-Uninstall the Tauri app first: ticking the box also removes the folders the
-Electron build uses (`%APPDATA%\dev.zekurio.alloy` and
-`%LOCALAPPDATA%\dev.zekurio.alloy`).
-
-Left unticked, the Tauri app leaves data in `%LOCALAPPDATA%\dev.zekurio.alloy`
-that nothing uses or cleans up any more. Delete it by hand:
-
-- `EBWebView\` and `webviews\`, its browser profiles, which still hold
-  session tokens;
-- `recording-library-imports\`, copies of videos picked for import.
 
 ## Recovery
 
@@ -160,3 +166,5 @@ it:
   rebuilds it from the exact tagged commit instead of bumping again.
 - A release was published with bad assets: delete the release (keep or delete
   the tag), then dispatch again.
+- Only `promote` failed: the release is published, so dispatching again would
+  cut the next release. Re-run the failed job from the workflow run instead.

@@ -55,14 +55,12 @@ export type MediaKind = (typeof MEDIA_KINDS)[number]
 export const MEDIA_FILTERS = ["all", ...MEDIA_KINDS] as const
 export type MediaFilter = (typeof MEDIA_FILTERS)[number]
 
-export type UploadTicketStrategy =
-  | { type: "single" }
-  | { type: "chunked"; chunkSizeBytes: number }
+export type UploadTicketStrategy = { type: "chunked"; chunkSizeBytes: number }
 
 export interface UploadTicket {
   uploadUrl: string
   method: "PUT" | "POST"
   headers: Record<string, string>
   expiresAt: number
-  strategy?: UploadTicketStrategy
+  strategy: UploadTicketStrategy
 }

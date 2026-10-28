@@ -12,11 +12,14 @@ Alloy is early and under active development. Expect sharp edges.
 
 ### Desktop app
 
-Windows x64 only. Download the latest installer from
+On Windows x64, download the latest installer from
 [GitHub Releases](https://github.com/zekurio/alloy/releases/latest) and point
 it at your Alloy server. The app keeps its settings in
 `%APPDATA%\dev.zekurio.alloy`, its caches and log in
 `%LOCALAPPDATA%\dev.zekurio.alloy`, and recordings in `Videos\Alloy`.
+
+On Linux, the flake packages the app as `.#alloy-desktop`; see
+[`nix/README.md`](nix/README.md#alloy-desktop).
 
 ### Server
 

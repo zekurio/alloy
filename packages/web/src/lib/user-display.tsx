@@ -41,19 +41,6 @@ export function userImageSrc(
     return value
   }
 
-  try {
-    const url = new URL(value)
-    if (url.pathname.startsWith(USER_ASSET_PATH_PREFIX)) {
-      const normalized = normalizeUserAssetPath(
-        `${url.pathname}${url.search}${url.hash}`,
-      )
-      userImageSrcCache.set(value, normalized)
-      return normalized
-    }
-  } catch {
-    // Non-URL values fall through unchanged so upstream data can still render.
-  }
-
   userImageSrcCache.set(value, value)
   return value
 }

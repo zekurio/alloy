@@ -22,6 +22,7 @@ CREATE TABLE "clip" (
 	"thumb_key" text,
 	"thumb_blur_hash" text,
 	"thumb_failed_at" timestamp,
+	"thumb_time_ms" integer,
 	"view_count" integer DEFAULT 0 NOT NULL,
 	"trim_start_ms" integer,
 	"trim_end_ms" integer,
@@ -111,22 +112,11 @@ CREATE TABLE "game" (
 	"icon_url" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"refresh_after" timestamp,
+	"refresh_failures" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "game_steamgriddb_id_unique" UNIQUE("steamgriddb_id"),
 	CONSTRAINT "game_slug_unique" UNIQUE("slug"),
 	CONSTRAINT "game_source_check" CHECK ("game"."source" in ('steamgriddb', 'custom'))
-);
---> statement-breakpoint
-CREATE TABLE "game_detection_mapping" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"source" text NOT NULL,
-	"source_id" text,
-	"executable" text,
-	"normalized_name" text NOT NULL,
-	"game_id" uuid,
-	"status" text NOT NULL,
-	"confidence" real DEFAULT 0 NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "instance_setting" (
@@ -144,7 +134,6 @@ CREATE TABLE "upload_ticket" (
 	"storage_key" text NOT NULL,
 	"content_type" text NOT NULL,
 	"expected_bytes" bigint NOT NULL,
-	"upload_state" jsonb,
 	"expires_at" timestamp NOT NULL,
 	"used_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
@@ -184,6 +173,18 @@ CREATE TABLE "storage_deletion" (
 	CONSTRAINT "storage_deletion_source_id_check" CHECK ("storage_deletion"."source_id" is null or char_length(btrim("storage_deletion"."source_id")) between 1 and 500)
 );
 --> statement-breakpoint
+CREATE TABLE "user_theme" (
+	"user_id" uuid NOT NULL,
+	"id" text NOT NULL,
+	"name" text NOT NULL,
+	"variants" jsonb NOT NULL,
+	"guided" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "user_theme_user_id_id_pk" PRIMARY KEY("user_id","id"),
+	CONSTRAINT "user_theme_variants_check" CHECK (jsonb_typeof("user_theme"."variants") = 'array' and jsonb_array_length("user_theme"."variants") > 0)
+);
+--> statement-breakpoint
 CREATE TABLE "webhook" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" text NOT NULL,
@@ -197,7 +198,7 @@ CREATE TABLE "webhook" (
 	"consecutive_failures" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "webhook_provider_check" CHECK ("webhook"."provider" in ('discord', 'generic'))
+	CONSTRAINT "webhook_provider_check" CHECK ("webhook"."provider" in ('discord', 'fluxer', 'generic'))
 );
 --> statement-breakpoint
 CREATE TABLE "webhook_delivery" (
@@ -224,12 +225,6 @@ CREATE TABLE "auth_account" (
 	"provider_id" text NOT NULL,
 	"provider_account_id" text NOT NULL,
 	"account_label" text,
-	"access_token" text,
-	"refresh_token" text,
-	"id_token" text,
-	"access_token_expires_at" timestamp,
-	"refresh_token_expires_at" timestamp,
-	"scope" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -245,32 +240,21 @@ CREATE TABLE "auth_challenge" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "auth_refresh_token" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"session_id" uuid NOT NULL,
-	"token_hash" text NOT NULL,
-	"expires_at" timestamp NOT NULL,
-	"absolute_expires_at" timestamp NOT NULL,
-	"consumed_at" timestamp,
-	"revoked_at" timestamp,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
-	"last_used_at" timestamp,
-	CONSTRAINT "auth_refresh_token_token_hash_unique" UNIQUE("token_hash")
-);
---> statement-breakpoint
 CREATE TABLE "auth_session" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"token_hash" text NOT NULL,
 	"user_id" uuid NOT NULL,
-	"expires_at" timestamp,
+	"expires_at" timestamp NOT NULL,
 	"ip_address" text,
 	"user_agent" text,
+	"client_kind" text NOT NULL,
+	"device_name" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
-	"last_seen_at" timestamp,
-	"revoked_at" timestamp,
-	CONSTRAINT "auth_session_token_hash_unique" UNIQUE("token_hash")
+	"last_seen_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "auth_session_token_hash_unique" UNIQUE("token_hash"),
+	CONSTRAINT "auth_session_client_kind_check" CHECK ("auth_session"."client_kind" in ('web', 'desktop')),
+	CONSTRAINT "auth_session_device_name_check" CHECK ("auth_session"."device_name" is null or char_length("auth_session"."device_name") between 1 and 64)
 );
 --> statement-breakpoint
 CREATE TABLE "user" (
@@ -285,6 +269,7 @@ CREATE TABLE "user" (
 	"admin_suspended_at" timestamp,
 	"storage_quota_bytes" bigint,
 	"clip_announcements_enabled" boolean DEFAULT true NOT NULL,
+	"theme_preferences" jsonb,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "user_role_check" CHECK ("user"."role" in ('user', 'admin')),
@@ -318,15 +303,14 @@ ALTER TABLE "clip_rendition" ADD CONSTRAINT "clip_rendition_clip_id_clip_id_fk" 
 ALTER TABLE "clip_tag" ADD CONSTRAINT "clip_tag_clip_id_clip_id_fk" FOREIGN KEY ("clip_id") REFERENCES "public"."clip"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip_view" ADD CONSTRAINT "clip_view_clip_id_clip_id_fk" FOREIGN KEY ("clip_id") REFERENCES "public"."clip"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip_view" ADD CONSTRAINT "clip_view_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "game_detection_mapping" ADD CONSTRAINT "game_detection_mapping_game_id_game_id_fk" FOREIGN KEY ("game_id") REFERENCES "public"."game"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "upload_ticket" ADD CONSTRAINT "upload_ticket_owner_id_user_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "block" ADD CONSTRAINT "block_blocker_id_user_id_fk" FOREIGN KEY ("blocker_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "block" ADD CONSTRAINT "block_blocked_id_user_id_fk" FOREIGN KEY ("blocked_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_theme" ADD CONSTRAINT "user_theme_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "webhook_delivery" ADD CONSTRAINT "webhook_delivery_webhook_id_webhook_id_fk" FOREIGN KEY ("webhook_id") REFERENCES "public"."webhook"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "webhook_delivery" ADD CONSTRAINT "webhook_delivery_clip_id_clip_id_fk" FOREIGN KEY ("clip_id") REFERENCES "public"."clip"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "auth_account" ADD CONSTRAINT "auth_account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "auth_challenge" ADD CONSTRAINT "auth_challenge_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "auth_refresh_token" ADD CONSTRAINT "auth_refresh_token_session_id_auth_session_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."auth_session"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "auth_session" ADD CONSTRAINT "auth_session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_passkey" ADD CONSTRAINT "user_passkey_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "clip_author_idx" ON "clip" USING btree ("author_id");--> statement-breakpoint
@@ -346,24 +330,22 @@ CREATE UNIQUE INDEX "clip_rendition_clip_name_idx" ON "clip_rendition" USING btr
 CREATE INDEX "clip_tag_tag_idx" ON "clip_tag" USING btree ("tag");--> statement-breakpoint
 CREATE INDEX "clip_view_user_clip_idx" ON "clip_view" USING btree ("user_id","clip_id");--> statement-breakpoint
 CREATE INDEX "game_name_idx" ON "game" USING btree ("name");--> statement-breakpoint
-CREATE INDEX "game_detection_mapping_source_idx" ON "game_detection_mapping" USING btree ("source","source_id");--> statement-breakpoint
-CREATE INDEX "game_detection_mapping_executable_idx" ON "game_detection_mapping" USING btree ("executable");--> statement-breakpoint
-CREATE INDEX "game_detection_mapping_name_idx" ON "game_detection_mapping" USING btree ("normalized_name");--> statement-breakpoint
-CREATE INDEX "game_detection_mapping_game_idx" ON "game_detection_mapping" USING btree ("game_id");--> statement-breakpoint
 CREATE INDEX "upload_ticket_target_idx" ON "upload_ticket" USING btree ("target_type","target_id");--> statement-breakpoint
 CREATE INDEX "upload_ticket_owner_idx" ON "upload_ticket" USING btree ("owner_id");--> statement-breakpoint
 CREATE INDEX "upload_ticket_unused_expiry_idx" ON "upload_ticket" USING btree ("expires_at","id") WHERE "upload_ticket"."used_at" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "block_pair_idx" ON "block" USING btree ("blocker_id","blocked_id");--> statement-breakpoint
+CREATE INDEX "block_blocked_idx" ON "block" USING btree ("blocked_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "storage_deletion_object_idx" ON "storage_deletion" USING btree ("namespace","storage_key");--> statement-breakpoint
 CREATE INDEX "storage_deletion_next_attempt_idx" ON "storage_deletion" USING btree ("next_attempt_at","created_at");--> statement-breakpoint
-CREATE INDEX "webhook_enabled_idx" ON "webhook" USING btree ("enabled") WHERE "webhook"."enabled";--> statement-breakpoint
 CREATE UNIQUE INDEX "webhook_delivery_dedup_idx" ON "webhook_delivery" USING btree ("webhook_id","dedup_key");--> statement-breakpoint
 CREATE INDEX "webhook_delivery_clip_idx" ON "webhook_delivery" USING btree ("clip_id");--> statement-breakpoint
 CREATE INDEX "webhook_delivery_pending_idx" ON "webhook_delivery" USING btree ("next_attempt_at","created_at") WHERE "webhook_delivery"."status" = 'pending';--> statement-breakpoint
 CREATE UNIQUE INDEX "auth_account_provider_account_idx" ON "auth_account" USING btree ("provider_id","provider_account_id");--> statement-breakpoint
+CREATE INDEX "auth_account_user_idx" ON "auth_account" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "auth_challenge_user_idx" ON "auth_challenge" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "auth_challenge_expires_at_idx" ON "auth_challenge" USING btree ("expires_at");--> statement-breakpoint
 CREATE INDEX "auth_challenge_purpose_identifier_idx" ON "auth_challenge" USING btree ("purpose","identifier");--> statement-breakpoint
-CREATE INDEX "auth_refresh_token_session_idx" ON "auth_refresh_token" USING btree ("session_id");--> statement-breakpoint
-CREATE INDEX "auth_refresh_token_expires_at_idx" ON "auth_refresh_token" USING btree ("expires_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "user_username_lower_unique" ON "user" USING btree (lower("username"));
+CREATE INDEX "auth_session_user_idx" ON "auth_session" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "auth_session_expires_at_idx" ON "auth_session" USING btree ("expires_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "user_username_lower_unique" ON "user" USING btree (lower("username"));--> statement-breakpoint
+CREATE INDEX "user_passkey_user_idx" ON "user_passkey" USING btree ("user_id");

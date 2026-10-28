@@ -43,8 +43,8 @@ start() {
   if ready; then
     return 0
   fi
-  # Alive but not on our socket, e.g. started by an older version of this
-  # script on a TCP port: restart it with the current options.
+  # Alive but not answering on our socket: restart it with the current
+  # options.
   if running; then
     pg_ctl -D "$data" -w stop >/dev/null
   fi

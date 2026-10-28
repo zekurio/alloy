@@ -40,8 +40,8 @@ const connectCsp: Plugin = {
 export default defineConfig({
   main: {
     define: {
-      // The updater's release key; empty, and updates off, unless a release
-      // build sets it.
+      // The updater's trusted release keys, separated by whitespace or
+      // commas; empty, and updates off, unless a release build sets them.
       __ALLOY_UPDATER_PUBLIC_KEY__: JSON.stringify(
         process.env.ALLOY_UPDATER_PUBLIC_KEY ?? "",
       ),

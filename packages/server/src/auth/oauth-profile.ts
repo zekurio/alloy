@@ -15,7 +15,7 @@ import {
 } from "openid-client"
 
 import { fetchOAuthUserInfo } from "./oauth-client"
-import type { OAuthProfile, StoredTokens } from "./oauth-types"
+import type { OAuthProfile } from "./oauth-types"
 
 const GIB = 1024 ** 3
 const OAuthStringClaimSchema = t.string()
@@ -54,20 +54,6 @@ export async function profileFromTokens(
     role: roleFromProfile(raw, provider.roleClaim),
     storageQuotaBytes: quotaFromProfile(raw, provider.quotaClaim),
     usernameHint,
-  }
-}
-
-export function storedTokens(
-  tokens: TokenEndpointResponse & { expiresIn(): number | undefined },
-): StoredTokens {
-  const expiresIn = tokens.expiresIn()
-  return {
-    accessToken: tokens.access_token ?? null,
-    refreshToken: tokens.refresh_token ?? null,
-    idToken: tokens.id_token ?? null,
-    accessTokenExpiresAt:
-      expiresIn === undefined ? null : new Date(Date.now() + expiresIn * 1000),
-    scope: tokens.scope ?? null,
   }
 }
 

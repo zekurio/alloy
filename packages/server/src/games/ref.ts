@@ -49,14 +49,12 @@ export {
 } from "./indexed-name-lookup"
 
 type CachedGameMetadataRow = GameMetadataRow & {
-  updatedAt: Date | string
   refreshAfter: Date | string | null
   refreshFailures: number
 }
 
 const cachedGameSelection = {
   ...gameSelection,
-  updatedAt: game.updated_at,
   refreshAfter: game.refresh_after,
   refreshFailures: game.refresh_failures,
 } as const
@@ -175,11 +173,10 @@ async function withAvailableGameSlug<T>(
 }
 
 function refreshDue(row: CachedGameMetadataRow): boolean {
-  const after =
-    row.refreshAfter !== null
-      ? new Date(row.refreshAfter).getTime()
-      : new Date(row.updatedAt).getTime() + GAME_REF_REFRESH_MS
-  return Date.now() >= after
+  return (
+    row.refreshAfter !== null &&
+    Date.now() >= new Date(row.refreshAfter).getTime()
+  )
 }
 
 function refreshFailureBackoffMs(failures: number): number {
@@ -440,7 +437,7 @@ function refreshCachedGameRef(gameId: string, steamgriddbId: number): void {
 /**
  * The catalogue row for a SteamGridDB game, created from upstream when it is
  * missing. This is the write path behind picking a game or matching a
- * library name; read routes use `findSteamGridDBGameRef` instead.
+ * library name.
  */
 export async function getSteamGridDBGameRef(
   steamgriddbId: number,
@@ -452,16 +449,6 @@ export async function getSteamGridDBGameRef(
   }
 
   return insertSteamGridDBGameRefOnce(steamgriddbId)
-}
-
-/** An existing catalogue row by SteamGridDB id; never creates one. */
-export async function findSteamGridDBGameRef(
-  steamgriddbId: number,
-): Promise<GameRow | null> {
-  const cached = await selectCachedGameRef(steamgriddbId)
-  if (!cached) return null
-  maybeRefreshInBackground(cached)
-  return serialiseGameRow(cached)
 }
 
 /**

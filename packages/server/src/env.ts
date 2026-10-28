@@ -46,20 +46,7 @@ function requiredText(source: EnvSource, name: string): string {
   return value
 }
 
-// Variables that configured removed features. Failing beats silently running
-// without the sign-in they used to set up.
-const REMOVED_ENV = {
-  ALLOY_SOCIALACCOUNT_PROVIDERS:
-    "Alloy now has one OpenID Connect provider. Configure it with the ALLOY_OIDC_* variables (see .env.example) or in the admin settings.",
-} as const
-
 export function parseServerEnv(source: EnvSource = process.env) {
-  for (const [name, hint] of Object.entries(REMOVED_ENV)) {
-    if (envText(source, name)) {
-      throw new Error(`[server/env] ${name} is no longer supported. ${hint}`)
-    }
-  }
-
   const defaultPublicServerUrl =
     source.PUBLIC_SERVER_URL ?? "http://localhost:2552"
 

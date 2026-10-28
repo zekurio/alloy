@@ -9,6 +9,7 @@ import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { getGameRefById } from "@alloy/server/games/ref"
 import { conflict, badRequest } from "@alloy/server/runtime/http-response"
+import { rateLimiter } from "@alloy/server/runtime/rate-limit"
 import { stagedUploadDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import { enqueueStorageDeletion } from "@alloy/server/storage/deletion-store"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
@@ -283,9 +284,21 @@ async function initiateClipUpload(
   })
 }
 
+/**
+ * Per user. Each initiate reserves quota and a staged upload until it expires,
+ * so a script could otherwise pile them up; this leaves room for a queue of
+ * screenshots going up one after another.
+ */
+const initiateRateLimit = rateLimiter<{ Variables: { viewerId: string } }>({
+  windowMs: 10 * 60 * 1000,
+  max: 120,
+  key: (c) => c.var.viewerId,
+})
+
 export const clipsUploadInitiateRoutes = new Hono().post(
   "/initiate",
   requireSession,
+  initiateRateLimit,
   tbValidator("json", InitiateBody),
   async (c) => {
     const viewerId = c.var.viewerId

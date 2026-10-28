@@ -8,7 +8,7 @@ import {
 import { db } from "@alloy/server/db/index"
 import { forbidden, unauthorized } from "@alloy/server/runtime/http-response"
 import { requestIp } from "@alloy/server/runtime/request-ip"
-import { and, desc, eq, gt, ne, sql } from "drizzle-orm"
+import { and, desc, eq, gt, ne } from "drizzle-orm"
 import type { Context } from "hono"
 import { createMiddleware } from "hono/factory"
 
@@ -60,8 +60,8 @@ async function touchSession(
   now: Date,
   ipAddress: string | null,
 ): Promise<void> {
-  const lastSeenAt = row.session.last_seen_at ?? row.session.updated_at
-  if (lastSeenAt.getTime() + SESSION_TOUCH_MS >= now.getTime()) return
+  if (row.session.last_seen_at.getTime() + SESSION_TOUCH_MS >= now.getTime())
+    return
 
   const expiresAt = idleExpiresAt(now)
   await db
@@ -213,9 +213,7 @@ export function listUserSessions(
     )
     .orderBy(
       desc(eq(authSession.id, currentId)),
-      desc(
-        sql`coalesce(${authSession.last_seen_at}, ${authSession.created_at})`,
-      ),
+      desc(authSession.last_seen_at),
       desc(authSession.created_at),
     )
 }

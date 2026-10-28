@@ -7,34 +7,25 @@ import { constantTimeEqual, hmacSha256 } from "@alloy/server/runtime/crypto"
 
 import type { UploadTicket, UploadTicketStrategy } from "./driver"
 
-export type UploadTokenMode = "single" | "fs-chunked"
-
 const NonBlankTokenString = t
   .string()
   .refine((value) => value.trim().length > 0)
-const UploadTokenPayloadSchema = t
-  .object({
-    /** key - opaque storage key the bytes will land at */
-    k: NonBlankTokenString,
-    /** contentType - MIME baked into the ticket */
-    ct: NonBlankTokenString,
-    /** maxBytes - hard cap for the upload */
-    mb: t.number().int().positive().refine(Number.isSafeInteger),
-    /** exp - unix-seconds expiry */
-    exp: t.number().int().positive().refine(Number.isSafeInteger),
-    /** userId - auth-session owner the ticket was minted for */
-    uid: NonBlankTokenString,
-    /** clipId - reserved clip row the ticket targets */
-    cid: NonBlankTokenString,
-    /** mode - upload strategy baked into the signed ticket */
-    m: t.enum(["single", "fs-chunked"]).optional(),
-    /** chunkSize - fixed part size for resumable upload strategies */
-    cs: t.number().int().positive().refine(Number.isSafeInteger).optional(),
-  })
-  .refine(
-    (payload) => payload.m !== "fs-chunked" || payload.cs !== undefined,
-    "Chunked upload tokens require a chunk size.",
-  )
+const UploadTokenPayloadSchema = t.object({
+  /** key - opaque storage key the bytes will land at */
+  k: NonBlankTokenString,
+  /** contentType - MIME baked into the ticket */
+  ct: NonBlankTokenString,
+  /** maxBytes - hard cap for the upload */
+  mb: t.number().int().positive().refine(Number.isSafeInteger),
+  /** exp - unix-seconds expiry */
+  exp: t.number().int().positive().refine(Number.isSafeInteger),
+  /** userId - auth-session owner the ticket was minted for */
+  uid: NonBlankTokenString,
+  /** clipId - reserved clip row the ticket targets */
+  cid: NonBlankTokenString,
+  /** chunkSize - fixed size of every upload part but the last */
+  cs: t.number().int().positive().refine(Number.isSafeInteger),
+})
 
 export type UploadTokenPayload = t.infer<typeof UploadTokenPayloadSchema>
 
@@ -55,7 +46,7 @@ export async function mintFsUploadTicket(input: {
   publicBaseUrl: string
   secret: string
   headers?: Record<string, string>
-  strategy?: UploadTicketStrategy
+  strategy: UploadTicketStrategy
 }): Promise<UploadTicket> {
   const token = await signToken(input.payload, input.secret)
   const baseUrl = input.publicBaseUrl.replace(/\/+$/, "")

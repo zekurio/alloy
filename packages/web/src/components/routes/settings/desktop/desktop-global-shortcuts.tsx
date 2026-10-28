@@ -24,7 +24,7 @@ function useDesktopShortcuts(): [
   const [state, setState] = useState<DesktopShortcutsState | null>(null)
 
   useEffect(() => {
-    if (!recording?.getShortcuts) return
+    if (!recording) return
     let cancelled = false
     let received = false
     const unsubscribe = recording.onEvent((event) => {
@@ -107,12 +107,10 @@ export function GlobalShortcutsSection() {
               type="button"
               size="sm"
               variant="secondary"
-              disabled={pending || state.binding || !recording.bindShortcuts}
+              disabled={pending || state.binding}
               onClick={() =>
                 void run(async () => {
-                  if (recording.bindShortcuts) {
-                    setState(await recording.bindShortcuts())
-                  }
+                  setState(await recording.bindShortcuts())
                 }, t("Couldn't set up the shortcuts with your desktop."))
               }
             >
@@ -124,12 +122,10 @@ export function GlobalShortcutsSection() {
               type="button"
               size="sm"
               variant="secondary"
-              disabled={
-                pending || state.binding || !recording.configureShortcuts
-              }
+              disabled={pending || state.binding}
               onClick={() =>
                 void run(
-                  () => recording.configureShortcuts?.(),
+                  () => recording.configureShortcuts(),
                   t("Couldn't open your desktop's shortcut settings."),
                 )
               }

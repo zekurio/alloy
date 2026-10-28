@@ -1,10 +1,6 @@
 import { isFiniteNumberValue, isStringValue } from "./object"
 import { t } from "./schema"
-import {
-  DEFAULT_UPLOAD_LIMITS,
-  positiveSafeIntegerSchema,
-  UploadLimitsSchema,
-} from "./upload-limits"
+import { positiveSafeIntegerSchema, UploadLimitsSchema } from "./upload-limits"
 
 /** Stable discriminator for the public server-info document. */
 export const SERVER_INFO_SCHEMA = "alloy.server-info" as const
@@ -80,7 +76,6 @@ const TransportCapabilitiesSchema = t.looseObject({
 })
 
 const DesktopHttpCapabilitiesSchema = t.looseObject({
-  screenshots: t.enum([1]).optional(),
   auth: AuthCapabilitiesSchema,
   transport: TransportCapabilitiesSchema,
 })
@@ -105,7 +100,7 @@ export const ServerInfoSchema = t.looseObject({
    */
   desktopBridgeContracts: t.array(PositiveSafeIntegerSchema),
   capabilities: DesktopHttpCapabilitiesSchema,
-  uploadLimits: UploadLimitsSchema.$default(DEFAULT_UPLOAD_LIMITS),
+  uploadLimits: UploadLimitsSchema,
 })
 
 export type ServerInfo = t.infer<typeof ServerInfoSchema>

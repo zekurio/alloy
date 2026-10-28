@@ -4,12 +4,7 @@ import {
   type FingerprintSourceFacts,
 } from "@alloy/server/media/encode-fingerprint"
 
-export type ClipMediaAction =
-  | "full"
-  | "waveform"
-  | "thumbnail"
-  | "skip"
-  | "quarantine"
+export type ClipMediaAction = "full" | "thumbnail" | "skip" | "quarantine"
 
 export interface ClipMediaPolicyInput {
   force: boolean
@@ -19,8 +14,6 @@ export interface ClipMediaPolicyInput {
   encodeFailedFingerprint: string | null
   encodeFailedGeneration: number | null
   hasSource: boolean
-  hasAudio: boolean
-  hasWaveform: boolean
   hasCut: boolean
   hasThumbnail: boolean
   thumbnailFailed: boolean
@@ -43,7 +36,6 @@ export function chooseClipMediaAction(
   const needsCut =
     input.facts.trimStartMs !== null && input.facts.trimEndMs !== null
   if (input.hasCut !== needsCut) return "full"
-  if (input.hasAudio !== input.hasWaveform) return "waveform"
   if (!input.hasThumbnail && !input.thumbnailFailed && input.hasSource) {
     return "thumbnail"
   }

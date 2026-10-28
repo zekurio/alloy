@@ -12,8 +12,6 @@ export const MEDIA_MESSAGES = {
     "Ergänze die Details, bevor die Datei in deiner Bibliothek gespeichert wird.",
   "Add game": "Spiel hinzufügen",
   "Add hashtag...": "Hashtag hinzufügen...",
-  "Add the clip details before it enters your library.":
-    "Füge die Clip-Details hinzu, bevor er in deine Bibliothek kommt.",
   "All games": "Alle Spiele",
   "All media": "Alle Medien",
   "All sources": "Alle Quellen",
@@ -21,21 +19,16 @@ export const MEDIA_MESSAGES = {
   "Arrow keys move the crop. Shift + arrow keys resize it.":
     "Pfeiltasten verschieben den Ausschnitt. Umschalt + Pfeiltasten ändern seine Größe.",
   Artwork: "Artwork",
-  "Artwork updated": "Artwork aktualisiert",
   "Aspect ratio": "Seitenverhältnis",
   "Awaiting upload": "Warten auf Upload",
   "Back to library": "Zurück zur Bibliothek",
-  "Banner updated": "Banner aktualisiert",
   "Be the first to post one.": "Sei der Erste, der etwas postet.",
   Bitrate: "Bitrate",
   Blur: "Weichzeichnen",
-  "Choose an MP4 video file.": "Wähle eine MP4-Videodatei aus.",
   "Choose an MP4 video or a PNG, JPEG, or WebP image.":
     "Wähle ein MP4-Video oder ein Bild im Format PNG, JPEG oder WebP.",
   "Choose date": "Datum wählen",
   "Clear date": "Datum löschen",
-  "Click a slot to replace or remove what's live.":
-    "Klicke ein Feld an, um das Live-Artwork zu ersetzen oder zu entfernen.",
   "Click media to edit.": "Medien zum Bearbeiten anklicken.",
   "Click the avatar or banner to add media.":
     "Klicke auf Avatar oder Banner, um Medien hinzuzufügen.",
@@ -43,24 +36,18 @@ export const MEDIA_MESSAGES = {
   "Clip actions": "Clip-Aktionen",
   "Clip deleted": "Clip gelöscht",
   "Clip deleted from server": "Clip vom Server gelöscht",
-  "Clip deleted from server and this device":
-    "Clip vom Server und diesem Gerät gelöscht",
   "Clip deleted from server, but the local copy couldn't be removed":
     "Clip vom Server gelöscht, aber die lokale Kopie konnte nicht entfernt werden",
   "Clip deleted from server, but the local sync link couldn't be cleared":
     "Clip vom Server gelöscht, aber der lokale Sync-Link konnte nicht gelöscht werden",
-  "Clip imported to your library": "Clip in deine Bibliothek importiert",
   "Clip link disabled": "Clip-Link deaktiviert",
   "Clip link is disabled": "Clip-Link ist deaktiviert",
   "Clip not found": "Clip nicht gefunden",
   "Clip posted": "Clip veröffentlicht",
   "Clip unposted": "Clip zurückgezogen",
-  "Clip updated": "Clip aktualisiert",
   Clips: "Clips",
   "Clips from this user will show up here once they upload.":
     "Clips von diesem Nutzer erscheinen hier, sobald er etwas hochlädt.",
-  "Come back when others have uploaded some clips.":
-    "Komm wieder, wenn andere ein paar Clips hochgeladen haben.",
   "Copy link": "Link kopieren",
   "Copying…": "Wird kopiert…",
   "Could not export screenshot": "Screenshot konnte nicht exportiert werden",
@@ -85,7 +72,6 @@ export const MEDIA_MESSAGES = {
   "Couldn't open image": "Bild konnte nicht geöffnet werden",
   "Couldn't prepare clip": "Clip konnte nicht vorbereitet werden",
   "Couldn't reach SteamGridDB": "SteamGridDB konnte nicht erreicht werden",
-  "Couldn't read that file": "Diese Datei konnte nicht gelesen werden",
   "Couldn't search": "Suche fehlgeschlagen",
   "Couldn't share clip": "Clip konnte nicht geteilt werden",
   "Couldn't trim the clip": "Clip konnte nicht zugeschnitten werden",
@@ -93,13 +79,10 @@ export const MEDIA_MESSAGES = {
   "Couldn't update visibility": "Sichtbarkeit konnte nicht aktualisiert werden",
   Cover: "Cover",
   "Create Link": "Link erstellen",
-  "Create and manage custom games and their artwork.":
-    "Eigene Spiele und ihr Artwork erstellen und verwalten.",
   "Create custom games and manage their artwork.":
     "Eigene Spiele erstellen und ihr Artwork verwalten.",
   "Creating link...": "Link wird erstellt...",
   Crop: "Zuschneiden",
-  "Crop top": "Oben",
   "Delete all clips?": "Alle Clips löschen?",
   "Delete clip": "Clip löschen",
   "Delete clips": "Clips löschen",
@@ -111,12 +94,8 @@ export const MEDIA_MESSAGES = {
   "Download a zip archive with the original files for your clips.":
     "Lade ein ZIP-Archiv mit den Originaldateien deiner Clips herunter.",
   "Download clips": "Clips herunterladen",
-  "Download {title} to this device": "{title} auf dieses Gerät herunterladen",
   "Drag image to reposition crop":
     "Zieh das Bild, um den Ausschnitt neu zu positionieren",
-  "Drag on the image to crop.": "Ziehe einen Rahmen im Bild zum Zuschneiden.",
-  "Drag to crop, or adjust the crop percentages below. Your original file stays unchanged.":
-    "Ziehe einen Rahmen zum Zuschneiden oder passe die Prozentwerte unten an. Deine Originaldatei bleibt unverändert.",
   "Drag to scrub, pinch to zoom": "Zum Spulen ziehen, zum Zoomen kneifen",
   "Edit cover": "Cover bearbeiten",
   "Edit icon": "Symbol bearbeiten",
@@ -132,37 +111,25 @@ export const MEDIA_MESSAGES = {
   Free: "Frei",
   Fullscreen: "Vollbild",
   Game: "Spiel",
-  "Game created": "Spiel erstellt",
-  "Game deleted": "Spiel gelöscht",
-  "Game details unavailable": "Spieldetails nicht verfügbar",
-  "Game updated": "Spiel aktualisiert",
   Games: "Spiele",
   High: "Hoch",
   "Image dimensions": "Bildabmessungen",
   "Image dimensions are too large": "Die Bildabmessungen sind zu groß",
   "Image editing is unavailable": "Die Bildbearbeitung ist nicht verfügbar",
   "Image tools": "Bildwerkzeuge",
-  "Image updated": "Bild aktualisiert",
   "Import clip": "Clip importieren",
-  "Import clips": "Clips importieren",
   "Import media": "Medien importieren",
   "Importing...": "Wird importiert...",
   "It may have been deleted, or you may not have access to it.":
     "Vielleicht wurde es gelöscht oder du hast keinen Zugriff darauf.",
-  "Its artwork is removed and any clips lose their game tag. This can't be undone.":
-    "Das Artwork wird entfernt und alle Clips verlieren ihre Spielzuordnung. Das kann nicht rückgängig gemacht werden.",
   Left: "Links",
   Library: "Bibliothek",
   "Link copied": "Link kopiert",
-  "Link copied to clipboard": "Link in die Zwischenablage kopiert",
   "Link created": "Link erstellt",
-  "Link created and copied": "Link erstellt und kopiert",
   "Link created, but couldn't copy it":
     "Link erstellt, aber er konnte nicht kopiert werden",
-  "Media type": "Medientyp",
   "More clip options": "Weitere Clip-Optionen",
   "More post options": "Weitere Post-Optionen",
-  "More upload options": "Weitere Upload-Optionen",
   "Move trim window": "Trimmfenster verschieben",
   Mute: "Stumm",
   "Network error while loading the video.":
@@ -188,7 +155,6 @@ export const MEDIA_MESSAGES = {
   "No posts yet": "Noch keine Beiträge",
   "No public clips yet": "Noch keine öffentlichen Clips",
   "No screenshots yet": "Noch keine Screenshots",
-  "No uploads in progress": "Keine laufenden Uploads",
   Normal: "Normal",
   "Nothing found for {query}. Try a different title, game, file, or user.":
     "Keine Treffer für {query}. Probiere einen anderen Titel, ein anderes Spiel, eine andere Datei oder einen anderen Nutzer.",
@@ -211,7 +177,6 @@ export const MEDIA_MESSAGES = {
   "Playback speed": "Wiedergabegeschwindigkeit",
   "Playback unavailable.": "Wiedergabe nicht verfügbar.",
   Post: "Posten",
-  "Posted and link copied": "Veröffentlicht und Link kopiert",
   "Posted, but couldn't copy the link":
     "Veröffentlicht, aber der Link konnte nicht kopiert werden",
   "Poster updated": "Poster aktualisiert",
@@ -238,7 +203,6 @@ export const MEDIA_MESSAGES = {
   "Removing...": "Wird entfernt...",
   "Reset trim": "Zuschnitt zurücksetzen",
   Retry: "Wiederholen",
-  "Rotate 90°": "Um 90° drehen",
   "Rotate left": "Nach links drehen",
   "Rotate right": "Nach rechts drehen",
   "Rotated image dimensions are too large":
@@ -272,8 +236,6 @@ export const MEDIA_MESSAGES = {
   "Swipe to navigate": "Zum Navigieren wischen",
   "The browser could not decode this video.":
     "Der Browser konnte dieses Video nicht dekodieren.",
-  "This server does not support screenshot uploads yet.":
-    "Dieser Server unterstützt noch keine Screenshot-Uploads.",
   "This shortcut is already assigned to clips.":
     "Dieses Tastenkürzel ist bereits Clips zugewiesen.",
   "This shortcut is already assigned to screenshots.":
@@ -283,8 +245,6 @@ export const MEDIA_MESSAGES = {
   Title: "Titel",
   "Trim clip": "Clip zuschneiden",
   "Trim end": "Ende abschneiden",
-  "Trim saved — the clip is reprocessing":
-    "Zuschnitt gespeichert – der Clip wird neu verarbeitet",
   "Trim selection": "Zuschnitt-Auswahl",
   "Trim start": "Anfang abschneiden",
   "Trimmed to": "Zugeschnitten auf",
@@ -307,14 +267,11 @@ export const MEDIA_MESSAGES = {
     "Lade einen Clip hoch und wähle ein Spiel, um diese Liste zu füllen.",
   "Upload center": "Upload-Center",
   "Upload center: {label}": "Upload-Center: {label}",
-  "Upload clip": "Clip hochladen",
   "Upload failed": "Upload fehlgeschlagen",
   "Upload media": "Medien hochladen",
   "Upload started": "Upload gestartet",
   "Upload started, but the clip link couldn't be copied.":
     "Der Upload wurde gestartet, aber der Clip-Link konnte nicht kopiert werden.",
-  "Upload status": "Upload-Status",
-  "Upload status: {label}": "Upload-Status: {label}",
   Uploaded: "Hochgeladen",
   Uploading: "Wird hochgeladen",
   "Uploading...": "Wird hochgeladen...",
@@ -336,7 +293,6 @@ export const MEDIA_MESSAGES = {
   Width: "Breite",
   "Your library is empty": "Deine Bibliothek ist leer",
   Zoom: "Zoom",
-  "Zoom image": "Bild vergrößern",
   "Zoom in": "Vergrößern",
   "Zoom out": "Verkleinern",
   clip: "Clip",

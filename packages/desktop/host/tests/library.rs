@@ -82,6 +82,10 @@ async fn manifest_keeps_valid_entries_beside_malformed_records() {
         "filename": "guess.mp4",
         "title": "Guessed game",
         "kind": "replay",
+        "source": "game",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z",
+        "mentions": [],
         "gameGuess": {
             "source": "discord-detectable",
             "sourceId": "700136079562375258",
@@ -105,6 +109,11 @@ async fn manifest_keeps_valid_entries_beside_malformed_records() {
                 "id": "valid-capture-001",
                 "filename": "valid.mp4",
                 "title": "Quoted \"title\" with Unicode: 日本語",
+                "kind": "replay",
+                "source": "display",
+                "createdAt": "2026-01-01T00:00:00Z",
+                "updatedAt": "2026-01-01T00:00:00Z",
+                "mentions": [],
                 "unknownFutureField": {"nested": [1, true, null]}
             },
             "guess.mp4": accepted,
@@ -470,7 +479,6 @@ async fn startup_sweeps_what_interrupted_jobs_left() {
     fs::create_dir_all(export.parent().unwrap()).await.unwrap();
     let leftovers = [
         clips.join("Downloaded clip.mp4.part"),
-        clips.join("clip.concat.txt"),
         clips.join(".clip.0f6b8c1e-7a1d-4a8e-9f00-3c1b2a4d5e6f.tmp.mp4"),
         clips.join(".replay.4242.tmp.mp4"),
         screenshots.join("Downloaded shot.png.part"),

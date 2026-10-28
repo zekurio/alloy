@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Creates the repo `.env` from `.env.example` with generated local secrets on
-# first shell entry, and adds secrets an older `.env` lacks unless the shell
-# already sets them. Runs from enterShell in devenv.nix.
+# first shell entry. Runs from enterShell in devenv.nix.
 set -eu
 
 template="$DEVENV_ROOT/.env.example"
@@ -21,12 +20,3 @@ if [ ! -e "$env_file" ]; then
   mv "$env_file.tmp" "$env_file"
   echo "Created .env from .env.example with generated local secrets" >&2
 fi
-
-for key in ALLOY_VIEWER_COOKIE_SECRET ALLOY_UPLOAD_HMAC_SECRET; do
-  [ -z "${!key:-}" ] || continue
-  [ -z "$(sed -n "s/^$key=//p" "$env_file" | tail -n 1)" ] || continue
-
-  printf '\n%s=%s\n' "$key" "$(secret)" >>"$env_file"
-  chmod 600 "$env_file"
-  echo "Added $key to .env with a generated local secret" >&2
-done

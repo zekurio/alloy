@@ -60,16 +60,11 @@ export function GlobalUploadControl({
           type="button"
           variant="primary"
           size="sm"
-          disabled={!importAction.available || pending}
+          disabled={pending}
           state={pending ? "pending" : importAction.error ? "error" : "idle"}
           errorLabel={variant === "header" ? t("Try again") : compactErrorLabel}
           className={triggerClassName}
-          title={
-            importAction.error ??
-            (variant !== "header" || importAction.available
-              ? triggerLabel
-              : t("Import is unavailable in this desktop build"))
-          }
+          title={importAction.error ?? triggerLabel}
           onClick={() => {
             // Warm the chunk; lazy() re-fetches on mount if this fails.
             void loadImportClipDialog().catch(() => {})

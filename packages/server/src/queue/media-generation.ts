@@ -8,7 +8,6 @@ import type { DbTransaction } from "@alloy/server/db/transaction"
 import { eq } from "drizzle-orm"
 
 const GENERATION_KEY = "mediaEncodeGeneration"
-const FORCE_PENDING_KEY = "mediaEncodeForcePending"
 
 const MediaGenerationSchema = t.object({
   generation: t.number().int().min(1),
@@ -19,7 +18,7 @@ const MediaGenerationSchema = t.object({
 
 export type MediaGeneration = Readonly<t.infer<typeof MediaGenerationSchema>>
 
-type Executor = Pick<DbTransaction, "delete" | "insert" | "select" | "update">
+type Executor = Pick<DbTransaction, "insert" | "select" | "update">
 
 export function mediaConfigSignature(config: TranscodingConfig): string {
   return createHash("sha256")
@@ -102,19 +101,7 @@ async function synchronizeWithExecutor(
   } else if (!parsed.success) {
     current = await writeGeneration(executor, initial)
   }
-
-  const [forcePending] = await executor
-    .delete(instanceSetting)
-    .where(eq(instanceSetting.key, FORCE_PENDING_KEY))
-    .returning({ key: instanceSetting.key })
-  if (!forcePending) return current
-
-  const generation = current.generation + 1
-  return writeGeneration(executor, {
-    ...current,
-    generation,
-    forceGeneration: generation,
-  })
+  return current
 }
 
 async function writeGeneration(

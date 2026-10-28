@@ -30,7 +30,7 @@ pub struct CaptureMention {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct ManifestEntry {
     pub id: String,
     pub filename: String,
@@ -48,7 +48,6 @@ pub struct ManifestEntry {
     pub updated_at: String,
     pub description: Option<String>,
     pub tags: Option<String>,
-    #[serde(default)]
     pub mentions: Vec<CaptureMention>,
     pub privacy: Option<String>,
     pub uploaded_clip_id: Option<String>,
@@ -71,7 +70,6 @@ pub(crate) const MANIFEST_VERSION: u8 = 2;
 #[serde(rename_all = "camelCase")]
 pub struct CaptureManifest {
     pub version: u8,
-    #[serde(default)]
     pub captures: BTreeMap<String, ManifestEntry>,
 }
 

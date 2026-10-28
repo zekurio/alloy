@@ -17,7 +17,6 @@ import type { AlloyDesktop, RecordingLibraryStagedImport } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 
 export interface ImportClipAction {
-  available: boolean
   picking: boolean
   committing: boolean
   error: string | null
@@ -97,8 +96,6 @@ export function useImportClipAction(
       discardLeftover(desktop)
     }
   }, [desktop])
-
-  const available = desktop !== null
 
   const start = useCallback(async () => {
     if (!desktop || busy || staged) return
@@ -190,7 +187,6 @@ export function useImportClipAction(
   )
 
   return {
-    available,
     picking,
     committing,
     error,

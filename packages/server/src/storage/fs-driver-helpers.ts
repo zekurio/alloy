@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs"
-import { readdir, rm, stat, utimes } from "node:fs/promises"
+import { readdir, stat, utimes } from "node:fs/promises"
 import { Readable } from "node:stream"
 
 import { t } from "@alloy/contracts/schema"
@@ -27,31 +27,6 @@ export async function* walkFsFiles(
     })
     if (!stats) continue
     yield { path, lastModified: stats.mtime ?? null }
-  }
-}
-
-const LEGACY_TEMPORARY_SUFFIX =
-  /^\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.tmp$/i
-
-/**
- * Removes the `<object>.<uuid>.tmp` files older builds wrote beside an
- * object and stranded when the process died mid-write. Current builds stage
- * in the object's `.parts` folder instead.
- */
-export async function removeLegacyTemporaries(
-  objectPath: string,
-): Promise<void> {
-  const slash = objectPath.lastIndexOf("/")
-  const dir = objectPath.slice(0, slash)
-  const name = objectPath.slice(slash + 1)
-  const entries = await readdir(dir).catch(() => [])
-  for (const entry of entries) {
-    if (
-      !entry.startsWith(name) ||
-      !LEGACY_TEMPORARY_SUFFIX.test(entry.slice(name.length))
-    )
-      continue
-    await rm(`${dir}/${entry}`, { force: true })
   }
 }
 

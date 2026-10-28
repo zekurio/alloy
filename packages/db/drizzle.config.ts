@@ -1,4 +1,4 @@
-import { dirname, join } from "node:path"
+import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { createEnv, postgresUrl } from "@alloy/env"
@@ -8,10 +8,9 @@ import { Type } from "typebox"
 
 const packageDir = dirname(fileURLToPath(import.meta.url))
 
-// Fill in unset variables from local development `.env` files. Drizzle runs in
-// the db package, but DATABASE_URL is shared with the server package.
+// Fill in unset variables from the nearest local development `.env`, the
+// repository root's unless the db package has its own.
 loadDotenv(packageDir)
-loadDotenv(join(packageDir, "..", "server"))
 
 const env = createEnv(
   Type.Object({

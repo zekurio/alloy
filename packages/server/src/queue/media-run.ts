@@ -42,7 +42,6 @@ import type {
 } from "./media-store"
 
 export { runThumbnailBackfill } from "./media-thumbnail-backfill"
-export { runWaveformBackfill } from "./media-run-waveform"
 
 /**
  * Run the media pipeline for one leased clip. Downloads the source, applies a

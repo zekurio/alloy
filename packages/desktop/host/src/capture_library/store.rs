@@ -34,8 +34,8 @@ const MAX_MENTIONS: usize = 100;
 const MAX_STAGED_IMPORT_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 /// How long an export render is protected for the renderer that asked for
 /// it. The renderer fetches the render right away and releases it, so a
-/// lease this old was taken by a web build that never releases; a newer
-/// render of the same capture may then replace it.
+/// lease this old belongs to a renderer that reloaded or crashed first; a
+/// newer render of the same capture may then replace it.
 const EXPORT_LEASE_TTL: Duration = Duration::from_secs(15 * 60);
 const BLURHASH_ALPHABET: &str =
     "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~";
@@ -180,7 +180,7 @@ impl CaptureLibrary {
     }
 
     /// Removes what interrupted jobs left beside the captures: partial
-    /// downloads, temporary files and concat lists. Scans skip them, but
+    /// downloads and temporary files. Scans skip them, but
     /// they hold disk space, and a partial download holds its clip's file
     /// name. The host runs this once at startup and holds back jobs that
     /// write to the capture folder until it is done. Only files go; the
@@ -380,7 +380,7 @@ impl CaptureLibrary {
     /// Keeps only the named render among a capture's exports, or none, plus
     /// any render a renderer still holds a lease on. Every export is
     /// reproducible from the capture, so this bounds the cache to one render
-    /// per capture for web builds that never release theirs. Cleanup only:
+    /// per capture when a renderer goes away without releasing. Cleanup only:
     /// a render it cannot remove stays until the next startup.
     pub(crate) fn replace_exports(&self, capture_id: &str, keep: Option<&str>) {
         let keep = keep
@@ -1697,8 +1697,6 @@ async fn copy_into(source: &Path, destination: &Path) -> Result<()> {
 fn is_job_leftover(name: &str) -> bool {
     // A download's partial file, `<clip>.<media extension>.part`.
     name.strip_suffix(".part").is_some_and(|clip| is_media(Path::new(clip)))
-        // The list `concat_segments` hands ffmpeg.
-        || name.ends_with(".concat.txt")
         // A `TempFile`, or the recorder's copy out of its scratch folder.
         || (name.starts_with('.') && name.contains(".tmp."))
 }

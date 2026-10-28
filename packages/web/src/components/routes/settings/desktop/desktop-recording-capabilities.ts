@@ -3,15 +3,10 @@ import type {
   RecordingStatus,
 } from "@alloy/contracts/desktop"
 
-/**
- * Whether the recorder on this host reports `capability`. A status without
- * the list comes from a host that predates it and counts as the full set,
- * which is what Windows records with.
- */
+/** Whether the recorder on this host reports `capability`. */
 export function recorderSupports(
   status: RecordingStatus,
   capability: RecordingCapability,
 ): boolean {
-  const capabilities = status.capabilities
-  return !capabilities?.length || capabilities.includes(capability)
+  return status.capabilities.includes(capability)
 }

@@ -117,7 +117,7 @@ export interface SessionData {
     expiresAt: IsoDateString | null
     createdAt: IsoDateString
     updatedAt: IsoDateString
-    lastSeenAt: IsoDateString | null
+    lastSeenAt: IsoDateString
   }
   user: AuthUser
 }

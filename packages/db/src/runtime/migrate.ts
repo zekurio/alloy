@@ -11,13 +11,7 @@ const migrationsFolder =
   fileURLToPath(new URL("../../drizzle", import.meta.url))
 
 export async function migrateDatabase(databaseUrl: string) {
-  // Migrations see the session the app had before it pinned UTC, the same one
-  // `drizzle-kit migrate` gets. A data migration that writes `timestamp`
-  // values must convert to UTC itself, as 0003_utc_created_at does.
-  const client = createPostgresPool(databaseUrl, {
-    max: 1,
-    utcSessions: false,
-  })
+  const client = createPostgresPool(databaseUrl, { max: 1 })
 
   try {
     await client.query("select pg_advisory_lock(hashtext('alloy_migrations'))")

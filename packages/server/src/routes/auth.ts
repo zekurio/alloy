@@ -110,8 +110,8 @@ export const authRoute = new Hono()
     const session = await getSession(c)
     const token = readSessionToken(c)
     // Renewing the cookie with the same token restarts its lifetime and moves
-    // legacy refresh cookies and the desktop app's injected cookie over to
-    // the server's own host-only `alloy_session`.
+    // the desktop app's injected cookie over to the server's own host-only
+    // `alloy_session`.
     if (session && token) setSessionCookie(c, token)
     else if (token) clearSessionCookies(c)
     return c.json(session ? publicSessionData(session) : null)

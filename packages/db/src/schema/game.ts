@@ -5,7 +5,6 @@ import {
   index,
   integer,
   pgTable,
-  real,
   text,
   timestamp,
   uuid,
@@ -34,10 +33,10 @@ export const game = pgTable(
     created_at: timestamp().notNull().defaultNow(),
     updated_at: timestamp().notNull().defaultNow(),
     // SteamGridDB refresh schedule. `refresh_after` is the earliest time the
-    // next refresh may run; null means "derive from updated_at" for rows that
-    // predate the column. Failed refreshes stamp a backoff here and count in
-    // `refresh_failures`, so an upstream outage or a deleted game does not
-    // cost a SteamGridDB round-trip on every read.
+    // next refresh may run; null for custom games, which never refresh.
+    // Failed refreshes stamp a backoff here and count in `refresh_failures`,
+    // so an upstream outage or a deleted game does not cost a SteamGridDB
+    // round-trip on every read.
     refresh_after: timestamp(),
     refresh_failures: integer().notNull().default(0),
   },
@@ -47,29 +46,5 @@ export const game = pgTable(
       "game_source_check",
       sql`${t.source} in (${sql.raw(sqlStringList(GAME_SOURCE))})`,
     ),
-  ],
-)
-
-export const gameDetectionMapping = pgTable(
-  "game_detection_mapping",
-  {
-    id: uuid().primaryKey().defaultRandom(),
-    source: text().notNull(),
-    source_id: text(),
-    executable: text(),
-    normalized_name: text().notNull(),
-    game_id: uuid().references(() => game.id, {
-      onDelete: "set null",
-    }),
-    status: text().$type<"auto" | "confirmed" | "rejected">().notNull(),
-    confidence: real().notNull().default(0),
-    created_at: timestamp().notNull().defaultNow(),
-    updated_at: timestamp().notNull().defaultNow(),
-  },
-  (t) => [
-    index("game_detection_mapping_source_idx").on(t.source, t.source_id),
-    index("game_detection_mapping_executable_idx").on(t.executable),
-    index("game_detection_mapping_name_idx").on(t.normalized_name),
-    index("game_detection_mapping_game_idx").on(t.game_id),
   ],
 )

@@ -109,13 +109,6 @@ export interface MediaStore {
     runId: string,
     patch: MediaThumbPatch,
   ): Promise<boolean>
-  /** Commit a compact waveform source and release an asset-only run. */
-  commitWaveform(
-    id: string,
-    runId: string,
-    waveformKey: string | null,
-    completion: MediaCompletion,
-  ): Promise<boolean>
   /** Clear a thumbnail-only run after success. */
   finishThumbnailBackfill(
     id: string,

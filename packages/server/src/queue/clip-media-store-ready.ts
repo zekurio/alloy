@@ -172,7 +172,7 @@ async function commitReadyTransaction(
   if (!current) return noReadyCommit()
   enforceReadyQuota(quota, patch, current)
   const previousRenditions = await tx
-    .select({ storageKey: clipRendition.storage_key, og: clipRendition.is_og })
+    .select({ storageKey: clipRendition.storage_key })
     .from(clipRendition)
     .where(eq(clipRendition.clip_id, id))
   if (!(await markClipReady(tx, id, runId, patch, completion))) {
@@ -205,13 +205,9 @@ async function commitReadyTransaction(
   )
   // A publish moment is the commit that first makes the clip announceable.
   // The fingerprint is written only here and never cleared, so a null read
-  // under the lock means no encode has completed before. Rows that predate
-  // fingerprinting are ready with a null one, so a social-preview rendition
-  // from an earlier commit rules the moment out as well. Re-encodes and
+  // under the lock means no encode has completed before. Re-encodes and
   // backfills therefore keep the ledger as it is.
-  const firstPublishable =
-    current.encodeFingerprint === null &&
-    !previousRenditions.some((rendition) => rendition.og)
+  const firstPublishable = current.encodeFingerprint === null
   return {
     committed: true,
     webhookClaims: firstPublishable

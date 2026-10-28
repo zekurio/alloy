@@ -194,18 +194,6 @@ export const clipMediaStore: MediaStore = {
     })
   },
 
-  async commitWaveform(id, runId, waveformKey, completion) {
-    return commitAssetReplacement(id, runId, {
-      columns: {
-        ...finishedAssetLeaseColumns(completion),
-        waveform_key: waveformKey,
-      },
-      replaced: ["waveformKey"],
-      retainedKeys: [waveformKey],
-      reason: "media waveform replaced",
-    })
-  },
-
   async finishThumbnailBackfill(id, runId, completion) {
     const [row] = await db
       .update(clip)

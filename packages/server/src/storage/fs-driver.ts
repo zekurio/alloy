@@ -29,7 +29,6 @@ import {
   isCopyFallbackError,
   isOsErrorCode,
   markLinkedPublishTime,
-  removeLegacyTemporaries,
   uploadPartExpectedBytes,
   UploadPartSizeMismatchError,
   UploadPartTooLargeError,
@@ -133,7 +132,6 @@ export class FsStorageDriver implements StorageDriver {
       exp: expiresAt,
       uid: input.userId,
       cid: input.clipId,
-      m: "fs-chunked",
       cs: FS_UPLOAD_CHUNK_SIZE_BYTES,
     }
     return mintFsUploadTicket({
@@ -311,7 +309,6 @@ export class FsStorageDriver implements StorageDriver {
       if (!isOsErrorCode(err, "ENOENT")) throw err
     }
     await rm(this.partDir(key), { recursive: true, force: true })
-    await removeLegacyTemporaries(full)
     await this.pruneEmptyAncestors(dirname(full))
   }
 

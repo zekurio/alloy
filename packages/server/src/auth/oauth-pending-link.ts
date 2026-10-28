@@ -20,7 +20,7 @@ import {
 import { createUserForOAuthAccount, linkAccountToUser } from "./oauth-accounts"
 import { OAUTH_STATE_TTL_MS } from "./oauth-challenges"
 import { callbackURLWithWelcome, requireEnabledProvider } from "./oauth-client"
-import type { OAuthProfile, StoredTokens } from "./oauth-types"
+import type { OAuthProfile } from "./oauth-types"
 
 // An OAuth sign-in whose username claim named an existing user. The callback
 // keeps the identity it already verified so the user can sign in to that
@@ -41,13 +41,6 @@ const PendingOAuthLinkPayloadSchema = t.object({
     storageQuotaBytes: t.number().nullable().optional(),
     usernameHint: t.string().nullable(),
   }),
-  tokens: t.object({
-    accessToken: t.string().nullable(),
-    refreshToken: t.string().nullable(),
-    idToken: t.string().nullable(),
-    accessTokenExpiresAt: t.iso.datetime().nullable(),
-    scope: t.string().nullable(),
-  }),
 })
 
 type PendingOAuthLink = {
@@ -55,7 +48,6 @@ type PendingOAuthLink = {
   callbackURL: string
   profile: OAuthProfile
   providerId: string
-  tokens: StoredTokens
 }
 
 /** Save a sign-in for {@link linkPendingOAuthAccount} and return its token. */
@@ -63,7 +55,6 @@ export async function savePendingOAuthLink(
   link: PendingOAuthLink,
 ): Promise<string> {
   const token = randomBase64Url(32)
-  const { accessTokenExpiresAt, ...tokens } = link.tokens
   await insertAuthChallenge({
     purpose: OAUTH_PENDING_LINK_PURPOSE,
     identifier: token,
@@ -72,10 +63,6 @@ export async function savePendingOAuthLink(
       callbackURL: link.callbackURL,
       providerId: link.providerId,
       profile: link.profile,
-      tokens: {
-        ...tokens,
-        accessTokenExpiresAt: accessTokenExpiresAt?.toISOString() ?? null,
-      },
     },
     userId: null,
     ttlMs: OAUTH_STATE_TTL_MS,
@@ -116,7 +103,6 @@ export async function linkPendingOAuthAccount(
   await linkAccountToUser({
     profile: link.profile,
     provider,
-    tokens: link.tokens,
     userId,
   })
   logger.info(`linked pending ${provider.providerId} account to user ${userId}`)
@@ -133,7 +119,6 @@ export async function signUpPendingOAuthAccount(
   const userId = await createUserForOAuthAccount({
     profile: link.profile,
     provider,
-    tokens: link.tokens,
   })
   logger.info(`${provider.providerId} sign-in created user ${userId}`)
   return {
@@ -163,14 +148,5 @@ function pendingLinkFromPayload(
   payload: AuthChallengePayload,
 ): PendingOAuthLink | null {
   const parsed = PendingOAuthLinkPayloadSchema.safeParse(payload)
-  if (!parsed.success) return null
-  const { accessTokenExpiresAt, ...tokens } = parsed.data.tokens
-  return {
-    ...parsed.data,
-    tokens: {
-      ...tokens,
-      accessTokenExpiresAt:
-        accessTokenExpiresAt === null ? null : new Date(accessTokenExpiresAt),
-    },
-  }
+  return parsed.success ? parsed.data : null
 }

@@ -15,7 +15,7 @@ import {
 } from "./identity"
 import { syncOAuthAvatar } from "./oauth-avatar"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
-import type { OAuthProfile, StoredTokens } from "./oauth-types"
+import type { OAuthProfile } from "./oauth-types"
 import { findUserIdByUsernameHint, generateUniqueUsername } from "./username"
 
 const logger = createLogger("oauth")
@@ -31,7 +31,6 @@ export type SignInResolution = {
 type OAuthIdentity = {
   profile: OAuthProfile
   provider: OAuthProviderConfig
-  tokens: StoredTokens
 }
 
 export async function resolveSignInUser(
@@ -42,7 +41,7 @@ export async function resolveSignInUser(
     input.profile.providerAccountId,
   )
   if (existingAccount) {
-    await updateLinkedAccount(existingAccount.id, input.profile, input.tokens)
+    await updateLinkedAccount(existingAccount.id, input.profile)
     await syncOAuthUserRole(existingAccount.user_id, input.profile)
     return { kind: "matched", userId: existingAccount.user_id }
   }
@@ -73,14 +72,7 @@ export async function createUserForOAuthAccount(
 
     const [linked] = await tx
       .insert(authAccount)
-      .values(
-        accountValues(
-          row.id,
-          input.provider.providerId,
-          input.profile,
-          input.tokens,
-        ),
-      )
+      .values(accountValues(row.id, input.provider.providerId, input.profile))
       .onConflictDoNothing()
       .returning({ id: authAccount.id })
 
@@ -93,7 +85,7 @@ export async function createUserForOAuthAccount(
       if (account.user_id !== row.id) {
         throw new Error("OAuth account is already linked to another user.")
       }
-      await updateLinkedAccount(account.id, input.profile, input.tokens)
+      await updateLinkedAccount(account.id, input.profile)
     }
 
     return row.id
@@ -125,14 +117,7 @@ export async function createFirstAdminForOAuthAccount(
     )
     const [linked] = await tx
       .insert(authAccount)
-      .values(
-        accountValues(
-          row.id,
-          input.provider.providerId,
-          input.profile,
-          input.tokens,
-        ),
-      )
+      .values(accountValues(row.id, input.provider.providerId, input.profile))
       .onConflictDoNothing()
       .returning({ id: authAccount.id })
     if (!linked) {
@@ -155,7 +140,7 @@ export async function linkAccountToUser(
     throw new Error("OAuth account is already linked to another user.")
   }
   if (existing) {
-    await updateLinkedAccount(existing.id, input.profile, input.tokens)
+    await updateLinkedAccount(existing.id, input.profile)
     await syncOAuthAvatar(input.userId, input.profile)
     return
   }
@@ -163,12 +148,7 @@ export async function linkAccountToUser(
   await db
     .insert(authAccount)
     .values(
-      accountValues(
-        input.userId,
-        input.provider.providerId,
-        input.profile,
-        input.tokens,
-      ),
+      accountValues(input.userId, input.provider.providerId, input.profile),
     )
   await syncOAuthUserRole(input.userId, input.profile)
   await syncOAuthAvatar(input.userId, input.profile)
@@ -208,17 +188,11 @@ async function findLinkedAccount(
 async function updateLinkedAccount(
   accountId: string,
   profile: OAuthProfile,
-  tokens: StoredTokens,
 ): Promise<void> {
   await db
     .update(authAccount)
     .set({
       account_label: profile.usernameHint,
-      access_token: tokens.accessToken,
-      refresh_token: tokens.refreshToken,
-      id_token: tokens.idToken,
-      access_token_expires_at: tokens.accessTokenExpiresAt,
-      scope: tokens.scope,
       updated_at: new Date(),
     })
     .where(eq(authAccount.id, accountId))
@@ -283,17 +257,11 @@ function accountValues(
   userId: string,
   providerId: string,
   profile: OAuthProfile,
-  tokens: StoredTokens,
 ): typeof authAccount.$inferInsert {
   return {
     user_id: userId,
     provider_id: providerId,
     provider_account_id: profile.providerAccountId,
     account_label: profile.usernameHint,
-    access_token: tokens.accessToken,
-    refresh_token: tokens.refreshToken,
-    id_token: tokens.idToken,
-    access_token_expires_at: tokens.accessTokenExpiresAt,
-    scope: tokens.scope,
   }
 }

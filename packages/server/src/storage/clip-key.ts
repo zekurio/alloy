@@ -5,9 +5,7 @@ export function clipKeyDeletionNamespace(
   key: string,
 ): Extract<StorageDeletionNamespace, "clips" | "thumbnails"> {
   const filename = key.slice(key.lastIndexOf("/") + 1).toLowerCase()
-  return filename === "thumb.jpg" ||
-    filename === "thumb-small.jpg" ||
-    (filename.startsWith("thumb-") && filename.endsWith(".jpg"))
+  return filename.startsWith("thumb-") && filename.endsWith(".jpg")
     ? "thumbnails"
     : "clips"
 }

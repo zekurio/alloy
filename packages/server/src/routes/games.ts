@@ -13,7 +13,6 @@ import { requireSession } from "@alloy/server/auth/session"
 import { db } from "@alloy/server/db/index"
 import { lookupGamesByName } from "@alloy/server/games/lookup"
 import {
-  findSteamGridDBGameRef,
   gameSelection,
   getSteamGridDBGameRef,
   getSteamGridDBGameRefBySlug,
@@ -60,28 +59,15 @@ const gameCreateRateLimit = rateLimiter<{ Variables: { viewerId: string } }>({
   key: (c) => c.var.viewerId,
 })
 
-function parseSteamGridDBId(value: string): number | null {
-  const id = Number.parseInt(value, 10)
-  return String(id) === value && Number.isSafeInteger(id) && id > 0 ? id : null
-}
-
 /**
  * Loads the game named by the `:slug` param into `c.var.game`. The param is
- * a slug, a SteamGridDB id, or the uncategorised placeholder.
+ * a slug or the uncategorised placeholder.
  */
 const loadGameRef = createMiddleware<{ Variables: { game: GameRow } }>(
   async (c, next) => {
     const value = c.req.param("slug") ?? ""
-    const steamgriddbId = parseSteamGridDBId(value)
     if (value === UNCATEGORISED_GAME_SLUG || value === UNCATEGORISED_GAME_ID) {
       c.set("game", uncategorisedGameRow())
-    } else if (steamgriddbId !== null) {
-      // Read routes only serve games the catalogue already has. Numeric links
-      // to games nobody has attached a clip to answer 404 instead of
-      // ingesting them.
-      const row = await findSteamGridDBGameRef(steamgriddbId)
-      if (!row) return notFound(c, "Unknown SteamGridDB game id")
-      c.set("game", row)
     } else {
       let row: GameRow | null
       try {

@@ -34,8 +34,7 @@ static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
 pub struct DesktopSavedServer {
     pub server_url: String,
     pub last_connected_at: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub server_version: Option<String>,
+    pub server_version: String,
     pub http_contract: u64,
     pub bridge_contract: u64,
 }
@@ -114,7 +113,7 @@ impl PreferencesStore {
                 DesktopSavedServer {
                     server_url,
                     last_connected_at: now_rfc3339(),
-                    server_version: Some(server_version.to_owned()),
+                    server_version: server_version.to_owned(),
                     http_contract: HTTP_CONTRACT_1,
                     bridge_contract: BRIDGE_CONTRACT_1,
                 },
@@ -271,22 +270,14 @@ fn normalize_server(value: &Value) -> Option<DesktopSavedServer> {
     if http_contract == 0 || bridge_contract == 0 {
         return None;
     }
-    let last_connected_at = object
-        .get("lastConnectedAt")
-        .and_then(Value::as_str)
-        .and_then(parse_rfc3339)
-        .map(|value| {
-            value
-                .format(&time::format_description::well_known::Rfc3339)
-                .unwrap_or_else(|_| epoch_rfc3339().to_string())
-        })
-        .unwrap_or_else(|| epoch_rfc3339().to_string());
-    let server_version = object
-        .get("serverVersion")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_owned);
+    let last_connected_at = parse_rfc3339(object.get("lastConnectedAt")?.as_str()?)?
+        .format(&time::format_description::well_known::Rfc3339)
+        .ok()?;
+    let server_version = object.get("serverVersion")?.as_str()?.trim();
+    if server_version.is_empty() {
+        return None;
+    }
+    let server_version = server_version.to_owned();
     Some(DesktopSavedServer {
         server_url,
         last_connected_at,

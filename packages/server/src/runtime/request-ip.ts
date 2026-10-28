@@ -1,10 +1,14 @@
 import { BlockList, isIP } from "node:net"
 
+import { createLogger } from "@alloy/logging"
 import { env } from "@alloy/server/env"
 import { getConnInfo } from "@hono/node-server/conninfo"
 import type { Context } from "hono"
 
 import { lazy } from "./lazy"
+
+const logger = createLogger("server")
+let warnedUntrustedForwarding = false
 
 const trustedProxies = lazy(() => {
   const list = new BlockList()
@@ -39,7 +43,11 @@ function clientIp(input: {
   socketAddress: string | null
 }): string | null {
   let nearest = input.socketAddress
-  if (!nearest || !isTrustedProxy(nearest)) return nearest
+  if (!nearest) return nearest
+  if (!isTrustedProxy(nearest)) {
+    if (input.forwardedFor?.trim()) warnUntrustedForwarding(nearest)
+    return nearest
+  }
 
   const hops = input.forwardedFor?.split(",") ?? []
   if (!hops.some((hop) => hop.trim())) {
@@ -53,6 +61,21 @@ function clientIp(input: {
     nearest = ip
   }
   return nearest
+}
+
+/**
+ * Behind a reverse proxy that isn't listed, every request looks like it comes
+ * from the proxy, so all clients share one rate-limit bucket. Clients can send
+ * the header themselves too, so this only says it once.
+ */
+function warnUntrustedForwarding(peer: string): void {
+  if (warnedUntrustedForwarding) return
+  warnedUntrustedForwarding = true
+  logger.warn(
+    `ignoring X-Forwarded-For from ${peer}, which is not in ALLOY_TRUSTED_PROXIES. ` +
+      "If Alloy runs behind a reverse proxy, add its address there; until then " +
+      "rate limits and session addresses use the proxy's address.",
+  )
 }
 
 export function requestIp(c: Context): string | null {

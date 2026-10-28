@@ -139,18 +139,14 @@ export function validateUploadTicket(value: ContractJsonInput): UploadTicket {
     ticket.expiresAt,
     "Invalid upload ticket response: expiresAt must be a non-negative integer",
   )
-  if (ticket.strategy !== undefined) {
-    const strategy = objectRecord(ticket.strategy, "upload ticket strategy")
-    if (strategy.type !== "single" && strategy.type !== "chunked") {
-      throw new Error("Invalid upload ticket response: strategy is invalid")
-    }
-    if (strategy.type === "chunked") {
-      validatePositiveInteger(
-        strategy.chunkSizeBytes,
-        "Invalid upload ticket response: chunkSizeBytes must be positive",
-      )
-    }
+  const strategy = objectRecord(ticket.strategy, "upload ticket strategy")
+  if (strategy.type !== "chunked") {
+    throw new Error("Invalid upload ticket response: strategy is invalid")
   }
+  validatePositiveInteger(
+    strategy.chunkSizeBytes,
+    "Invalid upload ticket response: chunkSizeBytes must be positive",
+  )
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as UploadTicket
 }

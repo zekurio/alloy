@@ -134,7 +134,7 @@ export interface ManagedAssetDeletion<
 /**
  * Deletion intent for the versioned asset object `previousUrl` names, unless
  * it is `retainedKey`. URLs outside `pathPrefix`, keys of another owner or
- * role, and legacy unversioned keys yield none.
+ * role, and keys that aren't `<role>-<32 hex>.webp` yield none.
  */
 export function managedAssetDeletionIntents(
   pathPrefix: string,

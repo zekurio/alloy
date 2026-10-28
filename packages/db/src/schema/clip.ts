@@ -39,7 +39,7 @@ export const clip = pgTable(
     title: text().notNull(),
     description: text(),
     // Non-authoritative display snapshot of the game name. `game_id` is null
-    // for desktop captures, unknown games, and low-confidence detector guesses.
+    // for desktop captures and unknown games.
     game: text(),
     game_id: uuid().references(() => game.id, {
       onDelete: "set null",
@@ -94,10 +94,9 @@ export const clip = pgTable(
     cut_codecs: text(),
 
     status: text().$type<ClipStatus>().notNull().default("pending"),
-    // Durable ownership deadline for an unfinished upload. New writes derive
-    // it from the minted ticket; successful byte completion extends it. Keep
-    // this absolute instant timezone-aware even though legacy upload columns
-    // predate the repository's timestamptz convention.
+    // Durable ownership deadline for an unfinished upload, derived from the
+    // minted ticket; successful byte completion extends it. Set on every
+    // pending clip; failed and processing clips clear it.
     upload_cleanup_at: timestamp({ withTimezone: true }),
     // First moment the clip became publicly listed (ready + public). Stamped
     // exactly once: by commitPlayable/commitReady for clips public when the
@@ -105,8 +104,8 @@ export const clip = pgTable(
     // the clip.published webhook key off this, never off created_at.
     published_at: timestamp({ withTimezone: true }),
     queue_dismissed_at: timestamp({ withTimezone: true }),
-    // Canonical desired-state JSON stamped by commitReady; null = never
-    // verified under the fingerprint model.
+    // Canonical desired-state JSON stamped by commitReady; null until the
+    // first encode completes.
     encode_fingerprint: text(),
     // Desired state whose encode terminally failed; quarantines the clip from
     // sweeps until config changes or an operator retries.

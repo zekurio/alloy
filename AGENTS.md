@@ -41,6 +41,8 @@ Leave unrelated working-tree changes alone.
 - For schema changes, generate migrations with a descriptive snake_case name,
   e.g. `pnpm db:generate --name session_tokens`, never Drizzle's random
   default. Never edit a migration's SQL after it merges; add a new one instead.
+  The one exception is the 0.1.0 reset, which replaced the 0.0.x migrations
+  with `0000_initial_schema`; the rule holds for every migration after it.
 - For Nix changes, run `nix flake check`. Build `.#alloy` only when needed.
 
 ## Boundaries
