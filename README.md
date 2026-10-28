@@ -56,7 +56,11 @@ applies its database migrations on start. Open the server in a browser to
 create the admin account. From outside the local network, setup first asks
 for the setup token that the server prints to its log, or the value of
 `ALLOY_SETUP_TOKEN`. The admin can then sign in with single sign-on, if
-`ALLOY_OIDC_*` configures it, or with a username and passkey. See
+`ALLOY_OIDC_*` configures it, or with a username and passkey. The local
+network check trusts the address a connection comes from. If port forwarding
+replaces client addresses with private ones, as rootless containers and
+Kubernetes SNAT do, every visitor counts as local, so finish setup before
+exposing the server. See
 [`.env.example`](.env.example) for authentication, storage, and transcoding
 options.
 

@@ -191,7 +191,6 @@ export const ADMIN_MESSAGES = {
   "No webhooks yet": "Noch keine Webhooks",
   "No {label} artwork on SteamGridDB.":
     "Keine Bilder für {label} auf SteamGridDB.",
-  "OAuth providers saved": "OAuth-Anbieter gespeichert",
   "Only games without clips can be deleted.":
     "Nur Spiele ohne Clips können gelöscht werden.",
   "Open registrations": "Offene Registrierungen",
