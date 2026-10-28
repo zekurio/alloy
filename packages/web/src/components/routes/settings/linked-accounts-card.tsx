@@ -136,7 +136,7 @@ function useLinkedAccountActions({
           providerId: provider.providerId,
           callbackURL:
             currentUrlWithQueryParam(OAUTH_LINKED_QUERY_KEY, "1") ??
-            authCallbackUrl(`/settings?${OAUTH_LINKED_QUERY_KEY}=1`),
+            authCallbackUrl(`/?settings=profile&${OAUTH_LINKED_QUERY_KEY}=1`),
         })
         if (error) throw error
       } catch (cause) {

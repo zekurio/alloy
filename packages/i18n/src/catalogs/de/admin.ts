@@ -62,8 +62,6 @@ export const ADMIN_MESSAGES = {
   "Couldn't update webhook": "Webhook konnte nicht aktualisiert werden",
   "Couldn't verify the setup token": "Setup-Token konnte nicht geprüft werden",
   "Create accounts": "Konten erstellen",
-  "Create an account the first time someone signs in with this provider. When off, only users who already linked it can sign in.":
-    "Erstelle ein Konto, wenn sich jemand zum ersten Mal mit diesem Anbieter anmeldet. Ist dies aus, können sich nur Nutzer anmelden, die ihn bereits verknüpft haben.",
   "Create the admin account": "Admin-Konto erstellen",
   "Create user": "Nutzer erstellen",
   "Customizations stop automatic SteamGridDB updates for this game.":
@@ -97,6 +95,8 @@ export const ADMIN_MESSAGES = {
   Encoding: "Wird kodiert",
   "Encoding {tier} ({index}/{count})": "{tier} wird codiert ({index}/{count})",
   "Endpoint URL": "Endpunkt-URL",
+  "Endpoints are only needed when the provider has no discovery document. Claims name the profile fields Alloy reads.":
+    "Endpunkte braucht es nur, wenn der Anbieter kein Discovery-Dokument hat. Claims benennen die Profilfelder, die Alloy liest.",
   "Enter a VA-API render node path.": "Gib einen VA-API-Render-Node-Pfad an.",
   "Enter a positive quota, or leave it empty, and an upload link lifetime from {min} to {max} minutes.":
     "Gib ein positives Kontingent ein oder lass es leer, und eine Gültigkeit für Upload-Links von {min} bis {max} Minuten.",
@@ -118,6 +118,8 @@ export const ADMIN_MESSAGES = {
   Fluxer: "Fluxer",
   "Game artwork size (MiB)": "Spielgrafik-Größe (MiB)",
   Generic: "Generisch",
+  "Give people an account on their first sign-in. When off, only accounts that are already linked can sign in.":
+    "Legt beim ersten Anmelden ein Konto an. Wenn aus, können sich nur bereits verknüpfte Konten anmelden.",
   "H.264 (AVC)": "H.264 (AVC)",
   "HEVC (H.265)": "HEVC (H.265)",
   "Hardware acceleration": "Hardware-Beschleunigung",
@@ -125,10 +127,14 @@ export const ADMIN_MESSAGES = {
   Height: "Höhe",
   "Height must be an even number from 144 to 4320.":
     "Die Höhe muss eine gerade Zahl von 144 bis 4320 sein.",
+  "How Alloy sends the client secret to the token endpoint.":
+    "Wie Alloy das Client-Secret an den Token-Endpunkt sendet.",
   "How long a clip upload has to finish before its upload link expires.":
     "Wie lange ein Clip-Upload Zeit hat, bevor sein Upload-Link abläuft.",
   "How much of your quota your clips are using.":
     "Wie viel deines Kontingents deine Clips belegen.",
+  "Identifies the account at the provider. Changing it breaks existing links.":
+    "Identifiziert das Konto beim Anbieter. Eine Änderung trennt bestehende Verknüpfungen.",
   "Initial setup is already complete.":
     "Die Ersteinrichtung ist bereits abgeschlossen.",
   "Invalid quota": "Ungültiges Kontingent",
@@ -182,6 +188,8 @@ export const ADMIN_MESSAGES = {
   PKCE: "PKCE",
   "Profile banner size (MiB)": "Profilbanner-Größe (MiB)",
   "Profile images & artwork": "Profilbilder & Grafiken",
+  "Profile picture URL, synced on every sign-in.":
+    "URL des Profilbilds, wird bei jeder Anmeldung übernommen.",
   Provider: "Anbieter",
   "Public clips are announced here as soon as they finish encoding.":
     "Öffentliche Clips werden hier angekündigt, sobald ihre Kodierung fertig ist.",
@@ -227,6 +235,8 @@ export const ADMIN_MESSAGES = {
   "Set by ALLOY_OIDC_CLIENT_SECRET": "Durch ALLOY_OIDC_CLIENT_SECRET gesetzt",
   "Set by ALLOY_OIDC_ISSUER_URL. You can replace it here; to use the endpoints under Advanced instead, unset the variable.":
     "Durch ALLOY_OIDC_ISSUER_URL gesetzt. Du kannst sie hier ersetzen; um stattdessen die Endpunkte unter „Erweitert“ zu nutzen, entferne die Variable.",
+  "Sets the role to admin or user on every sign-in.":
+    "Setzt die Rolle bei jeder Anmeldung auf admin oder user.",
   "Setup token": "Setup-Token",
   "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.":
     "Zeig hinter dem Login-Formular eine schräge, scrollende Wand aus zufälligen Vorschaubildern öffentlicher Clips.",
@@ -253,7 +263,11 @@ export const ADMIN_MESSAGES = {
   "Storage each new account starts with. Leave empty for unlimited; admins can change it per user.":
     "Speicher, mit dem jedes neue Konto startet. Leer lassen für unbegrenzt; Admins können es pro Nutzer ändern.",
   "Storage quota (GiB)": "Speicherkontingent (GiB)",
+  "Storage quota in GiB for new accounts.":
+    "Speicherkontingent in GiB für neue Konten.",
   "Suggested accents": "Vorgeschlagene Akzente",
+  "Suggests the username for new accounts.":
+    "Schlägt den Nutzernamen für neue Konten vor.",
   "Tag people": "Nutzer markieren",
   "Tagged in clip": "Im Clip getaggt",
   "Test delivered": "Test zugestellt",

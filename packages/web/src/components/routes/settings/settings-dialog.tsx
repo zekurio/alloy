@@ -1,5 +1,4 @@
 import { t } from "@alloy/i18n"
-import { AppMainColumn } from "@alloy/ui/components/app-shell"
 import {
   Avatar,
   AvatarFallback,
@@ -77,14 +76,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
   )
 }
 
-export function SettingsPage() {
-  return (
-    <SettingsSaveProvider>
-      <SettingsPageRoot />
-    </SettingsSaveProvider>
-  )
-}
-
 /**
  * Fetches the code of every visible lazy panel once the browser is idle, so
  * opening settings, even straight onto a lazy section from the desktop tray,
@@ -122,30 +113,6 @@ function useBlockUnsavedNavigation() {
       return true
     },
   })
-}
-
-function SettingsPageRoot() {
-  const categories = useSettingsCategories()
-  const [section, setSection] = useState<string | null>(null)
-  useBlockUnsavedNavigation()
-  usePreloadSettingsPanels(categories)
-
-  if (categories.length === 0) return null
-
-  return (
-    <AppMainColumn className="bg-surface flex-row max-md:pb-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom))]">
-      <SettingsProviders categories={categories}>
-        <SettingsDialogContent
-          native
-          categories={categories}
-          section={section}
-          onNavigate={setSection}
-          onOpenSection={setSection}
-          onBack={() => setSection(null)}
-        />
-      </SettingsProviders>
-    </AppMainColumn>
-  )
 }
 
 function SettingsDialogRoot({
@@ -231,14 +198,12 @@ function SettingsProviders({
 }
 
 function SettingsDialogContent({
-  native = false,
   categories,
   section,
   onNavigate,
   onOpenSection,
   onBack,
 }: SettingsNavigation & {
-  native?: boolean
   categories: SettingsCategory[]
   /** Requested section id; anything that is not a category means "none". */
   section: string | null
@@ -251,17 +216,12 @@ function SettingsDialogContent({
 
   if (!active) {
     return (
-      <SettingsOverview
-        native={native}
-        categories={categories}
-        onOpenSection={onOpenSection}
-      />
+      <SettingsOverview categories={categories} onOpenSection={onOpenSection} />
     )
   }
 
   return (
     <SettingsSectionView
-      native={native}
       isMobile={isMobile}
       categories={categories}
       active={active}
@@ -326,11 +286,9 @@ function SettingsMobileHeader({
  * grouped the way the sidebar groups them.
  */
 function SettingsOverview({
-  native,
   categories,
   onOpenSection,
 }: {
-  native: boolean
   categories: SettingsCategory[]
   onOpenSection: (section: string) => void
 }) {
@@ -341,22 +299,15 @@ function SettingsOverview({
       <SettingsMobileHeader
         title={t("Settings")}
         leading={
-          native ? null : (
-            <DialogClose
-              aria-label={t("Close settings")}
-              className={mobileSurfaceCloseButtonClassName}
-            >
-              <XIcon />
-            </DialogClose>
-          )
+          <DialogClose
+            aria-label={t("Close settings")}
+            className={mobileSurfaceCloseButtonClassName}
+          >
+            <XIcon />
+          </DialogClose>
         }
       />
-      <div
-        className={cn(
-          "flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5",
-          !native && "pb-[max(1.25rem,env(safe-area-inset-bottom))]",
-        )}
-      >
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <SettingsSearchField value={search.query} onChange={search.setQuery} />
         {search.groups.map((group) => {
           const profile = group.items.find(
@@ -452,14 +403,12 @@ function SettingsOverviewProfileRow({
 }
 
 function SettingsSectionView({
-  native,
   isMobile,
   categories,
   active,
   onNavigate,
   onBack,
 }: {
-  native: boolean
   isMobile: boolean
   categories: SettingsCategory[]
   active: SettingsCategory
@@ -587,26 +536,19 @@ function SettingsSectionView({
             <h2 className="text-foreground truncate text-xl font-semibold tracking-[var(--tracking-tight)]">
               {title}
             </h2>
-            {native ? null : (
-              <DialogClose
-                aria-label={t("Close settings")}
-                className="text-foreground-muted hover:text-foreground focus-visible:ring-ring ml-auto grid size-7 shrink-0 place-items-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
-              >
-                <XIcon className="size-4" />
-              </DialogClose>
-            )}
+            <DialogClose
+              aria-label={t("Close settings")}
+              className="text-foreground-muted hover:text-foreground focus-visible:ring-ring ml-auto grid size-7 shrink-0 place-items-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <XIcon className="size-4" />
+            </DialogClose>
           </SettingsSaveHeader>
         )}
 
         <ScrollArea
           className="flex-1"
           viewportRef={scrollRef}
-          viewportClassName={cn(
-            "px-5 py-6 md:px-10 md:py-8",
-            native
-              ? "max-md:pb-6"
-              : "max-md:pb-[max(1.5rem,env(safe-area-inset-bottom))]",
-          )}
+          viewportClassName="px-5 py-6 md:px-10 md:py-8 max-md:pb-[max(1.5rem,env(safe-area-inset-bottom))]"
         >
           {/* Keyed so each section fades in rather than snapping over the
               last one. */}
