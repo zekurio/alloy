@@ -20,29 +20,19 @@ export const SETTINGS_MESSAGES = {
   "Added {count} theme": "{count} Theme hinzugefügt",
   "Added {count} themes": "{count} Themes hinzugefügt",
   "Announce my clips": "Meine Clips ankündigen",
-  "Announcements off": "Ankündigungen aus",
-  "Announcements on": "Ankündigungen an",
   Appearance: "Aussehen",
-  "Appearance settings saved": "Erscheinungsbild-Einstellungen gespeichert",
-  "Apply changes": "Änderungen anwenden",
-  "Apply settings": "Einstellungen anwenden",
   Background: "Hintergrund",
   Border: "Rahmen",
   Borders: "Rahmen",
   "Changes preview live": "Live-Vorschau",
   "Changes saved.": "Änderungen gespeichert.",
   "Choose files": "Dateien auswählen",
-  "Choose how Alloy looks.": "Wähle, wie Alloy aussieht.",
   "Choose the language used by Alloy.": "Wähle die Sprache für Alloy aus.",
   "Click anything to find its color. Esc cancels.":
     "Klicke auf ein Element, um seine Farbe zu finden. Esc bricht ab.",
   "Clip announcements": "Clip-Ankündigungen",
   "Close settings": "Einstellungen schließen",
   Collapse: "Einklappen",
-  "Color palette used while Alloy is dark.":
-    "Farbpalette für den dunklen Alloy-Modus.",
-  "Color palette used while Alloy is light.":
-    "Farbpalette für den hellen Alloy-Modus.",
   "Color scheme": "Farbschema",
   "Color scheme, themes, and custom themes.":
     "Farbschema, Themes und eigene Themes.",
@@ -52,8 +42,6 @@ export const SETTINGS_MESSAGES = {
   "Couldn't delete theme": "Theme konnte nicht gelöscht werden",
   "Couldn't load settings": "Einstellungen konnten nicht geladen werden",
   "Couldn't save": "Konnte nicht gespeichert werden",
-  "Couldn't save appearance settings":
-    "Erscheinungsbild-Einstellungen konnten nicht gespeichert werden",
   "Couldn't save changes": "Änderungen konnten nicht gespeichert werden",
   "Couldn't save preference": "Einstellung konnte nicht gespeichert werden",
   "Couldn't save theme": "Theme konnte nicht gespeichert werden",
@@ -86,7 +74,6 @@ export const SETTINGS_MESSAGES = {
   "Fix the invalid settings before saving.":
     "Korrigiere die ungültigen Einstellungen vor dem Speichern.",
   General: "Allgemein",
-  "Hex color value": "Hex-Farbwert",
   "Import Alloy theme files or VS Code color themes into your account.":
     "Importiere Alloy-Theme-Dateien oder VS-Code-Farbschemata in dein Konto.",
   "Imported theme": "Importiertes Theme",
@@ -115,7 +102,6 @@ export const SETTINGS_MESSAGES = {
   "Save theme": "Theme speichern",
   "Search settings": "Einstellungen durchsuchen",
   Settings: "Einstellungen",
-  "Settings sections": "Einstellungsabschnitte",
   Status: "Status",
   "Strong border": "Kräftiger Rahmen",
   Success: "Erfolg",
@@ -133,8 +119,6 @@ export const SETTINGS_MESSAGES = {
   "Theme files can be at most 256 KB.":
     "Theme-Dateien dürfen höchstens 256 KB groß sein.",
   "Theme name": "Theme-Name",
-  "Theme, language, and announcement settings.":
-    "Theme-, Sprach- und Ankündigungseinstellungen.",
   Themes: "Themes",
   "This VS Code theme doesn't set an editor background.":
     "Dieses VS-Code-Theme legt keinen Editor-Hintergrund fest.",
@@ -158,10 +142,8 @@ export const SETTINGS_MESSAGES = {
   "{count} variant": "{count} Variante",
   "{count} variants": "{count} Varianten",
   "{file}: {error}": "{file}: {error}",
-  "{label} color": "Farbe: {label}",
   "{label} hex value": "Hex-Wert für {label}",
   "{label} hue": "Farbton für {label}",
-  "{label} opacity": "Deckkraft für {label}",
   "{label} saturation and brightness": "Sättigung und Helligkeit für {label}",
   "{saturation}% saturation, {brightness}% brightness":
     "{saturation} % Sättigung, {brightness} % Helligkeit",

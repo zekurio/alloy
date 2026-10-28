@@ -17,7 +17,6 @@ export const ADMIN_MESSAGES = {
   "Applies to uploaded avatars and avatars synced from sign-in providers.":
     "Gilt für hochgeladene Avatare und mit Anmeldeanbietern synchronisierte Avatare.",
   Authentication: "Authentifizierung",
-  "Authentication setting saved": "Authentifizierungseinstellung gespeichert",
   "Authorization URL": "Autorisierungs-URL",
   "Avatar claim": "Avatar-Claim",
   "Avatar size (MiB)": "Avatar-Größe (MiB)",
@@ -27,7 +26,6 @@ export const ADMIN_MESSAGES = {
   Banned: "Gesperrt",
   Branding: "Branding",
   "Callback URL": "Callback-URL",
-  "Callback URL copied": "Callback-URL kopiert",
   "Changes apply immediately to new uploads, screenshot edits, and queued screenshots when processing starts.":
     "Änderungen gelten sofort für neue Uploads, Screenshot-Bearbeitungen und wartende Screenshots, sobald deren Verarbeitung beginnt.",
   "Changes apply to new uploads. Existing clips re-encode in the background and keep playing their current renditions until replacements are ready.":
@@ -55,8 +53,6 @@ export const ADMIN_MESSAGES = {
   "Couldn't remove from queue":
     "Eintrag konnte nicht aus der Warteschlange entfernt werden",
   "Couldn't remove user": "Nutzer konnte nicht entfernt werden",
-  "Couldn't save transcoding settings":
-    "Transkodierungs-Einstellungen konnten nicht gespeichert werden",
   "Couldn't save webhook": "Webhook konnte nicht gespeichert werden",
   "Couldn't send test": "Test konnte nicht gesendet werden",
   "Couldn't update authentication":
@@ -87,24 +83,15 @@ export const ADMIN_MESSAGES = {
   "Detecting encoders...": "Encoder werden erkannt …",
   "Detecting...": "Wird erkannt …",
   "Disable Link": "Link deaktivieren",
-  "Disable user": "Nutzer deaktivieren",
-  "Disable {username}?": "{username} deaktivieren?",
   Discord: "Discord",
-  "Discord renders the clip link as a playable preview.":
-    "Discord rendert den Clip-Link als abspielbare Vorschau.",
   "Display name": "Anzeigename",
   "Edit game": "Spiel bearbeiten",
-  "Edit the generated clip backdrop shown on the login page.":
-    "Bearbeite den generierten Clip-Hintergrund, der auf der Login-Seite angezeigt wird.",
   "Edit user": "Nutzer bearbeiten",
   "Edit user accounts, roles, and moderation state.":
     "Bearbeite Nutzerkonten, Rollen und Moderationsstatus.",
   "Edit webhook": "Webhook bearbeiten",
   "Enable password-free sign-in and registration with passkeys.":
     "Aktiviere passwortlose Anmeldung und Registrierung mit Passkeys.",
-  "Enable user": "Nutzer aktivieren",
-  "Enable {username}?": "{username} aktivieren?",
-  "Encoder detection refreshed": "Encoder-Erkennung aktualisiert",
   "Encoder used for GPU-accelerated encoding. Decoding and scaling always stay on the CPU.":
     "Encoder für GPU-beschleunigte Kodierung. Dekodierung und Skalierung laufen weiterhin auf der CPU.",
   Encoding: "Wird kodiert",
@@ -159,13 +146,9 @@ export const ADMIN_MESSAGES = {
   "Let anyone create an account with a passkey. Single sign-on has its own Create accounts setting.":
     "Erlaube allen, ein Konto mit einem Passkey zu erstellen. Single Sign-on hat eine eigene Einstellung „Konten erstellen“.",
   "Link preview": "Link-Vorschau",
-  "Loading quality settings": "Qualitätseinstellungen werden geladen",
   "Loading quality...": "Qualität wird geladen...",
   Login: "Login",
-  "Login appearance": "Login-Aussehen",
   "Login backdrop": "Login-Hintergrund",
-  "Login backdrop disabled": "Login-Hintergrund deaktiviert",
-  "Login backdrop enabled": "Login-Hintergrund aktiviert",
   "Login page preview": "Vorschau der Login-Seite",
   Logo: "Logo",
   "Max FPS": "Max. FPS",
@@ -210,7 +193,6 @@ export const ADMIN_MESSAGES = {
     "Das Kontingent muss leer oder ein positiver GiB-Wert im sicheren Ganzzahlbereich sein.",
   "Re-detect": "Neu erkennen",
   "Re-encode": "Neu codieren",
-  "Re-encode started.": "Neukodierung gestartet.",
   "Re-encoding": "Wird neu codiert",
   "Read claims from the user info endpoint as well as the ID token.":
     "Liest Claims zusätzlich zum ID-Token auch vom User-Info-Endpunkt.",
@@ -305,7 +287,6 @@ export const ADMIN_MESSAGES = {
   "Token auth method": "Token-Auth-Methode",
   Top: "Top",
   Transcoding: "Transkodierung",
-  "Transcoding settings saved": "Transkodierungs-Einstellungen gespeichert",
   "Transparent wordmark": "Transparente Wortmarke",
   "UID claim": "UID-Claim",
   Unban: "Entsperren",
@@ -324,21 +305,15 @@ export const ADMIN_MESSAGES = {
     "Wird verwendet, um jede Nutzlast zu signieren, damit dein Endpunkt sie verifizieren kann.",
   "User info URL": "Userinfo-URL",
   "Username claim": "Nutzername-Claim",
-  "Users may lose this sign-in method immediately.":
-    "Nutzer könnten diese Anmeldemethode sofort verlieren.",
   "VA-API": "VA-API",
   "VA-API device": "VA-API-Gerät",
   "Verify that you run this server":
     "Bestätige, dass du diesen Server betreibst",
-  "Version {version}": "Version {version}",
   "Video codec": "Videocodec",
   "Video codec, hardware acceleration, quality, audio, and the rendition ladder for new uploads.":
     "Videocodec, Hardware-Beschleunigung, Qualität, Audio und die Qualitätsstufen-Leiter für neue Uploads.",
   "Video encoder": "Video-Encoder",
   "Video encoding": "Codierung",
-  "Webhook created": "Webhook erstellt",
-  "Webhook deleted": "Webhook gelöscht",
-  "Webhook saved": "Webhook gespeichert",
   Webhooks: "Webhooks",
   "Who can create an account and how they authenticate.":
     "Wer ein Konto erstellen kann und wie die Anmeldung erfolgt.",

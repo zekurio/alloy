@@ -4,16 +4,10 @@ export const DESKTOP_MESSAGES = {
   "(unsupported)": "(nicht unterstützt)",
   "A browser window may open to sign in. Return here once you're done.":
     "Vielleicht öffnet sich ein Browserfenster zum Anmelden. Komm danach hierher zurück.",
-  "A new version has been downloaded.":
-    "Eine neue Version wurde heruntergeladen.",
-  "A new version is available to download.":
-    "Eine neue Version steht zum Herunterladen bereit.",
   "A server connection is already in progress.":
     "Es wird bereits eine Serververbindung hergestellt.",
   "Active recording and replay buffering will stop while the capture component restarts.":
     "Aktive Aufnahmen und der Replay-Puffer werden beendet, während die Aufnahmekomponente neu startet.",
-  "Active recording and replay buffering will stop.":
-    "Aktive Aufnahmen und der Replay-Puffer werden beendet.",
   "Add exclude": "Ausschluss hinzufügen",
   "Add include": "Eintrag hinzufügen",
   "Add manual exclude": "Manuellen Ausschluss hinzufügen",
@@ -29,8 +23,6 @@ export const DESKTOP_MESSAGES = {
     "Der Alloy-Agent hat eine zu lange Protokollzeile gesendet.",
   "Alloy auto-detects games. Add manual rules when detection needs a nudge.":
     "Alloy erkennt Spiele automatisch. Füge manuelle Regeln hinzu, wenn die Erkennung mal nachhelfen muss.",
-  "Alloy checks for updates in the background.":
-    "Alloy sucht im Hintergrund nach Updates.",
   "Alloy recorder exited during startup.":
     "Der Alloy-Recorder wurde beim Start beendet.",
   "Alloy recorder host is shut down.":
@@ -52,19 +44,13 @@ export const DESKTOP_MESSAGES = {
     "Alloy verlässt den aktuellen Server und verbindet sich mit {serverUrl}.",
   "Alloy will start capturing when you launch a game.":
     "Alloy startet die Aufnahme, wenn du ein Spiel startest.",
-  "Alloy {version} has been downloaded.":
-    "Alloy {version} wurde heruntergeladen.",
-  "Alloy {version} is available to download.":
-    "Alloy {version} steht zum Herunterladen bereit.",
   "Also delete the local copy on this device":
     "Auch die lokale Kopie auf diesem Gerät löschen",
   "Always record": "Immer aufnehmen",
   Applications: "Anwendungen",
-  "Apply recording settings?": "Aufnahmeeinstellungen anwenden?",
   Audio: "Audio",
   "Audio bitrate": "Audio-Bitrate",
   "Audio level": "Audiopegel",
-  "Audio settings": "Audioeinstellungen",
   "Audio source": "Audioquelle",
   "Authorize Alloy Desktop": "Alloy Desktop autorisieren",
   "Authorize desktop app": "Desktop-App autorisieren",
@@ -72,8 +58,6 @@ export const DESKTOP_MESSAGES = {
     "Erkenne ein Spiel oder Display automatisch und halte den Replay-Puffer bereit.",
   "Automatic updates are unavailable in this build.":
     "Automatische Updates sind in dieser Version nicht verfügbar.",
-  "Autostart is unavailable in this build.":
-    "Autostart ist in dieser Version nicht verfügbar.",
   "Buffer storage": "Pufferspeicher",
   CPU: "CPU",
   "Cancelling...": "Wird abgebrochen...",
@@ -81,23 +65,18 @@ export const DESKTOP_MESSAGES = {
   "Capture audio from": "Audio aufnehmen von",
   "Capture folder": "Aufnahmeordner",
   "Capture is off": "Aufnahme ist aus",
-  "Capture moved to the system trash": "Aufnahme in den Papierkorb verschoben",
   "Capture not found": "Aufnahme nicht gefunden",
   "Capture off": "Aufnahme aus",
   "Capture settings": "Aufnahmeeinstellungen",
   "Capture status: {label}": "Aufnahmestatus: {label}",
-  "Capture updated": "Aufnahme aktualisiert",
   "Capture with Alloy": "Mit Alloy aufnehmen",
   "Captures and clips will appear here.":
     "Aufnahmen und Clips erscheinen hier.",
   Change: "Ändern",
   "Change shortcuts": "Tastenkürzel ändern",
-  "Change startup": "Autostart ändern",
-  "Change startup behavior?": "Autostart-Verhalten ändern?",
   "Check for and install desktop app updates.":
     "Nach Updates für die Desktop-App suchen und sie installieren.",
   "Check for updates": "Nach Updates suchen",
-  "Checking for updates": "Suche nach Updates",
   "Checking...": "Wird geprüft...",
   "Choose Display": "Display wählen",
   "Choose a new capture folder with the folder picker.":
@@ -117,56 +96,20 @@ export const DESKTOP_MESSAGES = {
   Continue: "Fortfahren",
   "Control launch behavior and desktop app updates.":
     "Steuere das Startverhalten und Desktop-App-Updates.",
-  "Could not access the native session cookie store.":
-    "Auf den nativen Cookie-Speicher konnte nicht zugegriffen werden.",
-  "Could not authorize the Alloy server window.":
-    "Das Alloy-Serverfenster konnte nicht autorisiert werden.",
-  "Could not check the connect window.":
-    "Das Verbindungsfenster konnte nicht geprüft werden.",
-  "Could not check the server window state.":
-    "Der Zustand des Serverfensters konnte nicht geprüft werden.",
-  "Could not check the server window.":
-    "Das Serverfenster konnte nicht geprüft werden.",
   "Could not clear the Alloy server profile.":
     "Das Alloy-Serverprofil konnte nicht geleert werden.",
   "Could not clear the native session cookies.":
     "Die nativen Sitzungscookies konnten nicht gelöscht werden.",
-  "Could not close the Alloy server profile.":
-    "Das Alloy-Serverprofil konnte nicht geschlossen werden.",
-  "Could not create the Alloy server profile folder.":
-    "Der Ordner für das Alloy-Serverprofil konnte nicht erstellt werden.",
-  "Could not create the Alloy session cookie.":
-    "Das Alloy-Sitzungscookie konnte nicht erstellt werden.",
   "Could not create the HTTP client.":
     "Der HTTP-Client konnte nicht erstellt werden.",
-  "Could not determine the Alloy data folder.":
-    "Der Alloy-Datenordner konnte nicht ermittelt werden.",
   "Could not encode saved server settings.":
     "Die gespeicherten Servereinstellungen konnten nicht kodiert werden.",
   "Could not encode the native result.":
     "Das native Ergebnis konnte nicht kodiert werden.",
   "Could not exchange the login code.":
     "Der Anmeldecode konnte nicht eingelöst werden.",
-  "Could not focus the Alloy server window.":
-    "Das Alloy-Serverfenster konnte nicht fokussiert werden.",
-  "Could not focus the connect window.":
-    "Das Verbindungsfenster konnte nicht fokussiert werden.",
-  "Could not hide the server window.":
-    "Das Serverfenster konnte nicht ausgeblendet werden.",
-  "Could not load the Alloy server window.":
-    "Das Alloy-Serverfenster konnte nicht geladen werden.",
-  "Could not maximize the server window.":
-    "Das Serverfenster konnte nicht maximiert werden.",
-  "Could not minimize the server window.":
-    "Das Serverfenster konnte nicht minimiert werden.",
-  "Could not move the server window.":
-    "Das Serverfenster konnte nicht verschoben werden.",
   "Could not open Alloy settings.":
     "Die Alloy-Einstellungen konnten nicht geöffnet werden.",
-  "Could not open the Alloy server profile.":
-    "Das Alloy-Serverprofil konnte nicht geöffnet werden.",
-  "Could not open the Alloy server window.":
-    "Das Alloy-Serverfenster konnte nicht geöffnet werden.",
   "Could not open the connect window.":
     "Das Verbindungsfenster konnte nicht geöffnet werden.",
   "Could not open the sign-in page in your browser.":
@@ -178,25 +121,15 @@ export const DESKTOP_MESSAGES = {
     "Die Adresse für die Rückmeldung der Anmeldung konnte nicht gelesen werden.",
   "Could not read the login callback port.":
     "Der Port für die Rückmeldung der Anmeldung konnte nicht gelesen werden.",
-  "Could not read the saved Alloy session.":
-    "Die gespeicherte Alloy-Sitzung konnte nicht gelesen werden.",
   "Could not read the server response.":
     "Die Serverantwort konnte nicht gelesen werden.",
   "Could not receive the login callback.":
     "Die Rückmeldung der Anmeldung konnte nicht empfangen werden.",
-  "Could not reload the server window.":
-    "Das Serverfenster konnte nicht neu geladen werden.",
-  "Could not restore the server window.":
-    "Das Serverfenster konnte nicht wiederhergestellt werden.",
   "Could not resume Alloy after the failed update.":
     "Alloy konnte nach dem fehlgeschlagenen Update nicht fortgesetzt werden.",
   "Could not save server settings.":
     "Die Servereinstellungen konnten nicht gespeichert werden.",
   "Could not scan local clips.": "Lokale Clips konnten nicht gescannt werden.",
-  "Could not show the Alloy server window.":
-    "Das Alloy-Serverfenster konnte nicht angezeigt werden.",
-  "Could not show the connect window.":
-    "Das Verbindungsfenster konnte nicht angezeigt werden.",
   "Could not start the login callback listener.":
     "Der Empfänger für die Anmeldung konnte nicht gestartet werden.",
   "Could not store the Alloy session cookie.":
@@ -247,19 +180,12 @@ export const DESKTOP_MESSAGES = {
   "Couldn't start the download": "Download konnte nicht gestartet werden",
   "Couldn't update the startup setting.":
     "Start-Einstellung konnte nicht gespeichert werden.",
-  "Current version {version}": "Aktuelle Version {version}",
   "Delete capture": "Aufnahme löschen",
-  "Delete local capture?": "Lokale Aufnahme löschen?",
   "Delete this capture?": "Diese Aufnahme löschen?",
   Desktop: "Desktop",
-  "Desktop logging is not ready.":
-    "Die Desktop-Protokollierung ist noch nicht bereit.",
   "Desktop logs": "Desktop-Protokolle",
-  "Desktop releases": "Desktop-Versionen",
   "Desktop runtime is not ready.":
     "Die Desktop-Laufzeit ist noch nicht bereit.",
-  "Desktop services are not ready.":
-    "Die Desktop-Dienste sind noch nicht bereit.",
   Detected: "Erkannt",
   Devices: "Geräte",
   "Devices, microphones, application streams, and volumes.":
@@ -275,7 +201,6 @@ export const DESKTOP_MESSAGES = {
   "Display capture off": "Bildschirmaufnahme aus",
   "Display capture ready": "Bildschirmaufnahme bereit",
   "Download clip": "Clip herunterladen",
-  "Download clip to this computer?": "Clip auf diesen Computer herunterladen?",
   "Download failed": "Download fehlgeschlagen",
   "Download update": "Update herunterladen",
   Downloading: "Wird heruntergeladen",
@@ -296,7 +221,6 @@ export const DESKTOP_MESSAGES = {
     "Schließe die Servereinrichtung im Browser ab und verbinde dich dann erneut.",
   Folder: "Ordner",
   Forget: "Entfernen",
-  "Forget Alloy server?": "Alloy-Server vergessen?",
   "Forget server": "Server entfernen",
   "Forget this Alloy server?": "Diesen Alloy-Server entfernen?",
   "Forget {serverUrl}": "{serverUrl} entfernen",
@@ -311,8 +235,6 @@ export const DESKTOP_MESSAGES = {
     "Diagnosedaten der Desktop-App und des Recorders werden in alloy-desktop.log gespeichert.",
   Hotkeys: "Hotkeys",
   Icon: "Symbol",
-  "Import is unavailable in this desktop build":
-    "Import ist in diesem Desktop-Build nicht verfügbar",
   "Incompatible when last checked": "Bei der letzten Prüfung nicht kompatibel",
   Input: "Eingabe",
   "Input devices": "Eingabegeräte",
@@ -329,24 +251,14 @@ export const DESKTOP_MESSAGES = {
   "Invalid token URL.": "Ungültige Token-URL.",
   "It may have been moved or deleted from the capture folder.":
     "Vielleicht wurde es aus dem Aufnahmeordner verschoben oder gelöscht.",
-  "Last checked {time}. Alloy checks again in the background.":
-    "Zuletzt geprüft {time}. Alloy prüft im Hintergrund erneut.",
   "Launches in the background so your games are captured right away.":
     "Startet im Hintergrund, damit deine Spiele sofort aufgenommen werden.",
-  "Loading audio settings": "Audioeinstellungen werden geladen",
-  "Loading audio tracks…": "Audiospuren werden geladen…",
   "Loading capture": "Aufnahme wird geladen",
-  "Loading capture settings": "Aufnahmeeinstellungen werden geladen",
   "Loading displays": "Displays werden geladen",
   "Loading processes": "Prozesse werden geladen",
-  "Loading servers": "Server werden geladen",
-  "Loading storage settings": "Speichereinstellungen werden geladen",
   Local: "Lokal",
   "Local capture": "Lokale Aufnahme",
-  "Local copy removed": "Lokale Kopie entfernt",
-  "Login state is unavailable.": "Der Anmeldestatus ist nicht verfügbar.",
   Low: "Niedrig",
-  "Manage Audio": "Audio verwalten",
   "Manage servers, startup behavior, and desktop updates.":
     "Server, Startverhalten und Desktop-Updates verwalten.",
   "Manual excludes for launchers, tools, or apps that look game-like.":
@@ -361,8 +273,6 @@ export const DESKTOP_MESSAGES = {
   "Missing native argument.": "Natives Argument fehlt.",
   "Mix selected playback devices and microphones, or application audio streams.":
     "Mische ausgewählte Wiedergabegeräte und Mikrofone oder Audiostreams von Apps.",
-  "Native session cookies require Windows WebView2.":
-    "Native Sitzungscookies erfordern Windows WebView2.",
   "Never record": "Nie aufnehmen",
   "No audio devices are available.": "Es sind keine Audiogeräte verfügbar.",
   "No manual excludes.": "Keine manuellen Ausschlüsse.",
@@ -398,14 +308,7 @@ export const DESKTOP_MESSAGES = {
     "Wird abgespielt, wenn der Replay-Hotkey anfängt, einen Clip zu speichern.",
   "Press keys…": "Tasten drücken…",
   "Quit Alloy": "Alloy beenden",
-  "Reconnecting…": "Verbindung wird wiederhergestellt…",
-  "Record the selected display while an allowed game runs, or all the time, and keep the replay buffer ready.":
-    "Nimmt das ausgewählte Display auf, während ein erlaubtes Spiel läuft oder dauerhaft, und hält den Replay-Puffer bereit.",
   Recording: "Aufnahme",
-  "Recording and hotkey behavior may change.":
-    "Aufnahme- und Hotkey-Verhalten können sich ändern.",
-  "Recording stops while the desktop update is installed.":
-    "Die Aufnahme wird während der Installation des Desktop-Updates angehalten.",
   "Recording will stop while the desktop update is installed.":
     "Die Aufnahme wird beendet, während das Desktop-Update installiert wird.",
   Refresh: "Aktualisieren",
@@ -427,10 +330,6 @@ export const DESKTOP_MESSAGES = {
     "Auflösung, Bildrate, Encoder und Replay-Puffer.",
   Restart: "Neustart",
   "Restart agent": "Agent neu starten",
-  "Restart and install": "Neu starten und installieren",
-  "Restart and install Alloy?": "Alloy neu starten und installieren?",
-  "Restart recording services?": "Aufnahmedienste neu starten?",
-  "Restart services": "Dienste neu starten",
   "Restart the Alloy agent?": "Alloy-Agent neu starten?",
   "Restart the capture component if recording gets stuck.":
     "Starte die Aufnahmekomponente neu, wenn die Aufnahme hängen bleibt.",
@@ -459,18 +358,13 @@ export const DESKTOP_MESSAGES = {
     "Wähle einen Sound aus dem Ordner für Benachrichtigungssounds aus.",
   "Select the display Alloy should use for desktop capture.":
     "Wähle das Display, das Alloy für die Desktop-Aufnahme verwenden soll.",
-  "Selected sources are mixed into one track. Set their levels in the system sound settings.":
-    "Ausgewählte Quellen werden in eine Tonspur gemischt. Ihre Pegel legst du in den Soundeinstellungen des Systems fest.",
   Server: "Server",
   "Server + Device": "Server + Gerät",
   "Server URL": "Server-URL",
   "Server address": "Serveradresse",
   "Server only": "Nur Server",
   "Server switch cancelled.": "Serverwechsel abgebrochen.",
-  "Server version unknown": "Serverversion unbekannt",
   "Server version {version}": "Serverversion {version}",
-  "Server window state is unavailable.":
-    "Der Zustand des Serverfensters ist nicht verfügbar.",
   Servers: "Server",
   "Set up again": "Erneut einrichten",
   Shift: "Shift",
@@ -497,7 +391,6 @@ export const DESKTOP_MESSAGES = {
     "Der Alloy-Server hat einen Fehler gemeldet.",
   "The capture path is outside the configured output folders.":
     "Der Aufnahmepfad liegt außerhalb der konfigurierten Ausgabeordner.",
-  "The desktop host has stopped.": "Die Desktop-App wurde beendet.",
   "The file will be moved to your system trash.":
     "Die Datei wird in den Papierkorb deines Systems verschoben.",
   "The file will be moved to your system trash. The server clip will remain available.":
@@ -506,11 +399,8 @@ export const DESKTOP_MESSAGES = {
     "Die Bibliothek ist nur in Alloy Desktop verfügbar",
   "The login session has expired. Connect again.":
     "Die Anmeldesitzung ist abgelaufen. Verbinde dich erneut.",
-  "The native session cookie store did not respond.":
-    "Der native Cookie-Speicher hat nicht geantwortet.",
   "The recorder did not stop cleanly.":
     "Die Aufnahme wurde nicht sauber beendet.",
-  "The server URL has no host.": "Die Server-URL hat keinen Host.",
   "The server rejected the login code.":
     "Der Server hat den Anmeldecode abgelehnt.",
   "The server response is too large.": "Die Serverantwort ist zu groß.",
@@ -528,10 +418,6 @@ export const DESKTOP_MESSAGES = {
     "Das Serverfenster ist für diesen Server nicht autorisiert.",
   "The update couldn't be verified. Reinstall Alloy from the releases page.":
     "Das Update konnte nicht verifiziert werden. Installiere Alloy erneut über die Release-Seite.",
-  "This changes whether Alloy starts when you sign in.":
-    "Dadurch wird geändert, ob Alloy bei der Anmeldung gestartet wird.",
-  "This moves the recording file to the system trash.":
-    "Dadurch wird die Aufnahmedatei in den Systempapierkorb verschoben.",
   "This server does not support Alloy desktop HTTP contract 1.":
     "Dieser Server unterstützt den Alloy-Desktop-HTTP-Vertrag 1 nicht.",
   "This server does not support desktop login.":
@@ -544,12 +430,6 @@ export const DESKTOP_MESSAGES = {
   "Unknown native recording operation.": "Unbekannter nativer Aufnahmevorgang.",
   "Unknown notification sound.": "Unbekannter Benachrichtigungssound.",
   "Update available": "Update verfügbar",
-  "Update ready": "Update bereit",
-  "Update the Alloy recorder to save screenshots.":
-    "Aktualisiere den Alloy-Recorder, um Screenshots zu speichern.",
-  "Update the Alloy server to sign in with this version of Alloy.":
-    "Aktualisiere den Alloy-Server, um dich mit dieser Alloy-Version anzumelden.",
-  "Updater state is unavailable.": "Der Update-Status ist nicht verfügbar.",
   Updates: "Updates",
   "Use Display Capture": "Bildschirmaufnahme verwenden",
   "Use Game Capture": "Spielaufnahme verwenden",
@@ -571,7 +451,6 @@ export const DESKTOP_MESSAGES = {
   "ffmpeg not detected": "ffmpeg nicht erkannt",
   fps: "fps",
   "{available} free of {total}": "{available} von {total} frei",
-  "{currentVersion} -> {version}": "{currentVersion} -> {version}",
   "{game} is being captured": "{game} wird aufgenommen",
   "{game} is ready": "{game} ist bereit",
   "{kbps} kbps": "{kbps} kbps",

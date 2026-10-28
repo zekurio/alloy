@@ -8,29 +8,21 @@ export const ERRORS_MESSAGES = {
   "Copy error": "Fehler kopieren",
   "Could not allocate a unique username":
     "Ein eindeutiger Nutzername konnte nicht vergeben werden",
-  "Could not claim setup user.":
-    "Der Einrichtungsnutzer konnte nicht übernommen werden.",
   "Could not clear staged import.":
     "Der vorbereitete Import konnte nicht aufgeräumt werden.",
-  "Could not create passkey challenge.":
-    "Die Passkey-Anfrage konnte nicht erstellt werden.",
   "Could not create session.": "Sitzung konnte nicht erstellt werden.",
   "Could not create user.": "Nutzer konnte nicht erstellt werden.",
   "Could not import clip.": "Clip konnte nicht importiert werden.",
   "Could not link OAuth account.": "OAuth-Konto konnte nicht verknüpft werden.",
-  "Could not load session.": "Sitzung konnte nicht geladen werden.",
   "Could not prepare clip.": "Clip konnte nicht vorbereitet werden.",
   "Could not read video metadata":
     "Videometadaten konnten nicht gelesen werden",
-  "Could not refresh session.": "Sitzung konnte nicht aktualisiert werden.",
-  "Could not start OAuth flow.": "OAuth-Vorgang konnte nicht gestartet werden.",
   "Could not start sign-in.": "Anmeldung konnte nicht gestartet werden.",
   "Could not start sign-up.": "Registrierung konnte nicht gestartet werden.",
   "Could not start upload.": "Upload konnte nicht gestartet werden.",
   "Could not verify passkey.": "Passkey konnte nicht verifiziert werden.",
   "Couldn't copy error details": "Fehlerdetails konnten nicht kopiert werden",
   "Enter the setup token first.": "Gib zuerst den Setup-Token ein.",
-  "Error details copied": "Fehlerdetails kopiert",
   "Failed to fetch":
     "Der Server ist nicht erreichbar. Bitte versuche es erneut.",
   "Internal Server Error": "Interner Serverfehler",
@@ -78,8 +70,6 @@ export const ERRORS_MESSAGES = {
     "Passkey-Registrierung ist derzeit deaktiviert.",
   "Passkey sign-up is enabled, but this browser does not support passkeys.":
     "Passkey-Registrierung ist aktiviert, aber dieser Browser unterstützt keine Passkeys.",
-  "Screen sharing was cancelled. Restart the agent or change the display settings to choose a screen.":
-    "Die Bildschirmfreigabe wurde abgebrochen. Starte den Agenten neu oder ändere die Anzeigeeinstellungen, um einen Bildschirm zu wählen.",
   "Session not found.": "Sitzung nicht gefunden.",
   "Set up the shortcuts first.": "Richte zuerst die Tastenkürzel ein.",
   "Setup is already complete.": "Die Einrichtung ist bereits abgeschlossen.",
@@ -93,7 +83,6 @@ export const ERRORS_MESSAGES = {
   "Timed out while reading video metadata":
     "Zeitüberschreitung beim Lesen der Videometadaten",
   "Too many requests": "Zu viele Anfragen",
-  "You can save up to 50 themes.": "Du kannst bis zu 50 Themes speichern.",
   "Your desktop couldn't identify Alloy. It needs Alloy's desktop entry, dev.zekurio.alloy.desktop.":
     "Dein Desktop konnte Alloy nicht erkennen. Er braucht Alloys Desktop-Eintrag dev.zekurio.alloy.desktop.",
   "Your desktop doesn't offer global shortcuts.":

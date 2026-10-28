@@ -4,10 +4,6 @@ export const ACCOUNT_MESSAGES = {
   " and {count} {label}": " und {count} {label}",
   Account: "Konto",
   "Account & data": "Konto & Daten",
-  "Account deleted": "Konto gelöscht",
-  "Account disabled": "Konto deaktiviert",
-  "Account reactivated": "Konto reaktiviert",
-  "Account unlinked": "Konto getrennt",
   "Actions here affect your whole account.":
     "Aktionen hier betreffen dein gesamtes Konto.",
   "Active now": "Gerade aktiv",
@@ -26,10 +22,7 @@ export const ACCOUNT_MESSAGES = {
   "Avatar imported from your sign-in provider":
     "Avatar von deinem Anmeldeanbieter importiert",
   "Avatar imported from {provider}": "Avatar von {provider} importiert",
-  "Avatar removed": "Avatar entfernt",
-  "Avatar updated": "Avatar aktualisiert",
   Banner: "Banner",
-  "Banner removed": "Banner entfernt",
   Block: "Blockieren",
   "Browsers and desktop apps signed in to your account.":
     "Browser und Desktop-Apps, die bei deinem Konto angemeldet sind.",
@@ -67,8 +60,6 @@ export const ACCOUNT_MESSAGES = {
   "Danger zone": "Gefahrenzone",
   "Delete account": "Konto löschen",
   "Delete your account?": "Konto löschen?",
-  "Deleted {count} clip": "{count} Clip gelöscht",
-  "Deleted {count} clips": "{count} Clips gelöscht",
   "Desktop app": "Desktop-App",
   "Disable account": "Konto deaktivieren",
   "Disable your account?": "Konto deaktivieren?",
@@ -116,10 +107,7 @@ export const ACCOUNT_MESSAGES = {
   "Open library": "Bibliothek öffnen",
   "Open security settings": "Sicherheitseinstellungen öffnen",
   "Open {name}'s profile": "Profil von {name} öffnen",
-  "Passkey added": "Passkey hinzugefügt",
   "Passkey registration failed": "Passkey-Registrierung fehlgeschlagen",
-  "Passkey removed": "Passkey entfernt",
-  "Passkey renamed": "Passkey umbenannt",
   Passkeys: "Passkeys",
   "Passkeys and linked accounts stay tied to your server's web address.":
     "Passkeys und verknüpfte Konten bleiben an die Webadresse deines Servers gebunden.",
@@ -193,8 +181,6 @@ export const ACCOUNT_MESSAGES = {
     "Der Nutzer kann sich nicht mehr anmelden und seine Clips werden ausgeblendet. Die Daten bleiben erhalten und du kannst ihn später wieder entsperren.",
   "They'll be able to sign in and their clips will be visible again.":
     "Der Nutzer kann sich wieder anmelden und seine Clips sind wieder sichtbar.",
-  "They'll be signed out and their clips hidden. Their data is kept and you can enable them again later.":
-    "Der Nutzer wird abgemeldet und seine Clips ausgeblendet. Die Daten bleiben erhalten und du kannst ihn später wieder aktivieren.",
   "This account has been banned by an administrator.":
     "Dieses Konto wurde von einem Administrator gesperrt.",
   "This device": "Dieses Gerät",
@@ -212,13 +198,7 @@ export const ACCOUNT_MESSAGES = {
   "Upload new banner": "Neues Banner hochladen",
   User: "Nutzer",
   "User actions": "Nutzeraktionen",
-  "User created": "Nutzer erstellt",
-  "User disabled": "Nutzer deaktiviert",
-  "User enabled": "Nutzer aktiviert",
   "User not found.": "Nutzer nicht gefunden.",
-  "User removed": "Nutzer entfernt",
-  "User unblocked": "Nutzer entsperrt",
-  "User updated": "Nutzer aktualisiert",
   Username: "Nutzername",
   "Username can be at most {max} characters":
     "Der Nutzername darf höchstens {max} Zeichen lang sein",
