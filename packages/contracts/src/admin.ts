@@ -379,7 +379,7 @@ export interface SetupStatus {
   setupRequired: boolean
   /**
    * This browser must present the setup token before it can create the
-   * admin. False once it has, and on a development server without
+   * admin. False once it has, and on a loopback development server without
    * ALLOY_SETUP_TOKEN.
    */
   tokenRequired: boolean

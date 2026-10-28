@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto"
 
+import { isLoopbackHostname } from "@alloy/env"
 import { createLogger } from "@alloy/logging"
 import { env } from "@alloy/server/env"
 import type { Context } from "hono"
@@ -25,11 +26,17 @@ let generatedToken: string | null = null
 const verifiedBrowsers = new Map<string, number>()
 
 /**
- * Production always asks for the token. A development server skips it
- * unless ALLOY_SETUP_TOKEN is set, so local setup stays one step.
+ * Only a development server on a loopback origin skips the token, so local
+ * setup stays one step. NODE_ENV defaults to development, so a deployment
+ * that forgets it still gets the token through its public URL, and
+ * ALLOY_SETUP_TOKEN turns the token on everywhere.
  */
 function setupTokenEnforced(): boolean {
-  return env.NODE_ENV === "production" || env.setupToken !== null
+  if (env.setupToken !== null) return true
+  return !(
+    env.NODE_ENV === "development" &&
+    isLoopbackHostname(new URL(env.PUBLIC_SERVER_URL).hostname)
+  )
 }
 
 function setupToken(): string {
