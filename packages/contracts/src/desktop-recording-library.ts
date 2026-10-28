@@ -1,8 +1,8 @@
 import type {
   RecordingCaptureKind,
   RecordingCaptureSource,
-  RecordingGameGuess,
-} from "./desktop-recording-types"
+} from "./desktop-recording-config"
+import type { RecordingGameGuess } from "./desktop-recording-games"
 import type { ClipPrivacy } from "./shared"
 
 /** Minimal user summary persisted with capture drafts to rehydrate pickers. */

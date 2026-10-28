@@ -25,7 +25,6 @@ export function buildServerInfo(): ServerInfo {
     desktopBridgeContracts: [...DESKTOP_BRIDGE_CONTRACT_IDS],
     uploadLimits: { ...configStore.get("uploadLimits") },
     capabilities: {
-      screenshots: 1,
       auth: { ...DESKTOP_HTTP_CAPABILITIES.auth },
       transport: { ...DESKTOP_HTTP_CAPABILITIES.transport },
     },

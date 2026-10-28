@@ -422,7 +422,6 @@ pub struct RecordingStatus {
     /// The web hides the controls for what is missing. A status the host
     /// assembles without a recorder carries the set its recorder is built
     /// with.
-    #[serde(default)]
     pub capabilities: Vec<String>,
 }
 

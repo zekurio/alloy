@@ -1,13 +1,9 @@
 import { mkdir, mkdtemp, rm } from "node:fs/promises"
-import { tmpdir } from "node:os"
 import { resolve } from "node:path"
 
 import { env } from "@alloy/server/env"
 import { clipStorage } from "@alloy/server/storage/index"
 import { configuredFilesystemStoragePath } from "@alloy/server/storage/paths"
-
-/** Where media scratch lived before it moved into the clip storage root. */
-const LEGACY_MEDIA_WORK_ROOT = resolve(tmpdir(), "alloy-server", "media")
 
 /**
  * Scratch space for media work: the sources a run reads and the files it
@@ -35,11 +31,7 @@ export async function makeMediaWorkDir(id: string): Promise<string> {
  * use.
  */
 export async function clearMediaWorkDirs(): Promise<void> {
-  await Promise.all(
-    [mediaWorkRoot(), LEGACY_MEDIA_WORK_ROOT].map((dir) =>
-      rm(dir, { recursive: true, force: true }),
-    ),
-  )
+  await rm(mediaWorkRoot(), { recursive: true, force: true })
 }
 
 /**

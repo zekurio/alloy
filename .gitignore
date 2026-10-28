@@ -45,9 +45,6 @@ npm-debug.log*
 .devenv.flake.nix
 devenv.local.nix
 
-# Legacy local postgres state from the pre-devenv dev tooling
-.pg/
-
 # Runtime config store (JSON-backed, mutable via admin UI)
 data/
 

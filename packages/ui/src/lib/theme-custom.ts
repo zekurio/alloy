@@ -40,8 +40,6 @@ import { readVsCodeTheme } from "@alloy/ui/lib/theme-vscode"
 
 export const CUSTOM_THEMES_STORAGE_KEY = "alloy.themes"
 const THEME_FILE_VERSION = 2
-/** One `light` and one `dark` palette instead of a list of variants. */
-const LEGACY_THEME_FILE_VERSION = 1
 const THEME_SOURCE_MAX_BYTES = 256 * 1024
 
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/
@@ -283,10 +281,7 @@ function parseThemeSource(source: ThemeSource): ThemeDraft | string {
 function parseAlloyThemeFile(
   json: Record<string, ContractJsonValue>,
 ): ThemeDraft | string {
-  if (
-    json.version !== THEME_FILE_VERSION &&
-    json.version !== LEGACY_THEME_FILE_VERSION
-  ) {
+  if (json.version !== THEME_FILE_VERSION) {
     return t("Unsupported theme file version.")
   }
   const name = isStringValue(json.name) ? json.name.trim() : ""
@@ -296,10 +291,7 @@ function parseAlloyThemeFile(
     })
   }
 
-  const variants =
-    json.version === LEGACY_THEME_FILE_VERSION
-      ? parseLegacyThemeVariants(json)
-      : parseThemeVariants(json.variants)
+  const variants = parseThemeVariants(json.variants)
   if (isStringValue(variants)) return variants
   if (variants.length === 0) return t("A theme needs light or dark colors.")
   if (variants.length > MAX_THEME_VARIANTS) {
@@ -330,20 +322,6 @@ function parseThemeVariants(
       appearance,
       colors,
     })
-  }
-  return variants
-}
-
-function parseLegacyThemeVariants(
-  json: Record<string, ContractJsonValue>,
-): CustomThemeVariant[] | string {
-  const variants: CustomThemeVariant[] = []
-  for (const appearance of THEME_APPEARANCES) {
-    const value = json[appearance]
-    if (value === undefined) continue
-    const colors = parseThemeColors(appearance, value)
-    if (isStringValue(colors)) return colors
-    variants.push({ id: appearance, name: null, appearance, colors })
   }
   return variants
 }

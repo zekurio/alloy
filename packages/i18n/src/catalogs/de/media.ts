@@ -272,8 +272,6 @@ export const MEDIA_MESSAGES = {
   "Swipe to navigate": "Zum Navigieren wischen",
   "The browser could not decode this video.":
     "Der Browser konnte dieses Video nicht dekodieren.",
-  "This server does not support screenshot uploads yet.":
-    "Dieser Server unterstützt noch keine Screenshot-Uploads.",
   "This shortcut is already assigned to clips.":
     "Dieses Tastenkürzel ist bereits Clips zugewiesen.",
   "This shortcut is already assigned to screenshots.":

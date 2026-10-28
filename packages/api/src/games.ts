@@ -80,7 +80,6 @@ export function createGamesApi(context: ApiContext) {
       return readJsonOrThrow(res, validateGameListRows)
     },
     fetchById,
-    fetchBySlug: fetchById,
     async fetchCreators(
       gameId: number | string,
       limit?: number,

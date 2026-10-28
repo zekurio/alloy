@@ -290,10 +290,8 @@ export async function prepareWebUploadPayload(
 ): Promise<PublishPayload> {
   throwIfAborted(signal, "Upload aborted")
   if (selected.contentType.startsWith("image/")) {
-    const server = await api.serverInfo.fetch()
-    if (server.capabilities.screenshots !== 1)
-      throw new Error(t("This server does not support screenshot uploads yet."))
-    if (metadata.screenshotEdit)
+    if (metadata.screenshotEdit) {
+      const server = await api.serverInfo.fetch()
       selected = await prepareSelectedClipFile(
         await exportScreenshot(
           selected.file,
@@ -301,6 +299,7 @@ export async function prepareWebUploadPayload(
           server.uploadLimits,
         ),
       )
+    }
   }
   return {
     file: selected.file,

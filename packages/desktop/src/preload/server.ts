@@ -1,6 +1,6 @@
 import type { AlloyDesktopRecordingApi } from "@alloy/contracts/desktop-api"
 import type { AlloyDesktop } from "@alloy/contracts/desktop-bridge"
-import type { RecordingEvent } from "@alloy/contracts/desktop-recording-types"
+import type { RecordingEvent } from "@alloy/contracts/desktop-recording-status"
 import type { DesktopUpdateState } from "@alloy/contracts/desktop-update"
 import { DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron"

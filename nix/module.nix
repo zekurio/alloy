@@ -77,102 +77,12 @@ let
 in
 {
   imports = [
-    (lib.mkRenamedOptionModule
-      [ "services" "alloy-clips" ]
-      [ "services" "alloy-server" ]
-    )
-    (lib.mkRenamedOptionModule
-      [ "services" "alloy-server" "database" "createLocally" ]
-      [ "services" "alloy-server" "database" "enable" ]
-    )
-    (lib.mkRenamedOptionModule
-      [ "services" "alloy-server" "clipsStorageDir" ]
-      [ "services" "alloy-server" "storage" "fs" "clipsPath" ]
-    )
-    (lib.mkRenamedOptionModule
-      [ "services" "alloy-server" "userAssetsStorageDir" ]
-      [ "services" "alloy-server" "storage" "fs" "assetsPath" ]
-    )
-    (lib.mkRenamedOptionModule
-      [ "services" "alloy-server" "storage" "fs" "usersPath" ]
-      [ "services" "alloy-server" "storage" "fs" "assetsPath" ]
-    )
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "storageDir" ] ''
-      Configure services.alloy-server.storage.fs.clipsPath and
-      services.alloy-server.storage.fs.thumbnailsPath and
-      services.alloy-server.storage.fs.assetsPath directly.
-    '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "configFile" ] ''
-      Alloy no longer reads mutable config.json. Use typed NixOS options under
-      services.alloy-server or services.alloy-server.environment.
-    '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "initialRuntimeConfig" ] ''
-      Alloy no longer bootstraps mutable runtime config. Use typed NixOS
-      options under services.alloy-server or services.alloy-server.environment.
-    '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "database" "url" ] ''
-      Configure services.alloy-server.database.host, port, name, and user instead.
-      The module derives DATABASE_URL like the Immich module. For unusual
-      setups, override DATABASE_URL through services.alloy-server.environment or
-      a systemd service override.
-    '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "database" "urlFile" ] ''
-      Configure services.alloy-server.database.host, port, name, and user instead.
-      If you need secret database credentials, provide PGPASSWORD or DATABASE_URL
-      through services.alloy-server.environmentFile.
-    '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "database" "socketDir" ] ''
-      Use services.alloy-server.database.host for both PostgreSQL hostnames and
-      Unix socket directories.
-    '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "secrets" "viewerCookieSecretFile" ] ''
-      Put ALLOY_VIEWER_COOKIE_SECRET in services.alloy-server.environmentFile,
-      or set ALLOY_VIEWER_COOKIE_SECRET through services.alloy-server.environment.
-    '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "secrets" "uploadHmacSecretFile" ] ''
-      Put ALLOY_UPLOAD_HMAC_SECRET in services.alloy-server.environmentFile,
-      or set ALLOY_UPLOAD_HMAC_SECRET through services.alloy-server.environment.
-    '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "storage" "s3" ] ''
-      S3-compatible storage support has been removed. Configure filesystem
-      storage through services.alloy-server.storage.fs.
-    '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "storage" "driver" ] ''
-      Only filesystem storage is supported, so the storage backend selector has
-      been removed. Configure filesystem storage through
-      services.alloy-server.storage.fs.
-    '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "integrations" "steamgriddb" "apiKeyFile" ] ''
-      Put ALLOY_STEAMGRIDDB_API_KEY in services.alloy-server.environmentFile,
-      or set ALLOY_STEAMGRIDDB_API_KEY through services.alloy-server.environment.
-    '')
     (lib.mkRemovedOptionModule [ "services" "alloy-server" "oauth" "socialAccountProvidersFile" ] ''
       Alloy now has one OpenID Connect provider. Configure it with
       services.alloy-server.auth.oidc and put ALLOY_OIDC_CLIENT_SECRET in
       services.alloy-server.environmentFile.
     '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "cacheDir" ] ''
-      Alloy now keeps temporary media work/cache files in the OS temp area.
-      Configure durable storage through services.alloy-server.storage.
-    '')
-  ]
-  ++ map
-    (
-      option:
-      lib.mkRemovedOptionModule [ "services" "alloy-server" "machine-learning" option ] ''
-        Alloy no longer ships a machine learning inference service. Game
-        tagging is fully deterministic (recorder detection + SteamGridDB).
-      ''
-    )
-    [
-      "enable"
-      "package"
-      "host"
-      "port"
-      "baseUrl"
-      "cacheDir"
-      "environment"
-    ];
+  ];
 
   options.services.alloy-server = {
     enable = lib.mkEnableOption "Alloy";

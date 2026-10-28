@@ -19,7 +19,6 @@ lib.cleanSourceWith {
       ".direnv"
       ".env"
       ".git"
-      ".pg"
       ".turbo"
       ".venv"
       "__pycache__"
