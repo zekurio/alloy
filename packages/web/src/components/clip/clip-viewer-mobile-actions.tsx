@@ -4,20 +4,33 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@alloy/ui/components/avatar"
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@alloy/ui/components/drawer"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import {
   CheckIcon,
   CircleAlertIcon,
+  DownloadIcon,
   LoaderCircleIcon,
+  MegaphoneIcon,
   MoreHorizontalIcon,
+  PencilIcon,
   Share2Icon,
+  Trash2Icon,
 } from "lucide-react"
 import type { CSSProperties, ReactNode } from "react"
 
+import {
+  mobileDrawerContentClass,
+  MobileDrawerHandle,
+} from "@/components/app/mobile-drawer-surface"
 import { userAvatar } from "@/lib/user-display"
-
-import { ClipActionsMenu } from "./clip-actions-menu"
 
 type ClipAuthorLinkProps = {
   handle: string
@@ -81,29 +94,35 @@ function MobileActionButton({
 }
 
 type MobileActionsRailProps = {
-  announcementAction?: ReactNode
+  clipTitle: string
   canManage: boolean
   deleting: boolean
-  downloadAction?: ReactNode
+  /** The clip can be downloaded through the browser. */
+  canDownload: boolean
+  /** Admin-only: queue the clip's announcement webhooks again. */
+  reannounce: { onReannounce: () => void; disabled: boolean } | null
   shareState: "idle" | "pending" | "success" | "error"
   shareError: string | null
   shareDisabled: boolean
   iconSizeClassName: string
   onShare: () => void
+  onDownload: () => void
   onEdit: () => void
   onDelete: () => void
 }
 
 export function MobileActionsRail({
-  announcementAction,
+  clipTitle,
   canManage,
   deleting,
-  downloadAction,
+  canDownload,
+  reannounce,
   shareState,
   shareError,
   shareDisabled,
   iconSizeClassName,
   onShare,
+  onDownload,
   onEdit,
   onDelete,
 }: MobileActionsRailProps) {
@@ -133,27 +152,93 @@ export function MobileActionsRail({
           )
         }
       />
-      <ClipActionsMenu
-        trigger={
-          <button
-            type="button"
-            className="flex flex-col items-center"
-            aria-label={t("Clip actions")}
-          >
-            {/* Same white as the rail's other glyphs; the rotation makes the
-                horizontal dots read as the usual vertical overflow menu. */}
-            <MoreHorizontalIcon
-              className={cn(iconSizeClassName, "rotate-90 text-white")}
-            />
-          </button>
-        }
-        canManage={canManage}
-        deleting={deleting}
-        downloadAction={downloadAction}
-        adminActions={announcementAction}
-        onEdit={onEdit}
-        onDelete={onDelete}
-      />
+      {canManage || canDownload ? (
+        <Drawer direction="bottom">
+          <DrawerTrigger asChild>
+            <button
+              type="button"
+              className="flex flex-col items-center"
+              aria-label={t("Clip actions")}
+            >
+              {/* Same white as the rail's other glyphs; the rotation makes the
+                  horizontal dots read as the usual vertical overflow menu. */}
+              <MoreHorizontalIcon
+                className={cn(iconSizeClassName, "rotate-90 text-white")}
+              />
+            </button>
+          </DrawerTrigger>
+          {/* A bottom sheet, like the share and overflow sheets of other
+              phone apps: full-width rows within thumb reach instead of a small
+              menu anchored to the rail. */}
+          <DrawerContent className={mobileDrawerContentClass}>
+            <MobileDrawerHandle />
+            <DrawerTitle className="truncate px-4 pt-3 pb-2 text-base">
+              {clipTitle}
+            </DrawerTitle>
+            <div className="flex flex-col px-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              {canDownload ? (
+                <DrawerClose asChild>
+                  <button
+                    type="button"
+                    className={sheetRowClass}
+                    onClick={onDownload}
+                  >
+                    <DownloadIcon />
+                    {t("Download")}
+                  </button>
+                </DrawerClose>
+              ) : null}
+              {canManage ? (
+                <DrawerClose asChild>
+                  <button
+                    type="button"
+                    className={sheetRowClass}
+                    onClick={onEdit}
+                  >
+                    <PencilIcon />
+                    {t("Edit")}
+                  </button>
+                </DrawerClose>
+              ) : null}
+              {reannounce ? (
+                <DrawerClose asChild>
+                  <button
+                    type="button"
+                    className={sheetRowClass}
+                    disabled={reannounce.disabled}
+                    onClick={reannounce.onReannounce}
+                  >
+                    <MegaphoneIcon />
+                    {t("Reannounce")}
+                  </button>
+                </DrawerClose>
+              ) : null}
+              {canManage ? (
+                <DrawerClose asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      sheetRowClass,
+                      "text-destructive [&>svg]:text-destructive",
+                    )}
+                    disabled={deleting}
+                    onClick={onDelete}
+                  >
+                    <Trash2Icon />
+                    {t("Delete")}
+                  </button>
+                </DrawerClose>
+              ) : null}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : null}
     </>
   )
 }
+
+const sheetRowClass = cn(
+  "flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-medium outline-none",
+  "hover:bg-surface-raised focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+  "[&>svg]:size-5 [&>svg]:shrink-0 [&>svg]:text-foreground-dim",
+)

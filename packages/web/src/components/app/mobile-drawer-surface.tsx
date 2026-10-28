@@ -12,7 +12,7 @@ export function MobileDrawerHandle({
   return (
     <DrawerHandle
       className={cn(
-        "mx-auto mt-2 mb-1 h-1 w-10 shrink-0 rounded-full bg-white/20",
+        "bg-foreground/20 mx-auto mt-2 mb-1 h-1 w-10 shrink-0 rounded-full",
         className,
       )}
       {...props}
