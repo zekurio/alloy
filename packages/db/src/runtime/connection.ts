@@ -3,8 +3,6 @@ import { Pool } from "pg"
 
 type CreatePostgresPoolOptions = {
   max?: number
-  /** Start sessions in UTC. On by default; see {@link withUtcSessions}. */
-  utcSessions?: boolean
 }
 
 const DEFAULT_POOL_MAX = 10
@@ -41,10 +39,7 @@ export function createPostgresPool(
   options: CreatePostgresPoolOptions = {},
 ): Pool {
   const pool = new Pool({
-    connectionString:
-      options.utcSessions === false
-        ? databaseUrl
-        : withUtcSessions(databaseUrl),
+    connectionString: withUtcSessions(databaseUrl),
     connectionTimeoutMillis: DEFAULT_CONNECT_TIMEOUT_MS,
     idleTimeoutMillis: 0,
     max: options.max ?? DEFAULT_POOL_MAX,
