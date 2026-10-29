@@ -14,7 +14,6 @@ import {
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 
-import { AdminDefaultNote } from "./admin-default-note"
 import { OidcSettings } from "./admin-oidc-settings"
 
 type AuthToggleKey = keyof AdminAuthConfigPatch
@@ -79,20 +78,7 @@ export function AuthSettingsContent({
                 <SettingRow
                   key={item.key}
                   title={item.label}
-                  description={
-                    <>
-                      {item.description}
-                      <AdminDefaultNote
-                        value={config[item.key]}
-                        defaultValue={config.defaults[item.key]}
-                        label={config.defaults[item.key] ? t("On") : t("Off")}
-                        disabled={pendingToggle !== null}
-                        onReset={() =>
-                          setToggle(item.key, config.defaults[item.key])
-                        }
-                      />
-                    </>
-                  }
+                  description={item.description}
                   align="start"
                 >
                   <Switch

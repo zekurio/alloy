@@ -9,7 +9,7 @@ import { useMemo } from "react"
 import { LoginAppearancePreview } from "@/components/routes/admin-settings/login-appearance-preview"
 import { AdminAccentSettings } from "@/components/routes/settings/admin-accent-settings"
 import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
-import { AdminDefaultNote } from "@/components/routes/settings/admin-default-note"
+import { ResetToDefaultButton } from "@/components/routes/settings/admin-reset-default"
 import {
   SettingsSections,
   SettingsSubsection,
@@ -77,20 +77,9 @@ export function AppearanceSettingsContent({
             <SettingRows>
               <SettingRow
                 title={t("Show the backdrop")}
-                description={
-                  <>
-                    {t(
-                      "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.",
-                    )}
-                    <AdminDefaultNote
-                      value={splash.enabled}
-                      defaultValue={defaultSplash.enabled}
-                      label={defaultSplash.enabled ? t("On") : t("Off")}
-                      disabled={toggleSplash.isPending}
-                      onReset={() => toggleSplash.mutate(defaultSplash.enabled)}
-                    />
-                  </>
-                }
+                description={t(
+                  "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.",
+                )}
                 align="start"
               >
                 <div className="flex flex-col items-end gap-1.5">
@@ -119,33 +108,39 @@ export function AppearanceSettingsContent({
               splash={previewSplash}
               blurPx={treatment.blurPx}
               darkenOpacity={treatment.darkenOpacity}
+              blurReset={
+                <ResetToDefaultButton
+                  value={treatment.blurPx}
+                  defaultValue={defaultSplash.blurPx}
+                  label={`${defaultSplash.blurPx}${t("px")}`}
+                  disabled={treatmentPending}
+                  onReset={() =>
+                    form.setFieldValue("blurPx", defaultSplash.blurPx)
+                  }
+                  className="-my-1"
+                />
+              }
+              darkenReset={
+                <ResetToDefaultButton
+                  value={treatment.darkenOpacity}
+                  defaultValue={defaultSplash.darkenOpacity}
+                  label={`${Math.round(defaultSplash.darkenOpacity * 100)}%`}
+                  disabled={treatmentPending}
+                  onReset={() =>
+                    form.setFieldValue(
+                      "darkenOpacity",
+                      defaultSplash.darkenOpacity,
+                    )
+                  }
+                  className="-my-1"
+                />
+              }
               controlsDisabled={treatmentPending}
               onBlurPxChange={(value) => form.setFieldValue("blurPx", value)}
               onDarkenOpacityChange={(value) =>
                 form.setFieldValue("darkenOpacity", value)
               }
             />
-            <p className="text-xs">
-              <AdminDefaultNote
-                value={treatment}
-                defaultValue={{
-                  blurPx: defaultSplash.blurPx,
-                  darkenOpacity: defaultSplash.darkenOpacity,
-                }}
-                label={t("{blur} px blur, {darken}% darkening", {
-                  blur: defaultSplash.blurPx,
-                  darken: Math.round(defaultSplash.darkenOpacity * 100),
-                })}
-                disabled={treatmentPending}
-                onReset={() => {
-                  form.setFieldValue("blurPx", defaultSplash.blurPx)
-                  form.setFieldValue(
-                    "darkenOpacity",
-                    defaultSplash.darkenOpacity,
-                  )
-                }}
-              />
-            </p>
           </SettingsSubsection>
         </SettingsSections>
       </SectionContent>

@@ -1,4 +1,5 @@
 import type { AdminRuntimeConfig } from "@alloy/api"
+import { t } from "@alloy/i18n"
 import { Callout } from "@alloy/ui/components/callout"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import type { ReactNode } from "react"
@@ -22,12 +23,24 @@ function AdminLoadError({ message }: { message: string }) {
  * Wraps a panel body that needs the loaded admin config, handling the load-error
  * and not-yet-loaded states so each panel stays focused on its own content.
  * Loaded config wins over an error: a failed background refetch must not
- * unmount the form and drop its unsaved edits.
+ * unmount the form and drop its unsaved edits. Explains once where defaults
+ * come from, so the fields only need a reset button.
  */
 function withAdminConfig(render: (config: AdminRuntimeConfig) => ReactNode) {
   return function AdminConfigPanel() {
     const ctx = useAdminConfigContext()
-    if (ctx.config) return <>{render(ctx.config)}</>
+    if (ctx.config) {
+      return (
+        <div className="flex flex-col gap-8">
+          <p className="text-foreground-dim text-xs">
+            {t(
+              "ALLOY_* environment variables override Alloy's defaults, and values saved here override both. Reset a field to return it to its default.",
+            )}
+          </p>
+          {render(ctx.config)}
+        </div>
+      )
+    }
     if (ctx.loadError) return <AdminLoadError message={ctx.loadError} />
     return <LoadingState variant="panel" />
   }

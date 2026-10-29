@@ -9,14 +9,13 @@ import {
 } from "@alloy/contracts"
 import { message, t } from "@alloy/i18n"
 import { Callout } from "@alloy/ui/components/callout"
-import { Input } from "@alloy/ui/components/input"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { useForm, useStore } from "@tanstack/react-form"
 
 import { api } from "@/lib/api"
 
 import { useAdminConfigMutation } from "./admin-config-context"
-import { AdminDefaultNote } from "./admin-default-note"
+import { ResettableInput } from "./admin-reset-default"
 import { SettingsSections, SettingsSubsection } from "./settings-panel"
 import { useSettingsSaveBar } from "./settings-save-context"
 
@@ -127,26 +126,21 @@ export function UploadLimitsSettingsContent({
             <SettingRow
               key={field.key}
               title={t(field.label)}
-              description={
-                <>
-                  {t(field.description)}
-                  <AdminDefaultNote
-                    value={value}
-                    defaultValue={defaults[field.key]}
-                    label={String(defaults[field.key] / field.scale)}
-                    disabled={saving}
-                    onReset={() =>
-                      form.setFieldValue(
-                        field.key,
-                        String(defaults[field.key] / field.scale),
-                      )
-                    }
-                  />
-                </>
-              }
+              description={t(field.description)}
               htmlFor={field.key}
             >
-              <Input
+              <ResettableInput
+                reset={{
+                  value,
+                  defaultValue: defaults[field.key],
+                  label: String(defaults[field.key] / field.scale),
+                  disabled: saving,
+                  onReset: () =>
+                    form.setFieldValue(
+                      field.key,
+                      String(defaults[field.key] / field.scale),
+                    ),
+                }}
                 id={field.key}
                 type="number"
                 inputMode="decimal"
@@ -265,28 +259,20 @@ function StorageLimitsSettings({ config }: { config: AdminRuntimeConfig }) {
       <SettingRows>
         <SettingRow
           title={t("Default storage quota (GiB)")}
-          description={
-            <>
-              {t(
-                "Storage each new account starts with. Leave empty for unlimited; admins can change it per user.",
-              )}
-              <AdminDefaultNote
-                value={next.defaultStorageQuotaBytes}
-                defaultValue={defaults.defaultStorageQuotaBytes}
-                label={quotaLabel(defaults.defaultStorageQuotaBytes)}
-                disabled={saving}
-                onReset={() =>
-                  form.setFieldValue(
-                    "quotaGib",
-                    storageDraft(defaults).quotaGib,
-                  )
-                }
-              />
-            </>
-          }
+          description={t(
+            "Storage each new account starts with. Leave empty for unlimited; admins can change it per user.",
+          )}
           htmlFor="default-storage-quota"
         >
-          <Input
+          <ResettableInput
+            reset={{
+              value: next.defaultStorageQuotaBytes,
+              defaultValue: defaults.defaultStorageQuotaBytes,
+              label: quotaLabel(defaults.defaultStorageQuotaBytes),
+              disabled: saving,
+              onReset: () =>
+                form.setFieldValue("quotaGib", storageDraft(defaults).quotaGib),
+            }}
             id="default-storage-quota"
             type="number"
             inputMode="decimal"
@@ -303,28 +289,23 @@ function StorageLimitsSettings({ config }: { config: AdminRuntimeConfig }) {
         </SettingRow>
         <SettingRow
           title={t("Upload link lifetime (minutes)")}
-          description={
-            <>
-              {t(
-                "How long a clip upload has to finish before its upload link expires.",
-              )}
-              <AdminDefaultNote
-                value={next.uploadTtlSec}
-                defaultValue={defaults.uploadTtlSec}
-                label={String(defaults.uploadTtlSec / 60)}
-                disabled={saving}
-                onReset={() =>
-                  form.setFieldValue(
-                    "uploadTtlMinutes",
-                    storageDraft(defaults).uploadTtlMinutes,
-                  )
-                }
-              />
-            </>
-          }
+          description={t(
+            "How long a clip upload has to finish before its upload link expires.",
+          )}
           htmlFor="upload-ttl"
         >
-          <Input
+          <ResettableInput
+            reset={{
+              value: next.uploadTtlSec,
+              defaultValue: defaults.uploadTtlSec,
+              label: String(defaults.uploadTtlSec / 60),
+              disabled: saving,
+              onReset: () =>
+                form.setFieldValue(
+                  "uploadTtlMinutes",
+                  storageDraft(defaults).uploadTtlMinutes,
+                ),
+            }}
             id="upload-ttl"
             type="number"
             inputMode="decimal"

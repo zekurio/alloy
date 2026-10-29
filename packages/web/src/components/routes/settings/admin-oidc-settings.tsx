@@ -19,7 +19,6 @@ import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
 import { api } from "@/lib/api"
 
-import { AdminDefaultNote, sameConfigValue } from "./admin-default-note"
 import {
   CallbackUrlRow,
   TextRow,
@@ -27,6 +26,7 @@ import {
   TokenAuthMethodRow,
   tokenAuthMethodLabel,
 } from "./admin-oidc-fields"
+import { sameConfigValue } from "./admin-reset-default"
 
 /** Text fields hold only a saved value; empty shows the default instead. */
 const TEXT_FIELDS = [
@@ -107,10 +107,6 @@ function patchFromDraft(draft: OidcDraft): AdminOidcConfigPatch {
   return patch
 }
 
-function onOff(value: boolean): string {
-  return value ? t("On") : t("Off")
-}
-
 export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
   const defaults = config.defaults.oidc
   const saved = draftFromConfig(config.oidc, defaults)
@@ -148,29 +144,19 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
     onChange: (value) => setField(key, value),
   })
 
-  const toggleNote = (key: ToggleKey) => (
-    <AdminDefaultNote
-      value={draft[key]}
-      defaultValue={defaults[key]}
-      label={onOff(defaults[key])}
-      onReset={() => setField(key, defaults[key])}
-    />
-  )
-
   return (
     <>
       <SettingsSubsection
         id="single-sign-on"
         title={t("Single sign-on")}
         description={t(
-          "Sign in through an OpenID Connect provider. Empty fields use the value from the environment or Alloy's default, shown as the placeholder.",
+          "Sign in through an OpenID Connect provider. Empty fields use their default, shown as the placeholder.",
         )}
       >
         <SettingRows>
           <ToggleRow
             title={t("Enabled")}
             description={t("Show the sign-in button for this provider.")}
-            note={toggleNote("enabled")}
             checked={draft.enabled}
             onCheckedChange={(enabled) => setField("enabled", enabled)}
           />
@@ -179,7 +165,6 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
             description={t(
               "Give people an account on their first sign-in. When off, only accounts that are already linked can sign in.",
             )}
-            note={toggleNote("allowSignUp")}
             checked={draft.allowSignUp}
             onCheckedChange={(allowSignUp) =>
               setField("allowSignUp", allowSignUp)
@@ -277,16 +262,13 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
             <TokenAuthMethodRow
               id="oidc-token-auth"
               value={draft.tokenAuthMethod}
-              note={
-                <AdminDefaultNote
-                  value={draft.tokenAuthMethod}
-                  defaultValue={defaults.tokenAuthMethod}
-                  label={tokenAuthMethodLabel(defaults.tokenAuthMethod)}
-                  onReset={() =>
-                    setField("tokenAuthMethod", defaults.tokenAuthMethod)
-                  }
-                />
-              }
+              reset={{
+                value: draft.tokenAuthMethod,
+                defaultValue: defaults.tokenAuthMethod,
+                label: tokenAuthMethodLabel(defaults.tokenAuthMethod),
+                onReset: () =>
+                  setField("tokenAuthMethod", defaults.tokenAuthMethod),
+              }}
               onChange={(method) => setField("tokenAuthMethod", method)}
             />
             <ToggleRow
@@ -294,7 +276,6 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
               description={t(
                 "Secure the authorization flow with Proof Key for Code Exchange.",
               )}
-              note={toggleNote("pkce")}
               checked={draft.pkce}
               onCheckedChange={(pkce) => setField("pkce", pkce)}
             />
@@ -303,7 +284,6 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
               description={t(
                 "Read claims from the user info endpoint as well as the ID token.",
               )}
-              note={toggleNote("fetchUserInfo")}
               checked={draft.fetchUserInfo}
               onCheckedChange={(fetchUserInfo) =>
                 setField("fetchUserInfo", fetchUserInfo)
