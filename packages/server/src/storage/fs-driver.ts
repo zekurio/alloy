@@ -115,7 +115,11 @@ export class FsStorageDriver implements StorageDriver {
 
     return {
       stream: (opts) => {
-        return fsCreateReadStream(full, opts?.start, opts?.end)
+        return fsCreateReadStream(
+          full,
+          opts?.start ?? 0,
+          opts?.end ?? stats.size - 1,
+        )
       },
       size: stats.size,
       contentType: contentTypeForExt(extname(full)),

@@ -27,13 +27,11 @@ import {
   booleanFlag,
   forbidden,
 } from "@alloy/server/runtime/http-response"
-import { pipeReadable } from "@alloy/server/runtime/streaming"
 import { clipStorage } from "@alloy/server/storage/index"
 import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
 import { accountDeletionState } from "@alloy/server/users/account-deletion-state"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
-import { stream } from "hono/streaming"
 
 import { contentDisposition, downloadFilename } from "./clips-helpers"
 import {
@@ -131,10 +129,7 @@ export const usersRoute = new Hono()
     )
     c.header("Cache-Control", "no-store")
 
-    const zip = createZipStream(entries)
-    return stream(c, async (s) => {
-      await pipeReadable(s, zip)
-    })
+    return c.body(createZipStream(entries))
   })
   .delete(
     "/me/clips",

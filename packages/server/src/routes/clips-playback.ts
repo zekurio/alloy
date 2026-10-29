@@ -10,11 +10,9 @@ import { sourceIsBroadlyDecodable } from "@alloy/server/clips/codecs"
 import { selectClipRenditions } from "@alloy/server/clips/renditions"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { notFound } from "@alloy/server/runtime/http-response"
-import { pipeReadable } from "@alloy/server/runtime/streaming"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 import { Hono } from "hono"
 import type { Context } from "hono"
-import { stream } from "hono/streaming"
 
 import { contentDisposition, downloadFilename } from "./clips-helpers"
 import {
@@ -301,9 +299,5 @@ export const clipsPlaybackRoutes = new Hono()
     // media.
     c.header("ETag", `"src-${clipAssetVersion(selected.key)}"`)
     if (c.req.method === "HEAD") return c.body(null)
-
-    const body = resolved.stream()
-    return stream(c, async (s) => {
-      await pipeReadable(s, body)
-    })
+    return c.body(resolved.stream())
   })

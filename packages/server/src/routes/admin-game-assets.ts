@@ -11,12 +11,12 @@ import {
   imageBlurHashFromBytes,
 } from "@alloy/server/media/blurhash"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
+import { loadSharp } from "@alloy/server/media/sharp"
 import { prewriteAssetDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { assetStorage } from "@alloy/server/storage/index"
 import { withStorageObjectWriteActivity } from "@alloy/server/storage/write-activity"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
-import sharp from "sharp"
 
 import { imageFileError } from "./image-upload"
 import { immutableImageAssetsRoute } from "./immutable-image-assets"
@@ -155,9 +155,13 @@ export async function enqueueGameAssetCleanupNow(
   })
 }
 
-function processGameAsset(role: GameAssetRole, bytes: Buffer): Promise<Buffer> {
+async function processGameAsset(
+  role: GameAssetRole,
+  bytes: Buffer,
+): Promise<Buffer> {
   const target = GAME_ASSET_TARGETS[role]
-  return sharp(bytes)
+  const sharp = await loadSharp()
+  return await sharp(bytes)
     .rotate()
     .resize(target.width, target.height, {
       fit: target.fit,

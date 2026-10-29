@@ -1,6 +1,4 @@
-import { createReadStream } from "node:fs"
-import { readdir, stat, utimes } from "node:fs/promises"
-import { Readable } from "node:stream"
+import { type FileHandle, open, readdir, stat, utimes } from "node:fs/promises"
 
 import { t } from "@alloy/contracts/schema"
 
@@ -38,15 +36,56 @@ export async function markLinkedPublishTime(path: string): Promise<void> {
   await utimes(path, now, now)
 }
 
+// fs.createReadStream's default read size.
+const FILE_STREAM_CHUNK_BYTES = 64 * 1024
+
+/**
+ * Streams bytes `start` through `end` (inclusive) of a file. Each pull reads
+ * the next chunk at its offset, so a slow client holds back the reads and at
+ * most one chunk waits in the stream. Reading the file handle directly skips
+ * the Node stream and the adapter that Readable.toWeb would add per chunk.
+ */
 export function fsCreateReadStream(
   path: string,
-  start: number | undefined,
-  end: number | undefined,
+  start: number,
+  end: number,
 ): ReadableStream<Uint8Array> {
-  // SAFETY: Readable.toWeb preserves the byte chunks from this fs read stream.
-  return Readable.toWeb(
-    createReadStream(path, { start, end }),
-  ) as ReadableStream<Uint8Array>
+  let handle: FileHandle | null = null
+  let position = start
+  const release = async () => {
+    const current = handle
+    handle = null
+    await current?.close()
+  }
+  return new ReadableStream<Uint8Array>({
+    async start() {
+      handle = await open(path, "r")
+    },
+    async pull(controller) {
+      const size = Math.min(FILE_STREAM_CHUNK_BYTES, end - position + 1)
+      if (!handle || size <= 0) {
+        await release()
+        controller.close()
+        return
+      }
+      const chunk = Buffer.allocUnsafeSlow(size)
+      let bytesRead: number
+      try {
+        ;({ bytesRead } = await handle.read(chunk, 0, size, position))
+      } catch (err) {
+        await release().catch(() => undefined)
+        throw err
+      }
+      position += bytesRead
+      if (bytesRead > 0) controller.enqueue(chunk.subarray(0, bytesRead))
+      // A short read means the file ended early, e.g. it was truncated.
+      if (bytesRead < size || position > end) {
+        await release()
+        controller.close()
+      }
+    },
+    cancel: release,
+  })
 }
 
 export class UploadPartTooLargeError extends Error {

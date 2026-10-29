@@ -10,15 +10,11 @@ import {
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
-import {
-  type AuthenticationResponseJSON,
-  generateAuthenticationOptions,
-  generateRegistrationOptions,
-  type RegistrationResponseJSON,
-  type Uint8Array_,
-  type VerifiedRegistrationResponse,
-  verifyAuthenticationResponse,
-  verifyRegistrationResponse,
+import type {
+  AuthenticationResponseJSON,
+  RegistrationResponseJSON,
+  Uint8Array_,
+  VerifiedRegistrationResponse,
 } from "@simplewebauthn/server"
 import { eq } from "drizzle-orm"
 
@@ -44,6 +40,15 @@ const RegistrationPayloadSchema = t.object({
 })
 
 type RegistrationPayload = t.infer<typeof RegistrationPayloadSchema>
+
+// The WebAuthn library and its ASN.1/X.509 stack are a large share of the
+// server bundle, and only passkey ceremonies use them.
+let simpleWebAuthn: Promise<typeof import("@simplewebauthn/server")> | null =
+  null
+function loadSimpleWebAuthn() {
+  simpleWebAuthn ??= import("@simplewebauthn/server")
+  return simpleWebAuthn
+}
 
 export const AUTHENTICATOR_TRANSPORTS = [
   "ble",
@@ -102,6 +107,7 @@ export async function beginPasskeyRegistration(input: {
       id: row.credential_id,
       transports: transports(row),
     })) ?? []
+  const { generateRegistrationOptions } = await loadSimpleWebAuthn()
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
     rpID: context.rpId,
@@ -140,6 +146,8 @@ export async function verifyPasskeyRegistration(input: {
   })
   const context = webAuthnContextFromPayload(challenge.payload)
 
+  const { verifyRegistrationResponse } = await loadSimpleWebAuthn()
+
   const verification = await verifyRegistrationResponse({
     response: input.response,
     expectedChallenge: challenge.challenge,
@@ -164,6 +172,7 @@ export async function beginPasskeyAuthentication(
     throw new Error("Passkey sign-in is currently disabled.")
   }
   const context = currentWebAuthnContext(input.origin)
+  const { generateAuthenticationOptions } = await loadSimpleWebAuthn()
   const options = await generateAuthenticationOptions({
     rpID: context.rpId,
     userVerification: "required",
@@ -200,6 +209,8 @@ export async function verifyPasskeyAuthentication(input: {
     .where(eq(userPasskey.credential_id, input.response.id))
     .limit(1)
   if (!credential) throw new Error("Passkey is not registered.")
+
+  const { verifyAuthenticationResponse } = await loadSimpleWebAuthn()
 
   const verification = await verifyAuthenticationResponse({
     response: input.response,

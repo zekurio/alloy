@@ -8,11 +8,12 @@ import {
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { errorMessage } from "@alloy/server/runtime/error-message"
-import sharp, { type Sharp } from "sharp"
+import type { Sharp } from "sharp"
 
 import { imageBlurHashFromBytes } from "./blurhash"
 import { runFfmpeg } from "./ffmpeg"
 import { processFailureKind } from "./run-process"
+import { loadSharp } from "./sharp"
 
 const logger = createLogger("media")
 
@@ -68,6 +69,7 @@ export async function extractPoster(
       throw cause
     }
     if (!frame) continue
+    const sharp = await loadSharp()
     const image = sharp(frame).resize(POSTER_MAX_WIDTH, null, {
       withoutEnlargement: true,
     })

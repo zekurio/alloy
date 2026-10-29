@@ -89,8 +89,12 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     # extraction; override with ALLOY_FFMPEG_PATH if needed.
     # Force production mode so an inherited environment cannot lower the
     # server's transport checks.
+    # V8 sizes the young generation from host RAM, up to 64 MB per
+    # semi-space; under load the server's short-lived request garbage grew it
+    # to that and RSS held there. 8 MB keeps throughput and halves load RSS
+    # (see packages/server/package.json's start script, which matches).
     makeWrapper "${nodejs-slim_24}/bin/node" "$out/bin/alloy" \
-      --add-flags "$out/share/alloy/server/dist/index.js" \
+      --add-flags "--max-semi-space-size=8 $out/share/alloy/server/dist/index.js" \
       --prefix PATH : "${lib.makeBinPath [ ffmpegPackage ]}" \
       --set NODE_ENV production \
       --set-default WEB_DIST_DIR "$out/share/alloy/web" \

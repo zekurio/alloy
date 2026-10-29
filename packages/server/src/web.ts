@@ -1,7 +1,5 @@
-import { createReadStream } from "node:fs"
 import { stat, readFile } from "node:fs/promises"
 import { isAbsolute, join, relative, resolve } from "node:path"
-import { Readable } from "node:stream"
 
 import type { PublicAuthConfig } from "@alloy/contracts"
 import type { Context, Hono } from "hono"
@@ -10,6 +8,7 @@ import { buildPublicAuthConfig } from "./auth/public-config"
 import { getSession } from "./auth/session"
 import { configStore } from "./config/store"
 import { env } from "./env"
+import { fsCreateReadStream } from "./storage/fs-driver-helpers"
 import { clipHead } from "./web-clip-head"
 import { htmlEscape, withInjectedHead } from "./web-html"
 
@@ -143,10 +142,7 @@ async function serveFile(
   c.header("Content-Length", String(s.size))
   c.header("Cache-Control", cacheControl)
   if (c.req.method === "HEAD") return c.body(null)
-
-  const stream = Readable.toWeb(createReadStream(path))
-  // SAFETY: Readable.toWeb preserves the byte chunks from this fs stream.
-  return c.body(stream as ReadableStream<Uint8Array>)
+  return c.body(fsCreateReadStream(path, 0, s.size - 1))
 }
 
 async function serveAppShell(c: Context, mount: WebMount) {

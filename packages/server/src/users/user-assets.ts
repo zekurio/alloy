@@ -7,6 +7,7 @@ import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
+import { loadSharp } from "@alloy/server/media/sharp"
 import { prewriteAssetDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import {
   cancelStorageDeletion,
@@ -18,7 +19,6 @@ import type { UserAssetRole } from "@alloy/server/storage/driver"
 import { assetStorage, versionedAssetKey } from "@alloy/server/storage/index"
 import { withStorageObjectWriteActivity } from "@alloy/server/storage/write-activity"
 import { eq, getTableColumns, sql } from "drizzle-orm"
-import sharp from "sharp"
 
 import { toPublicUser } from "../routes/users-helpers"
 import {
@@ -87,6 +87,7 @@ async function resizeUserAsset(
   const target = USER_ASSET_TARGETS[role]
   // rotate() with no angle applies the EXIF orientation; "fill" matches the
   // old ImageMagick `WxH!` forced-exact resize.
+  const sharp = await loadSharp()
   return await sharp(bytes)
     .rotate()
     .resize(target.width, target.height, { fit: "fill" })

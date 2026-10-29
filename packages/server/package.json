@@ -9,7 +9,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "tsx watch --clear-screen=false src/index.ts",
-    "start": "NODE_ENV=production node dist/index.js",
+    "start": "NODE_ENV=production node --max-semi-space-size=8 dist/index.js",
     "typecheck": "tsc --noEmit",
     "db:generate": "pnpm --filter @alloy/db db:generate",
     "db:migrate": "pnpm --filter @alloy/db db:migrate",
@@ -22,6 +22,9 @@
     "@alloy/env": "workspace:*",
     "@alloy/i18n": "workspace:*",
     "@alloy/logging": "workspace:*",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
     "@hono/node-server": "2.1.5",
     "@simplewebauthn/server": "14.0.3",
     "blurhash": "2.0.5",
@@ -29,11 +32,8 @@
     "hono": "4.13.13",
     "openid-client": "6.8.8",
     "pg": "8.23.1",
-    "sharp": "0.35.5",
-    "typebox": "1.4.2"
-  },
-  "devDependencies": {
     "tsx": "4.23.15",
+    "typebox": "1.4.2",
     "vite": "catalog:"
   }
 }

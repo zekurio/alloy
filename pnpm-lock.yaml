@@ -194,6 +194,10 @@ importers:
       '@alloy/logging':
         specifier: workspace:*
         version: link:../logging
+      sharp:
+        specifier: 0.35.5
+        version: 0.35.5(@types/node@26.6.5)
+    devDependencies:
       '@hono/node-server':
         specifier: 2.1.5
         version: 2.1.5(hono@4.13.13)
@@ -215,16 +219,12 @@ importers:
       pg:
         specifier: 8.23.1
         version: 8.23.1
-      sharp:
-        specifier: 0.35.5
-        version: 0.35.5(@types/node@26.6.5)
-      typebox:
-        specifier: 1.4.2
-        version: 1.4.2
-    devDependencies:
       tsx:
         specifier: 4.23.15
         version: 4.23.15
+      typebox:
+        specifier: 1.4.2
+        version: 1.4.2
       vite:
         specifier: 8.3.4
         version: 8.3.4(@types/node@26.6.5)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)
