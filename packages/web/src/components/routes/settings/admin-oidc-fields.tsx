@@ -10,7 +10,6 @@ import {
   Select,
   SelectContent,
   SelectItem,
-  SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
 import { SettingRow } from "@alloy/ui/components/setting-row"
@@ -21,6 +20,11 @@ import type { ComponentProps, ReactNode } from "react"
 
 import { copyTextToClipboard } from "@/lib/clipboard"
 import { useActionFeedback } from "@/lib/use-action-feedback"
+
+import {
+  type ResetToDefault,
+  ResettableSelectTrigger,
+} from "./admin-reset-default"
 
 const TOKEN_AUTH_METHODS = [
   OAUTH_CLIENT_SECRET_POST_AUTH_METHOD,
@@ -72,28 +76,16 @@ export function TextRow({
 export function ToggleRow({
   title,
   description,
-  note,
   checked,
   onCheckedChange,
 }: {
   title: string
   description: string
-  /** Inline content after the description, such as a default note. */
-  note?: ReactNode
   checked: boolean
   onCheckedChange: (checked: boolean) => void
 }) {
   return (
-    <SettingRow
-      title={title}
-      description={
-        <>
-          {description}
-          {note}
-        </>
-      }
-      align="start"
-    >
+    <SettingRow title={title} description={description} align="start">
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </SettingRow>
   )
@@ -102,23 +94,20 @@ export function ToggleRow({
 export function TokenAuthMethodRow({
   id,
   value,
-  note,
+  reset,
   onChange,
 }: {
   id: string
   value: OAuthTokenAuthMethod
-  note?: ReactNode
+  reset: ResetToDefault<OAuthTokenAuthMethod>
   onChange: (value: OAuthTokenAuthMethod) => void
 }) {
   return (
     <SettingRow
       title={t("Token auth method")}
-      description={
-        <>
-          {t("How Alloy sends the client secret to the token endpoint.")}
-          {note}
-        </>
-      }
+      description={t(
+        "How Alloy sends the client secret to the token endpoint.",
+      )}
       htmlFor={id}
       stack
     >
@@ -129,9 +118,14 @@ export function TokenAuthMethodRow({
           if (method) onChange(method)
         }}
       >
-        <SelectTrigger id={id} size="sm" className="w-full @lg:w-56">
+        <ResettableSelectTrigger
+          reset={reset}
+          id={id}
+          size="sm"
+          className="w-full @lg:w-56"
+        >
           <SelectValue>{tokenAuthMethodLabel(value)}</SelectValue>
-        </SelectTrigger>
+        </ResettableSelectTrigger>
         <SelectContent align="end">
           {TOKEN_AUTH_METHODS.map((method) => (
             <SelectItem key={method} value={method}>

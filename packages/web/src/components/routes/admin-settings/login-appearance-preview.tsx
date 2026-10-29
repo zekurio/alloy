@@ -16,6 +16,7 @@ import {
 } from "@alloy/ui/components/tooltip"
 import { cn, sliderValue } from "@alloy/ui/lib/utils"
 import { useMemo, useState } from "react"
+import type { ReactNode } from "react"
 
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { LoginForm } from "@/components/routes/login/login-page-inner"
@@ -74,12 +75,16 @@ function AuthPreviewContent({
 function BackdropTreatmentControls({
   blurPx,
   darkenOpacity,
+  blurReset,
+  darkenReset,
   disabled,
   onBlurPxChange,
   onDarkenOpacityChange,
 }: {
   blurPx: number
   darkenOpacity: number
+  blurReset?: ReactNode
+  darkenReset?: ReactNode
   disabled?: boolean
   onBlurPxChange: (value: number) => void
   onDarkenOpacityChange: (value: number) => void
@@ -89,9 +94,12 @@ function BackdropTreatmentControls({
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex items-center justify-between gap-3 text-sm font-medium">
           <span>{t("Blur")}</span>
-          <span className="text-foreground-dim text-xs tabular-nums">
-            {blurPx}
-            {t("px")}
+          <span className="flex items-center gap-1">
+            {blurReset}
+            <span className="text-foreground-dim text-xs tabular-nums">
+              {blurPx}
+              {t("px")}
+            </span>
           </span>
         </div>
         <Slider
@@ -106,9 +114,12 @@ function BackdropTreatmentControls({
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex items-center justify-between gap-3 text-sm font-medium">
           <span>{t("Fade")}</span>
-          <span className="text-foreground-dim text-xs tabular-nums">
-            {Math.round(darkenOpacity * 100)}
-            {"%"}
+          <span className="flex items-center gap-1">
+            {darkenReset}
+            <span className="text-foreground-dim text-xs tabular-nums">
+              {Math.round(darkenOpacity * 100)}
+              {"%"}
+            </span>
           </span>
         </div>
         <Slider
@@ -185,6 +196,8 @@ export function LoginAppearancePreview({
   splash,
   blurPx,
   darkenOpacity,
+  blurReset,
+  darkenReset,
   controlsDisabled,
   onBlurPxChange,
   onDarkenOpacityChange,
@@ -193,6 +206,10 @@ export function LoginAppearancePreview({
   splash: PublicLoginSplashConfig
   blurPx: number
   darkenOpacity: number
+  /** Shown beside the blur value, such as a reset-to-default button. */
+  blurReset?: ReactNode
+  /** Shown beside the fade value, such as a reset-to-default button. */
+  darkenReset?: ReactNode
   controlsDisabled?: boolean
   onBlurPxChange: (value: number) => void
   onDarkenOpacityChange: (value: number) => void
@@ -234,6 +251,8 @@ export function LoginAppearancePreview({
       <BackdropTreatmentControls
         blurPx={blurPx}
         darkenOpacity={darkenOpacity}
+        blurReset={blurReset}
+        darkenReset={darkenReset}
         disabled={controlsDisabled}
         onBlurPxChange={onBlurPxChange}
         onDarkenOpacityChange={onDarkenOpacityChange}

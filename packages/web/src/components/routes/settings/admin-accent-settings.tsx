@@ -14,7 +14,7 @@ import { useForm, useStore } from "@tanstack/react-form"
 import { useEffect, useEffectEvent } from "react"
 
 import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
-import { AdminDefaultNote } from "@/components/routes/settings/admin-default-note"
+import { ResetToDefaultButton } from "@/components/routes/settings/admin-reset-default"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
 import { api } from "@/lib/api"
@@ -84,23 +84,9 @@ export function AdminAccentSettings({
     <SettingsSubsection
       id="accent-color"
       title={t("Accent color")}
-      description={
-        <>
-          {t(
-            "Colors buttons, links, and highlights in the Alloy theme for everyone on this server.",
-          )}
-          <AdminDefaultNote
-            value={draft}
-            defaultValue={defaults}
-            label={accentLabel(defaults)}
-            disabled={saveAccents.isPending}
-            onReset={() => {
-              form.setFieldValue("light", defaults.light)
-              form.setFieldValue("dark", defaults.dark)
-            }}
-          />
-        </>
-      }
+      description={t(
+        "Colors buttons, links, and highlights in the Alloy theme for everyone on this server.",
+      )}
     >
       <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
         <div
@@ -171,6 +157,16 @@ export function AdminAccentSettings({
               />
             </div>
           ))}
+          <ResetToDefaultButton
+            value={draft}
+            defaultValue={defaults}
+            label={accentLabel(defaults)}
+            disabled={saveAccents.isPending}
+            onReset={() => {
+              form.setFieldValue("light", defaults.light)
+              form.setFieldValue("dark", defaults.dark)
+            }}
+          />
         </div>
       </div>
     </SettingsSubsection>

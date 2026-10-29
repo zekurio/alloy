@@ -8,13 +8,11 @@ import { t, tp } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Callout } from "@alloy/ui/components/callout"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
-import { Input } from "@alloy/ui/components/input"
 import { Section, SectionContent } from "@alloy/ui/components/section"
 import {
   Select,
   SelectContent,
   SelectItem,
-  SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
@@ -22,10 +20,14 @@ import { useForm, useStore } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { RefreshCwIcon, TriangleAlertIcon } from "lucide-react"
 import { useMemo } from "react"
-import type { ReactNode } from "react"
 
 import { useAdminConfigMutation } from "@/components/routes/settings/admin-config-context"
-import { AdminDefaultNote } from "@/components/routes/settings/admin-default-note"
+import {
+  type ResetToDefault,
+  ResettableInput,
+  ResettableSelectTrigger,
+  ResetToDefaultButton,
+} from "@/components/routes/settings/admin-reset-default"
 import { TranscodingLadder } from "@/components/routes/settings/admin-transcoding-ladder"
 import {
   ffmpegBadgeLabel,
@@ -197,42 +199,20 @@ export function TranscodingSettingsContent({
                 onChange={(videoCodec) =>
                   form.setFieldValue("videoCodec", videoCodec)
                 }
-                note={
-                  <AdminDefaultNote
-                    value={values.videoCodec}
-                    defaultValue={defaults.videoCodec}
-                    label={VIDEO_CODEC_LABELS[defaults.videoCodec]}
-                    onReset={() =>
-                      form.setFieldValue("videoCodec", defaults.videoCodec)
-                    }
-                  />
-                }
+                reset={{
+                  value: values.videoCodec,
+                  defaultValue: defaults.videoCodec,
+                  label: VIDEO_CODEC_LABELS[defaults.videoCodec],
+                  onReset: () =>
+                    form.setFieldValue("videoCodec", defaults.videoCodec),
+                }}
               />
 
               <SettingRow
                 title={t("Hardware acceleration")}
-                description={
-                  <>
-                    {t(
-                      "Encoder used for GPU-accelerated encoding. Decoding and scaling always stay on the CPU.",
-                    )}
-                    <AdminDefaultNote
-                      value={values.hardwareAcceleration}
-                      defaultValue={defaults.hardwareAcceleration}
-                      label={
-                        HARDWARE_ACCELERATION_LABELS[
-                          defaults.hardwareAcceleration
-                        ]
-                      }
-                      onReset={() =>
-                        form.setFieldValue(
-                          "hardwareAcceleration",
-                          defaults.hardwareAcceleration,
-                        )
-                      }
-                    />
-                  </>
-                }
+                description={t(
+                  "Encoder used for GPU-accelerated encoding. Decoding and scaling always stay on the CPU.",
+                )}
                 htmlFor="transcoding-hwaccel"
                 align="start"
                 stack
@@ -252,7 +232,20 @@ export function TranscodingSettingsContent({
                     if (accel) form.setFieldValue("hardwareAcceleration", accel)
                   }}
                 >
-                  <SelectTrigger
+                  <ResettableSelectTrigger
+                    reset={{
+                      value: values.hardwareAcceleration,
+                      defaultValue: defaults.hardwareAcceleration,
+                      label:
+                        HARDWARE_ACCELERATION_LABELS[
+                          defaults.hardwareAcceleration
+                        ],
+                      onReset: () =>
+                        form.setFieldValue(
+                          "hardwareAcceleration",
+                          defaults.hardwareAcceleration,
+                        ),
+                    }}
                     id="transcoding-hwaccel"
                     size="sm"
                     className="w-full @lg:w-56"
@@ -264,7 +257,7 @@ export function TranscodingSettingsContent({
                         ]
                       }
                     </SelectValue>
-                  </SelectTrigger>
+                  </ResettableSelectTrigger>
                   <SelectContent align="end">
                     {HARDWARE_ACCELERATIONS.map((accel) => {
                       const probe =
@@ -293,28 +286,25 @@ export function TranscodingSettingsContent({
               {values.hardwareAcceleration === "vaapi" ? (
                 <SettingRow
                   title={t("VA-API device")}
-                  description={
-                    <>
-                      {t("Render node passed to ffmpeg for VA-API encoding.")}
-                      <AdminDefaultNote
-                        value={values.vaapiDevice.trim()}
-                        defaultValue={defaults.vaapiDevice}
-                        label={defaults.vaapiDevice}
-                        onReset={() =>
-                          form.setFieldValue(
-                            "vaapiDevice",
-                            defaults.vaapiDevice,
-                          )
-                        }
-                      />
-                    </>
-                  }
+                  description={t(
+                    "Render node passed to ffmpeg for VA-API encoding.",
+                  )}
                   htmlFor="transcoding-vaapi-device"
                   align="start"
                   stack
                 >
                   <div className="flex w-full flex-col gap-1.5 @lg:w-56">
-                    <Input
+                    <ResettableInput
+                      reset={{
+                        value: values.vaapiDevice.trim(),
+                        defaultValue: defaults.vaapiDevice,
+                        label: defaults.vaapiDevice,
+                        onReset: () =>
+                          form.setFieldValue(
+                            "vaapiDevice",
+                            defaults.vaapiDevice,
+                          ),
+                      }}
                       id="transcoding-vaapi-device"
                       value={values.vaapiDevice}
                       onChange={(event) =>
@@ -350,21 +340,16 @@ export function TranscodingSettingsContent({
                 onChange={(audioBitrateKbps) =>
                   form.setFieldValue("audioBitrateKbps", audioBitrateKbps)
                 }
-                note={
-                  <AdminDefaultNote
-                    value={values.audioBitrateKbps}
-                    defaultValue={defaults.audioBitrateKbps}
-                    label={t("{kbps} kbps", {
-                      kbps: defaults.audioBitrateKbps,
-                    })}
-                    onReset={() =>
-                      form.setFieldValue(
-                        "audioBitrateKbps",
-                        defaults.audioBitrateKbps,
-                      )
-                    }
-                  />
-                }
+                reset={{
+                  value: values.audioBitrateKbps,
+                  defaultValue: defaults.audioBitrateKbps,
+                  label: t("{kbps} kbps", { kbps: defaults.audioBitrateKbps }),
+                  onReset: () =>
+                    form.setFieldValue(
+                      "audioBitrateKbps",
+                      defaults.audioBitrateKbps,
+                    ),
+                }}
               />
             </SettingRows>
           </SettingsSubsection>
@@ -373,8 +358,8 @@ export function TranscodingSettingsContent({
             values={values}
             validation={validation}
             setTiers={(update) => form.setFieldValue("tiers", update)}
-            note={
-              <AdminDefaultNote
+            reset={
+              <ResetToDefaultButton
                 value={comparableTiers(values.tiers)}
                 defaultValue={comparableTiers(defaults.tiers)}
                 label={tp(
@@ -406,7 +391,7 @@ function comparableTiers(tiers: TranscodingForm["tiers"]) {
 function TranscodingChoiceSetting<T extends string | number>({
   title,
   description,
-  note,
+  reset,
   id,
   value,
   options,
@@ -415,8 +400,7 @@ function TranscodingChoiceSetting<T extends string | number>({
 }: {
   title: string
   description: string
-  /** Inline content after the description, such as a default note. */
-  note?: ReactNode
+  reset: ResetToDefault<T>
   id: string
   value: T
   options: readonly T[]
@@ -426,12 +410,7 @@ function TranscodingChoiceSetting<T extends string | number>({
   return (
     <SettingRow
       title={title}
-      description={
-        <>
-          {description}
-          {note}
-        </>
-      }
+      description={description}
       htmlFor={id}
       align="start"
       stack
@@ -443,9 +422,14 @@ function TranscodingChoiceSetting<T extends string | number>({
           if (option !== undefined) onChange(option)
         }}
       >
-        <SelectTrigger id={id} size="sm" className="w-full @lg:w-48">
+        <ResettableSelectTrigger
+          reset={reset}
+          id={id}
+          size="sm"
+          className="w-full @lg:w-48"
+        >
           <SelectValue>{getOptionLabel(value)}</SelectValue>
-        </SelectTrigger>
+        </ResettableSelectTrigger>
         <SelectContent align="end">
           {options.map((option) => (
             <SelectItem key={String(option)} value={String(option)}>

@@ -50,13 +50,13 @@ export function TranscodingLadder({
   values,
   validation,
   setTiers,
-  note,
+  reset,
 }: {
   values: TranscodingForm
   validation: ReturnType<typeof validateForm>
   setTiers: (update: (tiers: LadderTier[]) => LadderTier[]) => void
-  /** Inline content after the description, such as a default note. */
-  note?: ReactNode
+  /** Shown beside Add tier, such as a reset-to-default button. */
+  reset?: ReactNode
 }) {
   const tierNames = useMemo(
     () =>
@@ -114,24 +114,23 @@ export function TranscodingLadder({
     <SettingsSubsection
       id="ladder"
       title={t("Rendition ladder")}
-      description={
-        <>
-          {t(
-            "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the selected link preview tier powers social embeds.",
-          )}
-          {note}
-        </>
-      }
+      description={t(
+        "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the selected link preview tier powers social embeds.",
+      )}
       action={
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={addTier}
-          disabled={values.tiers.length >= 6}
-        >
-          <PlusIcon />
-          {t("Add tier")}
-        </Button>
+        <div className="flex items-center gap-2">
+          {reset}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={addTier}
+            disabled={values.tiers.length >= 6}
+            className="flex-1 @xl:flex-none"
+          >
+            <PlusIcon />
+            {t("Add tier")}
+          </Button>
+        </div>
       }
     >
       <div className="border-border @container overflow-hidden rounded-lg border">

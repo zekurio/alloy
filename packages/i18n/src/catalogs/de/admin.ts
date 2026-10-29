@@ -1,6 +1,8 @@
 import type { TranslationCatalog } from "../catalog"
 
 export const ADMIN_MESSAGES = {
+  "ALLOY_* environment variables override Alloy's defaults, and values saved here override both. Reset a field to return it to its default.":
+    "ALLOY_*-Umgebungsvariablen überschreiben Alloys Standardwerte, hier gespeicherte Werte überschreiben beide. Setze ein Feld zurück, um wieder seinen Standard zu nutzen.",
   "Add hashtag": "Hashtag hinzufügen",
   "Add tier": "Stufe hinzufügen",
   "Add user": "Nutzer hinzufügen",
@@ -221,6 +223,7 @@ export const ADMIN_MESSAGES = {
   "Rendition ladder": "Qualitätsstufen-Leiter",
   "Require sign-in to browse": "Anmeldung zum Browsen erforderlich",
   "Reserving slot…": "Slot wird reserviert…",
+  "Reset to default ({value})": "Auf Standard zurücksetzen ({value})",
   Role: "Rolle",
   "Role claim": "Rollen-Claim",
   Scopes: "Scopes",
@@ -245,8 +248,8 @@ export const ADMIN_MESSAGES = {
     "Zeigt die Anmeldeschaltfläche für diesen Anbieter.",
   "Shown on the button as Continue with {name}.":
     "Steht auf der Schaltfläche als „Weiter mit {name}“.",
-  "Sign in through an OpenID Connect provider. Empty fields use the value from the environment or Alloy's default, shown as the placeholder.":
-    "Anmeldung über einen OpenID-Connect-Anbieter. Leere Felder nutzen den Wert aus der Umgebung oder Alloys Standard, der als Platzhalter angezeigt wird.",
+  "Sign in through an OpenID Connect provider. Empty fields use their default, shown as the placeholder.":
+    "Anmeldung über einen OpenID-Connect-Anbieter. Leere Felder nutzen ihren Standard, der als Platzhalter angezeigt wird.",
   "Sign-in stays off until the provider has a client secret.":
     "Die Anmeldung bleibt aus, bis der Anbieter ein Client-Secret hat.",
   "Signing secret": "Signatur-Secret",
@@ -335,8 +338,6 @@ export const ADMIN_MESSAGES = {
     "Dein Endpunkt erhält eine signierte JSON-Nutzlast.",
   "e.g. #clips": "z. B. #clips",
   kbps: "kbps",
-  "{blur} px blur, {darken}% darkening":
-    "{blur} px Unschärfe, {darken} % Abdunklung",
   "{codec} isn't available with {backend} on this server.":
     "{codec} ist auf diesem Server nicht mit {backend} verfügbar.",
   "{count} rendition": "{count} Qualitätsstufe",
