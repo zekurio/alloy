@@ -1,9 +1,13 @@
+import { readdir, readFile, writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import { fileURLToPath, URL } from "node:url"
+import { promisify } from "node:util"
+import { brotliCompress, constants as zlibConstants, gzip } from "node:zlib"
 
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import viteReact from "@vitejs/plugin-react"
-import { defineConfig, loadEnv, type ProxyOptions } from "vite"
+import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from "vite"
 
 import { clientLogger } from "./src/lib/client-log"
 
@@ -42,6 +46,59 @@ function packageNameFromModuleId(id: string): string | null {
   return scopeOrName.startsWith("@") && name
     ? `${scopeOrName}/${name}`
     : scopeOrName
+}
+
+const PRECOMPRESSED_EXTENSIONS = /\.(?:css|js|json|svg|txt|webmanifest)$/
+// Below this, the encoded file saves less than a packet.
+const PRECOMPRESS_MIN_BYTES = 1024
+const brotli = promisify(brotliCompress)
+const gzipAsync = promisify(gzip)
+
+/**
+ * Writes `.br` and `.gz` beside every compressible build file. The server
+ * picks one per request from Accept-Encoding, so browsers download the
+ * smallest form without any compression work at request time. index.html is
+ * skipped: the server fills in a nonce and boot data on every request.
+ */
+function precompressAssets(): Plugin {
+  let outDir = ""
+  return {
+    name: "alloy:precompress-assets",
+    apply: "build",
+    configResolved(config) {
+      outDir = config.build.outDir
+    },
+    async closeBundle() {
+      const files = await readdir(outDir, { recursive: true })
+      await Promise.all(
+        files
+          .filter((file) => PRECOMPRESSED_EXTENSIONS.test(file))
+          .map(async (file) => {
+            const path = join(outDir, file)
+            const source = await readFile(path)
+            if (source.byteLength < PRECOMPRESS_MIN_BYTES) return
+            const [br, gz] = await Promise.all([
+              brotli(source, {
+                params: {
+                  [zlibConstants.BROTLI_PARAM_QUALITY]:
+                    zlibConstants.BROTLI_MAX_QUALITY,
+                  [zlibConstants.BROTLI_PARAM_SIZE_HINT]: source.byteLength,
+                },
+              }),
+              gzipAsync(source, { level: zlibConstants.Z_BEST_COMPRESSION }),
+            ])
+            await Promise.all([
+              br.byteLength < source.byteLength
+                ? writeFile(`${path}.br`, br)
+                : undefined,
+              gz.byteLength < source.byteLength
+                ? writeFile(`${path}.gz`, gz)
+                : undefined,
+            ])
+          }),
+      )
+    },
+  }
 }
 
 function normalizeServerUrl(value: string): string {
@@ -148,6 +205,7 @@ const config = defineConfig(({ mode }) => ({
     tailwindcss(),
     tanstackRouter({ autoCodeSplitting: true }),
     viteReact(),
+    precompressAssets(),
   ],
 }))
 

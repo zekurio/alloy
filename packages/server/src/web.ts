@@ -126,6 +126,30 @@ function withInjectedNonce(indexHtml: string, nonce: string): string {
   return indexHtml.replaceAll(CSP_NONCE_MARKER, htmlEscape(nonce))
 }
 
+// The web build writes these beside each compressible file (see the
+// precompress plugin in packages/web/vite.config.ts), in preference order.
+const PRECOMPRESSED_VARIANTS = [
+  { encoding: "br", extension: ".br" },
+  { encoding: "gzip", extension: ".gz" },
+] as const
+const PRECOMPRESSIBLE_PATH = /\.(?:css|js|json|svg|txt|webmanifest)$/
+
+/** Content codings the client accepts; `q=0` refuses one. */
+function acceptedEncodings(header: string | undefined): Set<string> {
+  const accepted = new Set<string>()
+  for (const part of (header ?? "").split(",")) {
+    const [coding = "", ...params] = part.trim().toLowerCase().split(";")
+    const quality = params
+      .map((param) => param.trim())
+      .find((param) => {
+        return param.startsWith("q=")
+      })
+    if (quality && Number(quality.slice(2)) === 0) continue
+    if (coding) accepted.add(coding)
+  }
+  return accepted
+}
+
 async function serveFile(
   c: Context,
   distDir: string,
@@ -138,11 +162,31 @@ async function serveFile(
   const s = await stat(path).catch(() => null)
   if (!s?.isFile()) return c.notFound()
 
+  let bodyPath = path
+  let size = s.size
+  if (PRECOMPRESSIBLE_PATH.test(path)) {
+    // Caches must key on Accept-Encoding even when this client gets the
+    // uncompressed file, since the next one may get a variant.
+    c.header("Vary", "Accept-Encoding", { append: true })
+    const accepted = acceptedEncodings(c.req.header("accept-encoding"))
+    for (const variant of PRECOMPRESSED_VARIANTS) {
+      if (!accepted.has(variant.encoding)) continue
+      const encoded = await stat(`${path}${variant.extension}`).catch(
+        () => null,
+      )
+      if (!encoded?.isFile()) continue
+      bodyPath = `${path}${variant.extension}`
+      size = encoded.size
+      c.header("Content-Encoding", variant.encoding)
+      break
+    }
+  }
+
   c.header("Content-Type", contentType(path))
-  c.header("Content-Length", String(s.size))
+  c.header("Content-Length", String(size))
   c.header("Cache-Control", cacheControl)
   if (c.req.method === "HEAD") return c.body(null)
-  return c.body(fsCreateReadStream(path, 0, s.size - 1))
+  return c.body(fsCreateReadStream(bodyPath, 0, size - 1))
 }
 
 async function serveAppShell(c: Context, mount: WebMount) {
