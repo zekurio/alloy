@@ -46,7 +46,13 @@ type RegistrationPayload = t.infer<typeof RegistrationPayloadSchema>
 let simpleWebAuthn: Promise<typeof import("@simplewebauthn/server")> | null =
   null
 function loadSimpleWebAuthn() {
-  simpleWebAuthn ??= import("@simplewebauthn/server")
+  // A failed load is forgotten, so the next ceremony tries again.
+  simpleWebAuthn ??= import("@simplewebauthn/server").catch(
+    (cause: unknown) => {
+      simpleWebAuthn = null
+      throw cause
+    },
+  )
   return simpleWebAuthn
 }
 
