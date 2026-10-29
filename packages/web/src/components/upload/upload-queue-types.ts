@@ -39,6 +39,8 @@ export interface QueueItem {
   /** Hue 0-360, retained for thumbnail placeholders where needed. */
   hue: number
   thumbUrl?: string | null
+  /** Resized copies of a server `thumbUrl`, for a responsive `<img>`. */
+  thumbSrcSet?: string | null
   thumbBlurHash?: string | null
   thumbFallbackUrl?: string | null
   onThumbLoad?: () => void

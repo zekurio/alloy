@@ -15,6 +15,12 @@ import type {
 
 import { ClipCardThumb } from "./clip-card-thumb"
 
+// `auto` sizes a lazy image from its laid-out width where browsers support
+// it; the others use the list after it. Grid columns are 380-776 px wide from
+// md up and span the screen below; the compact row's thumbnail is 7rem.
+const GRID_THUMBNAIL_SIZES = "auto, (min-width: 768px) 560px, 100vw"
+const COMPACT_THUMBNAIL_SIZES = "auto, 112px"
+
 /**
  * The formatted view count and the number that picks its plural. Cards that
  * replace the stats row with `metaContent` can leave both out.
@@ -43,6 +49,8 @@ type ClipCardProps = ComponentProps<"article"> &
     /** Replaces the views and posted-at row. */
     metaContent?: ReactNode
     thumbnail?: string
+    /** Resized copies of `thumbnail`; never applied to the fallback. */
+    thumbnailSrcSet?: string
     thumbnailFallback?: string
     thumbnailBlurHash?: string | null
     thumbnailFallbackBlurHash?: string | null
@@ -97,6 +105,7 @@ function ClipCard({
   postedAt,
   metaContent,
   thumbnail,
+  thumbnailSrcSet,
   thumbnailFallback,
   thumbnailBlurHash,
   thumbnailFallbackBlurHash,
@@ -182,6 +191,10 @@ function ClipCard({
           imageAspectRatio={compact ? 16 / 9 : imageAspectRatio}
           title={title}
           thumbnail={thumbnail}
+          thumbnailSrcSet={thumbnailSrcSet}
+          thumbnailSizes={
+            compact ? COMPACT_THUMBNAIL_SIZES : GRID_THUMBNAIL_SIZES
+          }
           thumbnailFallback={thumbnailFallback}
           thumbnailBlurHash={thumbnailBlurHash}
           thumbnailFallbackBlurHash={thumbnailFallbackBlurHash}

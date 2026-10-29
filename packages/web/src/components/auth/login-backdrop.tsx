@@ -1,4 +1,4 @@
-import { clipThumbnailUrl } from "@alloy/api"
+import { CLIP_THUMBNAIL_WIDTHS, clipThumbnailUrl } from "@alloy/api"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { cssVariables } from "@alloy/ui/lib/css-properties"
 import { useQuery } from "@tanstack/react-query"
@@ -31,6 +31,9 @@ const MIN_TILES_PER_COPY = 16
 // a fraction of its configured strength: dark copy loses contrast against image
 // detail far faster than light copy does against a dark wash.
 const LIGHT_WALL_OPACITY_RATIO = 0.35
+// Tiles are at most 356 px wide and sit under the blur, so the 640 px copy
+// covers them; one size per clip also lets repeated tiles share the download.
+const TILE_THUMBNAIL_WIDTH = CLIP_THUMBNAIL_WIDTHS[1]
 
 /**
  * Give every row an alternating thumbnail sequence instead of partitioning the
@@ -115,7 +118,12 @@ export function LoginBackdrop({
     if (!enabled || isError) return []
     return (
       data?.clips.map((clip) =>
-        clipThumbnailUrl(clip.id, apiOrigin(), clip.thumbVersion),
+        clipThumbnailUrl(
+          clip.id,
+          apiOrigin(),
+          clip.thumbVersion,
+          TILE_THUMBNAIL_WIDTH,
+        ),
       ) ?? []
     )
   }, [data, enabled, isError])

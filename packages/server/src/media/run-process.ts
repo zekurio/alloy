@@ -66,6 +66,7 @@ export function runProcess(opts: RunProcessOptions): Promise<void> {
       opts.onStderrLine ? "pipe" : "ignore",
     ],
     cwd: opts.cwd,
+    env: childEnv(),
   })
 
   if (opts.priority !== undefined && child.pid !== undefined) {
@@ -145,6 +146,27 @@ export function runProcess(opts: RunProcessOptions): Promise<void> {
     if (hardKill) clearTimeout(hardKill)
     opts.signal?.removeEventListener("abort", onAbort)
   })
+}
+
+const JEMALLOC_PRELOAD_RE = /(?:^|\/)libjemalloc\.so[.\d]*$/
+
+/**
+ * The Nix package preloads jemalloc into the server and tunes it with
+ * MALLOC_CONF (see nix/package.nix). Children like ffmpeg keep their own
+ * allocator: their encoder threads would contend on the server's two arenas.
+ */
+function childEnv(): NodeJS.ProcessEnv {
+  const preload = process.env.LD_PRELOAD
+  if (!preload) return process.env
+  const entries = preload.split(/[:\s]+/).filter(Boolean)
+  const kept = entries.filter((entry) => !JEMALLOC_PRELOAD_RE.test(entry))
+  if (kept.length === entries.length) return process.env
+
+  const env = { ...process.env }
+  delete env.MALLOC_CONF
+  if (kept.length > 0) env.LD_PRELOAD = kept.join(":")
+  else delete env.LD_PRELOAD
+  return env
 }
 
 /** Split a stream into lines; the returned flush emits a final partial line. */

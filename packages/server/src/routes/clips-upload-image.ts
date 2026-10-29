@@ -6,6 +6,7 @@ import { publishClipUpsert } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { prepareScreenshot } from "@alloy/server/media/screenshot"
+import { putClipThumbnail } from "@alloy/server/media/thumbnail-variants"
 import {
   runScopedSourceKey,
   runScopedThumbKey,
@@ -84,7 +85,7 @@ export const clipsUploadImageRoutes = new Hono().post(
       attemptId,
       async () => {
         await clipStorage.put(sourceKey, image.bytes, "image/png")
-        await clipThumbnailStorage.put(thumbKey, image.thumbnail, "image/jpeg")
+        await putClipThumbnail(clipThumbnailStorage, thumbKey, image.thumbnail)
         return db.transaction(async (tx) => {
           const [current] = await tx
             .select()

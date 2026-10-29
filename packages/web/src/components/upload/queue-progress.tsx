@@ -186,6 +186,12 @@ function QueueThumb({ item }: { item: QueueItem }) {
       {thumb ? (
         <img
           src={thumb}
+          srcSet={
+            thumb === item.thumbUrl
+              ? (item.thumbSrcSet ?? undefined)
+              : undefined
+          }
+          sizes="72px"
           alt=""
           aria-hidden
           className={CLIP_MEDIA_CLASS}

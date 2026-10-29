@@ -1,4 +1,9 @@
-import { type ClipRow, clipThumbnailUrl, type GameListRow } from "@alloy/api"
+import {
+  CLIP_THUMBNAIL_WIDTHS,
+  type ClipRow,
+  clipThumbnailUrl,
+  type GameListRow,
+} from "@alloy/api"
 import { t, tp } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { Skeleton } from "@alloy/ui/components/skeleton"
@@ -165,8 +170,14 @@ export function ClipRowItem({
   onHover: () => void
   onSelect: () => void
 }) {
+  // Shown 64 px wide, so the smallest resized copy covers even 3x screens.
   const thumb = row.thumbKey
-    ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
+    ? clipThumbnailUrl(
+        row.id,
+        apiOrigin(),
+        row.thumbVersion ?? undefined,
+        CLIP_THUMBNAIL_WIDTHS[0],
+      )
     : null
   const label = clipGameLabel(row)
   const author = userChipData({

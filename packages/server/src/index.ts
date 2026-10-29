@@ -23,6 +23,7 @@ import {
   stopClipMediaWorker,
 } from "./queue/clip-media-worker"
 import { clearMediaWorkDirs } from "./queue/media-run-helpers"
+import { startThumbnailVariantBackfill } from "./queue/thumbnail-variant-backfill"
 import { requestShutdown } from "./runtime/shutdown"
 import {
   startStorageDeletionWorker,
@@ -97,6 +98,9 @@ try {
   // deadline coordinator. Pending clips retain exact-object crash recovery.
   startUploadExpiryWorker()
   startWebhookDeliveryWorker()
+  // Resized thumbnails for clips that predate them; runs once, in the
+  // background, and stops at shutdown.
+  startThumbnailVariantBackfill()
 } catch (err) {
   logger.error("failed to start durable background workers:", err)
   process.exit(1)

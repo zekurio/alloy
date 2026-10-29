@@ -13,6 +13,7 @@ import {
   MediaWorkBusyError,
 } from "@alloy/server/media/keyed-work"
 import { type ExtractedPoster, extractPoster } from "@alloy/server/media/poster"
+import { putClipThumbnail } from "@alloy/server/media/thumbnail-variants"
 import {
   requestClipMedia,
   requeueClipMedia,
@@ -158,7 +159,7 @@ export const clipsUploadMediaRoutes = new Hono()
         [thumb],
         attemptId,
         async () => {
-          await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
+          await putClipThumbnail(clipThumbnailStorage, thumbKey, poster.jpeg)
 
           // Guarded on "ready" plus a null encode lease: a reprocess that
           // started meanwhile republishes its own thumbnail at commitReady

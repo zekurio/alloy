@@ -13,6 +13,8 @@ export interface StorageDeletionRunInput {
 
 export interface StorageDeletionRunDependencies {
   storage: StorageDriver
+  /** Objects that exist only for `key`, such as a thumbnail's variants. */
+  derivedKeys(namespace: StorageDeletionNamespace, key: string): string[]
   isWriteActive(namespace: StorageDeletionNamespace, key: string): boolean
   liveReference(
     namespace: StorageDeletionNamespace,
@@ -67,6 +69,11 @@ export async function runStorageDeletion(
     // The abort is independently idempotent. If shutdown arrived while it was
     // running, leave the row for startup recovery rather than begin a delete.
     if (dependencies.signal.aborted) return "interrupted"
+  }
+  // Derived objects go first: a retry after a crash in between still finds
+  // the key that names them.
+  for (const key of dependencies.derivedKeys(input.namespace, input.key)) {
+    await dependencies.storage.delete(key)
   }
   await dependencies.storage.delete(input.key)
   return "deleted"

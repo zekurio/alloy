@@ -1,13 +1,7 @@
 import type { ClipPrivacy } from "@alloy/contracts"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
-import { notFound } from "@alloy/server/runtime/http-response"
-import { pipeReadable } from "@alloy/server/runtime/streaming"
-import type {
-  ResolvedObject,
-  StorageDriver,
-} from "@alloy/server/storage/driver"
+import type { ResolvedObject } from "@alloy/server/storage/driver"
 import { type Context } from "hono"
-import { stream } from "hono/streaming"
 
 import { parseRange } from "./clips-range"
 
@@ -60,10 +54,7 @@ export function streamResolved(
     // Open the file only for a body: a HEAD answer with an unread stream
     // would hold its descriptor until the stream is collected, if ever.
     if (c.req.method === "HEAD") return c.body(null)
-    const body = resolved.stream({ start: range.start, end: range.end })
-    return stream(c, async (s) => {
-      await pipeReadable(s, body)
-    })
+    return c.body(resolved.stream({ start: range.start, end: range.end }))
   }
   if (range.kind === "unsatisfiable") {
     c.header("Content-Range", `bytes */${resolved.size}`)
@@ -73,29 +64,19 @@ export function streamResolved(
   c.header("Content-Type", contentType)
   c.header("Content-Length", String(resolved.size))
   if (c.req.method === "HEAD") return c.body(null)
-  const body = resolved.stream()
-  return stream(c, async (s) => {
-    await pipeReadable(s, body)
-  })
+  return c.body(resolved.stream())
 }
 
-export async function streamThumbnail(
+export function streamThumbnail(
   c: Context,
-  storage: StorageDriver,
-  key: string,
+  resolved: ResolvedObject,
   cacheControl: string,
-): Promise<Response> {
-  const resolved = await storage.resolve(key)
-  if (!resolved) return notFound(c, "No thumbnail")
-
+): Response {
   c.header("Content-Type", resolved.contentType)
   c.header("Content-Length", String(resolved.size))
   c.header("Cache-Control", cacheControl)
   if (c.req.method === "HEAD") return c.body(null)
-
-  return stream(c, async (s) => {
-    await pipeReadable(s, resolved.stream())
-  })
+  return c.body(resolved.stream())
 }
 
 function setStreamHeaders(

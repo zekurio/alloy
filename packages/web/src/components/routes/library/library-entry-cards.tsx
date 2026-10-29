@@ -51,6 +51,11 @@ export function LibraryCaptureCard({
       views="0"
       viewCount={0}
       thumbnail={cardThumbnail}
+      thumbnailSrcSet={
+        cardThumbnail === transfer?.thumbUrl
+          ? (transfer?.thumbSrcSet ?? undefined)
+          : undefined
+      }
       thumbnailBlurHash={cardThumbnailBlurHash}
       fallbackSeed={`${item.groupLabel}:${item.id}`}
       streamUrl={
@@ -180,6 +185,13 @@ export function UploadedClipCard({
       views={card.views}
       viewCount={card.viewCount}
       thumbnail={thumbnail}
+      thumbnailSrcSet={
+        thumbnail === effectiveTransfer?.thumbUrl
+          ? (effectiveTransfer?.thumbSrcSet ?? undefined)
+          : thumbnail === card.thumbnail
+            ? card.thumbnailSrcSet
+            : undefined
+      }
       thumbnailFallback={localThumbnail}
       thumbnailBlurHash={thumbnailBlurHash}
       thumbnailFallbackBlurHash={localThumbnailBlurHash}

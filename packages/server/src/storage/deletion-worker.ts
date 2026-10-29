@@ -1,5 +1,9 @@
 import type { StorageDeletionNamespace } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
+import {
+  thumbnailVariantBase,
+  thumbnailVariantKeys,
+} from "@alloy/server/media/thumbnail-variants"
 import { errorMessage } from "@alloy/server/runtime/error-message"
 import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-worker"
 
@@ -73,7 +77,8 @@ async function deleteNextPendingObject(signal: AbortSignal) {
   try {
     const result = await runStorageDeletion(row, {
       storage: storageDriver(row.namespace),
-      isWriteActive: storageObjectWriteIsActive,
+      derivedKeys,
+      isWriteActive,
       liveReference: storageDeletionReference,
       signal,
     })
@@ -102,6 +107,22 @@ async function deleteNextPendingObject(signal: AbortSignal) {
     }
     return { worked: true as const }
   }
+}
+
+function derivedKeys(namespace: StorageDeletionNamespace, key: string) {
+  return namespace === "thumbnails" ? thumbnailVariantKeys(key) : []
+}
+
+/**
+ * A thumbnail's variants are written under the thumbnail's own reservation
+ * and fence, so a variant waits on writes to its thumbnail too.
+ */
+function isWriteActive(namespace: StorageDeletionNamespace, key: string) {
+  const thumbKey = namespace === "thumbnails" ? thumbnailVariantBase(key) : null
+  return (
+    storageObjectWriteIsActive(namespace, key) ||
+    (thumbKey !== null && storageObjectWriteIsActive(namespace, thumbKey))
+  )
 }
 
 function storageDriver(namespace: StorageDeletionNamespace): StorageDriver {

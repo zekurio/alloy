@@ -4,6 +4,7 @@ import {
   type ClipRow,
   clipRenditionFileUrl,
   clipSourceFileUrl,
+  clipThumbnailSrcSet,
   clipThumbnailUrl,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
@@ -33,6 +34,8 @@ interface ClipCardData {
   postedAt: string
   /** Full-size poster URL; omitted when the clip has no `thumbKey` yet. */
   thumbnail?: string
+  /** Resized copies of `thumbnail`, for a responsive `<img>`. */
+  thumbnailSrcSet?: string
   thumbnailBlurHash: string | null
   fallbackSeed: string | number
   /** Stream URL used for the hover-to-play preview. */
@@ -94,6 +97,9 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     postedAt: formatRelativeTime(row.publishedAt ?? row.createdAt, now),
     thumbnail: row.thumbKey
       ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
+      : undefined,
+    thumbnailSrcSet: row.thumbKey
+      ? clipThumbnailSrcSet(row.id, apiOrigin(), row.thumbVersion ?? undefined)
       : undefined,
     thumbnailBlurHash: row.thumbBlurHash,
     fallbackSeed: row.gameId ?? row.id,

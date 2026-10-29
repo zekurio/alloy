@@ -4,7 +4,8 @@ import { blurHashComponents } from "@alloy/contracts/blurhash"
 import { fetchRemoteImage } from "@alloy/server/media/remote-image"
 import { abortError } from "@alloy/server/runtime/error-message"
 import { encode } from "blurhash"
-import sharp from "sharp"
+
+import { loadSharp } from "./sharp"
 
 const MAX_SAMPLE_DIMENSION = 128
 
@@ -32,6 +33,7 @@ export async function imageBlurHash({
 export async function imageBlurHashFromBytes(
   bytes: Buffer | Uint8Array,
 ): Promise<string> {
+  const sharp = await loadSharp()
   const { data, info } = await sharp(bytes)
     .resize(MAX_SAMPLE_DIMENSION, MAX_SAMPLE_DIMENSION, {
       fit: "inside",

@@ -1,8 +1,8 @@
 import type { UploadLimits } from "@alloy/contracts"
 import { configStore } from "@alloy/server/config/store"
-import sharp from "sharp"
 
 import { imageBlurHashFromBytes } from "./blurhash"
+import { loadSharp } from "./sharp"
 
 /** Decode before publishing; headers and client dimensions are only hints. */
 export async function prepareScreenshot(
@@ -14,6 +14,7 @@ export async function prepareScreenshot(
     throw new Error(
       `Screenshot exceeds ${limits.screenshotMaxBytes / 1024 / 1024} MiB`,
     )
+  const sharp = await loadSharp()
   const image = sharp(bytes, {
     limitInputPixels: limits.screenshotMaxPixels,
     failOn: "warning",

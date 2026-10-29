@@ -98,6 +98,14 @@ export type ClipListSort = "top" | "recent"
 export type ClipFeedSort = ClipListSort | "recommended"
 
 export const CLIP_TITLE_MAX_LENGTH = 100
+
+/**
+ * Widths of the WebP copies the server keeps beside each clip thumbnail
+ * (`/thumbnail?w=`). Thumbnails show from 64 to ~780 CSS px wide, so these
+ * cover 1x and 2x screens; the full JPEG stays for players and link previews.
+ */
+export const CLIP_THUMBNAIL_WIDTHS = [320, 640, 1280] as const
+export type ClipThumbnailWidth = (typeof CLIP_THUMBNAIL_WIDTHS)[number]
 export const CLIP_DESCRIPTION_MAX_LENGTH = 2000
 
 export interface ClipPage {

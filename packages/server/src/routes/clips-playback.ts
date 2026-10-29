@@ -1,4 +1,4 @@
-import type { ClipPrivacy } from "@alloy/contracts"
+import { CLIP_THUMBNAIL_WIDTHS, type ClipPrivacy } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { createLogger } from "@alloy/logging"
 import {
@@ -8,13 +8,15 @@ import {
 import { clipAssetVersion } from "@alloy/server/clips/asset-version"
 import { sourceIsBroadlyDecodable } from "@alloy/server/clips/codecs"
 import { selectClipRenditions } from "@alloy/server/clips/renditions"
+import {
+  parseClipThumbnailWidth,
+  thumbnailVariantKey,
+} from "@alloy/server/media/thumbnail-variants"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { notFound } from "@alloy/server/runtime/http-response"
-import { pipeReadable } from "@alloy/server/runtime/streaming"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 import { Hono } from "hono"
 import type { Context } from "hono"
-import { stream } from "hono/streaming"
 
 import { contentDisposition, downloadFilename } from "./clips-helpers"
 import {
@@ -29,6 +31,10 @@ const logger = createLogger("clips")
 const RenditionParam = t.object({
   id: t.uuid(),
   name: t.string().min(1).max(64),
+})
+
+const ThumbnailQuery = t.object({
+  w: t.enum(CLIP_THUMBNAIL_WIDTHS.map(String)).optional(),
 })
 
 function thumbnailEtag(key: string): string {
@@ -236,38 +242,59 @@ export const clipsPlaybackRoutes = new Hono()
    * queue/grid cards. Returns 404 when the media pipeline could not extract a
    * usable non-uniform poster frame; the UI falls back to a placeholder.
    */
-  .get("/:id/thumbnail", tbValidator("param", IdParam), async (c) => {
-    const { id } = c.req.valid("param")
+  .get(
+    "/:id/thumbnail",
+    tbValidator("param", IdParam),
+    tbValidator("query", ThumbnailQuery),
+    async (c) => {
+      const { id } = c.req.valid("param")
+      const width = parseClipThumbnailWidth(c.req.valid("query").w)
 
-    const access = await resolveClipAccess({
-      id,
-      c,
-      policy: "ownerAsset",
-    })
-    if (!access.accessible) return clipAccessResponse(c, access)
-    const row = access.row
+      const access = await resolveClipAccess({
+        id,
+        c,
+        policy: "ownerAsset",
+      })
+      if (!access.accessible) return clipAccessResponse(c, access)
+      const row = access.row
 
-    const key = row.thumb_key
-    if (!key) return notFound(c, "No thumbnail")
+      const key = row.thumb_key
+      if (!key) return notFound(c, "No thumbnail")
 
-    const thumbCacheControl = mediaCacheControl(
-      row.privacy === "public" && row.status === "ready" ? "public" : "private",
-    )
+      const thumbCacheControl = mediaCacheControl(
+        row.privacy === "public" && row.status === "ready"
+          ? "public"
+          : "private",
+      )
 
-    const etag = thumbnailEtag(key)
-    c.header("ETag", etag)
-    c.header("Cache-Control", thumbCacheControl)
-    if (ifNoneMatchSatisfied(c.req.header("if-none-match"), etag)) {
-      return c.body(null, 304)
-    }
+      c.header("Cache-Control", thumbCacheControl)
+      const ifNoneMatch = c.req.header("if-none-match")
+      // A resized variant (`?w=`) never changes for its thumbnail, so a cached
+      // copy needs no lookup. The JPEG stands in for a variant that was never
+      // written, under its own validator, so the variant replaces it once made.
+      const variantKey = width ? thumbnailVariantKey(key, width) : null
+      if (
+        variantKey &&
+        ifNoneMatchSatisfied(ifNoneMatch, thumbnailEtag(variantKey))
+      ) {
+        c.header("ETag", thumbnailEtag(variantKey))
+        return c.body(null, 304)
+      }
+      const variant = variantKey
+        ? await clipThumbnailStorage.resolve(variantKey)
+        : null
+      const servedKey = variant && variantKey ? variantKey : key
+      const etag = thumbnailEtag(servedKey)
+      c.header("ETag", etag)
+      if (ifNoneMatchSatisfied(ifNoneMatch, etag)) {
+        return c.body(null, 304)
+      }
 
-    return await streamThumbnail(
-      c,
-      clipThumbnailStorage,
-      key,
-      thumbCacheControl,
-    )
-  })
+      const resolved = variant ?? (await clipThumbnailStorage.resolve(key))
+      if (!resolved) return notFound(c, "No thumbnail")
+      return streamThumbnail(c, resolved, thumbCacheControl)
+    },
+  )
   .get("/:id/download", tbValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
 
@@ -301,9 +328,5 @@ export const clipsPlaybackRoutes = new Hono()
     // media.
     c.header("ETag", `"src-${clipAssetVersion(selected.key)}"`)
     if (c.req.method === "HEAD") return c.body(null)
-
-    const body = resolved.stream()
-    return stream(c, async (s) => {
-      await pipeReadable(s, body)
-    })
+    return c.body(resolved.stream())
   })

@@ -4,6 +4,7 @@
   fetchPnpmDeps,
   ffmpeg-headless,
   ffmpegPackage ? ffmpeg-headless,
+  jemalloc,
   nodejs_24,
   nodejs-slim_24,
   pnpm_11,
@@ -89,9 +90,20 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     # extraction; override with ALLOY_FFMPEG_PATH if needed.
     # Force production mode so an inherited environment cannot lower the
     # server's transport checks.
+    # V8 sizes the young generation from host RAM, up to 64 MB per
+    # semi-space; under load the server's short-lived request garbage grew it
+    # to that and RSS held there. 8 MB keeps throughput and halves load RSS
+    # (see packages/server/package.json's start script, which matches).
+    # glibc malloc keeps the memory that streamed chunks and libvips image
+    # buffers free, so RSS stayed at its peak after any burst of work.
+    # jemalloc, with a background thread purging pages unused for a second,
+    # returns it. Two arenas suffice for one JS thread and sharp's one worker.
+    # The server strips the preload from ffmpeg and the other tools it runs.
     makeWrapper "${nodejs-slim_24}/bin/node" "$out/bin/alloy" \
-      --add-flags "$out/share/alloy/server/dist/index.js" \
+      --add-flags "--max-semi-space-size=8 $out/share/alloy/server/dist/index.js" \
       --prefix PATH : "${lib.makeBinPath [ ffmpegPackage ]}" \
+      --prefix LD_PRELOAD : "${jemalloc}/lib/libjemalloc.so" \
+      --set-default MALLOC_CONF "background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:0,narenas:2" \
       --set NODE_ENV production \
       --set-default WEB_DIST_DIR "$out/share/alloy/web" \
       --set-default ALLOY_MIGRATIONS_DIR "$out/share/alloy/migrations"

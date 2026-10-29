@@ -31,14 +31,9 @@ export function immutableImageAssetsRoute(
     }
 
     c.header("Content-Type", resolved.contentType)
-    if (c.req.method === "HEAD") {
-      c.header("Content-Length", String(resolved.size))
-      return c.body(null)
-    }
-    const buffer = await readAll(resolved.stream())
-    c.header("Content-Length", String(buffer.byteLength))
-
-    return c.body(new Uint8Array(buffer).buffer)
+    c.header("Content-Length", String(resolved.size))
+    if (c.req.method === "HEAD") return c.body(null)
+    return c.body(resolved.stream())
   })
 }
 
@@ -47,20 +42,4 @@ function assetEtag(key: string, resolved: ResolvedObject): string {
   return `"${Buffer.from(`${key}:${resolved.size}:${modified}`).toString(
     "base64url",
   )}"`
-}
-
-async function readAll(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
-  const chunks: Uint8Array[] = []
-  let size = 0
-  for await (const chunk of stream) {
-    chunks.push(chunk)
-    size += chunk.byteLength
-  }
-  const output = Buffer.alloc(size)
-  let offset = 0
-  for (const chunk of chunks) {
-    output.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  return output
 }
