@@ -84,6 +84,7 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
       viewCount={card.viewCount}
       postedAt={card.postedAt}
       thumbnail={card.thumbnail}
+      thumbnailSrcSet={card.thumbnailSrcSet}
       thumbnailBlurHash={card.thumbnailBlurHash}
       fallbackSeed={card.fallbackSeed}
       streamUrl={card.streamUrl}

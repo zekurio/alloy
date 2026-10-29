@@ -1,10 +1,6 @@
 import type { ClipPrivacy } from "@alloy/contracts"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
-import { notFound } from "@alloy/server/runtime/http-response"
-import type {
-  ResolvedObject,
-  StorageDriver,
-} from "@alloy/server/storage/driver"
+import type { ResolvedObject } from "@alloy/server/storage/driver"
 import { type Context } from "hono"
 
 import { parseRange } from "./clips-range"
@@ -71,15 +67,11 @@ export function streamResolved(
   return c.body(resolved.stream())
 }
 
-export async function streamThumbnail(
+export function streamThumbnail(
   c: Context,
-  storage: StorageDriver,
-  key: string,
+  resolved: ResolvedObject,
   cacheControl: string,
-): Promise<Response> {
-  const resolved = await storage.resolve(key)
-  if (!resolved) return notFound(c, "No thumbnail")
-
+): Response {
   c.header("Content-Type", resolved.contentType)
   c.header("Content-Length", String(resolved.size))
   c.header("Cache-Control", cacheControl)

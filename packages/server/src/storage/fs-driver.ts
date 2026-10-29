@@ -81,25 +81,21 @@ export class FsStorageDriver implements StorageDriver {
     body: Uint8Array | ReadableStream<Uint8Array>,
     _contentType: string,
   ): Promise<{ size: number }> {
-    const dst = this.fullPath(key)
-    await mkdir(dirname(dst), { recursive: true })
-
-    if (body instanceof Uint8Array) {
-      await writeFile(dst, body)
-      return { size: body.byteLength }
-    }
-
-    let size = 0
-    const file = await open(dst, "w")
+    // Staged and renamed into place, so a reader or a process that dies
+    // mid-write never leaves a partial object under the key.
+    await mkdir(this.partDir(key), { recursive: true })
+    const tmp = this.stagingPath(key)
     try {
-      for await (const chunk of body) {
-        size += chunk.byteLength
-        await file.write(chunk)
-      }
+      const size = await writeBody(tmp, body)
+      await rename(tmp, this.fullPath(key))
+      return { size }
+    } catch (err) {
+      await rm(tmp, { force: true }).catch(() => undefined)
+      throw err
     } finally {
-      await file.close()
+      // Left in place only while another write to the key still stages there.
+      await rmdir(this.partDir(key)).catch(() => undefined)
     }
-    return { size }
   }
 
   async resolve(key: string): Promise<ResolvedObject | null> {
@@ -398,4 +394,25 @@ export class FsStorageDriver implements StorageDriver {
       current = slashPath(dirname(current))
     }
   }
+}
+
+async function writeBody(
+  path: string,
+  body: Uint8Array | ReadableStream<Uint8Array>,
+): Promise<number> {
+  if (body instanceof Uint8Array) {
+    await writeFile(path, body)
+    return body.byteLength
+  }
+  let size = 0
+  const file = await open(path, "w")
+  try {
+    for await (const chunk of body) {
+      size += chunk.byteLength
+      await file.write(chunk)
+    }
+  } finally {
+    await file.close()
+  }
+  return size
 }

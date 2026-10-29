@@ -1,4 +1,8 @@
-import { clipThumbnailUrl, type QueueClip } from "@alloy/api"
+import {
+  clipThumbnailSrcSet,
+  clipThumbnailUrl,
+  type QueueClip,
+} from "@alloy/api"
 import { stableHue } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 
@@ -170,6 +174,7 @@ export function downloadToQueueItem(
     detail,
     hue: stableHue(download.clipId),
     thumbUrl: clipThumbnailUrl(download.clipId, apiOrigin()),
+    thumbSrcSet: clipThumbnailSrcSet(download.clipId, apiOrigin()),
     onCancel: handlers.onCancel,
     onOpen: handlers.onOpen,
     onDismiss: handlers.onDismiss,
@@ -189,6 +194,11 @@ interface ServerRowHandlers {
 function queueThumbnailUrl(row: QueueClip): string | null {
   if (!row.hasThumb) return null
   return clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
+}
+
+function queueThumbnailSrcSet(row: QueueClip): string | null {
+  if (!row.hasThumb) return null
+  return clipThumbnailSrcSet(row.id, apiOrigin(), row.thumbVersion ?? undefined)
 }
 
 export function serverToQueueItem(
@@ -268,6 +278,7 @@ export function serverToQueueItem(
     detail,
     hue: stableHue(row.gameId ?? row.id),
     thumbUrl: queueThumbnailUrl(row),
+    thumbSrcSet: queueThumbnailSrcSet(row),
     thumbBlurHash: row.thumbBlurHash,
     thumbFallbackUrl: handlers.thumbFallbackUrl,
     onThumbLoad: handlers.onThumbLoad,

@@ -15,6 +15,10 @@ interface ClipCardThumbProps {
   imageAspectRatio?: number
   title: string
   thumbnail: string | undefined
+  /** `srcset` for `thumbnail`; the fallback has no resized copies. */
+  thumbnailSrcSet?: string | undefined
+  /** `sizes` for `thumbnailSrcSet`. */
+  thumbnailSizes?: string | undefined
   thumbnailFallback?: string | undefined
   thumbnailBlurHash: string | null | undefined
   thumbnailFallbackBlurHash?: string | null | undefined
@@ -32,6 +36,8 @@ export function ClipCardThumb({
   imageAspectRatio,
   title,
   thumbnail,
+  thumbnailSrcSet,
+  thumbnailSizes,
   thumbnailFallback,
   thumbnailBlurHash,
   thumbnailFallbackBlurHash,
@@ -229,6 +235,8 @@ export function ClipCardThumb({
         <img
           ref={image.ref}
           src={activeThumbnail}
+          srcSet={activeThumbnail === thumbnail ? thumbnailSrcSet : undefined}
+          sizes={activeThumbnail === thumbnail ? thumbnailSizes : undefined}
           alt={title}
           className={cn(
             CLIP_MEDIA_CLASS,

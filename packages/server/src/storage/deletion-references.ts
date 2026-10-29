@@ -11,6 +11,7 @@ import {
   uploadTicket,
 } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
+import { thumbnailVariantBase } from "@alloy/server/media/thumbnail-variants"
 import { clipAssetDir } from "@alloy/server/storage/driver"
 import { and, type AnyColumn, eq, isNotNull, or, sql } from "drizzle-orm"
 
@@ -96,9 +97,12 @@ async function clipObjectReference(
 }
 
 async function thumbnailReference(
-  key: string,
+  variantOrThumbKey: string,
   source: StorageDeletionReferenceSource,
 ): Promise<StorageDeletionReference> {
+  // A resized variant is kept exactly as long as the thumbnail it was made
+  // from, which is the key clip rows point at.
+  const key = thumbnailVariantBase(variantOrThumbKey) ?? variantOrThumbKey
   // Run before row, as for clip objects.
   const ownerId = clipStorageKeyClipId(key)
   const [owner] = ownerId

@@ -1,12 +1,14 @@
-import type {
-  ClipRow,
-  InitiateClipInput,
-  InitiateClipResponse,
-  QueueClip,
-  QueueEvent,
-  SetClipPosterInput,
-  TrimClipInput,
-  UpdateClipInput,
+import {
+  CLIP_THUMBNAIL_WIDTHS,
+  type ClipRow,
+  type ClipThumbnailWidth,
+  type InitiateClipInput,
+  type InitiateClipResponse,
+  type QueueClip,
+  type QueueEvent,
+  type SetClipPosterInput,
+  type TrimClipInput,
+  type UpdateClipInput,
 } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
@@ -23,6 +25,7 @@ import { encodedPathSegment, resolvePublicUrlWithQuery } from "./paths"
 export {
   ACCEPTED_CLIP_CONTENT_TYPES,
   CLIP_DESCRIPTION_MAX_LENGTH,
+  CLIP_THUMBNAIL_WIDTHS,
   CLIP_TITLE_MAX_LENGTH,
 } from "@alloy/contracts"
 export { uploadToTicket } from "./clip-upload"
@@ -109,12 +112,29 @@ export function clipWaveformFileUrl(
   return versionedClipAssetUrl(clipId, "/waveform/file.m4a", origin, version)
 }
 
+/** The clip's JPEG poster, or its WebP copy `width` px wide. */
 export function clipThumbnailUrl(
   clipId: string,
   origin?: string,
   version?: string,
+  width?: ClipThumbnailWidth,
 ): string {
-  return versionedClipAssetUrl(clipId, "/thumbnail", origin, version)
+  return resolvePublicUrlWithQuery(
+    `/api/clips/${encodedPathSegment(clipId)}/thumbnail`,
+    { v: version, w: width },
+    origin,
+  )
+}
+
+/** `srcset` over every resized thumbnail, for a responsive `<img>`. */
+export function clipThumbnailSrcSet(
+  clipId: string,
+  origin?: string,
+  version?: string,
+): string {
+  return CLIP_THUMBNAIL_WIDTHS.map(
+    (width) => `${clipThumbnailUrl(clipId, origin, version, width)} ${width}w`,
+  ).join(", ")
 }
 
 export function clipDownloadUrl(clipId: string, origin?: string): string {

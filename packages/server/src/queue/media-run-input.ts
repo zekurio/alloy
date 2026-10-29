@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { createLogger } from "@alloy/logging"
 import { type ExtractedPoster, extractPoster } from "@alloy/server/media/poster"
 import { probeMedia } from "@alloy/server/media/probe"
+import { putClipThumbnail } from "@alloy/server/media/thumbnail-variants"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 
 import { abortMediaProcessing } from "./media-abort"
@@ -96,6 +97,6 @@ export async function publishRunThumbnail(
 ): Promise<{ thumbKey: string; thumbBlurHash: string; thumbTimeMs: null }> {
   const thumbKey = runScopedThumbKey(id, runId)
   await uploadedKeys.reserve(thumbKey)
-  await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
+  await putClipThumbnail(clipThumbnailStorage, thumbKey, poster.jpeg)
   return { thumbKey, thumbBlurHash: poster.blurHash, thumbTimeMs: null }
 }

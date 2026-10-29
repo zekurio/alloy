@@ -3,6 +3,7 @@ import { join } from "node:path"
 
 import { configStore } from "@alloy/server/config/store"
 import { prepareScreenshot } from "@alloy/server/media/screenshot"
+import { putClipThumbnail } from "@alloy/server/media/thumbnail-variants"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 import { downloadStagedUploadToFile } from "@alloy/server/uploads/staged"
 import { selectVideoTicketKey } from "@alloy/server/uploads/tickets"
@@ -51,7 +52,7 @@ export async function runImageProcessing(
       const thumbKey = runScopedThumbKey(id, runId)
       await uploadedKeys.reserve(sourceKey, thumbKey)
       await clipStorage.put(sourceKey, image.bytes, "image/png")
-      await clipThumbnailStorage.put(thumbKey, image.thumbnail, "image/jpeg")
+      await putClipThumbnail(clipThumbnailStorage, thumbKey, image.thumbnail)
       await ensureStillPresent(store, id, runId, signal)
       const committed = await store.commitReady(
         id,
