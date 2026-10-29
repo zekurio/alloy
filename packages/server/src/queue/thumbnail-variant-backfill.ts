@@ -56,7 +56,7 @@ async function backfillThumbnailVariants(): Promise<void> {
   }
   if (written > 0 || failed > 0) {
     logger.info(
-      `wrote thumbnail variants for ${written} clips${failed > 0 ? `; ${failed} failed and retry on the next start` : ""}`,
+      `wrote thumbnail variants for ${written} ${written === 1 ? "clip" : "clips"}${failed > 0 ? `; ${failed} failed and retry on the next start` : ""}`,
     )
   }
   if (failed > 0) return
@@ -75,11 +75,19 @@ async function backfillClip(
   clipId: string,
   thumbKey: string,
 ): Promise<BackfillResult> {
-  const variants = await Promise.all(
-    thumbnailVariantKeys(thumbKey).map((key) =>
-      clipThumbnailStorage.resolve(key),
-    ),
-  )
+  // Storage errors fail this clip alone, so one bad file can't stop the pass
+  // short of the others. Database errors still end it: they hit every clip.
+  let variants: unknown[]
+  try {
+    variants = await Promise.all(
+      thumbnailVariantKeys(thumbKey).map((key) =>
+        clipThumbnailStorage.resolve(key),
+      ),
+    )
+  } catch (cause) {
+    logger.warn(`could not check thumbnail variants of ${thumbKey}:`, cause)
+    return "failed"
+  }
   if (variants.every(Boolean)) return "present"
 
   // Fenced like any thumbnail write: deleting this thumbnail, and its
@@ -101,7 +109,8 @@ async function backfillClip(
       )
     } catch (cause) {
       if (isOsErrorCode(cause, "ENOENT")) return "skipped"
-      throw cause
+      logger.warn(`could not read thumbnail ${thumbKey} for variants:`, cause)
+      return "failed"
     }
     const ok = await putThumbnailVariants(clipThumbnailStorage, thumbKey, jpeg)
     return ok ? "written" : "failed"
