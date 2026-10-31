@@ -93,12 +93,12 @@ export function StorageQuotaCompact({ className }: { className?: string }) {
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-foreground-muted text-xs font-medium">
+        <span className="text-foreground-muted text-xs font-medium max-md:text-sm">
           {t("Storage")}
         </span>
         <span
           className={cn(
-            "text-2xs text-foreground-faint tabular-nums transition-colors",
+            "text-2xs text-foreground-faint tabular-nums max-md:text-xs transition-colors",
             tone.text,
           )}
         >
