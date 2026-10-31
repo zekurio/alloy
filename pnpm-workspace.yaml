@@ -30,3 +30,11 @@ overrides:
   tar: 7.5.21
   undici: 7.30.1
   vite: "catalog:"
+
+auditConfig:
+  ignoreGhsas:
+    # minimatch glob-pattern DoS, fixed only in 11.0.1. It reaches the tree
+    # through build tooling (electron-builder and friends) on the 3/5/9/10
+    # majors, never production code, and none of it takes untrusted patterns.
+    # Drop this once those packages ship patched releases.
+    - GHSA-g3hv-75wg-m249
