@@ -252,7 +252,7 @@ function SettingsMobileHeader({
   const content = (
     <>
       <div className="grid place-items-center">{leading}</div>
-      <h2 className="text-foreground truncate text-center text-base font-semibold tracking-[var(--tracking-tight)]">
+      <h2 className="text-foreground truncate text-center text-lg font-semibold tracking-[var(--tracking-tight)]">
         {title}
       </h2>
     </>
