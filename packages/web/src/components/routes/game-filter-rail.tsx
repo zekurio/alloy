@@ -24,18 +24,16 @@ export function GameFilterRail<G extends GameChip>({
   games,
   gameKey,
   activeGame,
-  allLabel = t("All games"),
   renderLink,
 }: {
   games: ReadonlyArray<G>
   /** The value the page's `game` search param uses for this game. */
   gameKey: (game: G) => string
   activeGame: string | null
-  allLabel?: string
   renderLink: (game: string | undefined) => ReactElement
 }) {
   const options: FilterChipOption<string>[] = [
-    { key: ALL_GAMES, label: allLabel, icon: <GlobeIcon /> },
+    { key: ALL_GAMES, label: t("All games"), icon: <GlobeIcon /> },
     ...games.map((game) => ({
       key: gameKey(game),
       label: game.name,
