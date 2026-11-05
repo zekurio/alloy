@@ -188,7 +188,11 @@ function TagClipsSection({
         icon={TagIcon}
         size="lg"
         title={t("No clips tagged #{tag}", { tag })}
-        hint={t("Try a different game.")}
+        hint={
+          filters.gameId
+            ? t("Try a different game or clear the filter.")
+            : t("Try a different hashtag.")
+        }
       />
     )
   }

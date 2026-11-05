@@ -250,7 +250,7 @@ export const MEDIA_MESSAGES = {
   "Trimmed to": "Zugeschnitten auf",
   "Try a different game or clear the filter.":
     "Probier ein anderes Spiel oder lösch den Filter.",
-  "Try a different game.": "Probier ein anderes Spiel.",
+  "Try a different hashtag.": "Probier einen anderen Hashtag.",
   "Try a different search or filter.":
     "Probier eine andere Suche oder einen anderen Filter.",
   "Type a tag and press Enter": "Gib einen Tag ein und drück Enter",
