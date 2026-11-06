@@ -19,12 +19,19 @@ import { createPlayThresholdTracker } from "./video-player-view"
 // handlers stay in the player and drive it through the returned setters.
 export function useVideoChromeVisibility(
   store: PlayerStore,
+  containerRef: RefObject<HTMLDivElement | null>,
   isCoarsePointer: boolean,
 ) {
   const chromeHideTimerRef = useRef<number | null>(null)
+  // The settings menu is anchored to the gear inside the bar, so hiding the
+  // bar would slide the open menu with it. While pinned, nothing hides it.
+  const chromePinnedRef = useRef(false)
 
   const setChromeVisible = useCallback(
-    (chromeVisible: boolean) => store.setState({ chromeVisible }),
+    (chromeVisible: boolean) => {
+      if (!chromeVisible && chromePinnedRef.current) return
+      store.setState({ chromeVisible })
+    },
     [store],
   )
 
@@ -37,17 +44,51 @@ export function useVideoChromeVisibility(
   const scheduleChromeHide = useCallback(
     (delayMs = isCoarsePointer ? 2600 : 1600) => {
       clearChromeHideTimer()
+      if (chromePinnedRef.current) return
       chromeHideTimerRef.current = window.setTimeout(() => {
-        store.setState({ chromeVisible: false })
         chromeHideTimerRef.current = null
+        if (!chromePinnedRef.current) store.setState({ chromeVisible: false })
       }, delayMs)
     },
     [clearChromeHideTimer, isCoarsePointer, store],
   )
 
+  // Pinning reveals the bar and holds it; unpinning resumes auto-hide the way
+  // the pointer handlers would have: hide at once if the mouse already left
+  // the player, otherwise count down again while playing.
+  const setChromePinned = useCallback(
+    (pinned: boolean) => {
+      if (chromePinnedRef.current === pinned) return
+      chromePinnedRef.current = pinned
+      if (pinned) {
+        clearChromeHideTimer()
+        store.setState({ chromeVisible: true })
+        return
+      }
+      if (!isCoarsePointer && !containerRef.current?.matches(":hover")) {
+        clearChromeHideTimer()
+        store.setState({ chromeVisible: false })
+      } else if (store.getState().playing) {
+        scheduleChromeHide()
+      }
+    },
+    [
+      clearChromeHideTimer,
+      containerRef,
+      isCoarsePointer,
+      scheduleChromeHide,
+      store,
+    ],
+  )
+
   useEffect(() => clearChromeHideTimer, [clearChromeHideTimer])
 
-  return { setChromeVisible, scheduleChromeHide, clearChromeHideTimer }
+  return {
+    setChromeVisible,
+    scheduleChromeHide,
+    clearChromeHideTimer,
+    setChromePinned,
+  }
 }
 
 function subscribeFullscreenChange(onChange: () => void): () => void {

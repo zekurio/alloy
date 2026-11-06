@@ -108,8 +108,12 @@ export function PlayerCore({
   const markFrameRendered = useRenderedFrame(store, onFrameReady)
   const isCoarsePointer = useMediaQuery("(pointer: coarse)")
 
-  const { setChromeVisible, scheduleChromeHide, clearChromeHideTimer } =
-    useVideoChromeVisibility(store, isCoarsePointer)
+  const {
+    setChromeVisible,
+    scheduleChromeHide,
+    clearChromeHideTimer,
+    setChromePinned,
+  } = useVideoChromeVisibility(store, containerRef, isCoarsePointer)
 
   const onTimeUpdateRef = useRef(onTimeUpdate)
   const onPlayingChangeRef = useRef(onPlayingChange)
@@ -525,6 +529,7 @@ export function PlayerCore({
               onSelectQuality?.(id)
             }}
             onPlaybackRateChange={setPlaybackRate}
+            onSettingsOpenChange={setChromePinned}
           />
         }
       >
