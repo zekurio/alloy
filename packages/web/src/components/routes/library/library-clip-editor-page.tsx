@@ -39,7 +39,10 @@ import {
 } from "./library-clip-editor-media"
 import { MobileClipEditor } from "./library-clip-editor-mobile"
 import { DeleteServerBackedDialog } from "./library-delete-dialog"
-import { BackToLibraryButton } from "./library-editor-shared"
+import {
+  BackToLibraryButton,
+  LibraryEditorLeaveGuard,
+} from "./library-editor-shared"
 import {
   type NavigableLibraryEntry,
   useLibraryEditorShortcuts,
@@ -169,11 +172,12 @@ function ClipEditorBody({
   const metadata = useClipRowMetadataDraft(row)
   const mediaDirty =
     row.mediaKind === "image" ? screenshot.changed : canTrim && trimChanged
+  const hasUnsavedEdits = metadata.dirty || mediaDirty
 
   useLibraryEditorShortcuts({
     prevEntry,
     nextEntry,
-    hasUnsavedEdits: metadata.dirty || mediaDirty,
+    hasUnsavedEdits,
     onDelete: () => {
       if (canManage) deleteFlow.openDialog()
     },
@@ -286,6 +290,7 @@ function ClipEditorBody({
         title={row.title}
         onConfirm={deleteFlow.confirm}
       />
+      <LibraryEditorLeaveGuard hasUnsavedEdits={hasUnsavedEdits} />
     </section>
   )
 }
@@ -345,6 +350,7 @@ function useServerBackedClipDelete({
           params: { captureId: keptLocalItem.id },
           search: librarySearch,
           replace: true,
+          ignoreBlocker: true,
         })
         removeClipDetailFromCache(queryClient, row.id)
         invalidateClipCaches(queryClient)
@@ -356,9 +362,14 @@ function useServerBackedClipDelete({
         if (fallback.type === "cloud") {
           seedClipDetailInCache(queryClient, fallback.row)
         }
-        navigateToEntry(fallback)
+        navigateToEntry(fallback, { ignoreBlocker: true })
       } else {
-        void navigate({ to: "/library", search: librarySearch, replace: true })
+        void navigate({
+          to: "/library",
+          search: librarySearch,
+          replace: true,
+          ignoreBlocker: true,
+        })
       }
     },
     [

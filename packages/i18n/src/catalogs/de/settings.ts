@@ -136,7 +136,6 @@ export const SETTINGS_MESSAGES = {
   "Variant name": "Variantenname",
   Variants: "Varianten",
   Warning: "Warnung",
-  "You have unsaved changes.": "Du hast ungespeicherte Änderungen.",
   "e.g. Aurora": "z. B. Aurora",
   "{appearance} {number}": "{appearance} {number}",
   "{count} variant": "{count} Variante",

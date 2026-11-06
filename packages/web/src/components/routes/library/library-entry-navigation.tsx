@@ -199,13 +199,24 @@ export function useNavigateToLibraryEntry() {
   const queryClient = useQueryClient()
   const search = useLibrarySearch()
   return useCallback(
-    (entry: NavigableLibraryEntry, replace = true) => {
+    (
+      entry: NavigableLibraryEntry,
+      {
+        replace = true,
+        ignoreBlocker = false,
+      }: {
+        replace?: boolean
+        /** Skips the unsaved-edits prompt, for leaving after a delete. */
+        ignoreBlocker?: boolean
+      } = {},
+    ) => {
       if (entry.type === "local") {
         void navigate({
           to: "/library/$captureId",
           params: { captureId: entry.item.id },
           search,
           replace,
+          ignoreBlocker,
         })
       } else if (entry.type === "cloud") {
         warmClipDetailCache(queryClient, entry.row)
@@ -214,6 +225,7 @@ export function useNavigateToLibraryEntry() {
           params: { clipId: entry.row.id },
           search,
           replace,
+          ignoreBlocker,
         })
       }
     },
@@ -260,7 +272,10 @@ export function useLibraryEditorShortcuts({
 }: {
   prevEntry: NavigableLibraryEntry | null
   nextEntry: NavigableLibraryEntry | null
-  /** Leaving shortcuts are ignored while true, so a stray key can't drop edits. */
+  /**
+   * Leaving shortcuts are ignored while true, so a stray key doesn't open the
+   * unsaved-edits prompt.
+   */
   hasUnsavedEdits: boolean
   onDelete: () => void
   togglePlayback: () => void
@@ -292,14 +307,6 @@ export function useLibraryEditorShortcuts({
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [hasUnsavedEdits, navigateToEntry, nextEntry, prevEntry])
-
-  // Closing or reloading the window would drop the edits too; ask first.
-  useEffect(() => {
-    if (!hasUnsavedEdits) return
-    const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault()
-    window.addEventListener("beforeunload", onBeforeUnload)
-    return () => window.removeEventListener("beforeunload", onBeforeUnload)
-  }, [hasUnsavedEdits])
 }
 
 function isEditableTarget(event: KeyboardEvent): boolean {
