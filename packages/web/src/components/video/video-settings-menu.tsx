@@ -135,6 +135,8 @@ export function VideoSettingsMenu(props: VideoSettingsMenuProps) {
     />
   )
   const [open, setOpen] = useState(false)
+  // Both primitives are controlled by `open`, so it can't drift from what is
+  // on screen when `sheet` swaps the drawer for the dropdown mid-open.
   // Every opening starts on the overview; resetting on close would swap the
   // panel while its exit animation is still running.
   const onOpenChange = (next: boolean) => {
@@ -154,7 +156,7 @@ export function VideoSettingsMenu(props: VideoSettingsMenuProps) {
 
   if (sheet) {
     return (
-      <Drawer direction="bottom" onOpenChange={onOpenChange}>
+      <Drawer direction="bottom" open={open} onOpenChange={onOpenChange}>
         <DrawerTrigger asChild>{trigger}</DrawerTrigger>
         <DrawerContent
           container={sheetContainer}
@@ -235,7 +237,7 @@ export function VideoSettingsMenu(props: VideoSettingsMenuProps) {
   }
 
   return (
-    <DropdownMenu onOpenChange={onOpenChange}>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger render={trigger} />
       <DropdownMenuContent
         align="end"
