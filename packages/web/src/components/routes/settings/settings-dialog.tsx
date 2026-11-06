@@ -474,7 +474,7 @@ function SettingsSectionView({
                     className={cn(
                       "flex items-center gap-2.5 rounded-md px-2.5 py-2.5 text-left text-sm transition-colors",
                       isActive
-                        ? "bg-surface-raised text-foreground font-medium"
+                        ? "bg-surface-raised text-foreground"
                         : "text-foreground-dim hover:text-foreground hover:bg-white/[0.03]",
                     )}
                   >
@@ -482,7 +482,7 @@ function SettingsSectionView({
                     <span className="flex min-w-0 flex-col">
                       <span className="truncate">{category.label}</span>
                       {hint ? (
-                        <span className="text-foreground-faint truncate text-xs font-normal">
+                        <span className="text-foreground-faint truncate text-xs">
                           {hint}
                         </span>
                       ) : null}

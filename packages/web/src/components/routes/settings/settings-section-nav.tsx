@@ -39,7 +39,7 @@ export function SettingsSectionNav({
           className={cn(
             "truncate border-l-2 py-2 pl-3 text-left text-sm transition-colors",
             section.id === activeId
-              ? "border-foreground text-foreground font-medium"
+              ? "border-foreground text-foreground"
               : "border-border text-foreground-dim hover:border-foreground-muted hover:text-foreground",
           )}
         >
