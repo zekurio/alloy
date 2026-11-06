@@ -5,7 +5,7 @@ import { ClipCard } from "@alloy/ui/components/clip-card"
 import { useQueryClient } from "@tanstack/react-query"
 import { memo, useCallback, useMemo } from "react"
 
-import { gameHref, userProfileHref } from "@/lib/app-paths"
+import { clipHref, gameHref, userProfileHref } from "@/lib/app-paths"
 import { clientLogger } from "@/lib/client-log"
 import { PRIVACY_BY_VALUE } from "@/lib/clip-fields"
 import { toClipCardData } from "@/lib/clip-format"
@@ -36,6 +36,8 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
   const card = useMemo(() => toClipCardData(row), [row])
 
   const gameId = card.gameRef?.slug ?? UNCATEGORISED_GAME_SLUG
+  // The same canonical link the share button copies.
+  const permalink = clipHref(card.gameRef?.slug ?? null, card.clipId)
   const gameLink = gameId ? gameHref(gameId) : null
   const authorHref = card.authorUsername
     ? userProfileHref(card.authorUsername)
@@ -91,6 +93,7 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
       metaVariant={metaVariant}
       onThumbnailClick={handleThumbnailClick}
       onTitleClick={handleThumbnailClick}
+      href={permalink}
       onThumbnailIntent={preloadClip}
       onTitleIntent={preloadClip}
       onPreviewError={handlePreviewError}
