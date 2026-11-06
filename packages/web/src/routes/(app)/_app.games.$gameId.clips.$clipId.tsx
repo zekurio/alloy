@@ -5,8 +5,13 @@ import { ensureClipForPermalink } from "@/lib/clip-navigation"
 
 export const Route = createFileRoute("/(app)/_app/games/$gameId/clips/$clipId")(
   {
-    loader: ({ context, params }) =>
-      ensureClipForPermalink(context.queryClient, params.clipId, params.gameId),
+    loader: ({ context, params, preload }) =>
+      ensureClipForPermalink(
+        context.queryClient,
+        params.clipId,
+        params.gameId,
+        preload,
+      ),
     component: ClipModalRoute,
   },
 )

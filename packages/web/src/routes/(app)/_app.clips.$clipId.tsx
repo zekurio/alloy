@@ -9,8 +9,8 @@ import { ensureClipForPermalink } from "@/lib/clip-navigation"
  * viewer dialog over the home feed.
  */
 export const Route = createFileRoute("/(app)/_app/clips/$clipId")({
-  loader: ({ context, params }) =>
-    ensureClipForPermalink(context.queryClient, params.clipId, null),
+  loader: ({ context, params, preload }) =>
+    ensureClipForPermalink(context.queryClient, params.clipId, null, preload),
   component: ClipModalRoute,
 })
 

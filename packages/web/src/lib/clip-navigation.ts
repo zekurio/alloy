@@ -1,4 +1,6 @@
 import { HttpError } from "@alloy/api"
+import { t } from "@alloy/i18n"
+import { toast } from "@alloy/ui/lib/toast"
 import type { QueryClient } from "@tanstack/react-query"
 import { redirect, useNavigate } from "@tanstack/react-router"
 import { useCallback } from "react"
@@ -38,12 +40,15 @@ export function useOpenClipDialog() {
 /**
  * Loader for the clip permalink routes. A clip the viewer can't see, or one
  * that no longer exists, redirects to the game page or home instead of
- * rendering an error.
+ * rendering an error, with a toast saying why. Hover preloads run this loader
+ * too, so they redirect silently; a redirect outcome isn't cached, so the real
+ * navigation runs it again and shows the toast.
  */
 export async function ensureClipForPermalink(
   queryClient: QueryClient,
   clipId: string,
   gameId: string | null,
+  preload: boolean,
 ): Promise<void> {
   try {
     await queryClient.ensureQueryData(clipDetailQueryOptions(clipId))
@@ -52,6 +57,12 @@ export async function ensureClipForPermalink(
       error instanceof HttpError &&
       (error.status === 401 || error.status === 403 || error.status === 404)
     ) {
+      if (!preload) {
+        // The fixed id keeps a repeated load from stacking duplicate toasts.
+        toast.error(t("This clip is no longer available."), {
+          id: "clip-unavailable",
+        })
+      }
       throw gameId
         ? redirect({
             to: "/games/$gameId",
