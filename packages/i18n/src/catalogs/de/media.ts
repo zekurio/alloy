@@ -111,6 +111,7 @@ export const MEDIA_MESSAGES = {
   Free: "Frei",
   Fullscreen: "Vollbild",
   Game: "Spiel",
+  "Game not found": "Spiel nicht gefunden",
   Games: "Spiele",
   High: "Hoch",
   "Image dimensions": "Bildabmessungen",
@@ -237,6 +238,7 @@ export const MEDIA_MESSAGES = {
   "The browser could not decode this video.":
     "Der Browser konnte dieses Video nicht dekodieren.",
   "This clip is no longer available.": "Dieser Clip ist nicht mehr verfügbar.",
+  "This game doesn't exist.": "Dieses Spiel gibt es nicht.",
   "This shortcut is already assigned to clips.":
     "Dieses Tastenkürzel ist bereits Clips zugewiesen.",
   "This shortcut is already assigned to screenshots.":

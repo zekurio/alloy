@@ -1,5 +1,6 @@
 import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query"
 
+import { isHttpNotFound } from "./http-not-found"
 import { recheckSessionOnUnauthorized } from "./session-recheck"
 import { invalidateAuthConfig } from "./session-suspense"
 
@@ -17,8 +18,9 @@ function makeClient(): QueryClient {
         staleTime: 30_000,
         refetchOnWindowFocus: true,
         // Default 3 retries is too eager for user-visible errors —
-        // fail loud after one transient retry.
-        retry: 1,
+        // fail loud after one transient retry. A 404 won't change on retry.
+        retry: (failureCount, error) =>
+          failureCount < 1 && !isHttpNotFound(error),
       },
       mutations: {
         retry: 0,
