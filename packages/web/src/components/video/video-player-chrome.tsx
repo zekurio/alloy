@@ -41,6 +41,7 @@ export function ChromeBar({
   selectedQualityId,
   onSelectQuality,
   onPlaybackRateChange,
+  onSettingsOpenChange,
 }: {
   size?: ChromeBarSize
   containerRef: RefObject<HTMLDivElement | null>
@@ -59,6 +60,8 @@ export function ChromeBar({
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
   onPlaybackRateChange: (rate: number) => void
+  /** Keeps the bar shown while the settings menu anchored to it is open. */
+  onSettingsOpenChange: (open: boolean) => void
 }) {
   const visible = usePlayerState((state) => state.chromeVisible)
   const isFullscreen = fullscreenContainer !== null
@@ -116,6 +119,7 @@ export function ChromeBar({
             selectedQualityId={selectedQualityId}
             onSelectQuality={onSelectQuality}
             onPlaybackRateChange={onPlaybackRateChange}
+            onSettingsOpenChange={onSettingsOpenChange}
           />
         </div>
       </div>
@@ -220,6 +224,7 @@ const ChromeTrailingControls = memo(function ChromeTrailingControls({
   selectedQualityId,
   onSelectQuality,
   onPlaybackRateChange,
+  onSettingsOpenChange,
 }: {
   size: ChromeBarSize
   popoverContainer: RefObject<HTMLDivElement | null>
@@ -232,6 +237,7 @@ const ChromeTrailingControls = memo(function ChromeTrailingControls({
   selectedQualityId: string | undefined
   onSelectQuality: ((qualityId: string) => void) | undefined
   onPlaybackRateChange: (rate: number) => void
+  onSettingsOpenChange: (open: boolean) => void
 }) {
   const playbackRate = usePlayerState((state) => state.playbackRate)
 
@@ -251,6 +257,7 @@ const ChromeTrailingControls = memo(function ChromeTrailingControls({
         onSelectQuality={onSelectQuality}
         playbackRate={playbackRate}
         onPlaybackRateChange={onPlaybackRateChange}
+        onOpenChange={onSettingsOpenChange}
       />
 
       {fullscreenSupported ? (

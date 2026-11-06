@@ -25,7 +25,7 @@ import {
   SettingsIcon,
   SlidersHorizontalIcon,
 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 import type { ComponentProps, ReactNode, RefObject } from "react"
 
 import {
@@ -56,6 +56,7 @@ export type VideoSettingsMenuProps = {
   onSelectQuality: ((qualityId: string) => void) | undefined
   playbackRate: number
   onPlaybackRateChange: (rate: number) => void
+  onOpenChange?: (open: boolean) => void
 }
 
 function playbackRateLabel(rate: number): string {
@@ -133,11 +134,23 @@ export function VideoSettingsMenu(props: VideoSettingsMenuProps) {
       glyphClassName={props.glyphClassName}
     />
   )
+  const [open, setOpen] = useState(false)
   // Every opening starts on the overview; resetting on close would swap the
   // panel while its exit animation is still running.
-  const onOpenChange = (open: boolean) => {
-    if (open) setView("main")
+  const onOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (next) setView("main")
   }
+  // The cleanup also reports a close when the menu unmounts while open, e.g.
+  // when the player drops its controls, so the chrome is never left pinned.
+  const reportOpenChange = useEffectEvent((next: boolean) => {
+    props.onOpenChange?.(next)
+  })
+  useEffect(() => {
+    if (!open) return
+    reportOpenChange(true)
+    return () => reportOpenChange(false)
+  }, [open])
 
   if (sheet) {
     return (
