@@ -346,10 +346,13 @@ function LocalEditorBody({
         }
       }
 
+      // The overflow menu can publish a dirty draft, which the upload then
+      // takes along, so leaving doesn't ask.
       await navigate({
         to: "/library",
         search: librarySearch,
         replace: true,
+        ignoreBlocker: true,
       })
     }, t("Couldn't prepare clip"))
   }
@@ -363,7 +366,12 @@ function LocalEditorBody({
         )
       }
       setLinkToCopy(null)
-      await navigate({ to: "/library", search: librarySearch, replace: true })
+      await navigate({
+        to: "/library",
+        search: librarySearch,
+        replace: true,
+        ignoreBlocker: true,
+      })
     }, t("Couldn't copy the clip link"))
   }
 

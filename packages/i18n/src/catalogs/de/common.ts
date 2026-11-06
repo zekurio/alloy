@@ -41,9 +41,6 @@ export const COMMON_MESSAGES = {
   "Go home": "Zur Startseite",
   Hide: "Ausblenden",
   Home: "Start",
-  "Keep editing": "Weiter bearbeiten",
-  "Leave without saving? Your edits will be lost.":
-    "Ohne Speichern verlassen? Deine Änderungen gehen verloren.",
   Link: "Link",
   "Load more": "Mehr laden",
   Loading: "Lädt",

@@ -123,6 +123,9 @@ export const MEDIA_MESSAGES = {
   "Importing...": "Wird importiert...",
   "It may have been deleted, or you may not have access to it.":
     "Vielleicht wurde es gelöscht oder du hast keinen Zugriff darauf.",
+  "Keep editing": "Weiter bearbeiten",
+  "Leave without saving? Your edits will be lost.":
+    "Ohne Speichern verlassen? Deine Änderungen gehen verloren.",
   Left: "Links",
   Library: "Bibliothek",
   "Link copied": "Link kopiert",
