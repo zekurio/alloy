@@ -18,7 +18,6 @@ import { Route as appAppScreenshotsRouteImport } from './routes/(app)/_app.scree
 import { Route as appAppSettingsRouteImport } from './routes/(app)/_app.settings'
 import { Route as authAuthLoginRouteImport } from './routes/(auth)/_auth.login'
 import { Route as authAuthSignUpRouteImport } from './routes/(auth)/_auth.sign-up'
-import { Route as appAppClipsClipIdRouteImport } from './routes/(app)/_app.clips.$clipId'
 import { Route as appAppGamesIndexRouteImport } from './routes/(app)/_app.games.index'
 import { Route as appAppGamesGameIdRouteImport } from './routes/(app)/_app.games.$gameId'
 import { Route as appAppLibraryIndexRouteImport } from './routes/(app)/_app.library.index'
@@ -75,11 +74,6 @@ const authAuthSignUpRoute = authAuthSignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
   getParentRoute: () => authAuthRoute,
-} as any)
-const appAppClipsClipIdRoute = appAppClipsClipIdRouteImport.update({
-  id: '/clips/$clipId',
-  path: '/clips/$clipId',
-  getParentRoute: () => appAppRoute,
 } as any)
 const appAppGamesIndexRoute = appAppGamesIndexRouteImport.update({
   id: '/',
@@ -159,7 +153,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof authAuthLoginRoute
   '/sign-up': typeof authAuthSignUpRoute
   '/': typeof appAppIndexRoute
-  '/clips/$clipId': typeof appAppClipsClipIdRoute
   '/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
   '/library/$captureId': typeof appAppLibraryCaptureIdRoute
   '/tags/$tag': typeof appAppTagsTagRoute
@@ -181,7 +174,6 @@ export interface FileRoutesByTo {
   '/login': typeof authAuthLoginRoute
   '/sign-up': typeof authAuthSignUpRoute
   '/': typeof appAppIndexRoute
-  '/clips/$clipId': typeof appAppClipsClipIdRoute
   '/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
   '/library/$captureId': typeof appAppLibraryCaptureIdRoute
   '/tags/$tag': typeof appAppTagsTagRoute
@@ -206,7 +198,6 @@ export interface FileRoutesById {
   '/(auth)/_auth/login': typeof authAuthLoginRoute
   '/(auth)/_auth/sign-up': typeof authAuthSignUpRoute
   '/(app)/_app/': typeof appAppIndexRoute
-  '/(app)/_app/clips/$clipId': typeof appAppClipsClipIdRoute
   '/(app)/_app/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
   '/(app)/_app/library/$captureId': typeof appAppLibraryCaptureIdRoute
   '/(app)/_app/tags/$tag': typeof appAppTagsTagRoute
@@ -231,7 +222,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/sign-up'
     | '/'
-    | '/clips/$clipId'
     | '/games/$gameId'
     | '/library/$captureId'
     | '/tags/$tag'
@@ -253,7 +243,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/sign-up'
     | '/'
-    | '/clips/$clipId'
     | '/games/$gameId'
     | '/library/$captureId'
     | '/tags/$tag'
@@ -277,7 +266,6 @@ export interface FileRouteTypes {
     | '/(auth)/_auth/login'
     | '/(auth)/_auth/sign-up'
     | '/(app)/_app/'
-    | '/(app)/_app/clips/$clipId'
     | '/(app)/_app/games/$gameId'
     | '/(app)/_app/library/$captureId'
     | '/(app)/_app/tags/$tag'
@@ -363,13 +351,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/sign-up'
       preLoaderRoute: typeof authAuthSignUpRouteImport
       parentRoute: typeof authAuthRoute
-    }
-    '/(app)/_app/clips/$clipId': {
-      id: '/(app)/_app/clips/$clipId'
-      path: '/clips/$clipId'
-      fullPath: '/clips/$clipId'
-      preLoaderRoute: typeof appAppClipsClipIdRouteImport
-      parentRoute: typeof appAppRoute
     }
     '/(app)/_app/games/': {
       id: '/(app)/_app/games/'
@@ -513,7 +494,6 @@ interface appAppRouteChildren {
   appAppScreenshotsRoute: typeof appAppScreenshotsRoute
   appAppSettingsRoute: typeof appAppSettingsRoute
   appAppIndexRoute: typeof appAppIndexRoute
-  appAppClipsClipIdRoute: typeof appAppClipsClipIdRoute
   appAppLibraryCaptureIdRoute: typeof appAppLibraryCaptureIdRoute
   appAppTagsTagRoute: typeof appAppTagsTagRoute
   appAppUUsernameRoute: typeof appAppUUsernameRouteWithChildren
@@ -526,7 +506,6 @@ const appAppRouteChildren: appAppRouteChildren = {
   appAppScreenshotsRoute: appAppScreenshotsRoute,
   appAppSettingsRoute: appAppSettingsRoute,
   appAppIndexRoute: appAppIndexRoute,
-  appAppClipsClipIdRoute: appAppClipsClipIdRoute,
   appAppLibraryCaptureIdRoute: appAppLibraryCaptureIdRoute,
   appAppTagsTagRoute: appAppTagsTagRoute,
   appAppUUsernameRoute: appAppUUsernameRouteWithChildren,
