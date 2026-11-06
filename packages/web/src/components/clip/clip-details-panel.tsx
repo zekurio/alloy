@@ -8,8 +8,10 @@ import { useMemo } from "react"
 import type { ReactNode } from "react"
 
 import { ContentEmptyState } from "@/components/feedback/empty-state"
+import { clipHref } from "@/lib/app-paths"
 import { useSession } from "@/lib/auth-client"
 import { clipGameLabel } from "@/lib/clip-format"
+import { clipPermalink } from "@/lib/clip-navigation"
 import { formatRelativeTime } from "@/lib/date-format"
 import { recommendedClipsQueryOptions } from "@/lib/feed-queries"
 import { formatCount } from "@/lib/number-format"
@@ -54,7 +56,7 @@ export function ClipDetailsPanel({
   function openClip(recommended: ClipRow) {
     const entry = clipListEntry(recommended)
     if (onNavigate) onNavigate(entry)
-    else void navigate({ to: "/clips/$clipId", params: { clipId: entry.id } })
+    else void navigate(clipPermalink(entry.id, entry.gameId))
   }
 
   return (
@@ -122,7 +124,7 @@ export function ClipDetailsPanel({
             recommendations.error.status === 401 ? (
             <Link
               to="/login"
-              search={{ redirect: `/clips/${row.id}` }}
+              search={{ redirect: clipHref(row.gameRef?.slug ?? null, row.id) }}
               className="text-accent text-sm hover:underline"
             >
               {t("Sign in to see recommendations")}

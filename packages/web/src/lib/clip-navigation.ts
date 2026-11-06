@@ -1,4 +1,6 @@
+import type { ClipRow } from "@alloy/api"
 import { HttpError } from "@alloy/api"
+import { UNCATEGORISED_GAME_SLUG } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import type { QueryClient } from "@tanstack/react-query"
@@ -8,14 +10,12 @@ import { useCallback } from "react"
 import type { AppSearch } from "./app-search"
 import { clipDetailQueryOptions } from "./clip-queries"
 
-/** Game-scoped when the clip has a game, otherwise `/clips/:clipId`. */
+/** Every clip lives under its game, or under the uncategorised group. */
 export function clipPermalink(clipId: string, gameId: string | null) {
-  return gameId
-    ? ({
-        to: "/games/$gameId/clips/$clipId",
-        params: { gameId, clipId },
-      } as const)
-    : ({ to: "/clips/$clipId", params: { clipId } } as const)
+  return {
+    to: "/games/$gameId/clips/$clipId",
+    params: { gameId: gameId ?? UNCATEGORISED_GAME_SLUG, clipId },
+  } as const
 }
 
 /**
@@ -38,20 +38,20 @@ export function useOpenClipDialog() {
 }
 
 /**
- * Loader for the clip permalink routes. A clip the viewer can't see, or one
- * that no longer exists, redirects to the game page or home instead of
- * rendering an error, with a toast saying why. Hover preloads run this loader
- * too, so they redirect silently; a redirect outcome isn't cached, so the real
- * navigation runs it again and shows the toast.
+ * Loads the clip for a permalink. A clip the viewer can't see, or one that no
+ * longer exists, redirects to the game page, or home for a legacy link without
+ * a game, instead of rendering an error, with a toast saying why. Hover
+ * preloads run this loader too, so they redirect silently; a redirect outcome
+ * isn't cached, so the real navigation runs it again and shows the toast.
  */
 export async function ensureClipForPermalink(
   queryClient: QueryClient,
   clipId: string,
   gameId: string | null,
   preload: boolean,
-): Promise<void> {
+): Promise<ClipRow> {
   try {
-    await queryClient.ensureQueryData(clipDetailQueryOptions(clipId))
+    return await queryClient.ensureQueryData(clipDetailQueryOptions(clipId))
   } catch (error) {
     if (
       error instanceof HttpError &&

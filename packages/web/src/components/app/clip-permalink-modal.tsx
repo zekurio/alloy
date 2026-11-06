@@ -7,14 +7,14 @@ import { clipPermalink } from "@/lib/clip-navigation"
 
 /**
  * The viewer dialog for a clip permalink. `gameId` is the route's game scope:
- * closing without history to go back to lands on that game, or home.
+ * closing without history to go back to lands on that game.
  */
 export function ClipPermalinkModal({
   clipId,
   gameId,
 }: {
   clipId: string
-  gameId: string | null
+  gameId: string
 }) {
   const router = useRouter()
   // The dialog runs ahead of the route: it shows the next clip before the
@@ -30,19 +30,15 @@ export function ClipPermalinkModal({
   const handleClose = useCallback(() => {
     setModal((current) => ({ ...current, id: null }))
     if (goBackInBrowserHistory()) return
-    if (gameId) {
-      void router.navigate({
-        to: "/games/$gameId",
-        params: { gameId },
-        replace: true,
-      })
-      return
-    }
-    void router.navigate({ to: "/", replace: true })
+    void router.navigate({
+      to: "/games/$gameId",
+      params: { gameId },
+      replace: true,
+    })
   }, [router, gameId])
 
-  // Entries without a game move to the game-agnostic permalink instead of
-  // inheriting this route's game scope.
+  // Each entry moves to its own game's permalink instead of inheriting this
+  // route's game scope.
   const handleNavigate = useCallback(
     (entry: { id: string; gameId: string | null }) => {
       setModal((current) => ({ ...current, id: entry.id }))
