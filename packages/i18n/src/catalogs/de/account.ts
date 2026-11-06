@@ -190,6 +190,7 @@ export const ACCOUNT_MESSAGES = {
     "Das entfernt dauerhaft jeden Clip, den du hochgeladen hast.",
   "This removes their sessions and clips. It can't be undone.":
     "Das entfernt ihre Sitzungen und Clips. Es kann nicht rückgängig gemacht werden.",
+  "This user doesn't exist.": "Diesen Nutzer gibt es nicht.",
   Unblock: "Entsperren",
   "Unblocking…": "Wird entsperrt…",
   "Unknown browser": "Unbekannter Browser",
@@ -198,6 +199,7 @@ export const ACCOUNT_MESSAGES = {
   "Upload new banner": "Neues Banner hochladen",
   User: "Nutzer",
   "User actions": "Nutzeraktionen",
+  "User not found": "Nutzer nicht gefunden",
   "User not found.": "Nutzer nicht gefunden.",
   Username: "Nutzername",
   "Username can be at most {max} characters":

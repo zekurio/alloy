@@ -26,8 +26,10 @@ type RouteErrorStateProps = ErrorComponentProps & {
   variant?: RouteStateVariant
 }
 
-type RouteNotFoundStateProps = NotFoundRouteProps & {
+type RouteNotFoundStateProps = Partial<NotFoundRouteProps> & {
   variant?: RouteStateVariant
+  title?: string
+  description?: string
 }
 
 function RouteErrorState({
@@ -91,6 +93,8 @@ function RouteErrorState({
 
 function RouteNotFoundState({
   variant = "screen",
+  title = t("Page not found"),
+  description = t("The page may have moved, been deleted, or never existed."),
 }: RouteNotFoundStateProps): ReactElement {
   const canGoBack = canGoBackInBrowserHistory()
 
@@ -99,10 +103,10 @@ function RouteNotFoundState({
       <div className="flex w-full max-w-md flex-col items-start gap-4 text-left text-balance">
         <div className="flex w-full flex-col gap-1.5">
           <h1 className="text-foreground text-lg font-semibold tracking-tight">
-            {t("Page not found")}
+            {title}
           </h1>
           <p className="text-foreground-muted text-sm leading-relaxed">
-            {t("The page may have moved, been deleted, or never existed.")}
+            {description}
           </p>
         </div>
 

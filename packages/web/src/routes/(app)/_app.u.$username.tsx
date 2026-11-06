@@ -1,16 +1,23 @@
 import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  notFound,
+  Outlet,
+  useNavigate,
+} from "@tanstack/react-router"
 import { UserXIcon } from "lucide-react"
 import { useState } from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
+import { RouteNotFoundState } from "@/components/feedback/route-state"
 import { BlockedGate } from "@/components/routes/profile/blocked-gate"
 import { ProfileIdentity } from "@/components/routes/profile/profile-identity"
 import { ProfileIdentitySkeleton } from "@/components/routes/profile/profile-identity-skeleton"
 import { ProfileTabsNav } from "@/components/routes/profile/profile-tabs-nav"
 import { userClipsInfiniteQueryOptions } from "@/lib/clip-queries"
+import { isHttpNotFound } from "@/lib/http-not-found"
 import {
   setProfileViewerInCache,
   userProfileQueryOptions,
@@ -24,14 +31,32 @@ export const Route = createFileRoute("/(app)/_app/u/$username")({
     const profileOptions = userProfileQueryOptions(params.username)
     const clipsOptions = userClipsInfiniteQueryOptions(params.username)
     const viewerOptions = userProfileViewerQueryOptions(params.username)
-    await Promise.all([
-      context.queryClient.ensureQueryData(profileOptions),
-      context.queryClient.ensureQueryData(viewerOptions),
-    ])
+    try {
+      await Promise.all([
+        context.queryClient.ensureQueryData(profileOptions),
+        context.queryClient.ensureQueryData(viewerOptions),
+      ])
+    } catch (error) {
+      if (isHttpNotFound(error)) throw notFound()
+      throw error
+    }
     void context.queryClient.prefetchInfiniteQuery(clipsOptions)
   },
+  notFoundComponent: UserNotFound,
   component: UserProfileLayout,
 })
+
+function UserNotFound() {
+  return (
+    <AppMain>
+      <RouteNotFoundState
+        variant="panel"
+        title={t("User not found")}
+        description={t("This user doesn't exist.")}
+      />
+    </AppMain>
+  )
+}
 
 function UserProfileLayout() {
   const { username } = Route.useParams()
