@@ -325,7 +325,10 @@ export function ClipEditorDetails({
             variant="ghost"
             disabled={deleting || saving || visibilityPending}
             className={visibilityPending ? "disabled:opacity-100" : undefined}
-            render={<Link to="/library" search={librarySearch} />}
+            render={
+              // Cancel drops the edits on purpose, so it doesn't ask.
+              <Link to="/library" search={librarySearch} ignoreBlocker />
+            }
           >
             {t("Cancel")}
           </Button>

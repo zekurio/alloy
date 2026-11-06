@@ -62,6 +62,7 @@ import { exportAndPublishCapture } from "./library-capture-publish"
 import { EditorVolumeControl } from "./library-clip-editor-media"
 import { type LibraryItemView } from "./library-data"
 import { clipMetadataEditorFields } from "./library-editor-metadata"
+import { LibraryEditorLeaveGuard } from "./library-editor-shared"
 import {
   LibraryEntryNavButton,
   type NavigableLibraryEntry,
@@ -293,11 +294,13 @@ function LocalEditorBody({
       }
       notifyLibraryCapturesChanged()
       if (result && result.id !== item.id) {
+        // The saved draft may not have re-rendered as clean yet.
         await navigate({
           to: "/library/$captureId",
           params: { captureId: result.id },
           search: librarySearch,
           replace: true,
+          ignoreBlocker: true,
         })
       }
     }, t("Couldn't save changes"))
@@ -481,7 +484,9 @@ function LocalEditorBody({
               type="button"
               variant="ghost"
               disabled={deleting || publishing || saving}
-              render={<Link to="/library" search={librarySearch} />}
+              render={
+                <Link to="/library" search={librarySearch} ignoreBlocker />
+              }
             >
               {awaitingLinkCopy ? t("Done") : t("Cancel")}
             </Button>
@@ -561,6 +566,7 @@ function LocalEditorBody({
           </div>
         </Card>
       </div>
+      <LibraryEditorLeaveGuard hasUnsavedEdits={dirty || trimDirty} />
     </section>
   )
 }

@@ -114,9 +114,14 @@ function LibraryEditorContent({
       notifyLibraryCapturesChanged(id)
       setDeleteDialogOpen(false)
       if (fallback) {
-        navigateToEntry(fallback)
+        navigateToEntry(fallback, { ignoreBlocker: true })
       } else {
-        void navigate({ to: "/library", search: librarySearch, replace: true })
+        void navigate({
+          to: "/library",
+          search: librarySearch,
+          replace: true,
+          ignoreBlocker: true,
+        })
       }
     },
   })
