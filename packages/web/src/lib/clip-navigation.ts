@@ -1,4 +1,3 @@
-import type { ClipRow } from "@alloy/api"
 import { HttpError } from "@alloy/api"
 import { UNCATEGORISED_GAME_SLUG } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
@@ -38,20 +37,20 @@ export function useOpenClipDialog() {
 }
 
 /**
- * Loads the clip for a permalink. A clip the viewer can't see, or one that no
- * longer exists, redirects to the game page, or home for a legacy link without
- * a game, instead of rendering an error, with a toast saying why. Hover
- * preloads run this loader too, so they redirect silently; a redirect outcome
- * isn't cached, so the real navigation runs it again and shows the toast.
+ * Loader for the clip permalink route. A clip the viewer can't see, or one
+ * that no longer exists, redirects to the game page instead of rendering an
+ * error, with a toast saying why. Hover preloads run this loader too, so they
+ * redirect silently; a redirect outcome isn't cached, so the real navigation
+ * runs it again and shows the toast.
  */
 export async function ensureClipForPermalink(
   queryClient: QueryClient,
   clipId: string,
-  gameId: string | null,
+  gameId: string,
   preload: boolean,
-): Promise<ClipRow> {
+): Promise<void> {
   try {
-    return await queryClient.ensureQueryData(clipDetailQueryOptions(clipId))
+    await queryClient.ensureQueryData(clipDetailQueryOptions(clipId))
   } catch (error) {
     if (
       error instanceof HttpError &&
@@ -63,13 +62,11 @@ export async function ensureClipForPermalink(
           id: "clip-unavailable",
         })
       }
-      throw gameId
-        ? redirect({
-            to: "/games/$gameId",
-            params: { gameId },
-            replace: true,
-          })
-        : redirect({ to: "/", replace: true })
+      throw redirect({
+        to: "/games/$gameId",
+        params: { gameId },
+        replace: true,
+      })
     }
     throw error
   }

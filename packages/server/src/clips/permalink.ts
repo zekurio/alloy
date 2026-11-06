@@ -1,7 +1,5 @@
-// Clip permalinks are game-scoped. The bare form is the legacy link from
-// before every clip lived under a game or the uncategorised group; social
-// crawlers still hand it back for links shared back then.
-const CLIP_PERMALINK_RE = /^(?:\/games\/[^/]+)?\/clips\/([^/]+)\/?$/
+// Every clip permalink is scoped to its game or the uncategorised group.
+const CLIP_PERMALINK_RE = /^\/games\/[^/]+\/clips\/([^/]+)\/?$/
 
 export function clipIdFromPath(pathname: string): string | null {
   return CLIP_PERMALINK_RE.exec(pathname)?.[1] ?? null
