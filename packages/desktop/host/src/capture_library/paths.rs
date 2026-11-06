@@ -131,17 +131,24 @@ fn normalize_path(path: &Path) -> PathBuf {
     result
 }
 
-pub fn title_for_capture(created_at: &str) -> String {
-    let parsed =
-        time::OffsetDateTime::parse(created_at, &time::format_description::well_known::Rfc3339);
-    match parsed {
-        Ok(value) => format!(
-            "Clip {}",
+/// The default title for a clip without one: the game name and the capture's
+/// short local date and time, such as "Valorant – 26.10. 22:33", or the date
+/// and time alone when no game is known.
+pub fn title_for_capture(created_at: &str, game_name: Option<&str>) -> String {
+    let game = game_name.map(str::trim).filter(|value| !value.is_empty());
+    let when = chrono::DateTime::parse_from_rfc3339(created_at)
+        .ok()
+        .map(|value| {
             value
-                .format(&time::format_description::well_known::Rfc3339)
-                .unwrap_or_else(|_| "capture".to_string())
-        ),
-        Err(_) => "Clip capture".to_string(),
+                .with_timezone(&chrono::Local)
+                .format("%d.%m. %H:%M")
+                .to_string()
+        });
+    match (game, when) {
+        (Some(game), Some(when)) => format!("{game} – {when}"),
+        (Some(game), None) => game.to_string(),
+        (None, Some(when)) => when,
+        (None, None) => "Clip".to_string(),
     }
 }
 

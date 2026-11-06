@@ -656,7 +656,10 @@ impl CaptureLibrary {
                 title: if capture.kind == CaptureKind::Screenshot {
                     format!("Screenshot {now}")
                 } else {
-                    title_for_capture(&capture.created_at)
+                    title_for_capture(
+                        &capture.created_at,
+                        capture.game.as_ref().map(|game| game.name.as_str()),
+                    )
                 },
                 kind: capture.kind,
                 source: capture.source,
@@ -1034,7 +1037,7 @@ impl CaptureLibrary {
             .file_stem()
             .and_then(|value| value.to_str())
             .map(|value| safe_file_stem(Some(value), "import"))
-            .unwrap_or_else(|| title_for_capture(&created_at));
+            .unwrap_or_else(|| title_for_capture(&created_at, None));
         let internal = StagedInternal {
             id: id.clone(),
             file_name: source
@@ -1383,7 +1386,7 @@ fn add_item(
             if actual_kind == CaptureKind::Screenshot {
                 format!("Screenshot {created_at}")
             } else {
-                title_for_capture(&created_at)
+                title_for_capture(&created_at, game_name.as_deref())
             }
         }),
         filename: path.to_string_lossy().into_owned(),
