@@ -5,6 +5,7 @@ import {
   AvatarImage,
 } from "@alloy/ui/components/avatar"
 import { GameIcon } from "@alloy/ui/components/game-icon"
+import { isPlainPrimaryClick } from "@alloy/ui/lib/link-click"
 import { cn } from "@alloy/ui/lib/utils"
 import type {
   ComponentProps,
@@ -62,6 +63,13 @@ type ClipCardProps = ComponentProps<"article"> &
     onThumbnailClick?: () => void
     /** When set, the title becomes a button that fires this handler. */
     onTitleClick?: () => void
+    /**
+     * The clip's permalink. With the click handlers set, the thumbnail and
+     * title become links to it instead of buttons: plain primary clicks run
+     * the handlers, while middle-click, modified clicks and the context menu
+     * act on the link.
+     */
+    href?: string
     /** Fires on hover/focus/press so callers can warm data before open. */
     onThumbnailIntent?: () => void
     /** Fires on hover/focus/press over the title so callers can warm data. */
@@ -114,6 +122,7 @@ function ClipCard({
   streamRange,
   onThumbnailClick,
   onTitleClick,
+  href,
   onThumbnailIntent,
   onTitleIntent,
   onPreviewError,
@@ -126,6 +135,7 @@ function ClipCard({
     <ClipCardTitleButton
       title={title}
       label={titleLabel}
+      href={href}
       onClick={onTitleClick}
       onIntent={onTitleIntent}
     >
@@ -202,6 +212,7 @@ function ClipCard({
           streamUrl={streamUrl}
           streamRange={streamRange}
           onClick={onThumbnailClick}
+          href={href}
           onIntent={onThumbnailIntent}
           onPreviewError={onPreviewError}
           label={thumbnailLabel ?? title}
@@ -459,23 +470,47 @@ function ClipCardAvatar({
 function ClipCardTitleButton({
   title,
   label,
+  href,
   onClick,
   onIntent,
   children,
 }: {
   title: string
   label: string | undefined
+  href: string | undefined
   onClick: (() => void) | undefined
   onIntent: (() => void) | undefined
   children: ReactNode
 }) {
   if (!onClick) return children
 
+  const className =
+    "block max-w-full truncate text-left hover:underline focus-visible:underline focus-visible:outline-none"
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        aria-label={label ?? title}
+        className={className}
+        onClick={(event) => {
+          if (!isPlainPrimaryClick(event)) return
+          event.preventDefault()
+          onClick()
+        }}
+        onPointerEnter={onIntent}
+        onFocus={onIntent}
+      >
+        {children}
+      </a>
+    )
+  }
+
   return (
     <button
       type="button"
       aria-label={label ?? title}
-      className="block max-w-full truncate text-left hover:underline focus-visible:underline focus-visible:outline-none"
+      className={className}
       onClick={onClick}
       onPointerEnter={onIntent}
       onFocus={onIntent}

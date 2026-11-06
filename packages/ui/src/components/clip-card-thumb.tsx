@@ -1,5 +1,6 @@
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
+import { isPlainPrimaryClick } from "@alloy/ui/lib/link-click"
 import {
   CLIP_MEDIA_CLASS,
   CLIP_MEDIA_ROUNDED_CLASS,
@@ -7,7 +8,7 @@ import {
 } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { PointerEvent } from "react"
+import type { MouseEvent, PointerEvent } from "react"
 
 const HOVER_PREVIEW_DELAY_MS = 250
 
@@ -27,6 +28,11 @@ interface ClipCardThumbProps {
   /** Window within the preview source that maps to this clip. */
   streamRange?: { start: number; end: number }
   onClick?: () => void
+  /**
+   * With `onClick`, renders the surface as a link to this URL. Plain primary
+   * clicks run `onClick`; other clicks follow the link.
+   */
+  href?: string
   onIntent?: () => void
   onPreviewError?: (cause: unknown) => void
   label?: string
@@ -45,6 +51,7 @@ export function ClipCardThumb({
   streamUrl,
   streamRange,
   onClick,
+  href,
   onIntent,
   onPreviewError,
   label,
@@ -279,6 +286,26 @@ export function ClipCardThumb({
       ) : null}
     </div>
   )
+
+  if (onClick && href) {
+    return (
+      <a
+        href={href}
+        onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+          if (!isPlainPrimaryClick(event)) return
+          event.preventDefault()
+          onClick()
+        }}
+        aria-label={label}
+        data-pointer-activated={pointerActivated ? "true" : undefined}
+        className={cn(surfaceClass, "block")}
+        style={imageAspectRatio ? { aspectRatio: imageAspectRatio } : undefined}
+        {...hoverHandlers}
+      >
+        {body}
+      </a>
+    )
+  }
 
   if (interactive) {
     return (
