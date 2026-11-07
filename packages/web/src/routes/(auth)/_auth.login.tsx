@@ -11,6 +11,7 @@ import { authClient } from "@/lib/auth-client"
 import { redirectAuthedBeforeLoad } from "@/lib/auth-guards"
 import { clientLogger } from "@/lib/client-log"
 import { sanitizeLoginRedirect } from "@/lib/login-redirect"
+import { searchFlag } from "@/lib/route-search"
 
 type LoginSearch = {
   redirect?: string
@@ -43,10 +44,7 @@ export const Route = createFileRoute("/(auth)/_auth/login")({
     if (search.reactivate === true || search.reactivate === "true") {
       result.reactivate = true
     }
-    if (
-      search[OAUTH_LINK_QUERY_KEY] === true ||
-      search[OAUTH_LINK_QUERY_KEY] === "true"
-    ) {
+    if (searchFlag(search[OAUTH_LINK_QUERY_KEY])) {
       result[OAUTH_LINK_QUERY_KEY] = true
     }
     return result

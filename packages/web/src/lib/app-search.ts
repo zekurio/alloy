@@ -1,4 +1,4 @@
-import { searchString } from "./route-search"
+import { searchFlag, searchString } from "./route-search"
 
 export interface AppSearch {
   clip?: string
@@ -19,7 +19,7 @@ export function parseAppSearch(search: AppSearchInput): AppSearch {
   const parsed: AppSearch = {}
   if (clip) parsed.clip = clip
   if (settings) parsed.settings = settings
-  if (search.welcome === true || search.welcome === "true") {
+  if (searchFlag(search.welcome)) {
     parsed.welcome = true
   }
   return parsed
