@@ -4,7 +4,7 @@ import type {
   AdminRuntimeConfig,
   OAuthTokenAuthMethod,
 } from "@alloy/api"
-import { OIDC_PROVIDER_ID } from "@alloy/api"
+import { OIDC_CALLBACK_PATH } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
@@ -329,7 +329,7 @@ function callbackURL(authBaseURL: string): string {
   const base = authBaseURL.endsWith("/")
     ? authBaseURL.slice(0, -1)
     : authBaseURL
-  return `${base}/api/auth/oauth2/callback/${OIDC_PROVIDER_ID}`
+  return `${base}${OIDC_CALLBACK_PATH}`
 }
 
 function secretAvailable(

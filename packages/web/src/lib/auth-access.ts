@@ -16,15 +16,14 @@ export function shouldForceOnboarding(
   )
 }
 
-/** Providers whose first sign-in creates an account. */
-export function signUpProviders(config: PublicAuthConfig) {
-  return config.providers.filter((provider) => provider.allowSignUp)
+/** Whether the first SSO sign-in of an unlinked identity creates an account. */
+export function canOidcSignUp(config: PublicAuthConfig): boolean {
+  return config.oidc?.allowSignUp === true
 }
 
-/** Whether any sign-up method is open: passkeys or an OAuth provider. */
+/** Whether any sign-up method is open: passkeys or SSO. */
 export function canSignUp(config: PublicAuthConfig): boolean {
   return (
-    (config.openRegistrations && config.passkeyEnabled) ||
-    signUpProviders(config).length > 0
+    (config.openRegistrations && config.passkeyEnabled) || canOidcSignUp(config)
   )
 }

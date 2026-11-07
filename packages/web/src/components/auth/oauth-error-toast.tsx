@@ -24,7 +24,6 @@ const KNOWN_OAUTH_ERRORS: ReadonlySet<string> = new Set([
   ),
   message("OAuth account is already linked to another user."),
   message("OAuth profile is missing a subject."),
-  message("OAuth provider changed during sign-in."),
   message("OAuth provider endpoints are incomplete."),
   message("OAuth provider is not enabled."),
   message("OAuth sign-in did not start in this browser."),

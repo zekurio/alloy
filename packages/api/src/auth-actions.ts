@@ -2,7 +2,6 @@ import type {
   AuthSessionSummary,
   ContractJsonValue,
   LinkedAccount,
-  OAuthSignInAccount,
   Passkey,
   SessionData,
   SyncedThemePreferences,
@@ -201,9 +200,7 @@ function createPasskeyActions(
       reactivate: () => completeAccountReactivation(request, store),
       preloadPasskey: preloadWebAuthnBrowser,
       oauth2: (input: {
-        providerId: string
         callbackURL?: string
-        account?: OAuthSignInAccount
         /** Create the first admin; the browser needs setup access. */
         setup?: boolean
       }) =>
@@ -329,7 +326,7 @@ function createUserActions(request: RequestFn, store: SessionStore) {
         "Could not load accounts",
         validateLinkedAccounts,
       ),
-    unlinkAccount: (input: { providerId: string; accountId: string }) =>
+    unlinkAccount: (input: { accountId: string }) =>
       result(
         AUTH_PATHS.accountsUnlink,
         { method: "POST", body: JSON.stringify(input) },
@@ -380,7 +377,7 @@ async function redirectResult(
 function createOAuthActions(request: RequestFn, redirect: AuthRedirect) {
   return {
     oauth2: {
-      link: (input: { providerId: string; callbackURL?: string }) =>
+      link: (input: { callbackURL?: string }) =>
         redirectResult(
           request,
           redirect,
@@ -389,7 +386,7 @@ function createOAuthActions(request: RequestFn, redirect: AuthRedirect) {
           "Could not start OAuth link",
         ),
       /**
-       * An OAuth sign-in in this browser whose username claim matched an
+       * An OIDC sign-in in this browser whose username claim matched an
        * existing user. Linking it or creating an account from it goes back to
        * where that sign-in started, without another trip to the provider.
        */

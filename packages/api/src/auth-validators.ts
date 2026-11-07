@@ -279,7 +279,7 @@ export function validateRevokeOtherSessionsResponse(value: ContractJsonInput): {
 
 export function validateLinkedAccount(value: ContractJsonInput): LinkedAccount {
   const account = objectRecord(value, "linked account")
-  for (const key of ["id", "providerId", "accountId"] as const) {
+  for (const key of ["id", "accountId"] as const) {
     validateRequiredString(
       account[key],
       `Invalid linked account response: ${key} is required`,
@@ -322,10 +322,6 @@ export function validatePendingOAuthLinkOrNull(
 ): PendingOAuthLink | null {
   if (value === null) return null
   const link = objectRecord(value, "pending OAuth link")
-  validateRequiredString(
-    link.providerId,
-    "Invalid pending OAuth link response: providerId is required",
-  )
   validateNullableString(
     link.accountLabel,
     "Invalid pending OAuth link response: accountLabel must be string or null",

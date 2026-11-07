@@ -1,15 +1,12 @@
-import type { OAuthSignInAccount, UserRole } from "@alloy/contracts"
+import type { UserRole } from "@alloy/contracts"
 
 export type OAuthMode = "sign-in" | "link"
 
 export type OAuthChallengePayload = {
-  /** Sign-in only. */
-  account?: OAuthSignInAccount
   browserNonce: string
   callbackURL: string
   codeVerifier?: string
   mode: OAuthMode
-  providerId: string
   /** Sign-in only: create the first admin from this identity. */
   setupFirstAdmin?: boolean
   userId?: string

@@ -5,7 +5,7 @@ import { Link } from "@tanstack/react-router"
 import { useEffect } from "react"
 
 import { OAuthSignIn } from "@/components/routes/login/oauth-sign-in"
-import { signUpProviders } from "@/lib/auth-access"
+import { canOidcSignUp } from "@/lib/auth-access"
 import { authClient } from "@/lib/auth-client"
 import { useSignedOut } from "@/lib/auth-hooks"
 import { usePasskeySupport } from "@/lib/passkey-support"
@@ -32,9 +32,8 @@ export function SignUpForm({
 }) {
   const canPasskeySignUp = config.openRegistrations && config.passkeyEnabled
   const showPasskeySignUp = passkeyReady && canPasskeySignUp && passkeySupported
-  const oauthProviders = signUpProviders(config)
-  const canOAuthSignUp = oauthProviders.length > 0
-  const showSeparator = showPasskeySignUp && canOAuthSignUp
+  const oidcSignUp = canOidcSignUp(config) ? config.oidc : null
+  const showSeparator = showPasskeySignUp && oidcSignUp !== null
 
   return (
     <>
@@ -69,11 +68,9 @@ export function SignUpForm({
           </div>
         ) : null}
 
-        {canOAuthSignUp ? (
+        {oidcSignUp ? (
           <div className="flex flex-col gap-3">
-            {oauthProviders.map((provider) => (
-              <OAuthSignIn key={provider.providerId} provider={provider} />
-            ))}
+            <OAuthSignIn provider={oidcSignUp} />
           </div>
         ) : null}
       </div>

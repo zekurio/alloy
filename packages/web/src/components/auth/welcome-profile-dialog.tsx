@@ -29,36 +29,27 @@ import {
 } from "@/lib/user-display"
 
 type WelcomeProfileDialogProps = {
-  welcome: string | null
+  open: boolean
   onClose: () => void
 }
 
 export function WelcomeProfileDialog({
-  welcome,
+  open,
   onClose,
 }: WelcomeProfileDialogProps) {
-  // Keep the last non-null value mounted so the dialog can animate out after
-  // the URL param clears.
-  const [visibleWelcome, setVisibleWelcome] = useState(welcome)
-  if (welcome !== null && welcome !== visibleWelcome) setVisibleWelcome(welcome)
+  // Stay mounted once opened so the dialog can animate out after the URL
+  // flag clears.
+  const [mounted, setMounted] = useState(open)
+  if (open && !mounted) setMounted(true)
 
-  const activeWelcome = welcome ?? visibleWelcome
-  if (activeWelcome === null) return null
-  return (
-    <WelcomeProfileDialogContent
-      welcome={activeWelcome}
-      open={welcome !== null}
-      onClose={onClose}
-    />
-  )
+  if (!mounted) return null
+  return <WelcomeProfileDialogContent open={open} onClose={onClose} />
 }
 
 function WelcomeProfileDialogContent({
-  welcome,
   open,
   onClose,
 }: {
-  welcome: string
   open: boolean
   onClose: () => void
 }) {
@@ -70,16 +61,12 @@ function WelcomeProfileDialogContent({
     banner: user?.banner ?? "",
   })
   // Snapshot of the avatar at first render: the provenance caption must only
-  // describe the synced provider avatar, never one the user picked here.
+  // describe the synced provider avatar, never one the user picked here. Only
+  // an SSO sign-up starts with an avatar; a passkey one starts with none.
   const [initialImage] = useState(() => user?.image ?? "")
   // Focus the popup itself on open instead of the first control, so the
   // banner button doesn't show a stray focus ring when the dialog appears.
   const popupRef = useRef<HTMLDivElement>(null)
-  const providerName =
-    welcome === "1"
-      ? null
-      : config.providers.find((provider) => provider.providerId === welcome)
-          ?.displayName
 
   if (!user) return null
 
@@ -87,9 +74,8 @@ function WelcomeProfileDialogContent({
   const bannerSrc = userImageSrc(media.profileBanner)
   const previewName = displayName(user)
   const syncedAvatarShown =
-    welcome !== "1" &&
-    initialImage !== "" &&
-    media.profileImage === initialImage
+    initialImage !== "" && media.profileImage === initialImage
+  const providerName = config.oidc?.displayName
   const providerCaption = !syncedAvatarShown
     ? null
     : providerName

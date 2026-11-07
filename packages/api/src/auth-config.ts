@@ -10,8 +10,8 @@ import { readJsonOrThrow } from "./http"
 export type {
   LoginBackdropsResponse,
   PublicAuthConfig,
-  PublicAuthProvider,
   PublicLoginSplashConfig,
+  PublicOidcConfig,
 } from "@alloy/contracts"
 
 export function createAuthConfigApi(context: ApiContext) {

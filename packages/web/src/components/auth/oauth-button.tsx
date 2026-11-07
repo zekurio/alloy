@@ -5,14 +5,12 @@ import { UserKeyIcon } from "lucide-react"
 import type { ComponentProps } from "react"
 
 interface OAuthButtonProps extends ComponentProps<"button"> {
-  providerId: string
   /** Human-readable provider name, rendered as "Continue with {displayName}". */
   displayName: string
   pendingLabel?: string
 }
 
 export function OAuthButton({
-  providerId,
   displayName,
   pendingLabel,
   className,
@@ -24,7 +22,6 @@ export function OAuthButton({
       variant="secondary"
       size="lg"
       className={cn("gap-3", className)}
-      data-provider={providerId}
       {...props}
     >
       <UserKeyIcon className="size-4" />

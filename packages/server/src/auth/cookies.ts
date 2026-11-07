@@ -1,3 +1,4 @@
+import { OIDC_CALLBACK_PATH } from "@alloy/contracts"
 import { env } from "@alloy/server/env"
 import type { Context } from "hono"
 import { deleteCookie, getCookie, setCookie } from "hono/cookie"
@@ -5,7 +6,7 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie"
 const SESSION_COOKIE = "alloy_session"
 const AUTH_MARKER_COOKIE = "alloy_is_authenticated"
 const ACCOUNT_REACTIVATION_COOKIE = "alloy_account_reactivation"
-const OAUTH_STATE_COOKIE_PREFIX = "alloy_oauth_state_"
+const OAUTH_STATE_COOKIE = "alloy_oauth_state_oidc"
 const OAUTH_PENDING_LINK_COOKIE = "alloy_oauth_pending_link"
 const OAUTH_PENDING_LINK_PATH = "/api/auth/oauth/pending"
 // Chromium's cap on cookie lifetimes. The session itself expires server-side
@@ -74,38 +75,23 @@ export function clearAccountReactivationCookie(c: Context): void {
   })
 }
 
-function oauthStateCookieName(providerId: string): string {
-  return `${OAUTH_STATE_COOKIE_PREFIX}${providerId}`
+export function readOAuthStateCookie(c: Context): string | null {
+  return getCookie(c, OAUTH_STATE_COOKIE) ?? null
 }
 
-function oauthStateCookiePath(providerId: string): string {
-  return `/api/auth/oauth2/callback/${providerId}`
-}
-
-export function readOAuthStateCookie(
-  c: Context,
-  providerId: string,
-): string | null {
-  return getCookie(c, oauthStateCookieName(providerId)) ?? null
-}
-
-export function setOAuthStateCookie(
-  c: Context,
-  providerId: string,
-  value: string,
-): void {
-  setCookie(c, oauthStateCookieName(providerId), value, {
+export function setOAuthStateCookie(c: Context, value: string): void {
+  setCookie(c, OAUTH_STATE_COOKIE, value, {
     httpOnly: true,
     sameSite: "Lax",
     secure: secureCookies(),
-    path: oauthStateCookiePath(providerId),
+    path: OIDC_CALLBACK_PATH,
     maxAge: OAUTH_STATE_MAX_AGE_SEC,
   })
 }
 
-export function clearOAuthStateCookie(c: Context, providerId: string): void {
-  deleteCookie(c, oauthStateCookieName(providerId), {
-    path: oauthStateCookiePath(providerId),
+export function clearOAuthStateCookie(c: Context): void {
+  deleteCookie(c, OAUTH_STATE_COOKIE, {
+    path: OIDC_CALLBACK_PATH,
     secure: secureCookies(),
   })
 }

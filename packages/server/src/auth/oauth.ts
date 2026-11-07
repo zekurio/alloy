@@ -1,7 +1,3 @@
-import {
-  OAUTH_SIGN_IN_ACCOUNTS,
-  type OAuthSignInAccount,
-} from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { createLogger } from "@alloy/logging"
 import type { Context } from "hono"
@@ -33,7 +29,6 @@ import {
   OAUTH_STATE_TTL_MS,
 } from "./oauth-challenges"
 import {
-  callbackURLForProvider,
   callbackURLWithOAuthError,
   callbackURLWithWelcome,
   loginURLWithAccountReactivation,
@@ -42,9 +37,10 @@ import {
   normalizeCallbackURL,
   oauthClient,
   oauthErrorLogDetail,
-  requireEnabledProvider,
+  oidcCallbackURL,
   scopesForProvider,
 } from "./oauth-client"
+import { requireUsableOidcProvider } from "./oauth-config"
 import { savePendingOAuthLink } from "./oauth-pending-link"
 import { profileFromTokens } from "./oauth-profile"
 import type { OAuthChallengePayload, OAuthMode } from "./oauth-types"
@@ -57,12 +53,10 @@ import {
 
 const logger = createLogger("oauth")
 const OAuthChallengePayloadSchema = t.object({
-  account: t.enum(OAUTH_SIGN_IN_ACCOUNTS).optional(),
   browserNonce: t.string(),
   callbackURL: t.string(),
   codeVerifier: t.string().optional(),
   mode: t.enum(["sign-in", "link"]),
-  providerId: t.string(),
   setupFirstAdmin: t.boolean().optional(),
   userId: t.string().optional(),
 })
@@ -70,16 +64,13 @@ const OAuthChallengePayloadSchema = t.object({
 export { fallbackOAuthErrorRedirect } from "./oauth-client"
 
 export async function startOAuthSignIn(input: {
-  providerId: string
   callbackURL?: string | null
-  account?: OAuthSignInAccount
   setupFirstAdmin?: boolean
 }): Promise<{ browserNonce: string; url: string }> {
   return startOAuthFlow({ ...input, mode: "sign-in" })
 }
 
 export async function startOAuthLink(input: {
-  providerId: string
   callbackURL?: string | null
   userId: string
 }): Promise<{ browserNonce: string; url: string }> {
@@ -87,14 +78,12 @@ export async function startOAuthLink(input: {
 }
 
 async function startOAuthFlow(input: {
-  providerId: string
   callbackURL?: string | null
-  account?: OAuthSignInAccount
   mode: OAuthMode
   setupFirstAdmin?: boolean
   userId?: string
 }): Promise<{ browserNonce: string; url: string }> {
-  const provider = requireEnabledProvider(input.providerId)
+  const provider = requireUsableOidcProvider()
 
   const state = randomState()
   const browserNonce = randomState()
@@ -105,7 +94,7 @@ async function startOAuthFlow(input: {
 
   const params = new URLSearchParams({
     ...provider.authParams,
-    redirect_uri: callbackURLForProvider(provider.providerId),
+    redirect_uri: oidcCallbackURL(),
     scope,
     state,
   })
@@ -116,12 +105,10 @@ async function startOAuthFlow(input: {
 
   const url = buildAuthorizationUrl(config, params)
   const payload: OAuthChallengePayload = {
-    account: input.account,
     browserNonce,
     callbackURL,
     codeVerifier,
     mode: input.mode,
-    providerId: provider.providerId,
     setupFirstAdmin: input.setupFirstAdmin,
     userId: input.userId,
   }
@@ -140,13 +127,12 @@ async function startOAuthFlow(input: {
 
 export async function finishOAuthCallback(
   c: Context,
-  providerId: string,
 ): Promise<{ redirectTo: string }> {
   // Clear the single-use state cookie up front so no failure below leaves it,
   // including a provider that was disabled while the flow was in progress.
-  const browserNonce = readOAuthStateCookie(c, providerId)
-  clearOAuthStateCookie(c, providerId)
-  const provider = requireEnabledProvider(providerId)
+  const browserNonce = readOAuthStateCookie(c)
+  clearOAuthStateCookie(c)
+  const provider = requireUsableOidcProvider()
   const currentURL = new URL(c.req.url)
   const state = currentURL.searchParams.get("state")
   if (!state) throw new Error("Missing OAuth state.")
@@ -154,14 +140,11 @@ export async function finishOAuthCallback(
   const challenge = await consumeOAuthChallenge(state)
   const payload = requireOAuthChallengePayload(challenge.payload)
   try {
-    if (payload.providerId !== provider.providerId) {
-      throw new Error("OAuth provider changed during sign-in.")
-    }
     if (!browserNonceMatches(browserNonce, payload.browserNonce)) {
       throw new Error("OAuth sign-in did not start in this browser.")
     }
 
-    const callbackURL = new URL(callbackURLForProvider(provider.providerId))
+    const callbackURL = new URL(oidcCallbackURL())
     callbackURL.search = currentURL.search
 
     const config = await oauthClient(provider)
@@ -180,53 +163,34 @@ export async function finishOAuthCallback(
       ) {
         throw new Error("Sign in again before linking this account.")
       }
-      await linkAccountToUser({
-        profile,
-        provider,
-        userId: session.user.id,
-      })
-      logger.info(
-        `linked ${provider.providerId} account to user ${session.user.id}`,
-      )
+      await linkAccountToUser({ profile, userId: session.user.id })
+      logger.info(`linked OIDC account to user ${session.user.id}`)
       return { redirectTo: payload.callbackURL }
     }
 
     if (payload.setupFirstAdmin) {
       if (!hasSetupAccess(c)) throw new Error(SETUP_ACCESS_REQUIRED)
-      const userId = await createFirstAdminForOAuthAccount({
-        profile,
-        provider,
-      })
+      const userId = await createFirstAdminForOAuthAccount({ profile })
       endSetupAccess(c)
-      logger.info(`${provider.providerId} sign-in created admin ${userId}`)
+      logger.info(`OIDC sign-in created admin ${userId}`)
       await completeAuthenticatedSignIn(c, userId)
       return { redirectTo: payload.callbackURL }
     }
 
-    const resolved = await resolveSignInUser({
-      profile,
-      provider,
-      account: payload.account,
-    })
+    const resolved = await resolveSignInUser({ profile, provider })
     if (resolved.kind === "link-required") {
       logger.info(
-        `${provider.providerId} sign-in matched the username of user ${resolved.userId}; asking to link`,
+        `OIDC sign-in matched the username of user ${resolved.userId}; asking to link`,
       )
       const pendingToken = await savePendingOAuthLink({
         callbackURL: payload.callbackURL,
         profile,
-        providerId: provider.providerId,
       })
       setOAuthPendingLinkCookie(c, pendingToken)
-      return {
-        redirectTo: loginURLWithOAuthLink(
-          payload.callbackURL,
-          provider.providerId,
-        ),
-      }
+      return { redirectTo: loginURLWithOAuthLink(payload.callbackURL) }
     }
     const { kind, userId } = resolved
-    logger.info(`${provider.providerId} sign-in ${kind} user ${userId}`)
+    logger.info(`OIDC sign-in ${kind} user ${userId}`)
     const signIn = await completeAuthenticatedSignIn(c, userId)
     if (signIn.kind === "reactivation-required") {
       return {
@@ -244,24 +208,21 @@ export async function finishOAuthCallback(
     return {
       redirectTo:
         kind === "created"
-          ? callbackURLWithWelcome(payload.callbackURL, provider.providerId)
+          ? callbackURLWithWelcome(payload.callbackURL)
           : payload.callbackURL,
     }
   } catch (cause) {
     logger.warn(
-      `${payload.mode} callback failed for ${provider.providerId}:`,
+      `OIDC ${payload.mode} callback failed:`,
       oauthErrorLogDetail(cause),
     )
     // A failed link keeps the user signed in, so send them back to where they
-    // started (settings). A sign-in from the link page goes back to it to try
-    // another method. Other failed sign-ins leave them logged out, so route to
-    // /login where the error toast can actually surface.
+    // started (settings). Other failed sign-ins leave them logged out, so
+    // route to /login where the error toast can actually surface.
     // Setup keeps redirecting /login to /setup, so its errors go back there.
     return {
       redirectTo:
-        payload.mode === "link" ||
-        payload.account === "linked" ||
-        payload.setupFirstAdmin
+        payload.mode === "link" || payload.setupFirstAdmin
           ? callbackURLWithOAuthError(payload.callbackURL, cause)
           : loginURLWithOAuthError(payload.callbackURL, cause),
     }

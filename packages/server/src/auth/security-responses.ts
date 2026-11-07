@@ -20,7 +20,6 @@ type PublicPasskeyRow = {
 
 type PublicLinkedAccountRow = {
   id: string
-  providerId: string
   accountId: string
   accountLabel: string | null
   createdAt: Date
@@ -105,7 +104,6 @@ export function publicLinkedAccountRow(
 ): LinkedAccount {
   return {
     id: row.id,
-    providerId: row.providerId,
     accountId: row.accountId,
     accountLabel: row.accountLabel,
     createdAt: isoDate(row.createdAt),

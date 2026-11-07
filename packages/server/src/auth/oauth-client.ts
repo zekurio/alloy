@@ -1,7 +1,8 @@
 import {
   OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD,
   OAUTH_LINK_QUERY_KEY,
-  type OAuthProviderConfig,
+  OIDC_CALLBACK_PATH,
+  type OidcConfig,
   WELCOME_QUERY_KEY,
 } from "@alloy/contracts"
 import { secretStore } from "@alloy/server/config/secret-store"
@@ -26,8 +27,6 @@ import {
   skipSubjectCheck,
 } from "openid-client"
 
-import { getEnabledProviderConfig } from "./oauth-config"
-
 const oauthClientCache = new Map<string, Promise<Configuration>>()
 const USER_INFO_TIMEOUT_MS = 10_000
 // Visible ASCII only (RFC 7230 header values with no whitespace).
@@ -38,18 +37,8 @@ const BEARER_TOKEN_PATTERN = /^[\x21-\x7E]+$/
 // re-discovers with the current endpoints and secret.
 configStore.subscribe(() => oauthClientCache.clear())
 
-export function requireEnabledProvider(
-  providerId: string,
-): OAuthProviderConfig {
-  const provider = getEnabledProviderConfig(providerId)
-  if (!provider) {
-    throw new Error("OAuth provider is not enabled.")
-  }
-  return provider
-}
-
 export async function oauthClient(
-  provider: OAuthProviderConfig,
+  provider: OidcConfig,
 ): Promise<Configuration> {
   const key = oauthClientCacheKey(provider)
   const cached = oauthClientCache.get(key)
@@ -63,9 +52,7 @@ export async function oauthClient(
   return clientPromise
 }
 
-async function createOAuthClient(
-  provider: OAuthProviderConfig,
-): Promise<Configuration> {
+async function createOAuthClient(provider: OidcConfig): Promise<Configuration> {
   const clientSecret = secretStore.oidcClientSecret()
   const metadata = {
     client_secret: clientSecret,
@@ -103,7 +90,7 @@ async function createOAuthClient(
 
 export async function fetchOAuthUserInfo(
   config: Configuration,
-  provider: OAuthProviderConfig,
+  provider: OidcConfig,
   accessToken: string,
   expectedSubject: string | typeof skipSubjectCheck,
 ): Promise<JsonObject> {
@@ -137,13 +124,12 @@ export async function fetchOAuthUserInfo(
   return body && body instanceof Object && !Array.isArray(body) ? body : {}
 }
 
-function oauthClientCacheKey(provider: OAuthProviderConfig): string {
+function oauthClientCacheKey(provider: OidcConfig): string {
   return JSON.stringify({
     authorizationUrl: provider.authorizationUrl,
     clientId: provider.clientId,
     clientSecret: secretStore.oidcClientSecret(),
     issuerUrl: provider.issuerUrl,
-    providerId: provider.providerId,
     tokenAuthMethod: provider.tokenAuthMethod,
     tokenUrl: provider.tokenUrl,
     userInfoUrl: provider.userInfoUrl,
@@ -151,7 +137,7 @@ function oauthClientCacheKey(provider: OAuthProviderConfig): string {
 }
 
 function clientAuthForProvider(
-  provider: OAuthProviderConfig,
+  provider: OidcConfig,
   clientSecret: string,
 ): ClientAuth {
   if (provider.tokenAuthMethod === OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD) {
@@ -166,7 +152,7 @@ function insecureOptions(url: string) {
     : undefined
 }
 
-function usesInsecureEndpoint(provider: OAuthProviderConfig): boolean {
+function usesInsecureEndpoint(provider: OidcConfig): boolean {
   return [
     provider.issuerUrl,
     provider.authorizationUrl,
@@ -175,16 +161,16 @@ function usesInsecureEndpoint(provider: OAuthProviderConfig): boolean {
   ].some((value) => value && new URL(value).protocol === "http:")
 }
 
-export function scopesForProvider(provider: OAuthProviderConfig): string {
+export function scopesForProvider(provider: OidcConfig): string {
   return provider.scopes.join(" ")
 }
 
-function providerUsesOpenId(provider: OAuthProviderConfig): boolean {
+function providerUsesOpenId(provider: OidcConfig): boolean {
   return scopesForProvider(provider).split(/\s+/).includes("openid")
 }
 
-export function callbackURLForProvider(providerId: string): string {
-  return `${env.PUBLIC_SERVER_URL}/api/auth/oauth2/callback/${providerId}`
+export function oidcCallbackURL(): string {
+  return `${env.PUBLIC_SERVER_URL}${OIDC_CALLBACK_PATH}`
 }
 
 export function normalizeCallbackURL(value: string | null | undefined): string {
@@ -219,12 +205,12 @@ export function callbackURLWithOAuthError(
   return url.toString()
 }
 
-export function callbackURLWithWelcome(
-  callbackURL: string,
-  providerId: string,
-): string {
+/** Open the profile setup prompt on the first page after sign-up. */
+export function callbackURLWithWelcome(callbackURL: string): string {
   const url = new URL(callbackURL)
-  url.searchParams.set(WELCOME_QUERY_KEY, providerId)
+  // "true", not "1": the web router JSON-parses query values and reads the
+  // flag as a boolean.
+  url.searchParams.set(WELCOME_QUERY_KEY, "true")
   return url.toString()
 }
 
@@ -232,14 +218,9 @@ export function loginURLWithAccountReactivation(callbackURL: string): string {
   return loginURLReturningTo(callbackURL, { reactivate: "true" })
 }
 
-/** Send the user to sign in and link the provider from there. */
-export function loginURLWithOAuthLink(
-  callbackURL: string,
-  providerId: string,
-): string {
-  return loginURLReturningTo(callbackURL, {
-    [OAUTH_LINK_QUERY_KEY]: providerId,
-  })
+/** Send the user to sign in and link the pending OIDC identity from there. */
+export function loginURLWithOAuthLink(callbackURL: string): string {
+  return loginURLReturningTo(callbackURL, { [OAUTH_LINK_QUERY_KEY]: "true" })
 }
 
 function loginURLReturningTo(

@@ -31,15 +31,15 @@ import { refreshAfterWrite } from "@/lib/refresh-after-write"
 
 export type { LinkedAccount }
 
-type Provider = PublicAuthConfig["providers"][number]
 const OAUTH_LINKED_QUERY_KEY = "oauthLinked"
+/** Error target of a failed link, which has no account row yet. */
+const LINK_TARGET = "link"
 
 export function shouldShowLinkedAccountsCard(
   config: PublicAuthConfig,
   accounts: LinkedAccount[],
 ): boolean {
-  if (config.providers.length > 0) return true
-  return accounts.some((account) => account.providerId !== "credential")
+  return config.oidc !== null || accounts.length > 0
 }
 
 export function LinkedAccountsCard({
@@ -78,7 +78,7 @@ export function LinkedAccountsCard({
         accounts={accounts}
         config={config}
         hasPasskeySignIn={hasPasskeySignIn}
-        linkingProviderId={actions.linkingProviderId}
+        linking={actions.linking}
         unlinkingId={actions.unlinkingId}
         actionErrorTarget={actions.actionError?.target ?? null}
         onLink={actions.onLink}
@@ -130,10 +130,9 @@ function useLinkedAccountActions({
   }, [refetchSession, refresh, router])
 
   const link = useMutation({
-    mutationFn: async (provider: Provider) => {
+    mutationFn: async () => {
       try {
         const { error } = await authClient.oauth2.link({
-          providerId: provider.providerId,
           callbackURL:
             currentUrlWithQueryParam(OAUTH_LINKED_QUERY_KEY, "1") ??
             authCallbackUrl(`/?settings=profile&${OAUTH_LINKED_QUERY_KEY}=1`),
@@ -164,7 +163,6 @@ function useLinkedAccountActions({
         )
       }
       const { error } = await authClient.unlinkAccount({
-        providerId: account.providerId,
         accountId: account.accountId,
       })
       if (error) throw new Error(errorMessage(error, t("Couldn't unlink")))
@@ -186,7 +184,7 @@ function useLinkedAccountActions({
 
   // One error slot: starting either action clears the other's failure.
   const actionError = link.error
-    ? { target: link.variables?.providerId ?? "", message: link.error.message }
+    ? { target: LINK_TARGET, message: link.error.message }
     : unlink.error
       ? {
           target: unlink.variables?.id ?? "",
@@ -197,14 +195,14 @@ function useLinkedAccountActions({
         : null
 
   return {
-    linkingProviderId: linking ? (link.variables?.providerId ?? null) : null,
+    linking,
     unlinkingId: unlink.isPending ? unlink.variables.id : null,
     actionError,
-    onLink: (provider: Provider) => {
+    onLink: () => {
       if (linking) return
       unlink.reset()
       setRefreshError(null)
-      link.mutate(provider)
+      link.mutate()
     },
     onUnlink: (account: LinkedAccount) => {
       if (unlink.isPending) return
@@ -219,10 +217,10 @@ type AccountsListProps = {
   accounts: LinkedAccount[]
   config: PublicAuthConfig
   hasPasskeySignIn: boolean
-  linkingProviderId: string | null
+  linking: boolean
   unlinkingId: string | null
   actionErrorTarget: string | null
-  onLink: (provider: Provider) => void
+  onLink: () => void
   onUnlink: (account: LinkedAccount) => void
 }
 
@@ -230,62 +228,27 @@ function AccountsList({
   accounts,
   config,
   hasPasskeySignIn,
-  linkingProviderId,
+  linking,
   unlinkingId,
   actionErrorTarget,
   onLink,
   onUnlink,
 }: AccountsListProps) {
-  const configuredProviderIds = new Set(
-    config.providers.map((provider) => provider.providerId),
-  )
-  const staleOAuthAccounts = accounts.filter(
-    (account) =>
-      account.providerId !== "credential" &&
-      !configuredProviderIds.has(account.providerId),
-  )
+  const { oidc } = config
 
   return (
     <List>
-      {config.providers.map((provider) => {
-        const providerAccount = accounts.find(
-          (account) => account.providerId === provider.providerId,
-        )
-        return providerAccount ? (
-          <AccountRow
-            key={providerAccount.id}
-            label={provider.displayName}
-            sublabel={linkedAccountLabel(providerAccount)}
-            busy={unlinkingId === providerAccount.id}
-            failed={actionErrorTarget === providerAccount.id}
-            canUnlink={canRemoveAccount(
-              providerAccount,
-              accounts,
-              config,
-              hasPasskeySignIn,
-            )}
-            onAction={() => onUnlink(providerAccount)}
-            provider={provider}
-          />
-        ) : (
-          <LinkRow
-            key={provider.providerId}
-            provider={provider}
-            label={provider.displayName}
-            busy={linkingProviderId === provider.providerId}
-            failed={actionErrorTarget === provider.providerId}
-            onLink={() => onLink(provider)}
-          />
-        )
-      })}
-
-      {staleOAuthAccounts.map((account) => (
+      {accounts.map((account) => (
         <AccountRow
           key={account.id}
-          label={account.providerId}
-          sublabel={t("{label} · No longer configured", {
-            label: linkedAccountLabel(account),
-          })}
+          label={oidc?.displayName ?? t("Single sign-on")}
+          sublabel={
+            oidc
+              ? linkedAccountLabel(account)
+              : t("{label} · No longer configured", {
+                  label: linkedAccountLabel(account),
+                })
+          }
           busy={unlinkingId === account.id}
           failed={actionErrorTarget === account.id}
           canUnlink={canRemoveAccount(
@@ -297,6 +260,15 @@ function AccountsList({
           onAction={() => onUnlink(account)}
         />
       ))}
+
+      {oidc && accounts.length === 0 ? (
+        <LinkRow
+          label={oidc.displayName}
+          busy={linking}
+          failed={actionErrorTarget === LINK_TARGET}
+          onLink={onLink}
+        />
+      ) : null}
     </List>
   )
 }
@@ -308,7 +280,6 @@ function linkedAccountLabel(account: LinkedAccount): string {
 }
 
 function LinkRow(props: {
-  provider: Provider
   label: string
   busy: boolean
   failed: boolean
@@ -348,7 +319,6 @@ type AccountRowProps = {
   failed: boolean
   canUnlink: boolean
   onAction: () => void
-  provider?: Provider
 }
 
 function AccountRow(props: AccountRowProps) {
@@ -399,17 +369,8 @@ function canRemoveAccount(
   hasPasskeySignIn: boolean,
 ): boolean {
   if (hasPasskeySignIn) return true
-
-  const remaining = accounts.filter((account) => account.id !== target.id)
-  return remaining.some((account) => accountSupportsSignIn(account, config))
-}
-
-function accountSupportsSignIn(
-  account: LinkedAccount,
-  config: PublicAuthConfig,
-): boolean {
-  if (account.providerId === "credential") return false
-  return config.providers.some(
-    (provider) => provider.providerId === account.providerId,
+  // Another linked account keeps a way in only while SSO is on.
+  return (
+    config.oidc !== null && accounts.some((account) => account.id !== target.id)
   )
 }

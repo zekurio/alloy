@@ -3,7 +3,8 @@ import { searchString } from "./route-search"
 export interface AppSearch {
   clip?: string
   settings?: string
-  welcome?: string
+  /** Open the profile setup prompt, set after sign-up. */
+  welcome?: true
 }
 
 interface AppSearchInput {
@@ -15,10 +16,11 @@ interface AppSearchInput {
 export function parseAppSearch(search: AppSearchInput): AppSearch {
   const clip = searchString(search.clip)
   const settings = searchString(search.settings)
-  const welcome = searchString(search.welcome)
   const parsed: AppSearch = {}
   if (clip) parsed.clip = clip
   if (settings) parsed.settings = settings
-  if (welcome) parsed.welcome = welcome
+  if (search.welcome === true || search.welcome === "true") {
+    parsed.welcome = true
+  }
   return parsed
 }

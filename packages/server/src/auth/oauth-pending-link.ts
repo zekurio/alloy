@@ -19,10 +19,11 @@ import {
 } from "./challenges"
 import { createUserForOAuthAccount, linkAccountToUser } from "./oauth-accounts"
 import { OAUTH_STATE_TTL_MS } from "./oauth-challenges"
-import { callbackURLWithWelcome, requireEnabledProvider } from "./oauth-client"
+import { callbackURLWithWelcome } from "./oauth-client"
+import { requireUsableOidcProvider } from "./oauth-config"
 import type { OAuthProfile } from "./oauth-types"
 
-// An OAuth sign-in whose username claim named an existing user. The callback
+// An OIDC sign-in whose username claim named an existing user. The callback
 // keeps the identity it already verified so the user can sign in to that
 // account and link it, or create a new account, without asking the provider
 // again. The HttpOnly cookie holding the token ties it to the browser that
@@ -33,7 +34,6 @@ const logger = createLogger("oauth")
 
 const PendingOAuthLinkPayloadSchema = t.object({
   callbackURL: t.string(),
-  providerId: t.string(),
   profile: t.object({
     avatarUrl: t.string().nullable(),
     providerAccountId: t.string(),
@@ -47,7 +47,6 @@ type PendingOAuthLink = {
   /** Where the sign-in started, already checked against trusted origins. */
   callbackURL: string
   profile: OAuthProfile
-  providerId: string
 }
 
 /** Save a sign-in for {@link linkPendingOAuthAccount} and return its token. */
@@ -61,7 +60,6 @@ export async function savePendingOAuthLink(
     challenge: token,
     payload: {
       callbackURL: link.callbackURL,
-      providerId: link.providerId,
       profile: link.profile,
     },
     userId: null,
@@ -78,10 +76,7 @@ export async function readPendingOAuthLink(
   const row = await findAuthChallenge(challengeMatch(token))
   const link = row ? pendingLinkFromPayload(row.payload) : null
   if (!link) return null
-  return {
-    providerId: link.providerId,
-    accountLabel: link.profile.usernameHint,
-  }
+  return { accountLabel: link.profile.usernameHint }
 }
 
 export async function discardPendingOAuthLink(
@@ -99,13 +94,10 @@ export async function linkPendingOAuthAccount(
   userId: string,
 ): Promise<string> {
   const link = await consumePendingOAuthLink(token)
-  const provider = requireEnabledProvider(link.providerId)
-  await linkAccountToUser({
-    profile: link.profile,
-    provider,
-    userId,
-  })
-  logger.info(`linked pending ${provider.providerId} account to user ${userId}`)
+  // SSO may have been turned off since the callback.
+  requireUsableOidcProvider()
+  await linkAccountToUser({ profile: link.profile, userId })
+  logger.info(`linked pending OIDC account to user ${userId}`)
   return link.callbackURL
 }
 
@@ -115,15 +107,15 @@ export async function signUpPendingOAuthAccount(
   token: string | null,
 ): Promise<{ signIn: AuthenticatedSignInResult; redirectTo: string }> {
   const link = await consumePendingOAuthLink(token)
-  const provider = requireEnabledProvider(link.providerId)
+  const provider = requireUsableOidcProvider()
   const userId = await createUserForOAuthAccount({
     profile: link.profile,
     provider,
   })
-  logger.info(`${provider.providerId} sign-in created user ${userId}`)
+  logger.info(`OIDC sign-in created user ${userId}`)
   return {
     signIn: await completeAuthenticatedSignIn(c, userId),
-    redirectTo: callbackURLWithWelcome(link.callbackURL, provider.providerId),
+    redirectTo: callbackURLWithWelcome(link.callbackURL),
   }
 }
 

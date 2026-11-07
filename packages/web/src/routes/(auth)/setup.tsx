@@ -150,7 +150,7 @@ function VerifyTokenStep() {
 }
 
 function AdminAccountStep({ config }: { config: PublicAuthConfig }) {
-  const { providers, passkeyEnabled } = config
+  const { oidc, passkeyEnabled } = config
 
   return (
     <div className="w-full max-w-sm">
@@ -164,19 +164,12 @@ function AdminAccountStep({ config }: { config: PublicAuthConfig }) {
       </div>
 
       <div className="flex flex-col gap-5">
-        {providers.length > 0 ? (
+        {oidc ? (
           <div className="flex flex-col gap-3">
-            {providers.map((provider) => (
-              <OAuthSignIn
-                key={provider.providerId}
-                provider={provider}
-                redirectTo="/setup"
-                setup
-              />
-            ))}
+            <OAuthSignIn provider={oidc} redirectTo="/setup" setup />
           </div>
         ) : null}
-        {providers.length > 0 && passkeyEnabled ? (
+        {oidc && passkeyEnabled ? (
           <div className="flex items-center gap-3">
             <Separator className="flex-1" />
             <span className="text-foreground-muted text-xs font-medium tracking-wider uppercase">
@@ -190,7 +183,7 @@ function AdminAccountStep({ config }: { config: PublicAuthConfig }) {
             <PasskeySignUpForm redirectTo="/setup" />
           </Suspense>
         ) : null}
-        {providers.length === 0 && !passkeyEnabled ? (
+        {!oidc && !passkeyEnabled ? (
           <p className="text-destructive text-sm" role="alert">
             {t(
               "No sign-in method is available. Turn on passkeys, or configure single sign-on with the ALLOY_OIDC_* variables, then reload this page.",

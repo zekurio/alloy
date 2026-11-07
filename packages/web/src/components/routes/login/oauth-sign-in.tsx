@@ -1,5 +1,4 @@
-import type { PublicAuthProvider } from "@alloy/api"
-import type { OAuthSignInAccount } from "@alloy/contracts"
+import type { PublicOidcConfig } from "@alloy/api"
 import { message, t } from "@alloy/i18n"
 import { useMutation } from "@tanstack/react-query"
 
@@ -8,27 +7,19 @@ import { authClient } from "@/lib/auth-client"
 import { authCallbackUrl, toastAuthAttemptFailure } from "@/lib/auth-flow"
 
 type OAuthSignInProps = {
-  provider: PublicAuthProvider
+  provider: PublicOidcConfig
   /** Same-origin return target (desktop browser-login handshake). */
   redirectTo?: string
-  account?: OAuthSignInAccount
   /** Create the first admin during setup. */
   setup?: boolean
 }
 
-export function OAuthSignIn({
-  provider,
-  redirectTo,
-  account,
-  setup,
-}: OAuthSignInProps) {
+export function OAuthSignIn({ provider, redirectTo, setup }: OAuthSignInProps) {
   const signIn = useMutation({
     // Resolves true once the browser is on its way to the provider.
     mutationFn: async () => {
       const { error } = await authClient.signIn.oauth2({
-        providerId: provider.providerId,
         callbackURL: authCallbackUrl(redirectTo ?? "/"),
-        account,
         setup,
       })
       if (error) {
@@ -51,7 +42,6 @@ export function OAuthSignIn({
 
   return (
     <OAuthButton
-      providerId={provider.providerId}
       displayName={provider.displayName}
       pendingLabel={pending ? t("Redirecting…") : undefined}
       className="w-full"

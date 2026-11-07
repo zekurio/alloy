@@ -11,32 +11,28 @@ import { authClient } from "@/lib/auth-client"
 import { redirectAuthedBeforeLoad } from "@/lib/auth-guards"
 import { clientLogger } from "@/lib/client-log"
 import { sanitizeLoginRedirect } from "@/lib/login-redirect"
-import { searchString } from "@/lib/route-search"
 
 type LoginSearch = {
   redirect?: string
   reactivate?: boolean
-  [OAUTH_LINK_QUERY_KEY]?: string
+  [OAUTH_LINK_QUERY_KEY]?: boolean
 }
 
 /**
- * The OAuth sign-in this browser holds for linking, if any. The callback adds
- * the link param when it keeps one, but only the server knows whether it
+ * The OIDC sign-in this browser holds for linking, if any. The callback adds
+ * the link flag when it keeps one, but only the server knows whether it
  * exists, so a crafted link URL shows the normal login page.
  */
 async function loadPendingLink(
   config: PublicAuthConfig,
   search: LoginSearch,
 ): Promise<PendingLink | null> {
-  if (!search[OAUTH_LINK_QUERY_KEY]) return null
+  if (!search[OAUTH_LINK_QUERY_KEY] || !config.oidc) return null
   const { data, error } = await authClient.oauth2.pending.get()
   if (error)
     clientLogger.warn("[auth] Pending OAuth link lookup failed.", error)
   if (!data) return null
-  const provider = config.providers.find(
-    (candidate) => candidate.providerId === data.providerId,
-  )
-  return provider ? { provider, accountLabel: data.accountLabel } : null
+  return { provider: config.oidc, accountLabel: data.accountLabel }
 }
 
 export const Route = createFileRoute("/(auth)/_auth/login")({
@@ -47,8 +43,12 @@ export const Route = createFileRoute("/(auth)/_auth/login")({
     if (search.reactivate === true || search.reactivate === "true") {
       result.reactivate = true
     }
-    const provider = searchString(search[OAUTH_LINK_QUERY_KEY])
-    if (provider) result[OAUTH_LINK_QUERY_KEY] = provider
+    if (
+      search[OAUTH_LINK_QUERY_KEY] === true ||
+      search[OAUTH_LINK_QUERY_KEY] === "true"
+    ) {
+      result[OAUTH_LINK_QUERY_KEY] = true
+    }
     return result
   },
   beforeLoad: async ({ context, search }) => {
