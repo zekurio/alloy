@@ -13,8 +13,14 @@ export const OAUTH_ROLE_CLAIM_DEFAULT = "alloy_role"
  * callback path.
  */
 export const OIDC_PROVIDER_ID = "oidc"
+/**
+ * The callback route under the `/api/auth` mount. Admins register the full
+ * `OIDC_CALLBACK_PATH` with their identity provider, so it must not change.
+ */
+export const OIDC_CALLBACK_ROUTE =
+  `/oauth2/callback/${OIDC_PROVIDER_ID}` as const
 /** The redirect URI path to register with the identity provider. */
-export const OIDC_CALLBACK_PATH = "/api/auth/oauth2/callback/oidc"
+export const OIDC_CALLBACK_PATH = `/api/auth${OIDC_CALLBACK_ROUTE}` as const
 export const OIDC_DISPLAY_NAME_DEFAULT = "SSO"
 export const OIDC_SCOPES_DEFAULT = ["openid", "profile"]
 

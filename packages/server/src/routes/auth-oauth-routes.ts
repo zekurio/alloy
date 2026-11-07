@@ -1,3 +1,4 @@
+import { OIDC_CALLBACK_ROUTE } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { createLogger } from "@alloy/logging"
 import {
@@ -161,9 +162,7 @@ export const authOAuthRoute = new Hono()
       return pendingOAuthFailure(c, "sign-up", cause)
     }
   })
-  // OIDC_CALLBACK_PATH once mounted under /api/auth. Admins register it with
-  // their identity provider as the redirect URI, so it must not change.
-  .get("/oauth2/callback/oidc", async (c) => {
+  .get(OIDC_CALLBACK_ROUTE, async (c) => {
     try {
       const result = await finishOAuthCallback(c)
       return c.redirect(result.redirectTo)
