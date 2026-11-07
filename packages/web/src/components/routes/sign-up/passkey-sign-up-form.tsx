@@ -51,7 +51,7 @@ function usePasskeySignUpSubmit({ redirectTo = "/" }: PasskeySignUpFormProps) {
           invalidateRouter: () => router.invalidate(),
           navigate: () =>
             redirectTo === "/"
-              ? navigate({ to: "/", search: { welcome: "1" } })
+              ? navigate({ to: "/", search: { welcome: true } })
               : navigate({ to: redirectTo }),
         })
       } catch (cause) {

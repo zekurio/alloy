@@ -9,10 +9,18 @@ export const OAUTH_QUOTA_CLAIM_DEFAULT = "alloy_quota"
 export const OAUTH_ROLE_CLAIM_DEFAULT = "alloy_role"
 
 /**
- * The ID of the server's one sign-in provider. Its callback path and every
- * linked account carry it.
+ * The `provider_id` of every linked OIDC account, and the last segment of the
+ * callback path.
  */
 export const OIDC_PROVIDER_ID = "oidc"
+/**
+ * The callback route under the `/api/auth` mount. Admins register the full
+ * `OIDC_CALLBACK_PATH` with their identity provider, so it must not change.
+ */
+export const OIDC_CALLBACK_ROUTE =
+  `/oauth2/callback/${OIDC_PROVIDER_ID}` as const
+/** The redirect URI path to register with the identity provider. */
+export const OIDC_CALLBACK_PATH = `/api/auth${OIDC_CALLBACK_ROUTE}` as const
 export const OIDC_DISPLAY_NAME_DEFAULT = "SSO"
 export const OIDC_SCOPES_DEFAULT = ["openid", "profile"]
 
@@ -81,9 +89,6 @@ export const OidcConfigSchema = t.object({
 })
 
 export type OidcConfig = t.infer<typeof OidcConfigSchema>
-
-/** The provider as the sign-in flow sees it, keyed like its linked accounts. */
-export type OAuthProviderConfig = OidcConfig & { providerId: string }
 
 export const OIDC_CLIENT_SECRET_SOURCES = ["environment", "settings"] as const
 export type OidcClientSecretSource = (typeof OIDC_CLIENT_SECRET_SOURCES)[number]

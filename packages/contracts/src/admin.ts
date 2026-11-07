@@ -18,6 +18,8 @@ export {
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_TOKEN_AUTH_METHODS,
   OAUTH_USERNAME_CLAIM_DEFAULT,
+  OIDC_CALLBACK_PATH,
+  OIDC_CALLBACK_ROUTE,
   OIDC_CLIENT_SECRET_SOURCES,
   OIDC_DISPLAY_NAME_DEFAULT,
   OIDC_PROVIDER_ID,
@@ -28,7 +30,6 @@ export type {
   AdminAuthConfigPatch,
   AdminOidcConfig,
   AdminOidcConfigPatch,
-  OAuthProviderConfig,
   OAuthTokenAuthMethod,
   OidcClientSecretSource,
   OidcConfig,
@@ -360,10 +361,10 @@ export const AdminRuntimeConfigSchema = RuntimeConfigSchema.extend({
 
 export type AdminRuntimeConfig = t.infer<typeof AdminRuntimeConfigSchema>
 
-export interface PublicAuthProvider {
-  providerId: string
+/** The OIDC provider as the sign-in pages show it. */
+export interface PublicOidcConfig {
   displayName: string
-  /** Whether signing in with this provider can create a new account. */
+  /** Whether signing in with it can create a new account. */
   allowSignUp: boolean
 }
 
@@ -392,7 +393,8 @@ export interface PublicAuthConfig {
   passkeyEnabled: boolean
   requireAuthToBrowse: boolean
   desktopAuth: PublicDesktopAuthConfig
-  providers: PublicAuthProvider[]
+  /** Null unless OIDC sign-in is enabled and has a client secret. */
+  oidc: PublicOidcConfig | null
   loginSplash: PublicLoginSplashConfig
   /** Accents for the Alloy theme; null keeps Alloy's own. */
   accentColors: ThemeAccents

@@ -162,7 +162,7 @@ function AppLayout() {
         onClose={handleCloseSettings}
       />
       <WelcomeProfileDialog
-        welcome={session ? (welcome ?? null) : null}
+        open={session !== null && welcome === true}
         onClose={handleCloseWelcome}
       />
     </AppSearchProvider>

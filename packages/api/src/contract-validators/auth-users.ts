@@ -19,9 +19,9 @@ import {
   type ProfileGameRow,
   type ProfileViewer,
   type PublicAuthConfig,
-  type PublicAuthProvider,
   type PublicDesktopAuthConfig,
   type PublicLoginSplashConfig,
+  type PublicOidcConfig,
   type PublicUser,
   type SetupStatus,
   ThemeAccentsSchema,
@@ -41,22 +41,18 @@ const PUBLIC_AUTH_BOOLEAN_FIELDS = [
   "passkeyEnabled",
   "requireAuthToBrowse",
 ] as const
-function validatePublicAuthProvider(
-  value: ContractJsonInput,
-): PublicAuthProvider {
-  const provider = objectRecord(value, "auth provider")
-  for (const key of ["providerId", "displayName"] as const) {
-    validateRequiredString(
-      provider[key],
-      `Invalid auth config response: provider.${key} is required`,
-    )
-  }
+function validatePublicOidcConfig(value: ContractJsonInput): PublicOidcConfig {
+  const oidc = objectRecord(value, "auth config oidc")
+  validateRequiredString(
+    oidc.displayName,
+    "Invalid auth config response: oidc.displayName is required",
+  )
   validateBoolean(
-    provider.allowSignUp,
-    "Invalid auth config response: provider.allowSignUp must be boolean",
+    oidc.allowSignUp,
+    "Invalid auth config response: oidc.allowSignUp must be boolean",
   )
   // SAFETY: The checks above validate every field in the asserted response contract.
-  return value as PublicAuthProvider
+  return value as PublicOidcConfig
 }
 
 function validatePublicDesktopAuthConfig(
@@ -122,10 +118,7 @@ export function validatePublicAuthConfig(
       `Invalid auth config response: ${key} must be boolean`,
     )
   }
-  validateArray(
-    config.providers,
-    "Invalid auth config response: providers must be an array",
-  ).map(validatePublicAuthProvider)
+  if (config.oidc !== null) validatePublicOidcConfig(config.oidc)
   validatePublicLoginSplashConfig(config.loginSplash)
   if (!ThemeAccentsSchema.safeParse(config.accentColors).success) {
     throw new Error(

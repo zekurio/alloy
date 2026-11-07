@@ -9,29 +9,21 @@ export type AuthErrorCode =
   (typeof AUTH_ERROR_CODES)[keyof typeof AUTH_ERROR_CODES]
 
 /**
- * Login page query key naming the provider to link once signed in, set by an
- * OAuth sign-in whose username claim matched an existing user. It only tells
- * the page to look up the {@link PendingOAuthLink}, which decides what shows.
+ * Login page query flag set by an OIDC sign-in whose username claim matched an
+ * existing user. It only tells the page to look up the
+ * {@link PendingOAuthLink}, which decides what shows.
  */
 export const OAUTH_LINK_QUERY_KEY = "link"
 
 /**
- * An OAuth sign-in whose username claim matched an existing user, kept for
+ * An OIDC sign-in whose username claim matched an existing user, kept for
  * this browser so it can be linked once signed in, or turned into a new
  * account, without another trip to the provider.
  */
 export interface PendingOAuthLink {
-  providerId: string
   /** The provider's username claim, to show which account would be linked. */
   accountLabel: string | null
 }
-
-/**
- * Which account an OAuth sign-in may end in. `linked` only signs in to the
- * account the identity is already linked to. Unset matches or creates.
- */
-export const OAUTH_SIGN_IN_ACCOUNTS = ["linked"] as const
-export type OAuthSignInAccount = (typeof OAUTH_SIGN_IN_ACCOUNTS)[number]
 
 /**
  * How a session was created: a browser sign-in, or the desktop app's code
@@ -130,10 +122,10 @@ export interface Passkey {
   deviceType: string
 }
 
-/** An OAuth account linked to the signed-in user. */
+/** An OIDC account linked to the signed-in user. */
 export interface LinkedAccount {
   id: string
-  providerId: string
+  /** The identity's UID claim at the provider. */
   accountId: string
   accountLabel: string | null
   createdAt: IsoDateString

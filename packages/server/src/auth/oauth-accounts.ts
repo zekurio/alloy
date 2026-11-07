@@ -1,7 +1,7 @@
-import type {
-  OAuthProviderConfig,
-  OAuthSignInAccount,
-  UserRole,
+import {
+  OIDC_PROVIDER_ID,
+  type OidcConfig,
+  type UserRole,
 } from "@alloy/contracts"
 import { authAccount, user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
@@ -30,14 +30,13 @@ export type SignInResolution = {
 
 type OAuthIdentity = {
   profile: OAuthProfile
-  provider: OAuthProviderConfig
+  provider: OidcConfig
 }
 
 export async function resolveSignInUser(
-  input: OAuthIdentity & { account: OAuthSignInAccount | undefined },
+  input: OAuthIdentity,
 ): Promise<SignInResolution> {
   const existingAccount = await findLinkedAccount(
-    input.provider.providerId,
     input.profile.providerAccountId,
   )
   if (existingAccount) {
@@ -45,8 +44,6 @@ export async function resolveSignInUser(
     await syncOAuthUserRole(existingAccount.user_id, input.profile)
     return { kind: "matched", userId: existingAccount.user_id }
   }
-
-  if (input.account === "linked") throw new Error(NO_LINKED_ACCOUNT)
 
   // Linking on the claim alone would hand the local account to whoever
   // controls that claim at the provider, so the user proves they own it by
@@ -72,15 +69,12 @@ export async function createUserForOAuthAccount(
 
     const [linked] = await tx
       .insert(authAccount)
-      .values(accountValues(row.id, input.provider.providerId, input.profile))
+      .values(accountValues(row.id, input.profile))
       .onConflictDoNothing()
       .returning({ id: authAccount.id })
 
     if (!linked) {
-      const account = await findLinkedAccount(
-        input.provider.providerId,
-        input.profile.providerAccountId,
-      )
+      const account = await findLinkedAccount(input.profile.providerAccountId)
       if (!account) throw new Error("Could not link OAuth account.")
       if (account.user_id !== row.id) {
         throw new Error("OAuth account is already linked to another user.")
@@ -101,9 +95,9 @@ export async function createUserForOAuthAccount(
  * claims do not apply: setup access already proved the person runs the
  * server.
  */
-export async function createFirstAdminForOAuthAccount(
-  input: OAuthIdentity,
-): Promise<string> {
+export async function createFirstAdminForOAuthAccount(input: {
+  profile: OAuthProfile
+}): Promise<string> {
   const userId = await db.transaction(async (tx) => {
     await assertFirstAdminSetupOpen(tx)
     const row = await createOAuthUser(
@@ -117,7 +111,7 @@ export async function createFirstAdminForOAuthAccount(
     )
     const [linked] = await tx
       .insert(authAccount)
-      .values(accountValues(row.id, input.provider.providerId, input.profile))
+      .values(accountValues(row.id, input.profile))
       .onConflictDoNothing()
       .returning({ id: authAccount.id })
     if (!linked) {
@@ -129,13 +123,11 @@ export async function createFirstAdminForOAuthAccount(
   return userId
 }
 
-export async function linkAccountToUser(
-  input: OAuthIdentity & { userId: string },
-): Promise<void> {
-  const existing = await findLinkedAccount(
-    input.provider.providerId,
-    input.profile.providerAccountId,
-  )
+export async function linkAccountToUser(input: {
+  profile: OAuthProfile
+  userId: string
+}): Promise<void> {
+  const existing = await findLinkedAccount(input.profile.providerAccountId)
   if (existing && existing.user_id !== input.userId) {
     throw new Error("OAuth account is already linked to another user.")
   }
@@ -147,9 +139,7 @@ export async function linkAccountToUser(
 
   await db
     .insert(authAccount)
-    .values(
-      accountValues(input.userId, input.provider.providerId, input.profile),
-    )
+    .values(accountValues(input.userId, input.profile))
   await syncOAuthUserRole(input.userId, input.profile)
   await syncOAuthAvatar(input.userId, input.profile)
 }
@@ -158,26 +148,27 @@ export function listLinkedAccounts(userId: string) {
   return db
     .select({
       id: authAccount.id,
-      providerId: authAccount.provider_id,
       accountId: authAccount.provider_account_id,
       accountLabel: authAccount.account_label,
       createdAt: authAccount.created_at,
     })
     .from(authAccount)
-    .where(eq(authAccount.user_id, userId))
+    .where(
+      and(
+        eq(authAccount.user_id, userId),
+        eq(authAccount.provider_id, OIDC_PROVIDER_ID),
+      ),
+    )
     .orderBy(authAccount.created_at)
 }
 
-async function findLinkedAccount(
-  providerId: string,
-  providerAccountId: string,
-) {
+async function findLinkedAccount(providerAccountId: string) {
   const [account] = await db
     .select()
     .from(authAccount)
     .where(
       and(
-        eq(authAccount.provider_id, providerId),
+        eq(authAccount.provider_id, OIDC_PROVIDER_ID),
         eq(authAccount.provider_account_id, providerAccountId),
       ),
     )
@@ -255,12 +246,11 @@ async function createOAuthUser(
 
 function accountValues(
   userId: string,
-  providerId: string,
   profile: OAuthProfile,
 ): typeof authAccount.$inferInsert {
   return {
     user_id: userId,
-    provider_id: providerId,
+    provider_id: OIDC_PROVIDER_ID,
     provider_account_id: profile.providerAccountId,
     account_label: profile.usernameHint,
   }

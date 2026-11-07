@@ -37,8 +37,6 @@ export const ERRORS_MESSAGES = {
     "Die OAuth-Rückruf-URL ist nicht vertrauenswürdig.",
   "OAuth profile is missing a subject.":
     "Im OAuth-Profil fehlt eine Nutzerkennung.",
-  "OAuth provider changed during sign-in.":
-    "Der OAuth-Anbieter wurde während der Anmeldung geändert.",
   "OAuth provider endpoints are incomplete.":
     "Die Endpunkte des OAuth-Anbieters sind unvollständig.",
   "OAuth provider is not enabled.": "Der OAuth-Anbieter ist nicht aktiviert.",

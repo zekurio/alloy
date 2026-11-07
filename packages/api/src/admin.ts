@@ -9,7 +9,7 @@ export {
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_TOKEN_AUTH_METHODS,
   OAUTH_USERNAME_CLAIM_DEFAULT,
-  OIDC_PROVIDER_ID,
+  OIDC_CALLBACK_PATH,
 } from "@alloy/contracts"
 export type {
   AdminCreateGameInput,

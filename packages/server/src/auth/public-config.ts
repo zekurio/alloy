@@ -4,7 +4,7 @@ import {
 } from "@alloy/contracts"
 import { configStore } from "@alloy/server/config/store"
 
-import { getPublicProviders } from "./oauth-config"
+import { publicOidcConfig } from "./oauth-config"
 import { getSetupStatus } from "./user-bootstrap"
 
 /**
@@ -29,7 +29,7 @@ export async function buildPublicAuthConfig(): Promise<PublicAuthConfig> {
     passkeyEnabled: configStore.get("passkeyEnabled"),
     requireAuthToBrowse: configStore.get("requireAuthToBrowse"),
     desktopAuth: { version: DESKTOP_AUTH_CAPABILITY_VERSION },
-    providers: getPublicProviders(),
+    oidc: publicOidcConfig(),
     loginSplash: {
       enabled: loginSplash.enabled,
       blurPx: loginSplash.blurPx,

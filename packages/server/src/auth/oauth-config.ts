@@ -1,8 +1,4 @@
-import {
-  OIDC_PROVIDER_ID,
-  type OAuthProviderConfig,
-  type PublicAuthProvider,
-} from "@alloy/contracts"
+import type { OidcConfig, PublicOidcConfig } from "@alloy/contracts"
 import { secretStore } from "@alloy/server/config/secret-store"
 import { configStore } from "@alloy/server/config/store"
 
@@ -11,26 +7,23 @@ import { configStore } from "@alloy/server/config/store"
  * secret. Enforcing it here means no config path can surface an
  * enabled-but-secretless provider.
  */
-export function usableOidcProvider(): OAuthProviderConfig | null {
+export function usableOidcProvider(): OidcConfig | null {
   const oidc = configStore.get("oidc")
   if (!oidc.enabled || !secretStore.oidcClientSecret()) return null
-  return { ...oidc, providerId: OIDC_PROVIDER_ID }
+  return oidc
 }
 
-export function getEnabledProviderConfig(
-  providerId: string,
-): OAuthProviderConfig | null {
-  return providerId === OIDC_PROVIDER_ID ? usableOidcProvider() : null
-}
-
-export function getPublicProviders(): PublicAuthProvider[] {
+export function requireUsableOidcProvider(): OidcConfig {
   const provider = usableOidcProvider()
-  if (!provider) return []
-  return [
-    {
-      providerId: provider.providerId,
-      displayName: provider.displayName,
-      allowSignUp: provider.allowSignUp,
-    },
-  ]
+  if (!provider) throw new Error("OAuth provider is not enabled.")
+  return provider
+}
+
+export function publicOidcConfig(): PublicOidcConfig | null {
+  const provider = usableOidcProvider()
+  if (!provider) return null
+  return {
+    displayName: provider.displayName,
+    allowSignUp: provider.allowSignUp,
+  }
 }
