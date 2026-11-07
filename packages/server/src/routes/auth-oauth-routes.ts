@@ -1,4 +1,3 @@
-import { OAUTH_SIGN_IN_ACCOUNTS } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { createLogger } from "@alloy/logging"
 import {
@@ -53,17 +52,14 @@ import {
 const logger = createLogger("oauth")
 
 const UnlinkAccountBody = t.object({
-  providerId: requiredTrimmedString(),
   accountId: requiredTrimmedString(),
 })
 
 const OAuthStartBody = t.object({
-  providerId: requiredTrimmedString(),
   callbackURL: optionalNullableTrimmedString(),
 })
 
 const OAuthSignInBody = OAuthStartBody.extend({
-  account: t.enum(OAUTH_SIGN_IN_ACCOUNTS).optional(),
   /** Create the first admin; needs setup access. */
   setup: t.boolean().optional(),
 })
@@ -83,7 +79,7 @@ async function startOAuthResponse(
     const result = input.userId
       ? await startOAuthLink({ ...input, userId: input.userId })
       : await startOAuthSignIn({ ...input, setupFirstAdmin: input.setup })
-    setOAuthStateCookie(c, input.providerId, result.browserNonce)
+    setOAuthStateCookie(c, result.browserNonce)
     return urlResponse(c, result.url)
   } catch (cause) {
     return badRequestFromCause(c, cause, fallback)
@@ -165,9 +161,11 @@ export const authOAuthRoute = new Hono()
       return pendingOAuthFailure(c, "sign-up", cause)
     }
   })
-  .get("/oauth2/callback/:providerId", async (c) => {
+  // OIDC_CALLBACK_PATH once mounted under /api/auth. Admins register it with
+  // their identity provider as the redirect URI, so it must not change.
+  .get("/oauth2/callback/oidc", async (c) => {
     try {
-      const result = await finishOAuthCallback(c, c.req.param("providerId"))
+      const result = await finishOAuthCallback(c)
       return c.redirect(result.redirectTo)
     } catch (cause) {
       return c.redirect(fallbackOAuthErrorRedirect(cause))
@@ -181,7 +179,6 @@ export const authOAuthRoute = new Hono()
       const body = c.req.valid("json")
       const result = await unlinkOAuthAccountPreservingSignIn({
         userId: c.var.viewerId,
-        providerId: body.providerId,
         providerAccountId: body.accountId,
       })
       if (result === "last-sign-in-method") {

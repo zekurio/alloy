@@ -9,6 +9,14 @@ export function searchString(cause: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
+/**
+ * A presence flag. Any non-empty value counts, so URLs from older servers that
+ * put the provider ID in the flag (`link=oidc`, `welcome=oidc`) still set it.
+ */
+export function searchFlag(cause: unknown): boolean {
+  return cause === true || searchString(cause) !== undefined
+}
+
 export function searchEnum<T extends string>(
   cause: unknown,
   allowed: readonly T[],

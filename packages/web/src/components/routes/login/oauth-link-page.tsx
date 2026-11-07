@@ -1,4 +1,4 @@
-import type { PublicAuthConfig, PublicAuthProvider } from "@alloy/api"
+import type { PublicAuthConfig, PublicOidcConfig } from "@alloy/api"
 import { message, t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
@@ -19,9 +19,9 @@ import { useSuspenseSession } from "@/lib/session-suspense"
 
 import { LoginForm } from "./login-page-inner"
 
-/** An OAuth sign-in the server holds for this browser until it's linked. */
+/** An OIDC sign-in the server holds for this browser until it's linked. */
 export type PendingLink = {
-  provider: PublicAuthProvider
+  provider: PublicOidcConfig
   /** The provider's username claim. */
   accountLabel: string | null
 }
@@ -70,14 +70,9 @@ function OAuthLinkSignIn({
   const { ready: passkeyReady, supported: passkeySupported } =
     usePasskeySupport()
   const displayName = provider.displayName
-  // Signing in with the provider being linked would only match the claim
-  // again and nest another link redirect.
-  const signInConfig = {
-    ...config,
-    providers: config.providers.filter(
-      (candidate) => candidate.providerId !== provider.providerId,
-    ),
-  }
+  // Signing in with SSO again would only match the claim again and nest
+  // another link redirect, so offer the other sign-in methods.
+  const signInConfig = { ...config, oidc: null }
 
   const createAccount = useMutation({
     // Resolves true once the server is creating the account and redirecting.
@@ -116,9 +111,6 @@ function OAuthLinkSignIn({
         passkeyReady={passkeyReady}
         passkeySupported={passkeySupported}
         redirectTo={returnTo}
-        // A second unlinked provider would ask to link too and stack another
-        // link page, so other providers only sign in to linked accounts.
-        oauthAccount="linked"
         onReactivationRequired={() => setReactivationRequired(true)}
         notice={
           // The form sits on the clip wall, so tint an opaque surface rather

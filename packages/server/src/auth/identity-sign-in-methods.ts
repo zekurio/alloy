@@ -1,3 +1,4 @@
+import { OIDC_PROVIDER_ID } from "@alloy/contracts"
 import { authAccount, user, userPasskey } from "@alloy/db/auth-schema"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
@@ -11,37 +12,29 @@ type AuthExecutor = typeof db | DbTransaction
 
 async function countEnabledOAuthAccounts(
   userId: string,
-  excludeAccount?: { providerId: string; providerAccountId: string },
+  excludeAccountId?: string,
   executor: AuthExecutor = db,
 ): Promise<number> {
-  const provider = usableOidcProvider()
-  if (!provider) return 0
+  if (!usableOidcProvider()) return 0
 
   const rows = await executor
-    .select({
-      providerAccountId: authAccount.provider_account_id,
-      providerId: authAccount.provider_id,
-    })
+    .select({ providerAccountId: authAccount.provider_account_id })
     .from(authAccount)
     .where(
       and(
         eq(authAccount.user_id, userId),
-        eq(authAccount.provider_id, provider.providerId),
+        eq(authAccount.provider_id, OIDC_PROVIDER_ID),
       ),
     )
 
-  return rows.filter(
-    (row) =>
-      !excludeAccount ||
-      row.providerId !== excludeAccount.providerId ||
-      row.providerAccountId !== excludeAccount.providerAccountId,
-  ).length
+  return rows.filter((row) => row.providerAccountId !== excludeAccountId).length
 }
 
 async function userHasEnabledSignInMethod(
   userId: string,
   options: {
-    excludeAccount?: { providerId: string; providerAccountId: string }
+    /** The provider account ID of a linked account to leave out. */
+    excludeAccountId?: string
     excludePasskeyId?: string
     executor?: AuthExecutor
   } = {},
@@ -60,7 +53,7 @@ async function userHasEnabledSignInMethod(
   return (
     (await countEnabledOAuthAccounts(
       userId,
-      options.excludeAccount,
+      options.excludeAccountId,
       executor,
     )) > 0
   )
@@ -112,7 +105,6 @@ export async function deleteUserPasskeyPreservingSignIn(input: {
 
 export async function unlinkOAuthAccountPreservingSignIn(input: {
   userId: string
-  providerId: string
   providerAccountId: string
 }): Promise<"deleted" | "not-found" | "last-sign-in-method"> {
   return withAdminAccessChange(() =>
@@ -121,10 +113,7 @@ export async function unlinkOAuthAccountPreservingSignIn(input: {
 
       if (
         !(await userHasEnabledSignInMethod(input.userId, {
-          excludeAccount: {
-            providerId: input.providerId,
-            providerAccountId: input.providerAccountId,
-          },
+          excludeAccountId: input.providerAccountId,
           executor: tx,
         }))
       ) {
@@ -136,7 +125,7 @@ export async function unlinkOAuthAccountPreservingSignIn(input: {
         .where(
           and(
             eq(authAccount.user_id, input.userId),
-            eq(authAccount.provider_id, input.providerId),
+            eq(authAccount.provider_id, OIDC_PROVIDER_ID),
             eq(authAccount.provider_account_id, input.providerAccountId),
           ),
         )

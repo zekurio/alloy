@@ -1,7 +1,7 @@
 import {
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
-  type OAuthProviderConfig,
+  type OidcConfig,
   USER_ROLES,
   type UserRole,
 } from "@alloy/contracts"
@@ -23,7 +23,7 @@ const OAuthQuotaClaimSchema = t.union([t.string(), t.number()])
 
 export async function profileFromTokens(
   config: Configuration,
-  provider: OAuthProviderConfig,
+  provider: OidcConfig,
   tokens: TokenEndpointResponse & {
     claims(): JsonObject | undefined
   },

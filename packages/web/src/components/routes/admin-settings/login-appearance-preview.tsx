@@ -3,10 +3,7 @@ import type {
   PublicAuthConfig,
   PublicLoginSplashConfig,
 } from "@alloy/api"
-import {
-  DESKTOP_AUTH_CAPABILITY_VERSION,
-  OIDC_PROVIDER_ID,
-} from "@alloy/contracts"
+import { DESKTOP_AUTH_CAPABILITY_VERSION } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Slider } from "@alloy/ui/components/slider"
 import {
@@ -40,15 +37,12 @@ function toPublicAuthConfig(
     passkeyEnabled: config.passkeyEnabled,
     requireAuthToBrowse: config.requireAuthToBrowse,
     desktopAuth: { version: DESKTOP_AUTH_CAPABILITY_VERSION },
-    providers: config.oidc.enabled
-      ? [
-          {
-            providerId: OIDC_PROVIDER_ID,
-            displayName: config.oidc.displayName,
-            allowSignUp: config.oidc.allowSignUp,
-          },
-        ]
-      : [],
+    oidc: config.oidc.enabled
+      ? {
+          displayName: config.oidc.displayName,
+          allowSignUp: config.oidc.allowSignUp,
+        }
+      : null,
     loginSplash,
     accentColors: config.appearance.accentColors,
   }
