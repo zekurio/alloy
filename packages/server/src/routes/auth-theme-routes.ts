@@ -48,7 +48,7 @@ export const authThemeRoutes = new Hono()
           c.var.viewerId,
           c.req.valid("json"),
         )
-        return c.json({ user: publicAuthUserRow(updated) })
+        return c.json({ user: await publicAuthUserRow(updated) })
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not save theme.")
       }

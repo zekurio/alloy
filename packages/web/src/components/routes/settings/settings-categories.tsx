@@ -57,6 +57,7 @@ import {
 import { ThemeSettings } from "@/components/routes/settings/theme-settings"
 import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
+import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
 export type { SettingsGroup } from "@/components/routes/settings/settings-search"
 
@@ -162,6 +163,7 @@ const AdminWebhooksPanel = lazyPanel(
 
 function ProfilePanel() {
   const session = useRequireAuthStrict()
+  const config = useSuspenseAuthConfig()
   const user = session?.user
   if (!user) return null
   // SAFETY: The auth API includes the optional banner field on session users.
@@ -180,6 +182,8 @@ function ProfilePanel() {
           initialDisplayName={user.displayName ?? ""}
           image={user.image ?? ""}
           banner={banner}
+          usernameManaged={user.oidcManaged.username}
+          providerName={config.oidc?.displayName ?? null}
         />
       </SettingsSubsection>
       <SecuritySettings />

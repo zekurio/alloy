@@ -157,6 +157,7 @@ const SECTIONS: ConfigSections = {
       setting("ALLOY_OIDC_USERINFO_URL", "userInfoUrl", text),
       setting("ALLOY_OIDC_SCOPES", "scopes", list),
       setting("ALLOY_OIDC_ALLOW_SIGN_UP", "allowSignUp", boolean),
+      setting("ALLOY_OIDC_MANAGE_USERNAMES", "manageUsernames", boolean),
       setting("ALLOY_OIDC_PKCE", "pkce", boolean),
       setting("ALLOY_OIDC_TOKEN_AUTH_METHOD", "tokenAuthMethod", text),
       setting("ALLOY_OIDC_FETCH_USERINFO", "fetchUserInfo", boolean),

@@ -20,6 +20,7 @@ import { authClient } from "@/lib/auth-client"
 import { PROFILE_BANNER_ASPECT_CLASS } from "@/lib/banner-layout"
 import { errorMessage } from "@/lib/error-message"
 import { validateDisplayName, validateUsername } from "@/lib/form-validators"
+import { oidcUsernameNote } from "@/lib/oidc-managed"
 import {
   normalizeProfileIdentity,
   profileIdentityChanged,
@@ -39,6 +40,9 @@ type ProfileCardProps = {
   initialDisplayName: string
   image: string
   banner: string
+  /** Set by the OIDC provider on sign-in, so shown read-only. */
+  usernameManaged: boolean
+  providerName: string | null
 }
 
 type ProfileAvatarPreviewProps = {
@@ -50,6 +54,7 @@ type ProfileAvatarPreviewProps = {
 type IdentityTextFieldConfig = {
   autoComplete: string
   description?: ReactNode
+  disabled?: boolean
   label: string
   name: "username" | "displayName"
   onChangeValue?: (value: string) => string
@@ -93,6 +98,8 @@ export function ProfileCard({
   initialDisplayName,
   image,
   banner,
+  usernameManaged,
+  providerName,
 }: ProfileCardProps) {
   const media = useProfileMedia({ image, banner })
   const bannerUser = {
@@ -194,7 +201,14 @@ export function ProfileCard({
       autoComplete: "username",
       label: t("Username"),
       name: "username",
-      validate: validateUsername,
+      ...(usernameManaged
+        ? {
+            description: oidcUsernameNote(providerName),
+            disabled: true,
+            // The provider picked it; nothing here can make it invalid.
+            validate: () => undefined,
+          }
+        : { validate: validateUsername }),
     },
   ]
 
@@ -325,6 +339,7 @@ export function ProfileCard({
                     submissionAttempts={form.state.submissionAttempts}
                     onChangeValue={config.onChangeValue}
                     description={config.description}
+                    disabled={config.disabled}
                   />
                 )}
               </form.Field>

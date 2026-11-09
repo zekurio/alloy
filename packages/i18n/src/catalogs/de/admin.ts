@@ -159,6 +159,7 @@ export const ADMIN_MESSAGES = {
   "Login backdrop": "Login-Hintergrund",
   "Login page preview": "Vorschau der Login-Seite",
   Logo: "Logo",
+  "Manage usernames": "Nutzernamen verwalten",
   "Max FPS": "Max. FPS",
   "Max FPS must be from 1 to 240.": "Max. FPS muss zwischen 1 und 240 liegen.",
   "Max bitrate": "Max. Bitrate",
@@ -190,8 +191,8 @@ export const ADMIN_MESSAGES = {
   PKCE: "PKCE",
   "Profile banner size (MiB)": "Profilbanner-Größe (MiB)",
   "Profile images & artwork": "Profilbilder & Grafiken",
-  "Profile picture URL, synced on every sign-in.":
-    "URL des Profilbilds, wird bei jeder Anmeldung übernommen.",
+  "Profile picture URL, imported for accounts without an avatar.":
+    "URL des Profilbilds, wird für Konten ohne Avatar übernommen.",
   Provider: "Anbieter",
   "Public clips are announced here as soon as they finish encoding.":
     "Öffentliche Clips werden hier angekündigt, sobald ihre Kodierung fertig ist.",
@@ -244,6 +245,8 @@ export const ADMIN_MESSAGES = {
   "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.":
     "Zeig hinter dem Login-Formular eine schräge, scrollende Wand aus zufälligen Vorschaubildern öffentlicher Clips.",
   "Show the backdrop": "Hintergrund anzeigen",
+  "Set linked accounts' usernames from the username claim on every sign-in. People can't change them here.":
+    "Setzt die Nutzernamen verknüpfter Konten bei jeder Anmeldung aus dem Nutzername-Claim. Sie lassen sich hier nicht ändern.",
   "Show the sign-in button for this provider.":
     "Zeigt die Anmeldeschaltfläche für diesen Anbieter.",
   "Shown on the button as Continue with {name}.":
@@ -269,8 +272,8 @@ export const ADMIN_MESSAGES = {
   "Storage quota in GiB for new accounts.":
     "Speicherkontingent in GiB für neue Konten.",
   "Suggested accents": "Vorgeschlagene Akzente",
-  "Suggests the username for new accounts.":
-    "Schlägt den Nutzernamen für neue Konten vor.",
+  "Suggests the username for new accounts, and sets it on every sign-in while usernames are managed.":
+    "Schlägt den Nutzernamen für neue Konten vor und setzt ihn bei jeder Anmeldung, solange Nutzernamen verwaltet werden.",
   "Tag people": "Nutzer markieren",
   "Tagged in clip": "Im Clip getaggt",
   "Test delivered": "Test zugestellt",

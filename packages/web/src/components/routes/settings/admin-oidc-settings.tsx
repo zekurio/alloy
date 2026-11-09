@@ -44,7 +44,12 @@ const TEXT_FIELDS = [
 ] as const
 
 type TextFieldKey = (typeof TEXT_FIELDS)[number]
-type ToggleKey = "enabled" | "allowSignUp" | "pkce" | "fetchUserInfo"
+type ToggleKey =
+  | "enabled"
+  | "allowSignUp"
+  | "manageUsernames"
+  | "pkce"
+  | "fetchUserInfo"
 
 type OidcDraft = Record<TextFieldKey, string> &
   Record<ToggleKey, boolean> & {
@@ -77,6 +82,7 @@ function draftFromConfig(
     ...text,
     enabled: config.enabled,
     allowSignUp: config.allowSignUp,
+    manageUsernames: config.manageUsernames,
     pkce: config.pkce,
     fetchUserInfo: config.fetchUserInfo,
     scopes: scopes === defaults.scopes.join(" ") ? "" : scopes,
@@ -91,6 +97,7 @@ function patchFromDraft(draft: OidcDraft): AdminOidcConfigPatch {
   const patch: AdminOidcConfigPatch = {
     enabled: draft.enabled,
     allowSignUp: draft.allowSignUp,
+    manageUsernames: draft.manageUsernames,
     pkce: draft.pkce,
     fetchUserInfo: draft.fetchUserInfo,
     tokenAuthMethod: draft.tokenAuthMethod,
@@ -168,6 +175,16 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
             checked={draft.allowSignUp}
             onCheckedChange={(allowSignUp) =>
               setField("allowSignUp", allowSignUp)
+            }
+          />
+          <ToggleRow
+            title={t("Manage usernames")}
+            description={t(
+              "Set linked accounts' usernames from the username claim on every sign-in. People can't change them here.",
+            )}
+            checked={draft.manageUsernames}
+            onCheckedChange={(manageUsernames) =>
+              setField("manageUsernames", manageUsernames)
             }
           />
           <TextRow
@@ -299,12 +316,16 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
             <TextRow
               {...text("usernameClaim")}
               title={t("Username claim")}
-              description={t("Suggests the username for new accounts.")}
+              description={t(
+                "Suggests the username for new accounts, and sets it on every sign-in while usernames are managed.",
+              )}
             />
             <TextRow
               {...text("avatarClaim")}
               title={t("Avatar claim")}
-              description={t("Profile picture URL, synced on every sign-in.")}
+              description={t(
+                "Profile picture URL, imported for accounts without an avatar.",
+              )}
             />
             <TextRow
               {...text("quotaClaim")}

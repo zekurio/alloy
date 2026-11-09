@@ -114,7 +114,7 @@ export const authRoute = new Hono()
     // `alloy_session`.
     if (session && token) setSessionCookie(c, token)
     else if (token) clearSessionCookies(c)
-    return c.json(session ? publicSessionData(session) : null)
+    return c.json(session ? await publicSessionData(session) : null)
   })
   .post("/sign-out", async (c) => {
     await deleteCurrentSession(c)
@@ -168,7 +168,7 @@ export const authRoute = new Hono()
           c.var.viewerId,
           c.req.valid("json"),
         )
-        return c.json({ user: publicAuthUserRow(updated) })
+        return c.json({ user: await publicAuthUserRow(updated) })
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not update user.")
       }

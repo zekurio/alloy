@@ -62,12 +62,12 @@ export function authError(
   return c.json({ error: { code, message } }, status)
 }
 
-export function authenticatedSignInResponse(
+export async function authenticatedSignInResponse(
   c: Context,
   result: AuthenticatedSignInResult,
 ) {
   if (result.kind === "session") {
-    return c.json(publicSessionData(result.session.data))
+    return c.json(await publicSessionData(result.session.data))
   }
   if (result.kind === "reactivation-required") {
     return authError(

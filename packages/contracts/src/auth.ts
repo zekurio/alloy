@@ -97,8 +97,14 @@ export interface AuthUser {
   clipAnnouncementsEnabled: boolean
   /** Null until a device with theme sync on saves one. */
   themePreferences: SyncedThemePreferences | null
+  /** Profile fields the OIDC provider sets on each sign-in and the user can't edit. */
+  oidcManaged: OidcManagedProfile
   createdAt: IsoDateString
   updatedAt: IsoDateString
+}
+
+export interface OidcManagedProfile {
+  username: boolean
 }
 
 /** The current session and its user, as returned by session reads and sign-in. */
