@@ -174,6 +174,10 @@ export const ACCOUNT_MESSAGES = {
   "Signed in {date}": "Angemeldet am {date}",
   "Signed out": "Abgemeldet",
   "Signing out…": "Wird abgemeldet…",
+  "Synced from your sign-in provider each time you sign in. Change it there.":
+    "Wird bei jeder Anmeldung von deinem Anmeldeanbieter übernommen. Ändere ihn dort.",
+  "Synced from {provider} each time you sign in. Change it there.":
+    "Wird bei jeder Anmeldung von {provider} übernommen. Ändere ihn dort.",
   System: "System",
   "That device will need to sign in again.":
     "Dieses Gerät muss sich erneut anmelden.",
@@ -217,6 +221,12 @@ export const ACCOUNT_MESSAGES = {
   "You may need another sign-in method to access your account.":
     "Vielleicht brauchst du eine andere Anmeldemethode, um auf dein Konto zuzugreifen.",
   "You're not signed in anywhere else.": "Du bist nirgendwo sonst angemeldet.",
+  "Your avatar is managed by your sign-in provider.":
+    "Dein Avatar wird von deinem Anmeldeanbieter verwaltet.",
+  "Your avatar is synced from your sign-in provider each time you sign in.":
+    "Dein Avatar wird bei jeder Anmeldung von deinem Anmeldeanbieter übernommen.",
+  "Your avatar is synced from {provider} each time you sign in.":
+    "Dein Avatar wird bei jeder Anmeldung von {provider} übernommen.",
   "You've blocked @{handle}. Do you want to show their profile anyway?":
     "Du hast @{handle} blockiert. Möchtest du das Profil trotzdem anzeigen?",
   "Your browser will prompt you to use Touch ID, Face ID, Windows Hello, or a security key.":
@@ -225,6 +235,8 @@ export const ACCOUNT_MESSAGES = {
     "Dein Profil und deine Clips sind ausgeblendet, solange dein Konto deaktiviert ist.",
   "Your profile and clips will be hidden until you sign back in and reactivate.":
     "Dein Profil und deine Clips werden ausgeblendet, bis du dich wieder anmeldest und reaktivierst.",
+  "Your username is managed by your sign-in provider.":
+    "Dein Nutzername wird von deinem Anmeldeanbieter verwaltet.",
   "Your {provider} username matches an existing account. Sign in to that account to link {provider}.":
     "Dein Benutzername bei {provider} stimmt mit einem bestehenden Konto überein. Melde dich bei diesem Konto an, um {provider} zu verknüpfen.",
   "e.g. Laptop, YubiKey": "z.B. Laptop, YubiKey",

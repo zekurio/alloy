@@ -299,7 +299,7 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
             <TextRow
               {...text("usernameClaim")}
               title={t("Username claim")}
-              description={t("Suggests the username for new accounts.")}
+              description={t("Username, synced on every sign-in.")}
             />
             <TextRow
               {...text("avatarClaim")}

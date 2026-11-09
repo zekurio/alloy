@@ -19,6 +19,8 @@ export async function syncOAuthAvatar(
   userId: string,
   profile: OAuthProfile,
 ): Promise<void> {
+  // No claim leaves the current avatar alone: a provider that stops sending
+  // one hands the avatar back to the user rather than wiping it.
   if (!profile.avatarUrl) return
 
   try {
@@ -30,7 +32,7 @@ export async function syncOAuthAvatar(
       .from(user)
       .where(eq(user.id, userId))
       .limit(1)
-    if (!row || row.image?.trim()) return
+    if (!row) return
 
     // The avatar URL is an IdP claim end users can influence on permissive
     // IdPs; refuse non-public hosts and redirects so this server-side fetch

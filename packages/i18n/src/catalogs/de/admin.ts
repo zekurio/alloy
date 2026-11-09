@@ -269,8 +269,6 @@ export const ADMIN_MESSAGES = {
   "Storage quota in GiB for new accounts.":
     "Speicherkontingent in GiB für neue Konten.",
   "Suggested accents": "Vorgeschlagene Akzente",
-  "Suggests the username for new accounts.":
-    "Schlägt den Nutzernamen für neue Konten vor.",
   "Tag people": "Nutzer markieren",
   "Tagged in clip": "Im Clip getaggt",
   "Test delivered": "Test zugestellt",
@@ -322,6 +320,8 @@ export const ADMIN_MESSAGES = {
     "Wird verwendet, um jede Nutzlast zu signieren, damit dein Endpunkt sie verifizieren kann.",
   "User info URL": "Userinfo-URL",
   "Username claim": "Nutzername-Claim",
+  "Username, synced on every sign-in.":
+    "Nutzername, wird bei jeder Anmeldung übernommen.",
   "VA-API": "VA-API",
   "VA-API device": "VA-API-Gerät",
   "Verify that you run this server":

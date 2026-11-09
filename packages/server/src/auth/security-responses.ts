@@ -8,6 +8,7 @@ import {
 import type { AuthSession, User } from "@alloy/db/auth-schema"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 
+import { oidcManagedProfile } from "./oidc-managed-profile"
 import { sessionClientLabel } from "./session-client"
 
 type PublicPasskeyRow = {
@@ -30,7 +31,7 @@ type PublicSessionData = {
   user: User
 }
 
-export function publicAuthUserRow(row: User): AuthUser {
+export async function publicAuthUserRow(row: User): Promise<AuthUser> {
   // Return type is annotated deliberately: the client validates this payload
   // with a runtime cast, so without it a missing field compiles clean and only
   // shows up as a silently-undefined value in the UI.
@@ -46,6 +47,7 @@ export function publicAuthUserRow(row: User): AuthUser {
     storageQuotaBytes: row.storage_quota_bytes,
     clipAnnouncementsEnabled: row.clip_announcements_enabled,
     themePreferences: row.theme_preferences,
+    oidcManaged: await oidcManagedProfile(row.id),
     createdAt: isoDate(row.created_at),
     updatedAt: isoDate(row.updated_at),
   }
@@ -62,10 +64,12 @@ function publicAuthSessionRow(row: AuthSession): SessionData["session"] {
   }
 }
 
-export function publicSessionData(row: PublicSessionData): SessionData {
+export async function publicSessionData(
+  row: PublicSessionData,
+): Promise<SessionData> {
   return {
     session: publicAuthSessionRow(row.session),
-    user: publicAuthUserRow(row.user),
+    user: await publicAuthUserRow(row.user),
   }
 }
 

@@ -1,0 +1,1 @@
+ALTER TABLE "auth_account" ADD COLUMN "avatar_url" text;

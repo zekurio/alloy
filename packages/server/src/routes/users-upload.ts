@@ -1,6 +1,10 @@
 import { t } from "@alloy/contracts/schema"
+import {
+  OIDC_MANAGED_AVATAR_ERROR,
+  oidcManagedProfile,
+} from "@alloy/server/auth/oidc-managed-profile"
 import { requireSession } from "@alloy/server/auth/session"
-import { errorResult } from "@alloy/server/runtime/http-response"
+import { errorResult, forbidden } from "@alloy/server/runtime/http-response"
 import type { UserAssetRole } from "@alloy/server/storage/driver"
 import { assetStorage } from "@alloy/server/storage/index"
 import { imageBodyLimit } from "@alloy/server/uploads/image-body-limit"
@@ -11,6 +15,7 @@ import {
   userAssetLimit,
 } from "@alloy/server/users/user-assets"
 import { type Context, Hono } from "hono"
+import { createMiddleware } from "hono/factory"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 
 import { imageFileError } from "./image-upload"
@@ -65,12 +70,24 @@ function uploadUserAssetHandler(role: UserAssetRole) {
     )
 }
 
+// The provider replaces a managed avatar on the next sign-in, so a local
+// change would only last until then.
+const rejectOidcManagedAvatar = createMiddleware<{
+  Variables: { viewerId: string }
+}>(async (c, next) => {
+  if ((await oidcManagedProfile(c.var.viewerId)).avatar) {
+    return forbidden(c, OIDC_MANAGED_AVATAR_ERROR)
+  }
+  await next()
+})
+
 export const usersUploadRoute = new Hono<{
   Variables: { viewerId: string }
 }>()
   .post(
     "/me/avatar/upload",
     requireSession,
+    rejectOidcManagedAvatar,
     imageBodyLimit("avatarMaxBytes"),
     tbValidator("form", UserAssetUploadForm),
     uploadUserAssetHandler("avatar"),
@@ -82,7 +99,7 @@ export const usersUploadRoute = new Hono<{
     tbValidator("form", UserAssetUploadForm),
     uploadUserAssetHandler("banner"),
   )
-  .delete("/me/avatar", requireSession, (c) =>
+  .delete("/me/avatar", requireSession, rejectOidcManagedAvatar, (c) =>
     respondUserAsset(c, removeUserAsset(c.var.viewerId, "avatar")),
   )
   .delete("/me/banner", requireSession, (c) =>

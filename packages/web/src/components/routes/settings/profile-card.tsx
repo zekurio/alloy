@@ -20,6 +20,7 @@ import { authClient } from "@/lib/auth-client"
 import { PROFILE_BANNER_ASPECT_CLASS } from "@/lib/banner-layout"
 import { errorMessage } from "@/lib/error-message"
 import { validateDisplayName, validateUsername } from "@/lib/form-validators"
+import { oidcSyncedNote } from "@/lib/oidc-managed"
 import {
   normalizeProfileIdentity,
   profileIdentityChanged,
@@ -39,6 +40,9 @@ type ProfileCardProps = {
   initialDisplayName: string
   image: string
   banner: string
+  /** Fields the OIDC provider sets on sign-in, shown read-only. */
+  oidcManaged: { username: boolean; avatar: boolean }
+  providerName: string | null
 }
 
 type ProfileAvatarPreviewProps = {
@@ -50,6 +54,7 @@ type ProfileAvatarPreviewProps = {
 type IdentityTextFieldConfig = {
   autoComplete: string
   description?: ReactNode
+  disabled?: boolean
   label: string
   name: "username" | "displayName"
   onChangeValue?: (value: string) => string
@@ -93,6 +98,8 @@ export function ProfileCard({
   initialDisplayName,
   image,
   banner,
+  oidcManaged,
+  providerName,
 }: ProfileCardProps) {
   const media = useProfileMedia({ image, banner })
   const bannerUser = {
@@ -146,7 +153,16 @@ export function ProfileCard({
     className: string
     overlay: ReactNode
     children: ReactNode
+    /** Set elsewhere, so the zone only shows the media and explains why. */
+    lockedReason?: string
   }) {
+    if (args.lockedReason) {
+      return (
+        <div className={args.className} title={args.lockedReason}>
+          {args.children}
+        </div>
+      )
+    }
     const surface = cn(
       "group focus-visible:outline-accent focus-visible:outline-2 focus-visible:outline-offset-2",
       args.className,
@@ -194,9 +210,19 @@ export function ProfileCard({
       autoComplete: "username",
       label: t("Username"),
       name: "username",
-      validate: validateUsername,
+      ...(oidcManaged.username
+        ? {
+            description: oidcSyncedNote("username", providerName),
+            disabled: true,
+            // The provider picked it; nothing here can make it invalid.
+            validate: () => undefined,
+          }
+        : { validate: validateUsername }),
     },
   ]
+  const avatarLockedReason = oidcManaged.avatar
+    ? oidcSyncedNote("avatar", providerName)
+    : undefined
 
   return (
     <>
@@ -278,6 +304,7 @@ export function ProfileCard({
                           className:
                             "ring-background relative -mt-8 inline-flex size-16 shrink-0 overflow-hidden rounded-full ring-[3px] sm:-mt-12 sm:size-24 sm:ring-4",
                           overlay: CENTER_EDIT_OVERLAY,
+                          lockedReason: avatarLockedReason,
                           children: (
                             <ProfileAvatarPreview
                               avatar={avatar}
@@ -300,6 +327,12 @@ export function ProfileCard({
                 }}
               </form.Subscribe>
             </div>
+
+            {avatarLockedReason ? (
+              <p className="text-foreground-dim text-xs">
+                {avatarLockedReason}
+              </p>
+            ) : null}
 
             {media.error ? (
               <Callout tone="destructive" className="text-xs">
@@ -325,6 +358,7 @@ export function ProfileCard({
                     submissionAttempts={form.state.submissionAttempts}
                     onChangeValue={config.onChangeValue}
                     description={config.description}
+                    disabled={config.disabled}
                   />
                 )}
               </form.Field>

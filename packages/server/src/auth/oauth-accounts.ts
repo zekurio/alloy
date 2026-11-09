@@ -6,7 +6,7 @@ import {
 import { authAccount, user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
-import { and, eq } from "drizzle-orm"
+import { and, eq, ne, sql } from "drizzle-orm"
 
 import {
   assertCanRemoveAdminInTransaction,
@@ -16,7 +16,11 @@ import {
 import { syncOAuthAvatar } from "./oauth-avatar"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
 import type { OAuthProfile } from "./oauth-types"
-import { findUserIdByUsernameHint, generateUniqueUsername } from "./username"
+import {
+  findUserIdByUsernameHint,
+  generateUniqueUsername,
+  usernameFromHint,
+} from "./username"
 
 const logger = createLogger("oauth")
 const NO_LINKED_ACCOUNT =
@@ -42,6 +46,7 @@ export async function resolveSignInUser(
   if (existingAccount) {
     await updateLinkedAccount(existingAccount.id, input.profile)
     await syncOAuthUserRole(existingAccount.user_id, input.profile)
+    await syncOAuthProfile(existingAccount.user_id, input.profile)
     return { kind: "matched", userId: existingAccount.user_id }
   }
 
@@ -133,7 +138,7 @@ export async function linkAccountToUser(input: {
   }
   if (existing) {
     await updateLinkedAccount(existing.id, input.profile)
-    await syncOAuthAvatar(input.userId, input.profile)
+    await syncOAuthProfile(input.userId, input.profile)
     return
   }
 
@@ -141,7 +146,7 @@ export async function linkAccountToUser(input: {
     .insert(authAccount)
     .values(accountValues(input.userId, input.profile))
   await syncOAuthUserRole(input.userId, input.profile)
-  await syncOAuthAvatar(input.userId, input.profile)
+  await syncOAuthProfile(input.userId, input.profile)
 }
 
 export function listLinkedAccounts(userId: string) {
@@ -184,9 +189,67 @@ async function updateLinkedAccount(
     .update(authAccount)
     .set({
       account_label: profile.usernameHint,
+      avatar_url: profile.avatarUrl,
       updated_at: new Date(),
     })
     .where(eq(authAccount.id, accountId))
+}
+
+/**
+ * The provider owns the username and avatar of a linked user, so every
+ * sign-in and link copies them over again.
+ */
+async function syncOAuthProfile(
+  userId: string,
+  profile: OAuthProfile,
+): Promise<void> {
+  await syncOAuthUsername(userId, profile)
+  await syncOAuthAvatar(userId, profile)
+}
+
+async function syncOAuthUsername(
+  userId: string,
+  profile: OAuthProfile,
+): Promise<void> {
+  const username = usernameFromHint(profile.usernameHint)
+  if (!username) return
+  try {
+    await db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({ username: user.username })
+        .from(user)
+        .where(eq(user.id, userId))
+        .limit(1)
+        .for("update")
+      if (!current || current.username === username) return
+
+      // Another user keeps a name they already hold, so a clash leaves the
+      // current username in place until a later sign-in finds it free.
+      const [taken] = await tx
+        .select({ id: user.id })
+        .from(user)
+        .where(
+          and(
+            eq(sql`lower(${user.username})`, username.toLowerCase()),
+            ne(user.id, userId),
+          ),
+        )
+        .limit(1)
+      if (taken) {
+        logger.warn(
+          `kept username of user ${userId}: OIDC username "${username}" is taken`,
+        )
+        return
+      }
+
+      await tx
+        .update(user)
+        .set({ username, updated_at: new Date() })
+        .where(eq(user.id, userId))
+    })
+  } catch (cause) {
+    logger.warn(`username sync failed for user ${userId}:`, cause)
+  }
 }
 
 async function syncOAuthUserRole(
@@ -253,5 +316,6 @@ function accountValues(
     provider_id: OIDC_PROVIDER_ID,
     provider_account_id: profile.providerAccountId,
     account_label: profile.usernameHint,
+    avatar_url: profile.avatarUrl,
   }
 }

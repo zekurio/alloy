@@ -8,6 +8,13 @@
       "when": 1793220059334,
       "tag": "0000_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794234046840,
+      "tag": "0001_oauth_account_avatar_url",
+      "breakpoints": true
     }
   ]
 }

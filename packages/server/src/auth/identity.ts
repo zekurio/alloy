@@ -21,6 +21,10 @@ import {
   withAdminAccessInvariant,
 } from "./admin-access"
 import {
+  OIDC_MANAGED_USERNAME_ERROR,
+  oidcManagedProfile,
+} from "./oidc-managed-profile"
+import {
   currentSignInConfig,
   hasAdminSignInMethodForConfig,
   hasAdminSignInMethodWith,
@@ -57,6 +61,22 @@ async function assertUsernameAvailable(
     .where(and(...conditions))
     .limit(1)
   if (existing) throw new Error("Username is already taken.")
+}
+
+async function assertUsernameEditable(
+  userId: string,
+  username: string,
+): Promise<void> {
+  if (!(await oidcManagedProfile(userId)).username) return
+  const [current] = await db
+    .select({ username: user.username })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1)
+  // Resending the current name is not a change, so a form that always sends
+  // every field keeps working.
+  if (current?.username === username) return
+  throw new Error(OIDC_MANAGED_USERNAME_ERROR)
 }
 
 async function hasAdminSignInMethod(): Promise<boolean> {
@@ -304,6 +324,7 @@ export async function updateUserIdentity(
   const patch: Partial<NewUser> = { updated_at: new Date() }
   if (input.username !== undefined) {
     const username = validateUsername(input.username)
+    await assertUsernameEditable(userId, username)
     await assertUsernameAvailable(db, username, userId)
     patch.username = username
   }

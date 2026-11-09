@@ -153,6 +153,9 @@ export const authAccount = pgTable(
     // linked accounts apart in settings. Null when the provider sends none;
     // never populated from the provider's email claim.
     account_label: text(),
+    // Avatar claim from the last sign-in. Non-null means the provider manages
+    // the user's avatar and replaces it on every sign-in.
+    avatar_url: text(),
     created_at: timestamp().notNull().defaultNow(),
     updated_at: timestamp().notNull().defaultNow(),
   },

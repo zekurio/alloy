@@ -26,6 +26,7 @@ type ProfileFieldController = {
 export function ProfileTextField({
   autoComplete,
   description,
+  disabled = false,
   field,
   isSubmitting,
   label,
@@ -34,6 +35,8 @@ export function ProfileTextField({
 }: {
   autoComplete: string
   description?: ReactNode
+  /** The value is set elsewhere, such as by the sign-in provider. */
+  disabled?: boolean
   field: ProfileFieldController
   isSubmitting: boolean
   label: string
@@ -64,7 +67,7 @@ export function ProfileTextField({
         onChange={(e) =>
           field.handleChange(onChangeValue?.(e.target.value) ?? e.target.value)
         }
-        disabled={isSubmitting}
+        disabled={disabled || isSubmitting}
         aria-invalid={invalid || undefined}
         aria-describedby={invalid ? `${field.name}-error` : hintId}
       />

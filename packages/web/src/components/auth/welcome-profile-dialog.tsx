@@ -17,6 +17,7 @@ import type { ReactNode } from "react"
 import { MediaEditOverlay } from "@/components/routes/settings/profile-media-controls"
 import { useProfileMedia } from "@/components/routes/settings/use-profile-media"
 import { PROFILE_BANNER_ASPECT_CLASS } from "@/lib/banner-layout"
+import { oidcSyncedNote } from "@/lib/oidc-managed"
 import {
   useSuspenseAuthConfig,
   useSuspenseSession,
@@ -27,6 +28,9 @@ import {
   userAvatar,
   userImageSrc,
 } from "@/lib/user-display"
+
+const AVATAR_ZONE_CLASS =
+  "ring-background relative -mt-10 inline-flex size-20 shrink-0 overflow-hidden rounded-full ring-4"
 
 type WelcomeProfileDialogProps = {
   open: boolean
@@ -76,11 +80,14 @@ function WelcomeProfileDialogContent({
   const syncedAvatarShown =
     initialImage !== "" && media.profileImage === initialImage
   const providerName = config.oidc?.displayName
-  const providerCaption = !syncedAvatarShown
-    ? null
-    : providerName
-      ? t("Avatar imported from {provider}", { provider: providerName })
-      : t("Avatar imported from your sign-in provider")
+  const avatarManaged = user.oidcManaged.avatar
+  const providerCaption = avatarManaged
+    ? oidcSyncedNote("avatar", providerName)
+    : !syncedAvatarShown
+      ? null
+      : providerName
+        ? t("Avatar imported from {provider}", { provider: providerName })
+        : t("Avatar imported from your sign-in provider")
   return (
     <>
       {media.inputs}
@@ -128,22 +135,34 @@ function WelcomeProfileDialogContent({
               </ProfileMediaButton>
 
               <div className="relative flex items-end gap-3 px-4 pb-4">
-                <ProfileMediaButton
-                  ariaLabel={t("Add or replace avatar")}
-                  disabled={media.uploading}
-                  className="ring-background relative -mt-10 inline-flex size-20 shrink-0 overflow-hidden rounded-full ring-4"
-                  onClick={() => media.openFilePicker("avatar")}
-                >
-                  <TintedAvatar
-                    avatar={avatar}
-                    alt={previewName}
-                    size="2xl"
-                    className="!size-full"
-                  />
-                  <MediaEditOverlay>
-                    <Pencil className="size-4 text-white" />
-                  </MediaEditOverlay>
-                </ProfileMediaButton>
+                {avatarManaged ? (
+                  // The caption beside it explains where the avatar comes from.
+                  <div className={AVATAR_ZONE_CLASS}>
+                    <TintedAvatar
+                      avatar={avatar}
+                      alt={previewName}
+                      size="2xl"
+                      className="!size-full"
+                    />
+                  </div>
+                ) : (
+                  <ProfileMediaButton
+                    ariaLabel={t("Add or replace avatar")}
+                    disabled={media.uploading}
+                    className={AVATAR_ZONE_CLASS}
+                    onClick={() => media.openFilePicker("avatar")}
+                  >
+                    <TintedAvatar
+                      avatar={avatar}
+                      alt={previewName}
+                      size="2xl"
+                      className="!size-full"
+                    />
+                    <MediaEditOverlay>
+                      <Pencil className="size-4 text-white" />
+                    </MediaEditOverlay>
+                  </ProfileMediaButton>
+                )}
                 <div className="min-w-0 flex-1 pb-1">
                   <div className="text-foreground truncate text-base font-semibold">
                     {previewName}

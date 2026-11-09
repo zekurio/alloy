@@ -168,7 +168,7 @@ export const authPasskeyRoutes = new Hono()
         const { token, data } = await createSession(c, userRow.id)
         clearAccountReactivationCookie(c)
         setSessionCookie(c, token)
-        return c.json(publicSessionData(data))
+        return c.json(await publicSessionData(data))
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not verify passkey.")
       }

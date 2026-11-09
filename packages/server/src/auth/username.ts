@@ -82,6 +82,19 @@ function baseSlugFromUser(hints: { name?: string | null }): string {
   return "user"
 }
 
+/**
+ * The username an OAuth username claim maps to, slugified the way
+ * {@link generateUniqueUsername} does it at sign-up. Null when the claim is
+ * missing or yields no usable username, in which case the provider leaves
+ * the username alone.
+ */
+export function usernameFromHint(hint: string | null): string | null {
+  const slug = hint ? slugifyUsername(hint) : ""
+  if (slug.length < MIN_LEN) return null
+  if (RESERVED_USERNAMES.has(slug)) return null
+  return slug
+}
+
 export async function generateUniqueUsername(hints: {
   name?: string | null
 }): Promise<string> {
