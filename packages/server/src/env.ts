@@ -95,7 +95,6 @@ export function parseServerEnv(source: EnvSource = process.env) {
     TRUSTED_ORIGINS: raw.TRUSTED_ORIGINS,
     trustedProxies: raw.ALLOY_TRUSTED_PROXIES,
     config: parseConfigEnv(source),
-    oauthAvatarAllowPrivateUrls: raw.ALLOY_OAUTH_AVATAR_ALLOW_PRIVATE_URLS,
     storage,
     transcode: {
       ffmpegPath,

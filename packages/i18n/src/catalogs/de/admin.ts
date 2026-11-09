@@ -16,8 +16,7 @@ export const ADMIN_MESSAGES = {
   "Apple VideoToolbox": "Apple VideoToolbox",
   "Applies to accounts created from now on and to upload links issued after saving.":
     "Gilt für ab jetzt erstellte Konten und für Upload-Links, die nach dem Speichern ausgestellt werden.",
-  "Applies to uploaded avatars and avatars synced from sign-in providers.":
-    "Gilt für hochgeladene Avatare und mit Anmeldeanbietern synchronisierte Avatare.",
+  "Applies to uploaded avatars.": "Gilt für hochgeladene Avatare.",
   Authentication: "Authentifizierung",
   "Authorization URL": "Autorisierungs-URL",
   "Avatar claim": "Avatar-Claim",
