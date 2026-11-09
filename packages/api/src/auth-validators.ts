@@ -100,12 +100,10 @@ export function validateAuthUser(value: ContractJsonInput): AuthUser {
     )
   }
   const oidcManaged = objectRecord(user.oidcManaged, "auth user oidcManaged")
-  for (const key of ["username", "avatar"] as const) {
-    validateBoolean(
-      oidcManaged[key],
-      `Invalid auth user response: oidcManaged.${key} must be boolean`,
-    )
-  }
+  validateBoolean(
+    oidcManaged.username,
+    "Invalid auth user response: oidcManaged.username must be boolean",
+  )
   validateIsoDateString(
     user.createdAt,
     "Invalid auth user response: createdAt must be a date string",

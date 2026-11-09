@@ -182,7 +182,7 @@ function ProfilePanel() {
           initialDisplayName={user.displayName ?? ""}
           image={user.image ?? ""}
           banner={banner}
-          oidcManaged={user.oidcManaged}
+          usernameManaged={user.oidcManaged.username}
           providerName={config.oidc?.displayName ?? null}
         />
       </SettingsSubsection>

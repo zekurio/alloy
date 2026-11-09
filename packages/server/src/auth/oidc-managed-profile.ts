@@ -6,28 +6,26 @@ import { and, eq } from "drizzle-orm"
 import { usableOidcProvider } from "./oauth-config"
 import { usernameFromHint } from "./username"
 
-const UNMANAGED: OidcManagedProfile = { username: false, avatar: false }
-
 export const OIDC_MANAGED_USERNAME_ERROR =
   "Your username is managed by your sign-in provider."
-export const OIDC_MANAGED_AVATAR_ERROR =
-  "Your avatar is managed by your sign-in provider."
+
+/** Whether OIDC sign-ins set the usernames of linked users. */
+export function oidcManagesUsernames(): boolean {
+  return usableOidcProvider()?.manageUsernames === true
+}
 
 /**
  * The profile fields a linked OIDC identity sets on every sign-in, which the
- * user therefore can't edit here. A field is managed while the provider is
- * usable and the last sign-in sent a usable claim for it, so turning SSO off
- * or a provider that sends no claim hands the field back to the user.
+ * user therefore can't edit here. The username is managed while the admin has
+ * the provider manage usernames and the last sign-in sent a usable username
+ * claim, so a provider that sends none hands the username back to the user.
  */
 export async function oidcManagedProfile(
   userId: string,
 ): Promise<OidcManagedProfile> {
-  if (!usableOidcProvider()) return UNMANAGED
+  if (!oidcManagesUsernames()) return { username: false }
   const accounts = await db
-    .select({
-      accountLabel: authAccount.account_label,
-      avatarUrl: authAccount.avatar_url,
-    })
+    .select({ accountLabel: authAccount.account_label })
     .from(authAccount)
     .where(
       and(
@@ -39,6 +37,5 @@ export async function oidcManagedProfile(
     username: accounts.some(
       (account) => usernameFromHint(account.accountLabel) !== null,
     ),
-    avatar: accounts.some((account) => account.avatarUrl !== null),
   }
 }

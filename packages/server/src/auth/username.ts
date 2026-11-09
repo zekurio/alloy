@@ -60,8 +60,12 @@ export function normalizeDisplayName(input: string): string | null {
 }
 
 function slugifyUsername(input: string): string {
+  // Some providers (Entra ID among them) send an email-shaped username; its
+  // local part is the name, the domain is the same for everyone. A leading
+  // "@" is a handle prefix rather than the start of a domain.
+  const name = input.replace(/^@+/, "").split("@", 1)[0] ?? ""
   return (
-    input
+    name
       // Strip combining diacritics by decomposing then discarding marks.
       .normalize("NFKD")
       .replace(/[\u0300-\u036f]/g, "")

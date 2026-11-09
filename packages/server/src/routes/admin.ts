@@ -63,6 +63,7 @@ const OidcConfigBody = t.object({
   userInfoUrl: t.string().optional(),
   scopes: t.array(t.string()).optional(),
   allowSignUp: t.boolean().optional(),
+  manageUsernames: t.boolean().optional(),
   pkce: t.boolean().optional(),
   tokenAuthMethod: t.enum(OAUTH_TOKEN_AUTH_METHODS).optional(),
   fetchUserInfo: t.boolean().optional(),

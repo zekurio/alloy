@@ -1,4 +1,5 @@
 import { lookup as dnsLookup } from "node:dns"
+import { lookup } from "node:dns/promises"
 import { request as httpRequest, type IncomingMessage } from "node:http"
 import { request as httpsRequest } from "node:https"
 import { BlockList, isIP, type LookupFunction } from "node:net"
@@ -25,6 +26,25 @@ PRIVATE_ADDRESS_RANGES.addSubnet("::", 128, "ipv6")
 PRIVATE_ADDRESS_RANGES.addSubnet("::1", 128, "ipv6")
 PRIVATE_ADDRESS_RANGES.addSubnet("fc00::", 7, "ipv6")
 PRIVATE_ADDRESS_RANGES.addSubnet("fe80::", 10, "ipv6")
+
+/**
+ * True when every address the URL's host resolves to is publicly routable.
+ * Resolution failure counts as non-public: the follow-up fetch would fail
+ * anyway, and treating it as public would let DNS errors bypass the guard.
+ * A pre-flight answer only; {@link fetchRemoteImage} enforces the same rule
+ * on the addresses it actually connects to.
+ */
+export async function resolvesToPublicAddress(url: string): Promise<boolean> {
+  const host = urlHost(new URL(url))
+  const literalFamily = isIP(host)
+  if (literalFamily) return isPublicAddress(host, literalFamily)
+
+  const addresses = await lookup(host, { all: true }).catch(() => [])
+  if (addresses.length === 0) return false
+  return addresses.every((entry) =>
+    isPublicAddress(entry.address, entry.family),
+  )
+}
 
 function urlHost(url: URL): string {
   const { hostname } = url

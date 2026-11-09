@@ -75,6 +75,12 @@ export const OidcConfigSchema = t.object({
     .$default(OIDC_SCOPES_DEFAULT),
   /** Create an account on the first sign-in of an unlinked identity. */
   allowSignUp: t.boolean().$default(false),
+  /**
+   * Set linked users' usernames from the username claim on every sign-in and
+   * stop them changing it here. Off by default so turning on SSO never
+   * renames anyone.
+   */
+  manageUsernames: t.boolean().$default(false),
   pkce: t.boolean().$default(true),
   tokenAuthMethod: t
     .enum(OAUTH_TOKEN_AUTH_METHODS)

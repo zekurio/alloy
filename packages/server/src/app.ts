@@ -169,13 +169,12 @@ const apiApp = new Hono()
         styleSrc: ["'self'", "'unsafe-inline'"],
         // Storage is filesystem-only today, so browser media URLs stay
         // same-origin. Future direct-storage URLs need their origin here.
-        // OAuth avatars and game artwork may come from external hosts; a
-        // LAN IdP can serve its avatar URLs over plain HTTP.
+        // OAuth avatars and game artwork may come from external HTTPS hosts.
         // Keep this permission in img-src only; scripts and connections remain
         // restricted to explicit same-origin and desktop-loopback sources.
         // Alloy Desktop serves local captures on a random loopback port.
         // The native file server checks its access token and selected origin.
-        imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
+        imgSrc: ["'self'", "data:", "blob:", "https:", "http://127.0.0.1:*"],
         mediaSrc: ["'self'", "blob:", "http://127.0.0.1:*"],
         connectSrc: ["'self'", "http://127.0.0.1:*"],
         fontSrc: ["'self'"],

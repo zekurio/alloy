@@ -221,12 +221,6 @@ export const ACCOUNT_MESSAGES = {
   "You may need another sign-in method to access your account.":
     "Vielleicht brauchst du eine andere Anmeldemethode, um auf dein Konto zuzugreifen.",
   "You're not signed in anywhere else.": "Du bist nirgendwo sonst angemeldet.",
-  "Your avatar is managed by your sign-in provider.":
-    "Dein Avatar wird von deinem Anmeldeanbieter verwaltet.",
-  "Your avatar is synced from your sign-in provider each time you sign in.":
-    "Dein Avatar wird bei jeder Anmeldung von deinem Anmeldeanbieter übernommen.",
-  "Your avatar is synced from {provider} each time you sign in.":
-    "Dein Avatar wird bei jeder Anmeldung von {provider} übernommen.",
   "You've blocked @{handle}. Do you want to show their profile anyway?":
     "Du hast @{handle} blockiert. Möchtest du das Profil trotzdem anzeigen?",
   "Your browser will prompt you to use Touch ID, Face ID, Windows Hello, or a security key.":

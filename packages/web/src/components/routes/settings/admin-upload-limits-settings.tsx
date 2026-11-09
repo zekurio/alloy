@@ -43,7 +43,9 @@ const FIELDS = [
   {
     key: "avatarMaxBytes",
     label: message("Avatar size (MiB)"),
-    description: message("Applies to uploaded avatars."),
+    description: message(
+      "Applies to uploaded avatars and avatars synced from sign-in providers.",
+    ),
     scale: MIB,
     max: UPLOAD_MAX_BYTES,
   },

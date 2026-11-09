@@ -11,6 +11,19 @@ import {
 
 import { TRANSCODE_DEFAULTS } from "./media/transcode-settings"
 
+const boolValues = new Map<string, boolean>([
+  ["1", true],
+  ["true", true],
+  ["yes", true],
+  ["on", true],
+  ["0", false],
+  ["false", false],
+  ["no", false],
+  ["off", false],
+])
+const EnvBooleanSchema = t.boolean()
+const EnvStringSchema = t.string()
+
 export function parseServerEnvRaw(
   source: Record<string, string | undefined>,
   defaultPublicServerUrl: string,
@@ -61,6 +74,10 @@ function serverEnvSchema(defaultPublicServerUrl: string) {
       )
       .$default("")
       .transform(splitList),
+    // OAuth avatar sync refuses provider avatar URLs that resolve to
+    // private/loopback addresses (SSRF guard). Self-hosted LAN IdPs whose
+    // avatar URLs live on the private network can opt back in here.
+    ALLOY_OAUTH_AVATAR_ALLOW_PRIVATE_URLS: envBool(false),
     ALLOY_STORAGE_FS_CLIPS_PATH: t
       .string()
       .trim()
@@ -93,6 +110,19 @@ function serverEnvSchema(defaultPublicServerUrl: string) {
       .max(64)
       .$default(TRANSCODE_DEFAULTS.threads),
   })
+}
+
+function envBool(defaultValue: boolean) {
+  return t
+    .preprocess((value) => {
+      if (value === undefined || value === "") return defaultValue
+      const booleanValue = EnvBooleanSchema.safeParse(value)
+      if (booleanValue.success) return booleanValue.data
+      const stringValue = EnvStringSchema.safeParse(value)
+      if (!stringValue.success) return value
+      return boolValues.get(stringValue.data.trim().toLowerCase()) ?? value
+    }, t.boolean())
+    .$default(defaultValue)
 }
 
 function splitList(value: string): string[] {

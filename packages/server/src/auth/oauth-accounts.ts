@@ -16,6 +16,7 @@ import {
 import { syncOAuthAvatar } from "./oauth-avatar"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
 import type { OAuthProfile } from "./oauth-types"
+import { oidcManagesUsernames } from "./oidc-managed-profile"
 import {
   findUserIdByUsernameHint,
   generateUniqueUsername,
@@ -189,21 +190,21 @@ async function updateLinkedAccount(
     .update(authAccount)
     .set({
       account_label: profile.usernameHint,
-      avatar_url: profile.avatarUrl,
       updated_at: new Date(),
     })
     .where(eq(authAccount.id, accountId))
 }
 
 /**
- * The provider owns the username and avatar of a linked user, so every
- * sign-in and link copies them over again.
+ * Copy the provider's profile over on every sign-in and link: the username
+ * while the provider manages usernames, and the avatar for a user who has
+ * none yet.
  */
 async function syncOAuthProfile(
   userId: string,
   profile: OAuthProfile,
 ): Promise<void> {
-  await syncOAuthUsername(userId, profile)
+  if (oidcManagesUsernames()) await syncOAuthUsername(userId, profile)
   await syncOAuthAvatar(userId, profile)
 }
 
@@ -316,6 +317,5 @@ function accountValues(
     provider_id: OIDC_PROVIDER_ID,
     provider_account_id: profile.providerAccountId,
     account_label: profile.usernameHint,
-    avatar_url: profile.avatarUrl,
   }
 }

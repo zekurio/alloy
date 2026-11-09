@@ -105,7 +105,6 @@ export interface AuthUser {
 
 export interface OidcManagedProfile {
   username: boolean
-  avatar: boolean
 }
 
 /** The current session and its user, as returned by session reads and sign-in. */
