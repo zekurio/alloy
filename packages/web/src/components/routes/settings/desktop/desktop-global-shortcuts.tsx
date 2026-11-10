@@ -3,9 +3,7 @@ import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { fieldControlClassName } from "@alloy/ui/lib/field-control"
-import { cn } from "@alloy/ui/lib/utils"
-import { KeyboardIcon, RotateCcwIcon } from "lucide-react"
+import { ExternalLinkIcon, RotateCcwIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
@@ -49,8 +47,10 @@ export function useDesktopShortcuts(): [
 
 /**
  * Hotkeys where the desktop binds them (Linux, through its GlobalShortcuts
- * portal). The desktop owns the keys, so they are shown rather than edited,
- * and changed in the desktop's own settings.
+ * portal). The desktop owns the keys, so they are changed in its own
+ * settings. The keys are not shown here: the portal describes them in its
+ * own words and language, such as GNOME's "Press <Control>F8", and that
+ * sentence can't be reduced to a key name.
  */
 export function GlobalShortcutsSection({
   state,
@@ -64,38 +64,19 @@ export function GlobalShortcutsSection({
 
   if (!recording) return null
 
-  const trigger = (id: string) =>
-    state.shortcuts.find((shortcut) => shortcut.id === id)?.trigger ?? ""
   const pending = feedback.state === "pending"
 
   return (
     <SettingsSubsection id="hotkeys" title={t("Hotkeys")}>
       <SettingRows>
         <SettingRow
-          title={t("Screenshot")}
-          description={t("Saves the current game or display as a PNG.")}
-        >
-          <ShortcutTrigger
-            trigger={trigger("screenshot")}
-            binding={state.binding}
-          />
-        </SettingRow>
-        <SettingRow
-          title={t("Clip")}
-          description={t("Saves the configured replay buffer.")}
-        >
-          <ShortcutTrigger trigger={trigger("clip")} binding={state.binding} />
-        </SettingRow>
-        <SettingRow
-          title={t("Shortcut keys")}
+          title={t("Screenshot and clip keys")}
           description={
             <>
               {state.error
                 ? t(state.error)
                 : state.configurable
-                  ? t(
-                      "Your desktop owns these keys. Change them in its settings.",
-                    )
+                  ? t("Your desktop owns these keys.")
                   : t(
                       "Your desktop owns these keys. Change them in its keyboard settings.",
                     )}
@@ -135,34 +116,18 @@ export function GlobalShortcutsSection({
                 )
               }
             >
-              {pending ? <Spinner /> : <KeyboardIcon className="size-3.5" />}
-              {t("Change shortcuts")}
+              {t("Change in system settings")}
+              {pending || state.binding ? (
+                <Spinner />
+              ) : (
+                <ExternalLinkIcon className="size-3.5" />
+              )}
             </Button>
           ) : null}
         </SettingRow>
       </SettingRows>
       {state.error ? <ShortcutCommandsHint /> : null}
     </SettingsSubsection>
-  )
-}
-
-function ShortcutTrigger({
-  trigger,
-  binding,
-}: {
-  trigger: string
-  binding: boolean
-}) {
-  return (
-    <span
-      className={cn(
-        fieldControlClassName,
-        "inline-flex h-9 min-w-28 items-center justify-center px-3 font-mono text-xs font-medium sm:h-8",
-        !trigger && "text-foreground-faint font-sans",
-      )}
-    >
-      {binding ? <Spinner /> : trigger || t("Not set")}
-    </span>
   )
 }
 

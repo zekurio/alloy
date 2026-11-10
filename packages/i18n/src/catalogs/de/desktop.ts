@@ -73,7 +73,7 @@ export const DESKTOP_MESSAGES = {
   "Captures and clips will appear here.":
     "Aufnahmen und Clips erscheinen hier.",
   Change: "Ändern",
-  "Change shortcuts": "Tastenkürzel ändern",
+  "Change in system settings": "In den Systemeinstellungen ändern",
   "Check for and install desktop app updates.":
     "Nach Updates für die Desktop-App suchen und sie installieren.",
   "Check for updates": "Nach Updates suchen",
@@ -344,6 +344,7 @@ export const DESKTOP_MESSAGES = {
   "Saved servers": "Gespeicherte Server",
   "Saves the configured replay buffer.":
     "Speichert den konfigurierten Replay-Puffer.",
+  "Screenshot and clip keys": "Tasten für Screenshot und Clip",
   "Search games": "Spiele suchen",
   "Search processes": "Prozesse suchen",
   Seek: "Spulen",
@@ -361,7 +362,6 @@ export const DESKTOP_MESSAGES = {
   Servers: "Server",
   "Set up again": "Erneut einrichten",
   Shift: "Shift",
-  "Shortcut keys": "Tastenkürzel",
   "Show Alloy": "Alloy anzeigen",
   "Sign-in timed out. Connect again to retry.":
     "Zeitüberschreitung bei der Anmeldung. Verbinde dich erneut, um es noch einmal zu versuchen.",
@@ -435,10 +435,9 @@ export const DESKTOP_MESSAGES = {
     "Ohne Tastenkürzel-Portal lege stattdessen {clip} und {screenshot} in den Tastatureinstellungen deines Desktops fest.",
   "You can capture up to {count} audio sources at once.":
     "Du kannst bis zu {count} Audioquellen gleichzeitig aufnehmen.",
+  "Your desktop owns these keys.": "Diese Tasten verwaltet dein Desktop.",
   "Your desktop owns these keys. Change them in its keyboard settings.":
     "Diese Tasten verwaltet dein Desktop. Ändere sie in seinen Tastatureinstellungen.",
-  "Your desktop owns these keys. Change them in its settings.":
-    "Diese Tasten verwaltet dein Desktop. Ändere sie in seinen Einstellungen.",
   "ffmpeg not detected": "ffmpeg nicht erkannt",
   fps: "fps",
   "{available} free of {total}": "{available} von {total} frei",
