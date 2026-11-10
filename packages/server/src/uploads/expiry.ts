@@ -4,10 +4,7 @@ import { configStore } from "@alloy/server/config/store"
 import { client, db } from "@alloy/server/db/index"
 import { toError } from "@alloy/server/runtime/error-message"
 import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-worker"
-import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
-import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
 import { cleanupPendingUploadCandidate } from "@alloy/server/uploads/cleanup"
-import { deleteExpiredUploadTicketWithStorageIntent } from "@alloy/server/uploads/tickets"
 import { and, eq } from "drizzle-orm"
 
 const logger = createLogger("upload-expiry")
@@ -17,126 +14,39 @@ const RECONCILIATION_INTERVAL_MS = 10 * 60 * 1000
 const ERROR_RETRY_MS = 5_000
 const CANDIDATE_RETRY_MS = 5_000
 
-type UploadExpiryCandidateKind = "clip" | "ticket"
-
+/** A pending clip whose upload deadline has passed. */
 interface UploadExpiryCandidate {
-  kind: UploadExpiryCandidateKind
   id: string
-  targetId: string
   deadline: Date
-  /** Destructive CAS checks must use the due scan's database time. */
-  scanCutoff: Date
 }
 
-interface UploadExpiryExclusions {
-  clipIds: readonly string[]
-  ticketIds: readonly string[]
-}
-
-/**
- * Bound each indexed partition before taking the globally earliest deadline.
- * upload_ticket timestamps predate the timestamptz convention, so both its
- * comparison and returned deadline explicitly interpret the value as UTC.
- */
+// A ticket never outlives its pending clip: it is created with the clip, and
+// finalizing, failing or deleting the clip uses or removes it in the same
+// transaction. So the clip's deadline is the only one to watch.
 const UPLOAD_EXPIRY_DUE_SQL = `
-  with clock as materialized (
-    select now() as cutoff
-  ), candidates as (
-    (
-      select
-        'clip'::text as kind,
-        clip.id,
-        clip.id as target_id,
-        clip.upload_cleanup_at as deadline
-      from clip, clock
-      where clip.status = 'pending'
-        and clip.upload_cleanup_at is not null
-        and clip.upload_cleanup_at <= clock.cutoff
-        and not (clip.id = any($2::uuid[]))
-      order by clip.upload_cleanup_at, clip.id
-      limit $1
-    )
-
-    union all
-
-    (
-      select
-        'ticket'::text as kind,
-        upload_ticket.id,
-        upload_ticket.target_id,
-        upload_ticket.expires_at at time zone 'UTC' as deadline
-      from upload_ticket, clock
-      where upload_ticket.target_type = 'clip'
-        and upload_ticket.used_at is null
-        and upload_ticket.expires_at <= (clock.cutoff at time zone 'UTC')
-        and not (upload_ticket.id = any($3::uuid[]))
-        and not exists (
-          select 1
-          from clip owner
-          where owner.id = upload_ticket.target_id
-            and owner.status in ('pending', 'processing')
-        )
-      order by upload_ticket.expires_at, upload_ticket.id
-      limit $1
-    )
-  )
-  select
-    candidates.kind,
-    candidates.id,
-    candidates.target_id as "targetId",
-    candidates.deadline,
-    clock.cutoff as "scanCutoff"
-  from candidates
-  cross join clock
-  order by candidates.deadline, candidates.kind, candidates.id
+  select clip.id, clip.upload_cleanup_at as deadline
+  from clip
+  where clip.status = 'pending'
+    and clip.upload_cleanup_at is not null
+    and clip.upload_cleanup_at <= now()
+    and not (clip.id = any($2::uuid[]))
+  order by clip.upload_cleanup_at, clip.id
   limit $1
 `
 
-/** Return the exact global deadline while skipping locally cooled identities. */
+/** The next deadline, skipping clips that are cooling down after a failure. */
 const UPLOAD_EXPIRY_NEXT_SQL = `
-  with candidates as (
-    (
-      select
-        'clip'::text as kind,
-        clip.id,
-        clip.upload_cleanup_at as deadline
-      from clip
-      where clip.status = 'pending'
-        and clip.upload_cleanup_at is not null
-        and not (clip.id = any($1::uuid[]))
-      order by clip.upload_cleanup_at, clip.id
-      limit 1
-    )
-
-    union all
-
-    (
-      select
-        'ticket'::text as kind,
-        upload_ticket.id,
-        upload_ticket.expires_at at time zone 'UTC' as deadline
-      from upload_ticket
-      where upload_ticket.target_type = 'clip'
-        and upload_ticket.used_at is null
-        and not (upload_ticket.id = any($2::uuid[]))
-        and not exists (
-          select 1
-          from clip owner
-          where owner.id = upload_ticket.target_id
-            and owner.status in ('pending', 'processing')
-        )
-      order by upload_ticket.expires_at, upload_ticket.id
-      limit 1
-    )
-  )
-  select deadline as "nextRunAt"
-  from candidates
-  order by deadline, kind, id
+  select clip.upload_cleanup_at as "nextRunAt"
+  from clip
+  where clip.status = 'pending'
+    and clip.upload_cleanup_at is not null
+    and not (clip.id = any($1::uuid[]))
+  order by clip.upload_cleanup_at, clip.id
   limit 1
 `
 
 // Single-process coordinator; database rows remain the durable work ledger.
-// A candidate that fails cleanup is skipped until its cooldown ends.
+// A clip that fails cleanup is skipped until its cooldown ends.
 const cooldownUntil = new Map<string, number>()
 
 const worker = new WakeableSerialWorker({
@@ -153,8 +63,8 @@ function reportError(cause: unknown): void {
 async function runUploadExpiryPass(signal: AbortSignal) {
   if (signal.aborted) return { worked: false as const, nextRunAt: null }
 
-  const exclusions = activeExclusions()
-  const candidates = await selectDueCandidates(exclusions)
+  const cooling = [...cooldownUntil.keys()]
+  const candidates = await selectDueCandidates(cooling)
   if (signal.aborted) return { worked: false as const, nextRunAt: null }
 
   if (candidates.length === 0) {
@@ -167,7 +77,7 @@ async function runUploadExpiryPass(signal: AbortSignal) {
       releaseExpiredCooldowns(now)
       return { worked: true as const }
     }
-    const nextExpiry = await selectNextExpiry(exclusions)
+    const nextExpiry = await selectNextExpiry(cooling)
     return {
       worked: false as const,
       nextRunAt: earlierDate(nextExpiry, earliestCooldown),
@@ -176,18 +86,16 @@ async function runUploadExpiryPass(signal: AbortSignal) {
 
   for (const candidate of candidates) {
     if (signal.aborted) break
-    const identity = candidateIdentity(candidate)
     try {
       await processCandidate(candidate, signal)
-      cooldownUntil.delete(identity)
+      cooldownUntil.delete(candidate.id)
     } catch (cause) {
       if (signal.aborted) break
-      cooldownUntil.set(identity, Date.now() + CANDIDATE_RETRY_MS)
+      cooldownUntil.set(candidate.id, Date.now() + CANDIDATE_RETRY_MS)
       reportError(
-        new Error(
-          `Could not clean expired upload ${candidate.kind}:${candidate.id}`,
-          { cause: toError(cause, "Upload expiry candidate failed") },
-        ),
+        new Error(`Could not clean expired upload of clip ${candidate.id}`, {
+          cause: toError(cause, "Upload expiry candidate failed"),
+        }),
       )
     }
   }
@@ -195,19 +103,6 @@ async function runUploadExpiryPass(signal: AbortSignal) {
   return signal.aborted
     ? { worked: false as const, nextRunAt: null }
     : { worked: true as const }
-}
-
-function activeExclusions(): UploadExpiryExclusions {
-  const clipIds: string[] = []
-  const ticketIds: string[] = []
-  for (const identity of cooldownUntil.keys()) {
-    const separator = identity.indexOf(":")
-    const kind = identity.slice(0, separator)
-    const id = identity.slice(separator + 1)
-    if (kind === "clip") clipIds.push(id)
-    else if (kind === "ticket") ticketIds.push(id)
-  }
-  return { clipIds, ticketIds }
 }
 
 function releaseExpiredCooldowns(now: number): void {
@@ -224,10 +119,6 @@ function earliestCooldownEnd(): Date | null {
   return Number.isFinite(earliest) ? new Date(earliest) : null
 }
 
-function candidateIdentity(candidate: UploadExpiryCandidate): string {
-  return `${candidate.kind}:${candidate.id}`
-}
-
 function earlierDate(left: Date | null, right: Date | null): Date | null {
   if (!left) return right
   if (!right) return left
@@ -235,21 +126,21 @@ function earlierDate(left: Date | null, right: Date | null): Date | null {
 }
 
 async function selectDueCandidates(
-  exclusions: UploadExpiryExclusions,
+  coolingClipIds: readonly string[],
 ): Promise<readonly UploadExpiryCandidate[]> {
   const result = await client.query<UploadExpiryCandidate>(
     UPLOAD_EXPIRY_DUE_SQL,
-    [BATCH_SIZE, exclusions.clipIds, exclusions.ticketIds],
+    [BATCH_SIZE, coolingClipIds],
   )
   return result.rows
 }
 
 async function selectNextExpiry(
-  exclusions: UploadExpiryExclusions,
+  coolingClipIds: readonly string[],
 ): Promise<Date | null> {
   const result = await client.query<{ nextRunAt: Date | null }>(
     UPLOAD_EXPIRY_NEXT_SQL,
-    [exclusions.clipIds, exclusions.ticketIds],
+    [coolingClipIds],
   )
   return result.rows[0]?.nextRunAt ?? null
 }
@@ -258,44 +149,24 @@ async function processCandidate(
   candidate: UploadExpiryCandidate,
   signal: AbortSignal,
 ): Promise<void> {
-  if (candidate.kind === "clip") {
-    const [row] = await db
-      .select()
-      .from(clip)
-      .where(
-        and(
-          eq(clip.id, candidate.id),
-          eq(clip.status, "pending"),
-          eq(clip.upload_cleanup_at, candidate.deadline),
-        ),
-      )
-      .limit(1)
-    if (!row || signal.aborted) return
-    await cleanupPendingUploadCandidate(
-      row,
-      // The mutable setting is read at execution so completed bytes receive
-      // the same grace as an upload finishing through the HTTP route now.
-      configStore.get("limits").uploadTtlSec,
+  const [row] = await db
+    .select()
+    .from(clip)
+    .where(
+      and(
+        eq(clip.id, candidate.id),
+        eq(clip.status, "pending"),
+        eq(clip.upload_cleanup_at, candidate.deadline),
+      ),
     )
-    return
-  }
-
-  const queued = await withUploadActivityStopped(
-    candidate.targetId,
-    async () => {
-      if (signal.aborted) return 0
-      return db.transaction((tx) =>
-        deleteExpiredUploadTicketWithStorageIntent(
-          candidate.id,
-          candidate.targetId,
-          candidate.scanCutoff,
-          "upload ticket expired",
-          tx,
-        ),
-      )
-    },
+    .limit(1)
+  if (!row || signal.aborted) return
+  await cleanupPendingUploadCandidate(
+    row,
+    // The mutable setting is read at execution so completed bytes receive
+    // the same grace as an upload finishing through the HTTP route now.
+    configStore.get("limits").uploadTtlSec,
   )
-  if (queued > 0) wakeStorageDeletionWorker()
 }
 
 export function startUploadExpiryWorker(): void {

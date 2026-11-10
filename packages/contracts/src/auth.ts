@@ -34,7 +34,7 @@ export const AUTH_SESSION_CLIENT_KINDS = ["web", "desktop"] as const
 export type AuthSessionClientKind = (typeof AUTH_SESSION_CLIENT_KINDS)[number]
 
 /** Browser families the server recognizes in a session's User-Agent. */
-export const AUTH_SESSION_BROWSERS = [
+const AUTH_SESSION_BROWSERS = [
   "Firefox",
   "Chrome",
   "Edge",
@@ -44,7 +44,7 @@ export const AUTH_SESSION_BROWSERS = [
 export type AuthSessionBrowser = (typeof AUTH_SESSION_BROWSERS)[number]
 
 /** Operating systems the server recognizes in a session's User-Agent. */
-export const AUTH_SESSION_OPERATING_SYSTEMS = [
+const AUTH_SESSION_OPERATING_SYSTEMS = [
   "Windows",
   "macOS",
   "Linux",

@@ -2,8 +2,6 @@
 //! level meters, and the hotkey hook. Windows reads windows, WASAPI and COM;
 //! Linux reads `/proc`, sysfs and PipeWire in `linux`.
 
-use std::process::Command;
-
 use crate::agent::game_matching::candidate_game_detection_match;
 use crate::types::{RecordingDisplay, RecordingGame, RecordingSettings, VideoDimensions};
 
@@ -58,6 +56,8 @@ pub(in crate::agent) struct DetectedGame {
 #[derive(Clone, Debug)]
 pub(in crate::agent) struct GameDetection {
     pub(in crate::agent) game: DetectedGame,
+    /// Ranks the foreground window first among Windows candidates.
+    #[cfg(windows)]
     pub(in crate::agent) focused: bool,
 }
 
@@ -70,7 +70,6 @@ pub(in crate::agent) fn detected_game_allowed(
         detected.game.executable.as_deref(),
         detected.game.window_title.as_deref(),
         detected.game.window_class.as_deref(),
-        detected.capture_dimensions,
         settings,
     )
     .is_some()
@@ -101,21 +100,6 @@ pub(in crate::agent) fn selected_display_dimensions(
         width: display.width,
         height: display.height,
     })
-}
-
-pub(in crate::agent) fn command_output(command: &str, args: &[&str]) -> Option<String> {
-    let mut process = Command::new(command);
-    process.args(args);
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        process.creation_flags(0x0800_0000);
-    }
-    let output = process.output().ok()?;
-    output
-        .status
-        .success()
-        .then(|| String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
 #[cfg(windows)]

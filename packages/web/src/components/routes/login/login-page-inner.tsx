@@ -14,7 +14,7 @@ import { authClient } from "@/lib/auth-client"
 import { useSignedOut } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
-import { usePasskeySupport } from "@/lib/passkey-support"
+import { passkeysSupported } from "@/lib/passkey-support"
 
 import { OAuthSignIn } from "./oauth-sign-in"
 import { PasskeySignIn } from "./passkey-sign-in"
@@ -34,7 +34,6 @@ const DESKTOP_LOGIN_ERROR_TOAST_ID = "desktop-login-error"
  */
 export function LoginForm({
   config,
-  passkeyReady = true,
   passkeySupported,
   redirectTo,
   onReactivationRequired,
@@ -42,7 +41,6 @@ export function LoginForm({
   footer,
 }: {
   config: PublicAuthConfig
-  passkeyReady?: boolean
   passkeySupported: boolean
   redirectTo?: string
   onReactivationRequired?: () => void
@@ -52,7 +50,7 @@ export function LoginForm({
   footer?: ReactNode
 }) {
   const { oidc, passkeyEnabled } = config
-  const showPasskeySignIn = passkeyReady && passkeyEnabled && passkeySupported
+  const showPasskeySignIn = passkeyEnabled && passkeySupported
 
   return (
     <>
@@ -74,7 +72,7 @@ export function LoginForm({
         {oidc ? <OAuthSignIn provider={oidc} redirectTo={redirectTo} /> : null}
       </div>
 
-      {passkeyReady && passkeyEnabled && !passkeySupported ? (
+      {passkeyEnabled && !passkeySupported ? (
         <p className="text-foreground-muted mt-4 text-sm">
           {t(
             "Passkey sign-in is enabled, but this browser does not support passkeys.",
@@ -106,15 +104,14 @@ export function LoginPageInner({
 }: LoginPageInnerProps) {
   const canRender = useSignedOut()
   const [reactivationRequired, setReactivationRequired] = useState(reactivate)
-  const { ready: passkeyReady, supported: passkeySupported } =
-    usePasskeySupport()
+  const passkeySupported = passkeysSupported()
   const desktop = alloyDesktop()
 
   useEffect(() => {
-    if (!desktop && config.passkeyEnabled && passkeyReady && passkeySupported) {
+    if (!desktop && config.passkeyEnabled && passkeySupported) {
       authClient.signIn.preloadPasskey()
     }
-  }, [config.passkeyEnabled, desktop, passkeyReady, passkeySupported])
+  }, [config.passkeyEnabled, desktop, passkeySupported])
 
   if (!canRender) return null
 
@@ -126,7 +123,6 @@ export function LoginPageInner({
     <>
       <LoginForm
         config={config}
-        passkeyReady={passkeyReady}
         passkeySupported={passkeySupported}
         redirectTo={redirectTo}
         onReactivationRequired={() => setReactivationRequired(true)}

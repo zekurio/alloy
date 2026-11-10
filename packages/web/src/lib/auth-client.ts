@@ -1,10 +1,8 @@
 import { createAuth } from "@alloy/api/auth"
 
-import { apiOrigin } from "./env"
-
 export const authClient = createAuth({
-  baseURL: apiOrigin(),
+  baseURL: window.location.origin,
   redirect: (url) => window.location.assign(url),
 })
 
-export const { useSession, signOut } = authClient
+export const { useSession } = authClient

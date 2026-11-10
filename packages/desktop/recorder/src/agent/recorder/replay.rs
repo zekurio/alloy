@@ -256,31 +256,19 @@ pub(super) fn move_saved_replay_to_output(
 ) -> Result<SavedReplayClip, String> {
     let source = PathBuf::from(path);
     wait_for_stable_file(&source)?;
-    let mut output = saved_recording_path(output_directory, game);
+    // The scratch file is `alloy-replay-*` and the clip `clip-*`, so the two
+    // never name the same file.
+    let output = saved_recording_path(output_directory, game);
     let output_parent = output
         .parent()
         .ok_or_else(|| "Could not determine replay output folder.".to_string())?;
     fs::create_dir_all(output_parent)
         .map_err(|error| format!("Could not create replay output folder: {error}"))?;
 
-    if source == output {
-        return Ok(SavedReplayClip {
-            path: source.to_string_lossy().into_owned(),
-            post_process: replay_trim_post_process(duration_seconds, replay_seconds),
-        });
-    }
-
-    if output.exists() {
-        output = saved_recording_path(output_directory, game);
-    }
-
-    if source != output {
-        match fs::rename(&source, &output) {
-            Ok(()) => {}
-            Err(_) => copy_then_rename(&source, &output)
-                .and_then(|_| fs::remove_file(&source))
-                .map_err(|error| format!("Could not move replay clip out of scratch: {error}"))?,
-        }
+    if fs::rename(&source, &output).is_err() {
+        copy_then_rename(&source, &output)
+            .and_then(|_| fs::remove_file(&source))
+            .map_err(|error| format!("Could not move replay clip out of scratch: {error}"))?;
     }
 
     Ok(SavedReplayClip {

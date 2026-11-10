@@ -1,7 +1,4 @@
-import {
-  DESKTOP_AUTH_CAPABILITY_VERSION,
-  type PublicAuthConfig,
-} from "@alloy/contracts"
+import type { PublicAuthConfig } from "@alloy/contracts"
 import { configStore } from "@alloy/server/config/store"
 
 import { publicOidcConfig } from "./oauth-config"
@@ -28,7 +25,6 @@ export async function buildPublicAuthConfig(): Promise<PublicAuthConfig> {
     openRegistrations: configStore.get("openRegistrations"),
     passkeyEnabled: configStore.get("passkeyEnabled"),
     requireAuthToBrowse: configStore.get("requireAuthToBrowse"),
-    desktopAuth: { version: DESKTOP_AUTH_CAPABILITY_VERSION },
     oidc: publicOidcConfig(),
     loginSplash: {
       enabled: loginSplash.enabled,

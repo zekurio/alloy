@@ -84,7 +84,7 @@ export const clipsUploadImageRoutes = new Hono().post(
       writes,
       attemptId,
       async () => {
-        await clipStorage.put(sourceKey, image.bytes, "image/png")
+        await clipStorage.put(sourceKey, image.bytes)
         await putClipThumbnail(clipThumbnailStorage, thumbKey, image.thumbnail)
         return db.transaction(async (tx) => {
           const [current] = await tx

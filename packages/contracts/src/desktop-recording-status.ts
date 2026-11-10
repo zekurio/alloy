@@ -2,43 +2,16 @@ import type {
   RecordingAudioApplicationSelection,
   RecordingAudioDevice,
   RecordingAudioDeviceKind,
-  RecordingBufferStorage,
   RecordingCaptureContentType,
   RecordingCaptureKind,
-  RecordingCaptureMode,
   RecordingCaptureSource,
   RecordingCodec,
-  RecordingEncoder,
-  RecordingRunState,
   RecordingSettings,
 } from "./desktop-recording-config"
 import type { RecordingGame } from "./desktop-recording-games"
 import type { RecordingLibraryDownload } from "./desktop-recording-library"
 import type { DesktopShortcutsState } from "./desktop-shortcuts"
 import type { IsoDateString } from "./shared"
-
-/**
- * What a recorder can do, as it reports in `RecordingStatus.capabilities`.
- * The Windows recorder has all of them. The Linux one leaves out `hotkeys`:
- * Wayland has no global key hook, so the desktop owns the shortcuts.
- */
-export const RECORDING_CAPABILITIES = [
-  "screenshots",
-  "game-capture",
-  "display-capture",
-  "displays",
-  "replay-buffer",
-  "game-processes",
-  "audio-devices",
-  "audio-applications",
-  "audio-volume",
-  "audio-levels",
-  "hotkeys",
-  "notification-sounds",
-  "telemetry",
-] as const
-
-export type RecordingCapability = (typeof RECORDING_CAPABILITIES)[number]
 
 /**
  * Live loudness sample for one audio source, emitted by the capture backend
@@ -61,14 +34,13 @@ export interface RecordingDisplay {
   width: number
   height: number
   primary: boolean
-  thumbnailDataUrl: string | null
 }
 
-export type RecordingCapturePostProcess =
+type RecordingCapturePostProcess =
   | { kind: "trim-tail"; keepMs: number }
   | { kind: "concat-segments"; segmentPaths: string[] }
 
-export interface RecordingCapture {
+interface RecordingCapture {
   id: string
   filename: string
   contentType: RecordingCaptureContentType
@@ -83,38 +55,6 @@ export interface RecordingCapture {
   createdAt: IsoDateString
 }
 
-export interface RecordingTelemetry {
-  sampledAt: IsoDateString
-  captureMode: RecordingCaptureMode
-  captureSource: RecordingCaptureSource | null
-  bufferStorage: RecordingBufferStorage
-  encoder: RecordingEncoder
-  codec: RecordingCodec
-  videoEncoder: string | null
-  audioEncoder: string | null
-  gpu: string
-  gpuAdapter: number
-  gpuLabel: string | null
-  baseWidth: number
-  baseHeight: number
-  outputWidth: number
-  outputHeight: number
-  fps: number
-  bitrateKbps: number
-  outputActive: boolean
-  paused: boolean
-  activeFps: number | null
-  averageFrameTimeMs: number | null
-  frameIntervalMs: number | null
-  renderTotalFrames: number | null
-  renderLaggedFrames: number | null
-  renderLaggedPercent: number | null
-  outputTotalFrames: number | null
-  outputDroppedFrames: number | null
-  outputDroppedPercent: number | null
-  outputTotalBytes: number | null
-}
-
 /** Disk usage for the capture output location, as shown in storage settings. */
 export interface RecordingStorageInfo {
   /** Absolute folder clips are written to. */
@@ -126,23 +66,14 @@ export interface RecordingStorageInfo {
   clipsBytes: number
 }
 
-export type RecordingMode = "idle" | "replay-buffer"
-export type RecordingBackendState = "missing" | "ready" | "error"
+type RecordingBackendState = "missing" | "ready" | "error"
 
 export interface RecordingStatus {
   backend: RecordingBackendState
-  /** Current capture engine mode exposed to the desktop UI. */
-  mode: RecordingMode
-  captureMode: RecordingCaptureMode
-  runState: RecordingRunState
   replayActive: boolean
   activeGame: string | null
   activeGameDetail: RecordingGame | null
   activeDisplay: RecordingDisplay | null
-  focused: boolean
-  currentSource: RecordingCaptureSource | null
-  currentCapture: RecordingCapture | null
-  replayBufferSeconds: number
   /** GPU devices the capture backend can encode with, if detected. */
   availableGpus: string[]
   /** Video codecs the selected recorder encoder/GPU can create. */
@@ -151,38 +82,18 @@ export interface RecordingStatus {
   availableAudioDevices: RecordingAudioDevice[]
   /** Application audio sources available for process-only capture. */
   availableAudioApplications: RecordingAudioApplicationSelection[]
-  telemetry: RecordingTelemetry | null
   message: string | null
-  /**
-   * The recorder's `RecordingCapability` names. Until the agent reports in,
-   * the host sends the set its recorder is built with.
-   */
-  capabilities: string[]
 }
 
 export type RecordingEvent =
   | { type: "settings"; settings: RecordingSettings }
   | { type: "status"; status: RecordingStatus }
   | { type: "replay-buffer-started"; status: RecordingStatus }
-  | { type: "game-started"; game: RecordingGame; status: RecordingStatus }
-  | {
-      type: "game-focus-changed"
-      game: RecordingGame | null
-      focused: boolean
-      status: RecordingStatus
-    }
-  | { type: "game-ended"; game: RecordingGame; status: RecordingStatus }
   | {
       type: "capture-ready"
       capture: RecordingCapture
       status: RecordingStatus
     }
-  | {
-      type: "telemetry"
-      telemetry: RecordingTelemetry
-      status: RecordingStatus
-    }
-  | { type: "error"; error: string; status: RecordingStatus }
   | { type: "audio-levels"; levels: RecordingAudioLevel[] }
   | { type: "library-download"; download: RecordingLibraryDownload }
   | { type: "shortcuts"; state: DesktopShortcutsState }

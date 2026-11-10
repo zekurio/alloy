@@ -4,7 +4,6 @@ import { t } from "@alloy/i18n"
 import { useCallback } from "react"
 
 import { shareUrlWithFallback } from "@/lib/browser-share"
-import { publicOrigin } from "@/lib/env"
 import { useActionFeedback } from "@/lib/use-action-feedback"
 
 /** Shares the clip's public link, or copies it where sharing is unavailable. */
@@ -24,7 +23,7 @@ export function useClipShare({
   const share = useCallback(async () => {
     await run(async () => {
       if (privacy === "private") throw new Error(t("Clip link is disabled"))
-      const url = clipShareUrl(clipId, gameSlug, publicOrigin())
+      const url = clipShareUrl(clipId, gameSlug, window.location.origin)
       const result = await shareUrlWithFallback(url, {
         title,
         action: "share clip link",

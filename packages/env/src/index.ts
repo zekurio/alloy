@@ -90,7 +90,7 @@ export function postgresUrl() {
   )
 }
 
-export function isPostgresUrl(value: string): boolean {
+function isPostgresUrl(value: string): boolean {
   if (!URL.canParse(value)) return false
 
   const protocol = new URL(value).protocol

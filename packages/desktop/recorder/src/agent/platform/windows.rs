@@ -12,10 +12,9 @@ use crate::agent::game_matching::{
     candidate_game_detection_match, clean_user_facing_process_name, normalized_path,
     path_file_name, readable_detected_game_name, user_facing_process_name, ProcessDisplayName,
 };
-use crate::agent::time::now_iso;
 use crate::types::{
-    RecordingAudioApplicationSelection, RecordingDisplay, RecordingGame, RecordingGameGuess,
-    RecordingGameProcess, RecordingSettings,
+    RecordingAudioApplicationSelection, RecordingDisplay, RecordingGame, RecordingGameProcess,
+    RecordingSettings,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -237,7 +236,6 @@ unsafe extern "system" fn collect_display_monitor(
             width: dimensions.width,
             height: dimensions.height,
             primary: monitor == context.primary,
-            thumbnail_data_url: None,
         });
     }
     1
@@ -294,7 +292,6 @@ pub fn audio_applications() -> Vec<RecordingAudioApplicationSelection> {
             title: Some(&title),
             executable: executable.as_deref(),
             fallback: None,
-            preserve_preferred: false,
         })
         .unwrap_or_else(|| format!("Application {process_id}"));
         applications.push(RecordingAudioApplicationSelection {
@@ -348,7 +345,6 @@ pub fn list_game_processes() -> Vec<RecordingGameProcess> {
                 title: window_title.as_deref(),
                 executable: executable.as_deref(),
                 fallback: Some(&process.executable),
-                preserve_preferred: false,
             })
             .unwrap_or_else(|| format!("Process {}", process.process_id));
 
@@ -464,32 +460,13 @@ unsafe fn game_candidate_from_window(
         executable.as_deref(),
         title.as_deref(),
         class_name.as_deref(),
-        capture_dimensions,
         settings,
     )?;
-    let name = readable_detected_game_name(
-        &match_,
-        path.as_deref(),
-        title.as_deref(),
-        executable.as_deref(),
-    );
+    let name = readable_detected_game_name(&match_);
     let icon_url = match_
         .icon_url
         .clone()
         .or_else(|| path.as_deref().and_then(application_icon_data_url));
-    let guess = RecordingGameGuess {
-        source: match_.source,
-        source_id: match_.source_id,
-        name: match_.name,
-        aliases: match_.aliases,
-        executable: executable.clone(),
-        path: path.clone(),
-        window_title: title.clone(),
-        window_class: class_name.clone(),
-        icon_url: icon_url.clone(),
-        confidence: match_.confidence,
-        match_kind: match_.match_kind,
-    };
 
     Some(GameDetection {
         game: DetectedGame {
@@ -502,8 +479,6 @@ unsafe fn game_candidate_from_window(
                 path,
                 window_title: title,
                 window_class: class_name,
-                started_at: Some(now_iso()),
-                guess: Some(guess),
             },
             obs_window: Some(obs_window),
             window_key: format!("pid:{process_id}"),

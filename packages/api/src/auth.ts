@@ -1,20 +1,11 @@
-import type {
-  AuthErrorCode,
-  ContractJsonInput,
-  SessionData,
-} from "@alloy/contracts"
+import type { AuthErrorCode, SessionData } from "@alloy/contracts"
 import { useSyncExternalStore } from "react"
 
 import { createAuthActions } from "./auth-actions"
 import { AUTH_PATHS } from "./auth-paths"
-import {
-  type JsonValidator,
-  validateSessionDataOrNull,
-  validateSuccessResponse,
-} from "./auth-validators"
 import { createApiClient } from "./client"
 import { errorFrom, toError } from "./error"
-import { readJsonOrThrow } from "./http"
+import { readUntypedJsonOrThrow } from "./http"
 
 export {
   DISPLAY_NAME_MAX_LENGTH,
@@ -33,7 +24,6 @@ export interface CreateAuthOptions {
 
 export type {
   AuthSessionSummary,
-  AuthUser,
   LinkedAccount,
   Passkey,
   SessionData,
@@ -46,13 +36,10 @@ type StoreState = {
 }
 
 type SessionStore = ReturnType<typeof createSessionStore>
-type RequestFn = <T>(
-  path: string,
-  init: RequestInit,
-  validate: JsonValidator<T>,
-) => Promise<T>
+/** `Body` is the caller's statement of what the auth route returns. */
+type RequestFn = <Body>(path: string, init: RequestInit) => Promise<Body>
 
-export type { AuthError, AuthResult, RequestFn, SessionStore }
+export type { AuthResult, RequestFn, SessionStore }
 export type { AuthRedirect }
 
 type SessionResult = { data: SessionData | null }
@@ -94,7 +81,7 @@ function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
   }
 
   // Callers may still pass better-auth's refetch options; they are ignored.
-  function refetch(_options?: ContractJsonInput): Promise<SessionResult> {
+  function refetch(_options?: unknown): Promise<SessionResult> {
     generation += 1
     const request = load(generation)
     latestRefetch = request
@@ -133,11 +120,7 @@ export function createAuth(options: CreateAuthOptions) {
   const redirect = options.redirect ?? defaultAuthRedirect
   const client = createApiClient(options.baseURL)
 
-  async function request<T>(
-    path: string,
-    init: RequestInit,
-    validate: JsonValidator<T>,
-  ): Promise<T> {
+  async function request<Body>(path: string, init: RequestInit): Promise<Body> {
     const headers = new Headers(init.headers)
     if (init.body && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json")
@@ -145,11 +128,11 @@ export function createAuth(options: CreateAuthOptions) {
     const res = await client.request(path, {
       init: { ...init, headers },
     })
-    return readJsonOrThrow(res, validate)
+    return readUntypedJsonOrThrow<Body>(res)
   }
 
   async function fetchSession(): Promise<SessionData | null> {
-    return request(AUTH_PATHS.session, {}, validateSessionDataOrNull)
+    return request<SessionData | null>(AUTH_PATHS.session, {})
   }
 
   const store = createSessionStore(fetchSession)
@@ -173,11 +156,9 @@ export function createAuth(options: CreateAuthOptions) {
 
   async function signOut(): AuthResult<{ success: true }> {
     try {
-      const data = await request(
-        AUTH_PATHS.signOut,
-        { method: "POST" },
-        validateSuccessResponse,
-      )
+      const data = await request<{ success: true }>(AUTH_PATHS.signOut, {
+        method: "POST",
+      })
       store.set(null)
       return { data, error: null }
     } catch (cause) {

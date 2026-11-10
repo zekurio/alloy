@@ -21,6 +21,8 @@ changelog:
     - title: "Other changes"
       labels:
         - "changelog:other"
+        # Catches a pull request nobody labelled.
+        - "*"
   exclude:
     labels:
       - "changelog:skip"

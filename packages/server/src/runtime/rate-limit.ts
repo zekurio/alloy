@@ -13,16 +13,14 @@ export function rateLimiter<E extends Env = Env>(opts: {
   windowMs: number
   max: number
   key: (c: Context<E>) => string | null
-  now?: () => number
 }): MiddlewareHandler<E> {
   const buckets = new Map<string, Bucket>()
-  const now = opts.now ?? Date.now
 
   // This limiter is intentionally in-memory: Alloy's media queue already
   // assumes one server process owns request handling.
   const sweep = setInterval(
     () => {
-      const current = now()
+      const current = Date.now()
       for (const [key, bucket] of buckets) {
         if (bucket.resetAt <= current) buckets.delete(key)
       }
@@ -38,7 +36,7 @@ export function rateLimiter<E extends Env = Env>(opts: {
       return
     }
 
-    const current = now()
+    const current = Date.now()
     let bucket = buckets.get(key)
     if (!bucket || bucket.resetAt <= current) {
       bucket = { count: 0, resetAt: current + opts.windowMs }

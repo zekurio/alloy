@@ -1,5 +1,4 @@
 import type {
-  RecordingDisplay,
   RecordingSettings,
   RecordingStatus,
 } from "@alloy/contracts/desktop"
@@ -16,21 +15,6 @@ export function audioDeviceMultiSelectLabel(
   if (selected.length === 0) return t("Off")
   if (selected.length === 1) return selected[0]?.label ?? t("Off")
   return t("{count} selected", { count: selected.length })
-}
-
-export function selectedDisplay(
-  settings: RecordingSettings | null,
-  status: RecordingStatus | null,
-  displays: RecordingDisplay[],
-): RecordingDisplay | null {
-  if (settings?.captureMode !== "display") return null
-
-  return (
-    displays.find((display) => display.id === settings.selectedDisplayId) ??
-    displays.find((display) => display.id === status?.activeDisplay?.id) ??
-    status?.activeDisplay ??
-    null
-  )
 }
 
 export function captureTargetLabel(

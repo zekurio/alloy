@@ -69,14 +69,9 @@ export function uploadTicketCanFinalize(
 
 export function uploadTicketCanAcceptBytes(
   ticket: { expiresAt: Date; usedAt: Date | null },
-  tokenExpired: boolean,
   now: Date,
 ): boolean {
-  return (
-    !tokenExpired &&
-    ticket.usedAt === null &&
-    ticket.expiresAt.getTime() > now.getTime()
-  )
+  return ticket.usedAt === null && ticket.expiresAt.getTime() > now.getTime()
 }
 
 export function pendingUploadCleanupStillDue(input: {

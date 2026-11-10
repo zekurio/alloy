@@ -1,8 +1,9 @@
-import type { ContractJsonInput, UploadTicket } from "@alloy/contracts"
+import type { InitiateClipResponse } from "@alloy/contracts"
 
 import { abortError, isAbortError, throwIfAborted } from "./abort"
 import { toError } from "./error"
 import { HttpError, parseErrorMessagePayload } from "./http"
+import { encodedPathSegment } from "./paths"
 const UPLOAD_TIMEOUT_GRACE_MS = 30_000
 const MIN_UPLOAD_TIMEOUT_MS = 30_000
 // Each chunk and the completion request get this many tries on one ticket
@@ -18,30 +19,29 @@ class UploadTransportError extends Error {
   }
 }
 
-/** Where one request sends its bytes: a ticket, or one part of it. */
-type UploadTarget = Omit<UploadTicket, "strategy">
-
 type XhrUploadOptions<T> = {
-  ticket: UploadTarget
+  url: string
   body: Blob
   timeoutMs: number
   signal?: AbortSignal
   onProgress?: (event: ProgressEvent) => void
-  configure?: (xhr: XMLHttpRequest) => void
   readSuccess: (xhr: XMLHttpRequest) => T
 }
 
 /**
- * Sends `body` to the ticket in numbered parts, then completes it. A failed
- * part is retried on the same ticket; any other failure aborts the upload.
+ * Sends `body` as the initiated clip's source in numbered parts, then
+ * completes it. A failed part is retried on the same ticket; any other
+ * failure aborts the upload. The requests go to the page's own origin and
+ * carry its session cookie, like every other clip write.
  */
-export async function uploadToTicket(
-  ticket: UploadTicket,
+export async function uploadClipSource(
+  { clipId, ticket }: InitiateClipResponse,
   body: Blob,
   onProgress: (loaded: number, total: number) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const chunkSize = ticket.strategy.chunkSizeBytes
+  const uploadPath = `/api/clips/${encodedPathSegment(clipId)}/upload`
+  const chunkSize = ticket.chunkSizeBytes
   const partCount = Math.ceil(body.size / chunkSize)
   try {
     for (let index = 0; index < partCount; index += 1) {
@@ -53,13 +53,9 @@ export async function uploadToTicket(
       await withTransientRetry(
         () =>
           uploadPart(
-            {
-              uploadUrl: `${ticket.uploadUrl}/chunks/${index + 1}`,
-              method: "PUT",
-              headers: {},
-              expiresAt: ticket.expiresAt,
-            },
+            `${uploadPath}/chunks/${index + 1}`,
             chunk,
+            ticket.expiresAt,
             (loaded) => onProgress(start + loaded, body.size),
             signal,
           ),
@@ -67,28 +63,28 @@ export async function uploadToTicket(
       )
     }
     await withTransientRetry(
-      () => postTicketControl(ticket.uploadUrl, "complete", undefined, signal),
+      () => postUploadComplete(`${uploadPath}/complete`, signal),
       signal,
     )
     onProgress(body.size, body.size)
   } catch (err) {
-    await abortTicketUpload(ticket.uploadUrl)
+    await abortUpload(uploadPath)
     throw err
   }
 }
 
 function uploadPart(
-  ticket: UploadTarget,
+  url: string,
   body: Blob,
+  expiresAt: number,
   onProgress: (loaded: number, total: number) => void,
   signal?: AbortSignal,
 ): Promise<void> {
   return uploadWithXhr({
-    ticket,
+    url,
     body,
     signal,
-    timeoutMs: ticketTimeoutMs(ticket),
-    configure: (xhr) => setContentTypeHeader(xhr, ticket.headers, body),
+    timeoutMs: ticketTimeoutMs(expiresAt),
     onProgress: (event) => {
       if (event.lengthComputable) onProgress(event.loaded, event.total)
     },
@@ -139,12 +135,11 @@ function waitBeforeRetry(delayMs: number, signal?: AbortSignal): Promise<void> {
 }
 
 function uploadWithXhr<T>({
-  ticket,
+  url,
   body,
   timeoutMs,
   signal,
   onProgress,
-  configure,
   readSuccess,
 }: XhrUploadOptions<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -159,12 +154,9 @@ function uploadWithXhr<T>({
     }
 
     try {
-      xhr.open(ticket.method, ticket.uploadUrl)
-      xhr.withCredentials = false
-      for (const [name, value] of Object.entries(ticket.headers)) {
-        xhr.setRequestHeader(name, value)
-      }
-      configure?.(xhr)
+      // Same origin, so the session cookie goes along without withCredentials.
+      xhr.open("PUT", url)
+      if (body.type) xhr.setRequestHeader("Content-Type", body.type)
     } catch (err) {
       settle(() => reject(toError(err, "Could not prepare upload request")))
       return
@@ -209,41 +201,21 @@ function uploadWithXhr<T>({
   })
 }
 
-function setContentTypeHeader(
-  xhr: XMLHttpRequest,
-  headers: Record<string, string>,
-  body: Blob,
-): void {
-  const hasContentType = Object.keys(headers).some(
-    (name) => name.toLowerCase() === "content-type",
-  )
-  if (!hasContentType && body.type) {
-    xhr.setRequestHeader("Content-Type", body.type)
-  }
-}
-
-function ticketTimeoutMs(ticket: UploadTarget): number {
+/** Until the ticket expires, plus a grace period; `expiresAt` is unix seconds. */
+function ticketTimeoutMs(expiresAt: number): number {
   return Math.max(
     MIN_UPLOAD_TIMEOUT_MS,
-    ticket.expiresAt * 1000 - Date.now() + UPLOAD_TIMEOUT_GRACE_MS,
+    expiresAt * 1000 - Date.now() + UPLOAD_TIMEOUT_GRACE_MS,
   )
 }
 
-async function postTicketControl(
-  uploadUrl: string,
-  suffix: string,
-  json: ContractJsonInput,
+async function postUploadComplete(
+  url: string,
   signal?: AbortSignal,
 ): Promise<void> {
   let res: Response
   try {
-    res = await fetch(`${uploadUrl}/${suffix}`, {
-      method: "POST",
-      headers:
-        json === undefined ? undefined : { "Content-Type": "application/json" },
-      body: json === undefined ? undefined : JSON.stringify(json),
-      signal,
-    })
+    res = await fetch(url, { method: "POST", signal })
   } catch (err) {
     if (isAbortError(err)) throw err
     throw new UploadTransportError(
@@ -253,9 +225,9 @@ async function postTicketControl(
   if (!res.ok) throw new HttpError(res.status, await responseErrorMessage(res))
 }
 
-async function abortTicketUpload(uploadUrl: string): Promise<void> {
+async function abortUpload(uploadPath: string): Promise<void> {
   try {
-    await fetch(uploadUrl, { method: "DELETE" })
+    await fetch(uploadPath, { method: "DELETE" })
   } catch {
     // Best effort: server maintenance also removes expired tickets.
   }

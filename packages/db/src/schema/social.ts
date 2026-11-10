@@ -18,7 +18,7 @@ export const block = pgTable(
     blocked_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    created_at: timestamp().notNull().defaultNow(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex("block_pair_idx").on(t.blocker_id, t.blocked_id),

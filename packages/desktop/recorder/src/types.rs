@@ -46,7 +46,6 @@ pub struct SidecarVersion {
     pub name: &'static str,
     pub version: &'static str,
     pub protocol_version: u32,
-    pub capabilities: &'static [&'static str],
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -98,36 +97,6 @@ pub struct RecordingGameProcess {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
-pub enum RecordingGameGuessSource {
-    DiscordDetectable,
-    Manual,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
-pub enum RecordingGameGuessMatchKind {
-    Executable,
-    Manual,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct RecordingGameGuess {
-    pub source: RecordingGameGuessSource,
-    pub source_id: Option<String>,
-    pub name: String,
-    pub aliases: Vec<String>,
-    pub executable: Option<String>,
-    pub path: Option<String>,
-    pub window_title: Option<String>,
-    pub window_class: Option<String>,
-    pub icon_url: Option<String>,
-    pub confidence: u8,
-    pub match_kind: RecordingGameGuessMatchKind,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordingDisplay {
     pub id: String,
@@ -135,7 +104,6 @@ pub struct RecordingDisplay {
     pub width: u32,
     pub height: u32,
     pub primary: bool,
-    pub thumbnail_data_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -228,8 +196,6 @@ pub struct RecordingGame {
     pub icon_url: Option<String>,
     pub window_title: Option<String>,
     pub window_class: Option<String>,
-    pub started_at: Option<String>,
-    pub guess: Option<RecordingGameGuess>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -326,40 +292,6 @@ pub struct RecordingCapture {
     pub created_at: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct RecordingTelemetry {
-    pub sampled_at: String,
-    pub capture_mode: RecordingCaptureMode,
-    pub capture_source: Option<RecordingCaptureSource>,
-    pub buffer_storage: RecordingBufferStorage,
-    pub encoder: RecordingEncoder,
-    pub codec: RecordingCodec,
-    pub video_encoder: Option<String>,
-    pub audio_encoder: Option<String>,
-    pub gpu: String,
-    pub gpu_adapter: u32,
-    pub gpu_label: Option<String>,
-    pub base_width: u32,
-    pub base_height: u32,
-    pub output_width: u32,
-    pub output_height: u32,
-    pub fps: u32,
-    pub bitrate_kbps: u32,
-    pub output_active: bool,
-    pub paused: bool,
-    pub active_fps: Option<f64>,
-    pub average_frame_time_ms: Option<f64>,
-    pub frame_interval_ms: Option<f64>,
-    pub render_total_frames: Option<u32>,
-    pub render_lagged_frames: Option<u32>,
-    pub render_lagged_percent: Option<f64>,
-    pub output_total_frames: Option<u32>,
-    pub output_dropped_frames: Option<u32>,
-    pub output_dropped_percent: Option<f64>,
-    pub output_total_bytes: Option<u64>,
-}
-
 /// `Display` is the default so a capture recovered without a source is filed
 /// as a desktop capture instead of claiming a game.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
@@ -395,28 +327,15 @@ pub enum RecordingCapturePostProcess {
 #[serde(rename_all = "camelCase")]
 pub struct RecordingStatus {
     pub backend: RecordingBackendState,
-    pub mode: RecordingMode,
-    pub capture_mode: RecordingCaptureMode,
-    pub run_state: RecordingRunState,
     pub replay_active: bool,
     pub active_game: Option<String>,
     pub active_game_detail: Option<RecordingGame>,
     pub active_display: Option<RecordingDisplay>,
-    pub focused: bool,
-    pub current_source: Option<RecordingCaptureSource>,
-    pub current_capture: Option<RecordingCapture>,
-    pub replay_buffer_seconds: u32,
     pub available_gpus: Vec<String>,
     pub available_codecs: Vec<RecordingCodec>,
     pub available_audio_devices: Vec<RecordingAudioDevice>,
     pub available_audio_applications: Vec<RecordingAudioApplicationSelection>,
-    pub telemetry: Option<RecordingTelemetry>,
     pub message: Option<String>,
-    /// What the recorder can do, the `capabilities` of the version handshake.
-    /// The web hides the controls for what is missing. A status the host
-    /// assembles without a recorder carries the set its recorder is built
-    /// with.
-    pub capabilities: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -424,23 +343,6 @@ pub struct RecordingStatus {
 pub enum RecordingBackendState {
     Missing,
     Ready,
-    Error,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
-pub enum RecordingMode {
-    Idle,
-    ReplayBuffer,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
-pub enum RecordingRunState {
-    Idle,
-    Paused,
-    ReplayBuffer,
-    Stopping,
     Error,
 }
 
@@ -466,29 +368,8 @@ pub enum RecordingEvent {
     ReplayBufferStarted {
         status: RecordingStatus,
     },
-    GameStarted {
-        game: RecordingGame,
-        status: RecordingStatus,
-    },
-    GameFocusChanged {
-        game: Option<RecordingGame>,
-        focused: bool,
-        status: RecordingStatus,
-    },
-    GameEnded {
-        game: RecordingGame,
-        status: RecordingStatus,
-    },
     CaptureReady {
-        capture: RecordingCapture,
-        status: RecordingStatus,
-    },
-    Telemetry {
-        telemetry: RecordingTelemetry,
-        status: RecordingStatus,
-    },
-    Error {
-        error: String,
+        capture: Box<RecordingCapture>,
         status: RecordingStatus,
     },
     AudioLevels {

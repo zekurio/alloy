@@ -24,7 +24,6 @@ import {
   useClipQuery,
 } from "@/lib/clip-queries"
 import { recordClipViewBestEffort } from "@/lib/clip-view-tracking"
-import { apiOrigin } from "@/lib/env"
 
 import { ClipDetailsPanel } from "./clip-details-panel"
 import {
@@ -54,7 +53,7 @@ interface ClipViewerDialogProps {
   clipId: string | null
   /** How to dismiss — typically clears the search param or navigates back. */
   onClose: () => void
-  onNavigate?: (entry: ClipListEntry) => void
+  onNavigate: (entry: ClipListEntry) => void
 }
 
 export function ClipViewerDialog({
@@ -110,7 +109,6 @@ export function ClipViewerDialog({
 
   const navigateTo = useCallback(
     (entry: ClipListEntry) => {
-      if (!onNavigate) return
       seedClipDetail(queryClient, entry)
       onNavigate(entry)
     },
@@ -163,7 +161,7 @@ export function ClipViewerDialog({
               onDeleted={closeViewer}
               prev={prev}
               next={next}
-              onNavigate={onNavigate ? navigateTo : null}
+              onNavigate={navigateTo}
             />
           ) : (
             <ClipViewerDialogBody
@@ -171,7 +169,7 @@ export function ClipViewerDialog({
               onDeleted={closeViewer}
               prev={prev}
               next={next}
-              onNavigate={onNavigate ? navigateTo : null}
+              onNavigate={navigateTo}
             />
           )
         ) : (
@@ -203,7 +201,7 @@ interface ClipViewerDialogBodyProps {
   onDeleted?: () => void
   prev?: ClipListEntry | null
   next?: ClipListEntry | null
-  onNavigate?: ((entry: ClipListEntry) => void) | null
+  onNavigate: (entry: ClipListEntry) => void
 }
 
 function ClipViewerDialogBody({
@@ -214,7 +212,11 @@ function ClipViewerDialogBody({
   onNavigate,
 }: ClipViewerDialogBodyProps) {
   const thumbnail = row.thumbKey
-    ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
+    ? clipThumbnailUrl(
+        row.id,
+        window.location.origin,
+        row.thumbVersion ?? undefined,
+      )
     : null
   const initialFocusRef = useRef<HTMLDivElement>(null)
   const deleteFlow = useClipViewerDelete({ row, onDeleted })
@@ -248,46 +250,42 @@ function ClipViewerDialogBody({
           "lg:min-w-[min(840px,calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2))]",
       )}
     >
-      {onNavigate ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            if (prev) onNavigate(prev)
-          }}
-          aria-label={t("Previous clip")}
-          disabled={!prev}
-          className={cn(
-            // h/w carry the lg: prefix so they beat the icon-size default
-            // (sm:size-8) in the cascade; the buttons only render at lg+.
-            "absolute top-1/2 left-[calc(50%-50dvw+24px)] z-40 lg:size-12 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
-            "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
-            "hidden lg:inline-flex",
-          )}
-        >
-          <ChevronLeftIcon />
-        </Button>
-      ) : null}
-      {onNavigate ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            if (next) onNavigate(next)
-          }}
-          aria-label={t("Next clip")}
-          disabled={!next}
-          className={cn(
-            "absolute top-1/2 right-[calc(50%-50dvw+24px)] z-40 lg:size-12 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
-            "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
-            "hidden lg:inline-flex",
-          )}
-        >
-          <ChevronRightIcon />
-        </Button>
-      ) : null}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={() => {
+          if (prev) onNavigate(prev)
+        }}
+        aria-label={t("Previous clip")}
+        disabled={!prev}
+        className={cn(
+          // h/w carry the lg: prefix so they beat the icon-size default
+          // (sm:size-8) in the cascade; the buttons only render at lg+.
+          "absolute top-1/2 left-[calc(50%-50dvw+24px)] z-40 lg:size-12 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+          "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
+          "hidden lg:inline-flex",
+        )}
+      >
+        <ChevronLeftIcon />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={() => {
+          if (next) onNavigate(next)
+        }}
+        aria-label={t("Next clip")}
+        disabled={!next}
+        className={cn(
+          "absolute top-1/2 right-[calc(50%-50dvw+24px)] z-40 lg:size-12 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+          "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
+          "hidden lg:inline-flex",
+        )}
+      >
+        <ChevronRightIcon />
+      </Button>
       <div
         className={cn(
           "grid h-full min-h-0 overflow-hidden rounded-xl bg-surface",

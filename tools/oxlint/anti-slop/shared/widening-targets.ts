@@ -12,7 +12,7 @@ import {
   type TypeEnvironment,
 } from "./type-environment.ts"
 
-export type WideningTargetKind =
+type WideningTargetKind =
   | "anonymous object"
   | "generic container"
   | "object"

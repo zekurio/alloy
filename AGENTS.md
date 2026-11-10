@@ -15,8 +15,7 @@ Leave unrelated working-tree changes alone.
 - `packages/server`: Hono API server, media pipeline, storage, queues.
 - `packages/db`: Drizzle schema and migrations. `packages/api`: typed web API client.
 - `packages/contracts`: web/server contracts, plus native bridge contracts
-  under `@alloy/contracts/desktop`. `packages/primitives`: desktop bridge
-  contract IDs.
+  under `@alloy/contracts/desktop`.
 - `packages/env`: env parsing and `.env` loading. `packages/logging`: logger.
   `packages/i18n`: English-keyed message catalogs.
 - `packages/desktop`: Electron shell (`src/main`, `src/preload`, and the
@@ -24,7 +23,7 @@ Leave unrelated working-tree changes alone.
   `native` addon that loads it, the Rust `recorder` (OBS sidecar), and the
   `update-signer` the release workflow signs installers with.
 - `scripts`: release tooling. `tools/oxlint`: custom lint rules. `nix`: package
-  and NixOS module. `.github/gardener`: PR/issue upkeep bot.
+  and NixOS module.
 
 ## Development
 
@@ -47,8 +46,9 @@ Leave unrelated working-tree changes alone.
 
 ## Boundaries
 
-- Keep shared web/server contracts and scalars in `packages/contracts`, and
-  the bridge contract IDs in `packages/primitives`. Native bridge contracts
+- Keep shared web/server contracts and scalars in `packages/contracts`. The
+  bridge contract IDs live in its `desktop-bridge-contract` module, which
+  imports nothing so the desktop preload can bundle it. Native bridge contracts
   live in the `desktop-*` modules of `packages/contracts`, exported through
   `@alloy/contracts/desktop` rather than the root entry point; the server does
   not import them.
@@ -73,14 +73,3 @@ Leave unrelated working-tree changes alone.
 Target `dev` and use it for diffs. Follow `.github/CONTRIBUTING.md` for conventions.
 Attach before/after screenshots to UI PRs rather than committing them.
 Use one `changelog:*` label, or `changelog:skip` when no release note is needed.
-
-<!-- BEGIN:turborepo-agent-rules -->
-
-# This is NOT the Turborepo you know
-
-Turborepo configuration, task behavior, and CLI commands can vary between installed versions and may differ from your training data. Resolve the `turbo` package from this file's directory or relevant workspace; in monorepos, it may not be visible from the repository root. For example, run `node -p "require.resolve('turbo/package.json')"` from a workspace that depends on `turbo`.
-
-Read `docs/README.md` inside that installed package first, then read the relevant pages from its `docs/` directory before changing Turborepo configuration or commands. Heed deprecation notices. These bundled docs match the installed package version and are available without network access.
-
-This block is written and re-added by `turbo` before repository-scoped commands when an AI agent is detected. In the Turborepo source repository, its template is defined in `crates/turborepo-cli/src/cli/agent_guidance.rs`. Removing the managed block while updates are enabled means a later qualifying invocation will add it again. Set `"agentGuidance": false` in the root `turbo.json` or `turbo.jsonc` to opt out; this does not remove an existing block. Keep the block committed with your work to avoid an uncommitted change on the next agent invocation.
-<!-- END:turborepo-agent-rules -->

@@ -9,6 +9,7 @@ import {
 import { encodeExactCut } from "@alloy/server/media/trim"
 import { clipStorage } from "@alloy/server/storage/index"
 
+import { commitStage } from "./clip-media-store"
 import { abortMediaProcessing } from "./media-abort"
 import { runScopedCutKey, runScopedRenditionKey } from "./media-asset-keys"
 import {
@@ -16,7 +17,7 @@ import {
   type EncodeProgressTracker,
 } from "./media-encode-progress"
 import { ensureStillPresent, type RunUploads } from "./media-run-workspace"
-import type { MediaRenditionRecord, MediaStore } from "./media-store"
+import type { MediaRenditionRecord } from "./media-store"
 
 /**
  * Encode and upload the frame-exact H.264 cut for a trimmed clip. The cut is
@@ -60,7 +61,7 @@ export async function encodeAndPublishCut(options: {
   })
   const cutKey = runScopedCutKey(options.id, options.runId)
   await options.uploadedKeys.reserve(cutKey)
-  await clipStorage.uploadFromFile(cut.filePath, cutKey, "video/mp4")
+  await clipStorage.uploadFromFile(cut.filePath, cutKey)
   return {
     key: cutKey,
     durationMs: cut.durationMs,
@@ -76,7 +77,6 @@ export async function encodeAndPublishCut(options: {
  * whole ladder in one transaction.
  */
 export async function encodeAndUploadRenditions(options: {
-  store: MediaStore
   id: string
   runId: string
   signal: AbortSignal
@@ -93,15 +93,10 @@ export async function encodeAndUploadRenditions(options: {
   let hardwareFailed = options.hardwareFailed
   const renditions: MediaRenditionRecord[] = []
   for (const step of options.ladder) {
-    await ensureStillPresent(
-      options.store,
-      options.id,
-      options.runId,
-      options.signal,
-    )
+    await ensureStillPresent(options.id, options.runId, options.signal)
     const tierCost = encodeTierCost(step)
     if (
-      !(await options.store.commitStage(options.id, options.runId, "encoding", {
+      !(await commitStage(options.id, options.runId, "encoding", {
         name: step.name,
         index: renditions.length + 1,
         count: options.ladder.length,
@@ -131,11 +126,7 @@ export async function encodeAndUploadRenditions(options: {
       step.name,
     )
     await options.uploadedKeys.reserve(renditionKey)
-    await clipStorage.uploadFromFile(
-      encoded.filePath,
-      renditionKey,
-      "video/mp4",
-    )
+    await clipStorage.uploadFromFile(encoded.filePath, renditionKey)
     await rm(encoded.filePath, { force: true }).catch(() => undefined)
     const rendition: MediaRenditionRecord = {
       name: step.name,

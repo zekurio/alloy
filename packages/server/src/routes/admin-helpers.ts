@@ -135,7 +135,7 @@ function adminUserSearch(search: string | undefined) {
 }
 
 export async function selectAdminUserStoragePage(options: {
-  cursor: { createdAt: string; id: string } | null
+  cursor: { createdAt: Date; id: string } | null
   limit: number
   search?: string
 }): Promise<AdminUserStoragePage> {
@@ -144,9 +144,9 @@ export async function selectAdminUserStoragePage(options: {
     ? and(
         searchFilter,
         or(
-          lt(user.created_at, sql`${options.cursor.createdAt}::timestamp`),
+          lt(user.created_at, options.cursor.createdAt),
           and(
-            eq(user.created_at, sql`${options.cursor.createdAt}::timestamp`),
+            eq(user.created_at, options.cursor.createdAt),
             lt(user.id, options.cursor.id),
           ),
         ),
@@ -158,12 +158,7 @@ export async function selectAdminUserStoragePage(options: {
     .from(user)
     .where(searchFilter)
   const rows = await db
-    .select({
-      ...adminUserColumns,
-      // Full-precision text for the pagination cursor; created_at is a plain
-      // timestamp, so it's cast back with ::timestamp on the next page.
-      createdAtText: sql<string>`${user.created_at}::text`,
-    })
+    .select(adminUserColumns)
     .from(user)
     .where(pageFilter)
     .orderBy(desc(user.created_at), desc(user.id))
@@ -176,7 +171,7 @@ export async function selectAdminUserStoragePage(options: {
     total,
     nextCursor:
       rows.length > options.limit && last
-        ? { createdAt: last.createdAtText, id: last.id }
+        ? { createdAt: isoDate(last.createdAt), id: last.id }
         : null,
   }
 }

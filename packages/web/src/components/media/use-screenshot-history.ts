@@ -15,7 +15,7 @@ type Action =
 const same = (a: Snapshot, b: Snapshot) =>
   JSON.stringify(a) === JSON.stringify(b)
 
-export function createScreenshotHistory(edit: ScreenshotEdit): History {
+function createScreenshotHistory(edit: ScreenshotEdit): History {
   return {
     past: [],
     present: { edit, aspectRatio: "free" },
@@ -24,7 +24,7 @@ export function createScreenshotHistory(edit: ScreenshotEdit): History {
   }
 }
 
-export function screenshotHistory(history: History, action: Action): History {
+function screenshotHistory(history: History, action: Action): History {
   if (action.type === "preview") {
     if (same(history.present, action.snapshot)) return history
     return {

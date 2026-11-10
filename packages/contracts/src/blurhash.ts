@@ -1,4 +1,3 @@
-import type { ContractJsonInput } from "./json-value"
 import { isStringValue } from "./object"
 
 const BLURHASH_ALPHABET =
@@ -6,10 +5,10 @@ const BLURHASH_ALPHABET =
 
 const BLURHASH_ALPHABET_SET = new Set(BLURHASH_ALPHABET)
 
-export const BLURHASH_MIN_LENGTH = 6
-export const BLURHASH_MAX_LENGTH = 166
+const BLURHASH_MIN_LENGTH = 6
+const BLURHASH_MAX_LENGTH = 166
 
-export function isBlurHash(value: ContractJsonInput): value is string {
+export function isBlurHash(value: unknown): value is string {
   if (!isStringValue(value)) return false
   if (
     value.length < BLURHASH_MIN_LENGTH ||

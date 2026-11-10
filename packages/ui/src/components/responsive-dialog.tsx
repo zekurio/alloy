@@ -1,5 +1,3 @@
-"use client"
-
 import {
   Dialog,
   DialogBody,
@@ -59,7 +57,6 @@ function ResponsiveDialog({
           open={open}
           onOpenChange={onOpenChange}
           onOpenChangeComplete={releaseLayout}
-          direction="bottom"
         >
           {children}
         </Drawer>

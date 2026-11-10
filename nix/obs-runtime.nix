@@ -12,7 +12,6 @@
 {
   lib,
   stdenvNoCC,
-  callPackage,
   obs-studio,
   obs-studio-plugins,
   pipewire,
@@ -37,16 +36,14 @@ let
     obs-studio-plugins.obs-vkcapture
     obs-studio-plugins.obs-pipewire-audio-capture
   ];
-  pipewireClient = callPackage ./pipewire-client.nix { };
   # What the runtime takes files from, and must not refer to: OBS; util-linux,
-  # of which libobs links only libuuid; libvpl, of which obs-qsv11 needs only
-  # the library, not the examples and sample videos that are most of it; and
-  # PipeWire, whose client stands in for it.
+  # of which libobs links only libuuid; and libvpl, of which obs-qsv11 needs
+  # only the library, not the examples and sample videos that are most of it.
+  # PipeWire stays a reference: a desktop that records audio already has it.
   replaced = [
     obs-studio
     (lib.getLib util-linux)
     libvpl
-    pipewire
   ];
 in
 stdenvNoCC.mkDerivation {
@@ -88,7 +85,7 @@ stdenvNoCC.mkDerivation {
       cp $plugin/lib/obs-plugins/*.so $out/lib/obs-plugins/
       cp -r $plugin/share/obs/obs-plugins/. $out/share/obs/obs-plugins/
     done
-    ln -s ${pipewireClient}/lib/libpipewire-0.3.so.0 $out/lib/
+    ln -s ${pipewire}/lib/libpipewire-0.3.so.0 $out/lib/
     cp -P ${lib.getLib util-linux}/lib/libuuid.so.1* ${libvpl}/lib/libvpl.so.2* $out/lib/
     chmod -R u+w $out
 

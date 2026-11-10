@@ -1,5 +1,3 @@
-"use client"
-
 import { cn } from "@alloy/ui/lib/utils"
 import type { ComponentProps } from "react"
 

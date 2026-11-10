@@ -24,12 +24,12 @@ import {
   streamResolved,
   streamThumbnail,
 } from "./clips-playback-streams"
-import { IdParam, tbValidator } from "./validation"
+import { IdParam, tbValidator, lowercaseUuid } from "./validation"
 
 const logger = createLogger("clips")
 
 const RenditionParam = t.object({
-  id: t.uuid(),
+  id: lowercaseUuid(),
   name: t.string().min(1).max(64),
 })
 

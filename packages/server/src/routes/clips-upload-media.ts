@@ -347,8 +347,6 @@ export const clipsUploadMediaRoutes = new Hono()
         await tx.delete(clipRendition).where(eq(clipRendition.clip_id, id))
         await requestClipMedia(id, {
           force: false,
-          priority: 10,
-          clearFailure: true,
           tx,
         })
         return { queuedDeletions: intents.length }
@@ -377,15 +375,12 @@ export const clipsUploadMediaRoutes = new Hono()
         // same transaction that creates the durable media request. The run-ID
         // guard stops a run that just took over from being clobbered. The
         // media guard refuses a clip with nothing to encode from, since every
-        // attempt would fail: failed uploads, and earlier servers on a failed
-        // run, deleted the upload.
+        // attempt would fail: a failed upload deletes its staged file.
         const reset = await db.transaction(async (tx) => {
           const result = await resetFailedClipForEncode(id, tx)
           if (result.ok) {
             await requestClipMedia(id, {
               force: true,
-              priority: 10,
-              clearFailure: true,
               tx,
             })
           }
@@ -416,8 +411,6 @@ export const clipsUploadMediaRoutes = new Hono()
       // committed renditions. Reject duplicate queued or running work.
       const result = await requeueClipMedia(id, {
         force: true,
-        priority: 10,
-        clearFailure: true,
       })
       if (!result.ok) {
         if (result.reason === "active-work") {

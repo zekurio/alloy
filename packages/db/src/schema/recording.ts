@@ -1,4 +1,3 @@
-import { UPLOAD_TICKET_ROLE, type UploadTicketRole } from "@alloy/contracts"
 import { sql } from "drizzle-orm"
 import {
   bigint,
@@ -11,15 +10,11 @@ import {
 } from "drizzle-orm/pg-core"
 
 import { user } from "./auth"
-import { sqlStringList } from "./internal"
-
-export const UPLOAD_TICKET_TARGET = ["clip"] as const
-export type UploadTicketTarget = (typeof UPLOAD_TICKET_TARGET)[number]
 
 /**
  * Short-lived record of a staged source upload destination for a clip being
  * created. No FK to the clip table — cleanup is explicit (the delete/finalize
- * flows drop tickets by target), and rows expire.
+ * flows drop tickets by clip), and rows expire.
  */
 export const uploadTicket = pgTable(
   "upload_ticket",
@@ -29,30 +24,18 @@ export const uploadTicket = pgTable(
     owner_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    target_type: text().$type<UploadTicketTarget>().notNull(),
+    // The clip the upload belongs to.
     target_id: uuid().notNull(),
-    role: text().$type<UploadTicketRole>().notNull(),
     storage_key: text().notNull().unique(),
     content_type: text().notNull(),
     expected_bytes: bigint({ mode: "number" }).notNull(),
-    expires_at: timestamp().notNull(),
-    used_at: timestamp(),
-    created_at: timestamp().notNull().defaultNow(),
+    expires_at: timestamp({ withTimezone: true }).notNull(),
+    used_at: timestamp({ withTimezone: true }),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("upload_ticket_target_idx").on(t.target_type, t.target_id),
+    index("upload_ticket_target_idx").on(t.target_id),
     index("upload_ticket_owner_idx").on(t.owner_id),
-    index("upload_ticket_unused_expiry_idx")
-      .on(t.expires_at, t.id)
-      .where(sql`${t.used_at} is null`),
-    check(
-      "upload_ticket_role_check",
-      sql`${t.role} in (${sql.raw(sqlStringList(UPLOAD_TICKET_ROLE))})`,
-    ),
-    check(
-      "upload_ticket_target_check",
-      sql`${t.target_type} in (${sql.raw(sqlStringList(UPLOAD_TICKET_TARGET))})`,
-    ),
     check(
       "upload_ticket_expected_bytes_safe_check",
       sql`${t.expected_bytes} > 0 and ${t.expected_bytes} <= 9007199254740991`,

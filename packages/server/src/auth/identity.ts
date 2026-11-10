@@ -16,10 +16,7 @@ import {
   disabledAccountState,
   selfReactivatedAccountState,
 } from "./account-state"
-import {
-  lockAdminAccessInvariant,
-  withAdminAccessInvariant,
-} from "./admin-access"
+import { withAdminAccessInvariant } from "./admin-access"
 import {
   OIDC_MANAGED_USERNAME_ERROR,
   oidcManagedProfile,
@@ -40,12 +37,6 @@ export {
 } from "./identity-sign-in-methods"
 export { withAdminAccessInvariant }
 
-export function validateUsername(value: string): string {
-  return normalizeUsername(value)
-}
-
-// users/account-deletion.ts still imports the transaction type under this name.
-export type { DbTransaction as AuthTransaction }
 type AuthDbExecutor = typeof db | DbTransaction
 
 async function assertUsernameAvailable(
@@ -244,7 +235,7 @@ async function createUserIdentityWith(
   },
 ): Promise<User> {
   const username = input.username
-    ? validateUsername(input.username)
+    ? normalizeUsername(input.username)
     : await generateUniqueUsername({})
   await assertUsernameAvailable(executor, username)
   const values: NewUser = {
@@ -258,19 +249,19 @@ async function createUserIdentityWith(
 }
 
 /**
- * Lock the admin invariant and confirm no admin can sign in yet. Callers
+ * Confirm no admin can sign in yet. Callers hold withAdminAccessChange and
  * create the first admin in the same transaction.
  */
 export async function assertFirstAdminSetupOpen(
   tx: DbTransaction,
 ): Promise<void> {
-  await lockAdminAccessInvariant(tx)
   // Same config as setupRequired(), so the setup page and this check agree.
   if (await hasAdminSignInMethodWith(tx, currentSignInConfig())) {
     throw new Error("Initial setup is already complete.")
   }
 }
 
+/** With `setupFirstAdmin`, the caller holds withAdminAccessChange. */
 export async function createRegistrationUserInTransaction(
   tx: DbTransaction,
   input: {
@@ -278,7 +269,7 @@ export async function createRegistrationUserInTransaction(
     setupFirstAdmin: boolean
   },
 ): Promise<User> {
-  const username = validateUsername(input.username)
+  const username = normalizeUsername(input.username)
 
   if (input.setupFirstAdmin) {
     await assertFirstAdminSetupOpen(tx)
@@ -323,7 +314,7 @@ export async function updateUserIdentity(
 ): Promise<User> {
   const patch: Partial<NewUser> = { updated_at: new Date() }
   if (input.username !== undefined) {
-    const username = validateUsername(input.username)
+    const username = normalizeUsername(input.username)
     await assertUsernameEditable(userId, username)
     await assertUsernameAvailable(db, username, userId)
     patch.username = username

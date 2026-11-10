@@ -1,7 +1,7 @@
 import type {
   RecordingGameProcess,
   RecordingNotificationSoundEvent,
-  RecordingNotificationSoundLibrary,
+  RecordingNotificationSoundOption,
   RecordingSettings,
   RecordingStatus,
   RecordingStorageInfo,
@@ -58,11 +58,9 @@ interface DesktopRecordingPanelState {
   /** Open the native folder picker and apply the chosen capture folder. */
   chooseOutputFolder: () => Promise<void>
   /** List the audio files available in the shared notification sounds folder. */
-  listNotificationSounds: () => Promise<RecordingNotificationSoundLibrary>
+  listNotificationSounds: () => Promise<RecordingNotificationSoundOption[]>
   /** Open the shared notification sounds folder so the user can add files. */
-  openNotificationSoundsFolder: (
-    sound: RecordingNotificationSoundEvent,
-  ) => Promise<void>
+  openNotificationSoundsFolder: () => Promise<void>
   /** Play an event's configured sound once so the user can audition it. */
   previewNotificationSound: (
     sound: RecordingNotificationSoundEvent,
@@ -78,11 +76,6 @@ interface DesktopRecordingContextValue extends DesktopRecordingPanelState {
   busy: boolean
   /** Failure to load settings at all; panels can't render without them. */
   error: string | null
-}
-
-export const EMPTY_SOUND_LIBRARY: RecordingNotificationSoundLibrary = {
-  replayBufferStarted: [],
-  clipSaved: [],
 }
 
 function createRecordingPanelStore(
@@ -158,7 +151,7 @@ function createRecordingPanelStore(
       },
 
       listNotificationSounds: async () => {
-        if (!recording) return EMPTY_SOUND_LIBRARY
+        if (!recording) return []
         setScopeError("sounds", null)
         try {
           return await recording.listNotificationSounds()
@@ -167,15 +160,15 @@ function createRecordingPanelStore(
             "sounds",
             errorMessage(cause, t("Couldn't load notification sounds.")),
           )
-          return EMPTY_SOUND_LIBRARY
+          return []
         }
       },
 
-      openNotificationSoundsFolder: async (sound) => {
+      openNotificationSoundsFolder: async () => {
         if (!recording) return
         setScopeError("sounds", null)
         try {
-          await recording.openNotificationSoundsFolder(sound)
+          await recording.openNotificationSoundsFolder()
         } catch (cause) {
           setScopeError(
             "sounds",

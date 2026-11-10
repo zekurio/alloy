@@ -104,7 +104,7 @@ export async function createUserForOAuthAccount(
 export async function createFirstAdminForOAuthAccount(input: {
   profile: OAuthProfile
 }): Promise<string> {
-  const userId = await db.transaction(async (tx) => {
+  const userId = await withAdminAccessInvariant(async (tx) => {
     await assertFirstAdminSetupOpen(tx)
     const row = await createOAuthUser(
       input.profile,

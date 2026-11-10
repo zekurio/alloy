@@ -73,7 +73,7 @@ export function useAdminConfigMutation<TVariables>(
  * Drops the cached public auth config and reloads the routes, so sign-in
  * options and browse guards follow a saved change right away.
  */
-export function useRefreshAuthConfig(): () => void {
+function useRefreshAuthConfig(): () => void {
   const router = useRouter()
   return () => {
     invalidateAuthConfig()

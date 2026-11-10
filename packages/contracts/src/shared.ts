@@ -6,9 +6,6 @@ export type ClipPrivacy = (typeof CLIP_PRIVACY)[number]
 export const CLIP_STATUS = ["pending", "processing", "ready", "failed"] as const
 export type ClipStatus = (typeof CLIP_STATUS)[number]
 
-export const UPLOAD_TICKET_ROLE = ["video"] as const
-export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]
-
 export const USER_ROLES = ["user", "admin"] as const
 export type UserRole = (typeof USER_ROLES)[number]
 
@@ -29,18 +26,15 @@ export const USERNAME_MAX_LENGTH = 24
 // handle. Clearing one is sending an empty string, which stores null.
 export const DISPLAY_NAME_MAX_LENGTH = 48
 
-export const ACCEPTED_IMAGE_CONTENT_TYPES = [
+const ACCEPTED_IMAGE_CONTENT_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
 ] as const
 
-export type AcceptedImageContentType =
-  (typeof ACCEPTED_IMAGE_CONTENT_TYPES)[number]
-
 // Uploads come from the desktop app as finished H.264/HEVC/AV1 mp4 files;
 // the server never transcodes, so nothing else is accepted.
-export const ACCEPTED_CLIP_CONTENT_TYPES = ["video/mp4"] as const
+const ACCEPTED_CLIP_CONTENT_TYPES = ["video/mp4"] as const
 
 export type AcceptedContentType = (typeof ACCEPTED_CLIP_CONTENT_TYPES)[number]
 
@@ -50,17 +44,19 @@ export const ACCEPTED_MEDIA_CONTENT_TYPES = [
 ] as const
 export type AcceptedMediaContentType =
   (typeof ACCEPTED_MEDIA_CONTENT_TYPES)[number]
-export const MEDIA_KINDS = ["video", "image"] as const
+const MEDIA_KINDS = ["video", "image"] as const
 export type MediaKind = (typeof MEDIA_KINDS)[number]
 export const MEDIA_FILTERS = ["all", ...MEDIA_KINDS] as const
 export type MediaFilter = (typeof MEDIA_FILTERS)[number]
 
-export type UploadTicketStrategy = { type: "chunked"; chunkSizeBytes: number }
-
+/**
+ * How to send a clip's source upload. The client `PUT`s numbered parts of
+ * `chunkSizeBytes` to `/api/clips/{id}/upload/chunks/{n}`, then `POST`s
+ * `/api/clips/{id}/upload/complete`; `DELETE /api/clips/{id}/upload` aborts.
+ */
 export interface UploadTicket {
-  uploadUrl: string
-  method: "PUT" | "POST"
-  headers: Record<string, string>
+  /** Size of every part but the last. */
+  chunkSizeBytes: number
+  /** Unix seconds. */
   expiresAt: number
-  strategy: UploadTicketStrategy
 }

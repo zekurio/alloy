@@ -210,42 +210,27 @@ export async function saveRecordingSettings(
   }
 }
 
-/**
- * Load the display list each time the picker opens. Display capture also
- * shows the selected display's thumbnail, so fetch the list once for that if
- * the picker hasn't loaded it yet.
- */
+/** Load the display list each time the picker opens. */
 function useRecordingDisplays(
   recording: AlloyDesktopRecordingApi | null,
   displayPickerOpen: boolean,
-  captureMode: RecordingSettings["captureMode"] | undefined,
 ) {
   const picker = useDesktopQuery(
     ["recording", "displays", "picker"],
     recording && displayPickerOpen
-      ? () => listDisplays(recording, t("Couldn't load displays."))
+      ? () =>
+          recording.listDisplays().catch((cause: unknown) => {
+            toast.error(errorMessage(cause, t("Couldn't load displays.")))
+            throw cause
+          })
       : null,
     { reloadWhenEnabled: () => true },
   )
-  const needsPreview = captureMode === "display" && picker.data === undefined
-  const preview = useDesktopQuery(
-    ["recording", "displays", "preview"],
-    recording && needsPreview
-      ? () => listDisplays(recording, t("Couldn't load display preview."))
-      : null,
-  )
 
   return {
-    displays: picker.data ?? preview.data ?? [],
+    displays: picker.data ?? [],
     displayLoading: picker.loading,
   }
-}
-
-function listDisplays(recording: AlloyDesktopRecordingApi, failure: string) {
-  return recording.listDisplays().catch((cause: unknown) => {
-    toast.error(errorMessage(cause, failure))
-    throw cause
-  })
 }
 
 // The widget stays in its loading state until the host sends settings, so
@@ -263,7 +248,6 @@ export function useDesktopRecordingState(
   const { displays, displayLoading } = useRecordingDisplays(
     recording,
     displayPickerOpen,
-    settings?.captureMode,
   )
 
   const save = useCallback(

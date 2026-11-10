@@ -16,8 +16,8 @@ import {
   useTrimPlayback,
 } from "@/components/clip-editor/use-trim-playback"
 import { ClipPlayer } from "@/components/clip/clip-player"
+import { useClipAccess } from "@/components/clip/use-clip-access"
 import { EmptyState } from "@/components/feedback/empty-state"
-import { useSession } from "@/lib/auth-client"
 import {
   invalidateClipCaches,
   removeClipDetailFromCache,
@@ -124,7 +124,7 @@ function ClipEditorBody({
   const desktopLayout = useMediaQuery("(min-width: 768px)")
   const navigation = useLibraryEntryNavigation({ type: "cloud", id: row.id })
   const { localItem, prevEntry, nextEntry } = navigation
-  const { canManage, isOwner } = useClipEditorPermissions(row)
+  const { canManage, isOwner } = useClipAccess(row.authorId)
   const canTrim = isOwner && !processing && row.mediaKind !== "image"
   const screenshot = useLibraryScreenshotEdit({
     row,
@@ -293,21 +293,6 @@ function ClipEditorBody({
       <LibraryEditorLeaveGuard hasUnsavedEdits={hasUnsavedEdits} />
     </section>
   )
-}
-
-function useClipEditorPermissions(row: ClipRow) {
-  const { data: session } = useSession()
-  const viewerId = session?.user?.id ?? null
-  // SAFETY: The auth API includes the optional role field on session users.
-  const viewerRole =
-    (session?.user as { role?: string | null } | undefined)?.role ?? null
-
-  return {
-    canManage:
-      viewerId !== null &&
-      (viewerId === row.authorId || viewerRole === "admin"),
-    isOwner: viewerId !== null && viewerId === row.authorId,
-  }
 }
 
 function useServerBackedClipDelete({

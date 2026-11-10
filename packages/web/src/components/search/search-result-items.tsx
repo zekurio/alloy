@@ -5,6 +5,7 @@ import {
   type GameListRow,
 } from "@alloy/api"
 import { t, tp } from "@alloy/i18n"
+import { GameIcon } from "@alloy/ui/components/game-icon"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { Skeleton } from "@alloy/ui/components/skeleton"
 import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
@@ -15,10 +16,8 @@ import {
 import { cn } from "@alloy/ui/lib/utils"
 import type { ReactNode } from "react"
 
-import { GameIcon } from "@/components/game/game-icon"
 import { clipGameLabel } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
-import { apiOrigin } from "@/lib/env"
 import { formatMediaDurationMs } from "@/lib/media-time"
 import { formatCount } from "@/lib/number-format"
 import type { UserListRow } from "@/lib/search-api"
@@ -174,7 +173,7 @@ export function ClipRowItem({
   const thumb = row.thumbKey
     ? clipThumbnailUrl(
         row.id,
-        apiOrigin(),
+        window.location.origin,
         row.thumbVersion ?? undefined,
         CLIP_THUMBNAIL_WIDTHS[0],
       )

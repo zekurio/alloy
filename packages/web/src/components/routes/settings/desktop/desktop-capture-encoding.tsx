@@ -30,7 +30,8 @@ export function EncodingSettingsGrid({
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
 }) {
-  const gpus = gpuOptions(status.availableGpus, settings.gpu)
+  const gpu = listedGpu(status.availableGpus, settings.gpu)
+  const gpus = gpuOptions(status.availableGpus, gpu)
   const codecs = codecOptions(status.availableCodecs)
   const selectedCodecSupported = codecs.includes(settings.codec)
 
@@ -107,7 +108,7 @@ export function EncodingSettingsGrid({
       <EncodingField
         id="desktop-recording-gpu"
         label={t("GPU")}
-        value={settings.gpu}
+        value={gpu}
         options={gpus}
         optionLabel={gpuLabel}
         disabled={busy || settings.encoder === "software"}
@@ -149,6 +150,16 @@ function updateCustomQuality(
     qualityProfile: "custom",
     customQuality,
   }
+}
+
+/**
+ * The saved choice as the recorder lists it now. A saved index goes stale
+ * when the adapter order changes, and the recorder then follows the name.
+ */
+function listedGpu(available: string[], selected: string): string {
+  if (selected === "auto" || available.includes(selected)) return selected
+  const label = gpuLabel(selected)
+  return available.find((gpu) => gpuLabel(gpu) === label) ?? selected
 }
 
 function gpuOptions(available: string[], selected: string): string[] {

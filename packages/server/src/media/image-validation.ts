@@ -10,7 +10,7 @@ export type ImageMetadata = {
   contentType: string
 }
 
-export const MAX_IMAGE_PIXELS = 24_000_000
+const MAX_IMAGE_PIXELS = 24_000_000
 
 export function validateImageBytes(
   bytes: Buffer,

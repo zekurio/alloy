@@ -1,6 +1,7 @@
 import { clipDownloadUrl, type ClipRow, clipThumbnailUrl } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { DialogClose, DialogViewportContent } from "@alloy/ui/components/dialog"
+import { GameIcon } from "@alloy/ui/components/game-icon"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
@@ -10,7 +11,6 @@ import { useEffect, useRef, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 
 import { mobileOverlayCloseButtonClassName } from "@/components/app/mobile-close-button"
-import { GameIcon } from "@/components/game/game-icon"
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
 import { startBrowserDownload } from "@/lib/browser-download"
 import {
@@ -20,7 +20,6 @@ import {
 import { clipGameLabel } from "@/lib/clip-format"
 import { useReannounceClipMutation } from "@/lib/clip-queries"
 import { recordClipViewBestEffort } from "@/lib/clip-view-tracking"
-import { apiOrigin } from "@/lib/env"
 import { exitFullscreenBestEffort } from "@/lib/fullscreen"
 import { userAvatar } from "@/lib/user-display"
 
@@ -52,7 +51,7 @@ interface MobileClipViewerBodyProps {
   onDeleted?: () => void
   prev?: ClipListEntry | null
   next?: ClipListEntry | null
-  onNavigate?: ((entry: ClipListEntry) => void) | null
+  onNavigate: (entry: ClipListEntry) => void
 }
 
 function MobileClipViewerBody({
@@ -63,7 +62,6 @@ function MobileClipViewerBody({
   onNavigate,
 }: MobileClipViewerBodyProps) {
   const { isAdmin, canManage } = useClipAccess(row.authorId)
-  const canNav = Boolean(onNavigate)
 
   /* ---- derived ---- */
   const handle = row.authorUsername
@@ -93,13 +91,13 @@ function MobileClipViewerBody({
   const [showSwipeHint, setShowSwipeHint] = useState(false)
 
   useEffect(() => {
-    if (!canNav || (!prev && !next)) return
+    if (!prev && !next) return
 
     if (readSessionStorageItem(MOBILE_SWIPE_HINT_SEEN_KEY) === "true") return
     writeSessionStorageItem(MOBILE_SWIPE_HINT_SEEN_KEY, "true")
 
     setShowSwipeHint(true)
-  }, [canNav, next, prev])
+  }, [next, prev])
 
   // Hiding keys off the hint itself: a re-run of the effect above (new
   // neighbours, StrictMode) takes the "seen" early return and would otherwise
@@ -114,7 +112,7 @@ function MobileClipViewerBody({
   const paging = useVerticalPaging({
     prev: prev ?? null,
     next: next ?? null,
-    onPage: onNavigate ?? null,
+    onPage: onNavigate,
     pageKey: row.id,
   })
 
@@ -150,7 +148,9 @@ function MobileClipViewerBody({
     shareDisabled: row.privacy === "private",
     onShare: share.share,
     onDownload: () => {
-      if (!startBrowserDownload(clipDownloadUrl(row.id, apiOrigin()))) {
+      if (
+        !startBrowserDownload(clipDownloadUrl(row.id, window.location.origin))
+      ) {
         toast.error(t("Couldn't start download"))
       }
     },
@@ -342,7 +342,11 @@ function MobileClipViewerBody({
 
 function clipThumbnail(row: ClipRow): string | null {
   return row.thumbKey
-    ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
+    ? clipThumbnailUrl(
+        row.id,
+        window.location.origin,
+        row.thumbVersion ?? undefined,
+      )
     : null
 }
 

@@ -44,6 +44,6 @@ export async function resolveWaveformAudio(options: {
   })
   const key = runScopedWaveformKey(options.id, options.runId)
   await options.uploadedKeys.reserve(key)
-  await clipStorage.uploadFromFile(outputPath, key, "audio/mp4")
+  await clipStorage.uploadFromFile(outputPath, key)
   return key
 }

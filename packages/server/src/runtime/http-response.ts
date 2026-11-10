@@ -1,40 +1,32 @@
 import { logger } from "@alloy/logging"
 import { DrizzleError, DrizzleQueryError } from "drizzle-orm"
 import type { Context } from "hono"
-import type { ContentfulStatusCode } from "hono/utils/http-status"
+import type {
+  ClientErrorStatusCode,
+  ServerErrorStatusCode,
+} from "hono/utils/http-status"
 
 import { errorMessage } from "./error-message"
 
-function errorResponse(
+/**
+ * The statuses an error body is sent with. Typing them apart from 2xx lets
+ * the API client infer each route's result without the error shape in it.
+ */
+export type ErrorStatusCode = ClientErrorStatusCode | ServerErrorStatusCode
+
+function errorResponse<Status extends ErrorStatusCode>(
   c: Context,
   error: string,
-  status: ContentfulStatusCode,
+  status: Status,
 ) {
   return c.json({ error }, status)
 }
 
 export function errorResult(
   c: Context,
-  result: { error: string; status: ContentfulStatusCode },
+  result: { error: string; status: ErrorStatusCode },
 ) {
   return errorResponse(c, result.error, result.status)
-}
-
-export function booleanFlag(c: Context, key: string, value: boolean) {
-  return c.json({ [key]: value })
-}
-
-export function batchProgress(
-  c: Context,
-  countKey: string,
-  count: number,
-  hasMore: boolean,
-) {
-  return c.json({ [countKey]: count, hasMore })
-}
-
-export function accountState(c: Context, disabledAt: string | null) {
-  return c.json({ disabledAt })
 }
 
 export function urlResponse(c: Context, url: string) {
@@ -42,11 +34,11 @@ export function urlResponse(c: Context, url: string) {
 }
 
 export function success(c: Context) {
-  return booleanFlag(c, "success", true)
+  return c.json({ success: true })
 }
 
 export function deleted(c: Context) {
-  return booleanFlag(c, "deleted", true)
+  return c.json({ deleted: true })
 }
 
 export function noContent(c: Context) {

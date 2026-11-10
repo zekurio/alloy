@@ -45,12 +45,10 @@ Then import and configure the module:
 }
 ```
 
-The environment file needs two signing secrets and a SteamGridDB API key,
-which powers game search, artwork, and canonical game names:
+The environment file needs a SteamGridDB API key, which powers game search,
+artwork, and canonical game names:
 
 ```sh
-ALLOY_VIEWER_COOKIE_SECRET=replace-with-a-long-random-secret
-ALLOY_UPLOAD_HMAC_SECRET=replace-with-a-long-random-secret
 ALLOY_STEAMGRIDDB_API_KEY=replace-with-your-steamgriddb-api-key
 ```
 
@@ -63,8 +61,8 @@ username and passkey. See [`.env.example`](.env.example) for authentication,
 storage, and transcoding options.
 
 Sign-in, single sign-on, appearance, upload limits, and transcoding can be
-set with `ALLOY_*` environment variables, or with the matching
-`services.alloy-server.auth` options for sign-in. Each variable is a default:
+set with `ALLOY_*` environment variables, through
+`services.alloy-server.environment` on NixOS. Each variable is a default:
 admins can change the setting under **Settings → Administration**, the saved
 value applies without a restart, and resetting it returns to the variable.
 Single sign-on uses one OpenID Connect provider; register
@@ -81,8 +79,10 @@ settings do not change local desktop capture limits.
 
 The same server build is published as a container image at
 `ghcr.io/zekurio/alloy`. `X.Y.Z` tags are releases, `latest` is the newest
-release, and `unstable` follows `dev`. You still need to provide PostgreSQL and
-the environment above. See [RELEASING.md](.github/RELEASING.md#container-images).
+release, and `unstable` follows `dev`. The image listens on port 2552 and
+keeps clips, thumbnails, and assets under `/data`; mount a volume there. You
+still need to provide PostgreSQL and the environment above. See
+[RELEASING.md](.github/RELEASING.md#container-images).
 
 #### Webhooks
 
@@ -112,19 +112,18 @@ object (`id`, `username`, `displayName`, `url`). The exact shape is
 
 ### Development
 
-With [devenv](https://devenv.sh/), which provides Node, pnpm, PostgreSQL,
-ffmpeg, and Rust:
+With Nix, the flake's dev shell provides Node, pnpm, PostgreSQL, ffmpeg, and
+Rust, and starts a repo-local Postgres:
 
 ```bash
-nix profile install nixpkgs#devenv nixpkgs#direnv
-direnv allow
+nix develop        # or `direnv allow` to enter it on `cd`
 pnpm install
 pnpm dev
 ```
 
 Without Nix: install Node 24 and pnpm 11, provide a PostgreSQL database, copy
 `.env.example` to `.env`, then run `pnpm install && pnpm dev`. `pnpm dev:all`
-also starts the desktop shell, which builds only on Windows; see
+also starts the desktop shell; see
 [`packages/desktop`](packages/desktop/README.md) for its setup.
 
 ```bash

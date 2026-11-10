@@ -5,7 +5,6 @@
 {
   lib,
   stdenv,
-  callPackage,
   fetchurl,
   unzip,
   makeWrapper,
@@ -40,6 +39,7 @@
   nss,
   pango,
   pciutils,
+  pipewire,
   speechd-minimal,
   systemdMinimal,
   vulkan-loader,
@@ -84,7 +84,7 @@ let
     nss
     pango
     pciutils
-    (callPackage ./pipewire-client.nix { })
+    pipewire
     speechd-minimal
     stdenv.cc.cc
     systemdMinimal

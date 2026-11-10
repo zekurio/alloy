@@ -48,9 +48,7 @@ export function storageConfigFromRaw(raw: {
 
 function serverEnvSchema(defaultPublicServerUrl: string) {
   return t.object({
-    NODE_ENV: t
-      .enum(["development", "production", "test"])
-      .$default("development"),
+    NODE_ENV: t.enum(["development", "production"]).$default("development"),
     DATABASE_URL: postgresUrl(),
     PUBLIC_SERVER_URL: t
       .url()

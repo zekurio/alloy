@@ -15,13 +15,12 @@ use url::Url;
 use crate::capture_library::error::{LibraryError, Result};
 use crate::capture_library::paths::{extension_for_content_type, safe_component};
 use crate::capture_library::poster::{POSTER_WAIT, wait_for_poster};
-use crate::capture_library::store::CaptureLibrary;
+use crate::capture_library::store::{CaptureLibrary, validate_download_request};
 use crate::capture_library::types::{DownloadRequest, DownloadState, DownloadStatus};
 use crate::capture_library::work::Drain;
 
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(200);
 const DOWNLOAD_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
-const MAX_TITLE_LENGTH: usize = 256;
 const MAX_NAME_ATTEMPTS: u32 = 10_000;
 const MAX_MEDIA_VERSION_LENGTH: usize = 64;
 
@@ -73,7 +72,7 @@ impl DownloadManager {
     /// Updates the selected server and its native cookie snapshot. The URL is
     /// used only to construct the fixed clip download route below.
     pub fn set_selected_server(&self, origin: Url, cookie_header: Option<String>) -> Result<()> {
-        let origin = normalize_origin(origin)?;
+        let origin = checked_server_origin(origin)?;
         if let Some(cookie) = cookie_header.as_deref() {
             HeaderValue::from_str(cookie)
                 .map_err(|_| LibraryError::InvalidMetadata("invalid cookie snapshot".into()))?;
@@ -124,7 +123,7 @@ impl DownloadManager {
     }
 
     pub fn start(&self, request: DownloadRequest) -> Result<DownloadState> {
-        validate_request(&request)?;
+        validate_download_request(&request)?;
         if request
             .size_bytes
             .is_some_and(|size| size > self.library.config().max_download_bytes)
@@ -444,30 +443,8 @@ impl DownloadManager {
     }
 }
 
-fn validate_request(request: &DownloadRequest) -> Result<()> {
-    if request.clip_id.is_empty()
-        || request.clip_id.len() > 128
-        || !request
-            .clip_id
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-    {
-        return Err(LibraryError::InvalidMetadata("invalid clip id".into()));
-    }
-    if request.title.trim().is_empty() || request.title.len() > MAX_TITLE_LENGTH {
-        return Err(LibraryError::InvalidMetadata("invalid title".into()));
-    }
-    if request
-        .game_name
-        .as_deref()
-        .is_some_and(|value| value.len() > 256)
-    {
-        return Err(LibraryError::InvalidMetadata("invalid game name".into()));
-    }
-    Ok(())
-}
-
-fn normalize_origin(origin: Url) -> Result<Url> {
+/// A bare `http` or `https` origin, as the selected server must be.
+pub(crate) fn checked_server_origin(origin: Url) -> Result<Url> {
     if !matches!(origin.scheme(), "http" | "https")
         || origin.username() != ""
         || origin.password().is_some()

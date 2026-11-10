@@ -19,8 +19,7 @@ import {
   saveOidcConfig,
 } from "@alloy/server/config/store"
 import { probeTranscodingCapabilities } from "@alloy/server/media/capabilities"
-import { forceReconcileClipMedia } from "@alloy/server/queue/clip-media-worker"
-import { batchProgress, conflict } from "@alloy/server/runtime/http-response"
+import { conflict } from "@alloy/server/runtime/http-response"
 import { Hono } from "hono"
 
 import { adminGamesRoute } from "./admin-games"
@@ -230,8 +229,4 @@ export const adminRoute = new Hono()
         vaapiDevice: configStore.get("transcoding").vaapiDevice,
       }),
     )
-  })
-  .post("/clips/re-encode", async (c) => {
-    await forceReconcileClipMedia()
-    return batchProgress(c, "enqueued", 1, false)
   })

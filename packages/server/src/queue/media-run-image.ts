@@ -1,6 +1,7 @@
 import { readFile, stat } from "node:fs/promises"
 import { join } from "node:path"
 
+import { publishClipUpsert } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
 import { prepareScreenshot } from "@alloy/server/media/screenshot"
 import { putClipThumbnail } from "@alloy/server/media/thumbnail-variants"
@@ -8,16 +9,17 @@ import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 import { downloadStagedUploadToFile } from "@alloy/server/uploads/staged"
 import { selectVideoTicketKey } from "@alloy/server/uploads/tickets"
 
+import { beginProcessing } from "./clip-media-store"
+import { commitClipMediaReady } from "./clip-media-store-ready"
 import { abortMediaProcessing } from "./media-abort"
 import { runScopedSourceKey, runScopedThumbKey } from "./media-asset-keys"
 import {
   ensureStillPresent,
   withMediaRunWorkspace,
 } from "./media-run-workspace"
-import type { MediaCompletion, MediaRow, MediaStore } from "./media-store"
+import type { MediaCompletion, MediaRow } from "./media-store"
 
 export async function runImageProcessing(
-  store: MediaStore,
   id: string,
   row: MediaRow,
   runId: string,
@@ -25,18 +27,17 @@ export async function runImageProcessing(
   completion: MediaCompletion,
 ): Promise<void> {
   await withMediaRunWorkspace(
-    { store, id, row, runId, cleanupLabel: "screenshot" },
+    { id, row, runId, cleanupLabel: "screenshot" },
     async ({ workDir, uploadedKeys, retainedKeys }) => {
-      if (!(await store.beginProcessing(id, runId)))
-        throw abortMediaProcessing()
+      if (!(await beginProcessing(id, runId))) throw abortMediaProcessing()
       const path = join(workDir, "image")
       if (row.sourceKey) await clipStorage.downloadToFile(row.sourceKey, path)
       else {
-        const key = await selectVideoTicketKey({ type: store.target, id })
+        const key = await selectVideoTicketKey(id)
         if (!key) throw new Error("Uploaded screenshot is missing")
         await downloadStagedUploadToFile(key, path)
       }
-      await ensureStillPresent(store, id, runId, signal)
+      await ensureStillPresent(id, runId, signal)
       const limits = configStore.get("uploadLimits")
       if ((await stat(path)).size > limits.screenshotMaxBytes)
         throw new Error(
@@ -47,14 +48,14 @@ export async function runImageProcessing(
         row.sourceContentType ?? "",
         limits,
       )
-      await ensureStillPresent(store, id, runId, signal)
+      await ensureStillPresent(id, runId, signal)
       const sourceKey = runScopedSourceKey(id, runId)
       const thumbKey = runScopedThumbKey(id, runId)
       await uploadedKeys.reserve(sourceKey, thumbKey)
-      await clipStorage.put(sourceKey, image.bytes, "image/png")
+      await clipStorage.put(sourceKey, image.bytes)
       await putClipThumbnail(clipThumbnailStorage, thumbKey, image.thumbnail)
-      await ensureStillPresent(store, id, runId, signal)
-      const committed = await store.commitReady(
+      await ensureStillPresent(id, runId, signal)
+      const committed = await commitClipMediaReady(
         id,
         runId,
         {
@@ -83,7 +84,7 @@ export async function runImageProcessing(
       if (!committed) throw abortMediaProcessing()
       retainedKeys.add(sourceKey)
       retainedKeys.add(thumbKey)
-      store.publishUpsert(row.authorId, id)
+      void publishClipUpsert(row.authorId, id)
     },
   )
 }

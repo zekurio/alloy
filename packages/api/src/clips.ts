@@ -13,22 +13,19 @@ import {
 
 import type { ApiContext } from "./client"
 import {
-  validateClipRow,
-  validateInitiateClipResponse,
-  validateQueueClips,
-  validateQueueEvent,
-} from "./contract-validators"
-import { parseJsonPayload, readJsonOrThrow, readNoContentOrThrow } from "./http"
-import { readDeletedJson, readSuccessJson } from "./mutations"
+  expectOk,
+  parseJsonPayload,
+  readJsonOrThrow,
+  readUntypedJsonOrThrow,
+} from "./http"
 import { encodedPathSegment, resolvePublicUrlWithQuery } from "./paths"
 
 export {
-  ACCEPTED_CLIP_CONTENT_TYPES,
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_THUMBNAIL_WIDTHS,
   CLIP_TITLE_MAX_LENGTH,
 } from "@alloy/contracts"
-export { uploadToTicket } from "./clip-upload"
+export { uploadClipSource } from "./clip-upload"
 export type {
   AcceptedContentType,
   ClipFeedSort,
@@ -48,7 +45,6 @@ export type {
   SetClipPosterInput,
   TrimClipInput,
   UpdateClipInput,
-  UploadTicket,
 } from "@alloy/contracts"
 
 function versionedClipAssetUrl(
@@ -67,11 +63,11 @@ function versionedClipAssetUrl(
 }
 
 export function parseQueueSnapshotPayload(data: string): QueueClip[] | null {
-  return parseJsonPayload(data, validateQueueClips)
+  return parseJsonPayload(data)
 }
 
 export function parseQueueEventPayload(data: string): QueueEvent | null {
-  return parseJsonPayload(data, validateQueueEvent)
+  return parseJsonPayload(data)
 }
 
 export function uploadQueueStreamUrl(origin?: string): string {
@@ -147,43 +143,43 @@ export function createClipsApi(context: ApiContext) {
   return {
     async fetchById(clipId: string): Promise<ClipRow> {
       const res = await clips[":id"].$get({ param: { id: clipId } })
-      return readJsonOrThrow(res, validateClipRow)
+      return readJsonOrThrow(res)
     },
     async initiate(input: InitiateClipInput): Promise<InitiateClipResponse> {
       const res = await clips.initiate.$post({ json: input })
-      return readJsonOrThrow(res, validateInitiateClipResponse)
+      return readJsonOrThrow(res)
     },
     async finalize(clipId: string): Promise<ClipRow> {
       const res = await clips[":id"].finalize.$post({ param: { id: clipId } })
-      return readJsonOrThrow(res, validateClipRow)
+      return readJsonOrThrow(res)
     },
     async markUploadFailed(clipId: string): Promise<void> {
       const res = await clips[":id"].fail.$post({ param: { id: clipId } })
-      await readSuccessJson(res)
+      await expectOk(res)
     },
     async delete(clipId: string): Promise<void> {
       const res = await clips[":id"].$delete({ param: { id: clipId } })
-      await readDeletedJson(res)
+      await expectOk(res)
     },
     async dismissQueue(clipId: string): Promise<void> {
       const res = await clips[":id"]["queue-dismissal"].$post({
         param: { id: clipId },
       })
-      await readSuccessJson(res)
+      await expectOk(res)
     },
     async update(clipId: string, input: UpdateClipInput): Promise<ClipRow> {
       const res = await clips[":id"].$patch({
         param: { id: clipId },
         json: input,
       })
-      return readJsonOrThrow(res, validateClipRow)
+      return readJsonOrThrow(res)
     },
     async trim(clipId: string, input: TrimClipInput): Promise<ClipRow> {
       const res = await clips[":id"].trim.$post({
         param: { id: clipId },
         json: input,
       })
-      return readJsonOrThrow(res, validateClipRow)
+      return readJsonOrThrow(res)
     },
     async updateImage(clipId: string, file: File, sourceVersion: string) {
       const body = new FormData()
@@ -193,19 +189,19 @@ export function createClipsApi(context: ApiContext) {
         `/api/clips/${encodedPathSegment(clipId)}/image`,
         { method: "POST", init: { body } },
       )
-      return readJsonOrThrow(response, validateClipRow)
+      return readUntypedJsonOrThrow<ClipRow>(response)
     },
     async reEncode(clipId: string): Promise<ClipRow> {
       const res = await clips[":id"]["re-encode"].$post({
         param: { id: clipId },
       })
-      return readJsonOrThrow(res, validateClipRow)
+      return readJsonOrThrow(res)
     },
     async reannounce(clipId: string): Promise<void> {
       const res = await clips[":id"].reannounce.$post({
         param: { id: clipId },
       })
-      await readNoContentOrThrow(res)
+      await expectOk(res)
     },
     async setPoster(
       clipId: string,
@@ -215,11 +211,11 @@ export function createClipsApi(context: ApiContext) {
         param: { id: clipId },
         json: input,
       })
-      return readJsonOrThrow(res, validateClipRow)
+      return readJsonOrThrow(res)
     },
     async recordView(clipId: string): Promise<void> {
       const res = await clips[":id"].view.$post({ param: { id: clipId } })
-      await readNoContentOrThrow(res)
+      await expectOk(res)
     },
   }
 }

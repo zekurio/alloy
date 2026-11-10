@@ -2,105 +2,36 @@
 
 import { readFileSync, writeFileSync } from "node:fs"
 
+// Stamps a release version into every file that holds it. Each edit replaces
+// one known line in place, as re-serializing a file would change formatting
+// that `pnpm fmt:check` checks.
+
 const version = process.argv[2]
-
-// The desktop package version is the app version electron-builder stamps
-// into the installer and electron-updater compares against.
-const releasePackageFiles = ["package.json", "packages/desktop/package.json"]
-const cargoPackageFiles = [
-  ["packages/desktop/recorder/Cargo.toml", "alloy-agent"],
-  ["packages/desktop/host/Cargo.toml", "alloy-desktop"],
-  ["packages/desktop/native/Cargo.toml", "alloy-desktop-native"],
-]
-const cargoLockPackageFiles = [
-  ["Cargo.lock", "alloy-agent"],
-  ["Cargo.lock", "alloy-desktop"],
-  ["Cargo.lock", "alloy-desktop-native"],
-]
-
-const fail = (message) => {
-  console.error(message)
+if (!/^\d+\.\d+\.\d+$/.test(version ?? "") || process.argv.length > 3) {
+  console.error("Usage: node scripts/update-release-package-versions.mjs X.Y.Z")
   process.exit(1)
 }
 
-if (!version || process.argv.length > 3) {
-  fail("Usage: node scripts/update-release-package-versions.mjs <version>")
-}
+const jsonVersion = /^( {2}"version": )"[^"]*"/m
+const edits = [
+  // The server and the web app report this version, and Nix packages it.
+  ["package.json", jsonVersion],
+  // The app version electron-builder stamps into the installer and
+  // electron-updater compares against.
+  ["packages/desktop/package.json", jsonVersion],
+  // The crates the app ships inherit it, and Cargo.lock records each one.
+  ["Cargo.toml", /^(\[workspace\.package\]\nversion = )"[^"]*"/m],
+  ...["alloy-agent", "alloy-desktop", "alloy-desktop-native"].map((name) => [
+    "Cargo.lock",
+    new RegExp(`^(name = "${name}"\\nversion = )"[^"]*"`, "m"),
+  ]),
+]
 
-if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(version)) {
-  fail(`Invalid release version: ${version}`)
-}
-
-for (const filePath of releasePackageFiles) {
-  const original = readFileSync(filePath, "utf8")
-  const config = JSON.parse(original)
-
-  if (config.version === version) {
-    console.log(`${filePath} is already at version ${version}.`)
-    continue
+for (const [file, line] of edits) {
+  const text = readFileSync(file, "utf8")
+  if (!line.test(text)) {
+    console.error(`${file} has no line matching ${line}.`)
+    process.exit(1)
   }
-
-  // Patch the version value in place instead of re-serializing the document:
-  // `JSON.stringify` expands arrays that oxfmt keeps inline, which would
-  // leave the release commit failing `pnpm fmt:check`.
-  const updated = original.replace(
-    /^ {2}"version": "[^"]+"(,?)$/m,
-    `  "version": "${version}"$1`,
-  )
-
-  if (updated === original) {
-    fail(`No top-level "version" field found in ${filePath}.`)
-  }
-
-  writeFileSync(filePath, updated)
-}
-
-for (const [filePath, packageName] of cargoPackageFiles) {
-  const original = readFileSync(filePath, "utf8")
-  // Only touch the `[package]` table, and only when it is the expected crate
-  // with a literal version (not `version.workspace = true`).
-  const packageTable = original.match(
-    /^\[package\]\n(?:(?!\[)[^\n]*\n?)*/m,
-  )?.[0]
-  if (!packageTable?.includes(`\nname = "${packageName}"\n`)) {
-    fail(`${filePath} has no [package] named "${packageName}".`)
-  }
-  const versionLine = /^version = "([^"]+)"$/m
-  const current = packageTable.match(versionLine)?.[1]
-  if (current === undefined) {
-    fail(
-      `No literal [package] version found for "${packageName}" in ${filePath}.`,
-    )
-  }
-  if (current === version) {
-    console.log(`${filePath} is already at version ${version}.`)
-    continue
-  }
-
-  writeFileSync(
-    filePath,
-    original.replace(
-      packageTable,
-      packageTable.replace(versionLine, `version = "${version}"`),
-    ),
-  )
-}
-
-for (const [filePath, packageName] of cargoLockPackageFiles) {
-  const original = readFileSync(filePath, "utf8")
-  const entry = new RegExp(
-    `(\\[\\[package\\]\\]\\nname = "${packageName}"\\nversion = ")([^"]+)(")`,
-  )
-  const current = original.match(entry)?.[2]
-  if (current === undefined) {
-    fail(`No Cargo.lock entry found for "${packageName}" in ${filePath}.`)
-  }
-  if (current === version) {
-    console.log(
-      `${filePath} (${packageName}) is already at version ${version}.`,
-    )
-    continue
-  }
-
-  writeFileSync(filePath, original.replace(entry, `$1${version}$3`))
+  writeFileSync(file, text.replace(line, `$1"${version}"`))
 }

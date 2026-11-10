@@ -35,9 +35,7 @@ export const SHELL_OPERATIONS = [
   "toggleMaximizeWindow",
   "closeWindow",
   "openConnect",
-  "openSettings",
   "openLogsFolder",
-  "reloadApp",
 ] as const
 export type ShellOperation = (typeof SHELL_OPERATIONS)[number]
 

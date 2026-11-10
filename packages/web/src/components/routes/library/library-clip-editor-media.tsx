@@ -37,7 +37,6 @@ import {
 } from "@/components/video/video-player"
 import { useSetClipPosterMutation } from "@/lib/clip-queries"
 import type { RecordingLibraryItem } from "@/lib/desktop"
-import { apiOrigin } from "@/lib/env"
 import {
   localClipSource,
   mediaWindowSeconds,
@@ -51,11 +50,7 @@ import {
   LibraryEntryNavButton,
   type NavigableLibraryEntry,
 } from "./library-entry-navigation"
-import {
-  LibraryHandoffPosterOverlay,
-  type LibraryHandoffPoster,
-  useLibraryHandoffPoster,
-} from "./library-handoff-poster"
+import type { LibraryHandoffPoster } from "./library-handoff-poster"
 
 export function useClipEditorMedia(
   row: ClipRow,
@@ -66,7 +61,7 @@ export function useClipEditorMedia(
   // from thumb/status fields would reload the <video> mid-playback whenever a
   // background detail refetch lands.
   const mediaVersion = row.sourceVersion ?? ""
-  const streamSrc = clipOriginalFileUrl(row.id, apiOrigin())
+  const streamSrc = clipOriginalFileUrl(row.id, window.location.origin)
   const sourcePlayable = canPlaySource(
     row.sourceContentType ?? "video/mp4",
     row.sourceCodecs ?? "",
@@ -85,7 +80,7 @@ export function useClipEditorMedia(
       ? clipRenditionFileUrl(
           row.id,
           playableRendition.name,
-          apiOrigin(),
+          window.location.origin,
           playableRendition.version,
         )
       : null
@@ -120,7 +115,7 @@ export function useClipEditorMedia(
       localSource.window.endMs - localSource.window.startMs)
     : (localMediaItem?.durationMs ?? row.sourceDurationMs ?? row.durationMs)
   const serverWaveformSrc = row.waveformVersion
-    ? clipWaveformFileUrl(row.id, apiOrigin(), row.waveformVersion)
+    ? clipWaveformFileUrl(row.id, window.location.origin, row.waveformVersion)
     : null
   const waveformSrc = localMediaSrc ?? (processing ? null : serverWaveformSrc)
   const waveform = useMediaWaveform(
@@ -136,7 +131,11 @@ export function useClipEditorMedia(
     localSource?.window,
   )
   const serverPoster = row.thumbKey
-    ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
+    ? clipThumbnailUrl(
+        row.id,
+        window.location.origin,
+        row.thumbVersion ?? undefined,
+      )
     : undefined
   // While the server still owes us a thumbnail, the upload queue may hold an
   // existing local library poster for the pending card.
@@ -170,11 +169,9 @@ export function useClipEditorMedia(
     }),
     [fallbackSeed, poster, posterBlurHash],
   )
-  const publishHandoff = useLibraryHandoffPoster(row.id)
 
   return {
     aspectRatio,
-    cloudFrameReady: publishHandoff.frameReady,
     waveform,
     handoffPoster,
     mediaVersion:
@@ -191,8 +188,6 @@ export function useClipEditorMedia(
     poster,
     posterBlurHash,
     previewUnavailable,
-    publishHandoffPoster: publishHandoff.poster,
-    markCloudFrameReady: publishHandoff.markFrameReady,
     streamSrc,
     fallbackSeed,
   }
@@ -237,7 +232,7 @@ export function ClipEditorVideo({
   row: ClipRow
   media: ClipEditorMediaState
   playback: ClipEditorPlaybackState
-  /** Runs after the stage has marked the cloud frame ready. */
+  /** Runs once the player paints its first frame. */
   onFrameReady?: () => void
 } & Pick<
   ComponentProps<typeof VideoPlayer>,
@@ -258,10 +253,7 @@ export function ClipEditorVideo({
       initialTime={playback.getCurrentMs() / 1000}
       playerRef={playback.playerRef}
       onPlayingChange={playback.setPlaying}
-      onFrameReady={() => {
-        media.markCloudFrameReady()
-        onFrameReady?.()
-      }}
+      onFrameReady={onFrameReady}
       onEnded={playback.handleEnded}
       onPlaybackError={media.onPlaybackError}
       {...chrome}
@@ -304,10 +296,6 @@ export function ClipEditorStage({
         )}
         <LibraryEntryNavButton side="left" target={prevEntry} />
         <LibraryEntryNavButton side="right" target={nextEntry} />
-        <LibraryHandoffPosterOverlay
-          poster={media.publishHandoffPoster}
-          ready={media.cloudFrameReady}
-        />
       </MediaStage>
 
       {processing ? (

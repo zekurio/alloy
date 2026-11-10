@@ -28,6 +28,7 @@ import {
   encodeCursorPayload,
 } from "./cursor-codec"
 import {
+  lowercaseUuid,
   optionalBlankToNullTrimmedString,
   requiredTrimmedString,
 } from "./validation"
@@ -184,7 +185,7 @@ const TagsInput = t
 
 export const InitiateBody = t
   .object({
-    clientClipId: t.uuid().optional(),
+    clientClipId: lowercaseUuid().optional(),
     filename: t.string().min(1).max(255),
     contentType: t.enum(ACCEPTED_MEDIA_CONTENT_TYPES),
     sizeBytes: t.number().int().positive().max(Number.MAX_SAFE_INTEGER),
@@ -192,7 +193,7 @@ export const InitiateBody = t
     description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
     gameId: t.uuid().nullable().optional(),
     privacy: t.enum(CLIP_PRIVACY).$default("public"),
-    mentionedUserIds: t.array(t.uuid()).optional(),
+    mentionedUserIds: t.array(lowercaseUuid()).optional(),
     tags: TagsInput,
     width: t.number().int().positive().max(32_768).optional(),
     height: t.number().int().positive().max(32_768).optional(),
@@ -288,7 +289,7 @@ export const UpdateBody = t.object({
   description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
   gameId: t.uuid().nullable().optional(),
   privacy: t.enum(CLIP_PRIVACY).optional(),
-  mentionedUserIds: t.array(t.uuid()).optional(),
+  mentionedUserIds: t.array(lowercaseUuid()).optional(),
   tags: TagsInput,
 })
 

@@ -1,7 +1,7 @@
 import { t } from "@alloy/contracts/schema"
+import { env } from "@alloy/server/env"
 
 import { runProcess } from "./run-process"
-import { transcodeSettings } from "./transcode-settings"
 
 /** Probing reads container metadata only; anything slower is a wedged process. */
 const PROBE_TIMEOUT_MS = 30_000
@@ -45,7 +45,7 @@ export async function runFfprobe(
   const stdout: string[] = []
   await runProcess({
     name: "ffprobe",
-    command: transcodeSettings().ffprobePath,
+    command: env.transcode.ffprobePath,
     args: [
       "-v",
       "quiet",

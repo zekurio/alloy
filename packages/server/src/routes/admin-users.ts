@@ -20,7 +20,7 @@ import {
   selectAdminUserStorageRows,
 } from "./admin-helpers"
 import {
-  cursorTimestampText,
+  cursorDate,
   decodeCursorPayload,
   encodeCursorPayload,
 } from "./cursor-codec"
@@ -76,12 +76,12 @@ async function updateAdminUser(id: string, patch: t.infer<typeof UserPatch>) {
 
 function decodeUsersCursor(
   value: string | undefined,
-): { createdAt: string; id: string } | null {
+): { createdAt: Date; id: string } | null {
   const payload = decodeCursorPayload(value)
   if (!payload) return null
-  // createdAt is cast back to ::timestamp and id to uuid in the query, so a
-  // crafted cursor with a bad shape would raise a DB error — reject it here.
-  const createdAt = cursorTimestampText(payload.createdAt)
+  // id is compared as a uuid in the query, so a crafted cursor with a bad
+  // shape would raise a DB error — reject it here.
+  const createdAt = cursorDate(payload.createdAt)
   const id = t.string().uuid().safeParse(payload.id)
   if (!createdAt || !id.success) return null
   return { createdAt, id: id.data }

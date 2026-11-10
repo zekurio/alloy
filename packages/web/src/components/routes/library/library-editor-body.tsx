@@ -54,7 +54,6 @@ import {
   parseTagString,
 } from "@/lib/clip-fields"
 import { notifyLibraryCapturesChanged, type AlloyDesktop } from "@/lib/desktop"
-import { publicOrigin } from "@/lib/env"
 import { useMediaWaveform } from "@/lib/media-waveform"
 import { useActionFeedback } from "@/lib/use-action-feedback"
 
@@ -336,7 +335,7 @@ function LocalEditorBody({
         const link = absoluteClipHref(
           pickedGame?.slug ?? null,
           clipId,
-          publicOrigin(),
+          window.location.origin,
         )
         if (!(await copyPublishedClipLink(link))) {
           setLinkToCopy(link)

@@ -1,5 +1,3 @@
-"use client"
-
 import { Button } from "@alloy/ui/components/button"
 import { DialogOverlay } from "@alloy/ui/components/dialog"
 import { DIALOG_MOTION_CLASS_NAME } from "@alloy/ui/lib/motion"

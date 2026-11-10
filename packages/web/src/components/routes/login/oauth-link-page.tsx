@@ -14,7 +14,7 @@ import {
   toastAuthAttemptFailure,
 } from "@/lib/auth-flow"
 import { clientLogger } from "@/lib/client-log"
-import { usePasskeySupport } from "@/lib/passkey-support"
+import { passkeysSupported } from "@/lib/passkey-support"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 import { LoginForm } from "./login-page-inner"
@@ -67,8 +67,7 @@ function OAuthLinkSignIn({
   // This page, link param included, so signing in comes back to confirm.
   const returnTo = useLocation({ select: (location) => location.href })
   const [reactivationRequired, setReactivationRequired] = useState(false)
-  const { ready: passkeyReady, supported: passkeySupported } =
-    usePasskeySupport()
+  const passkeySupported = passkeysSupported()
   const displayName = provider.displayName
   // Signing in with SSO again would only match the claim again and nest
   // another link redirect, so offer the other sign-in methods.
@@ -108,7 +107,6 @@ function OAuthLinkSignIn({
     <>
       <LoginForm
         config={signInConfig}
-        passkeyReady={passkeyReady}
         passkeySupported={passkeySupported}
         redirectTo={returnTo}
         onReactivationRequired={() => setReactivationRequired(true)}

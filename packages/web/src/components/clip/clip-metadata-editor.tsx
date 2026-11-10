@@ -1,6 +1,7 @@
 import type { GameRow, UserSearchResult } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Chip } from "@alloy/ui/components/chip"
+import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Textarea } from "@alloy/ui/components/textarea"
 import { cn } from "@alloy/ui/lib/utils"
 import { ChevronRightIcon, Gamepad2Icon, PencilIcon } from "lucide-react"
@@ -8,7 +9,6 @@ import { useRef, useState } from "react"
 import type { ReactNode } from "react"
 
 import { GameCombobox } from "@/components/game/game-combobox"
-import { GameIcon } from "@/components/game/game-icon"
 import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
 
 import {
@@ -227,7 +227,6 @@ function GamePickerChip({
   return (
     <div ref={rootRef} className="w-56 max-w-full">
       <Chip
-        size="xl"
         disabled={disabled}
         data-active={value ? "true" : undefined}
         onClick={() => {

@@ -150,7 +150,6 @@ function PickerChipTrigger({
 }) {
   return (
     <Chip
-      size="xl"
       disabled={disabled}
       onClick={onClick}
       className="flex w-full justify-start"

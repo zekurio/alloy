@@ -26,10 +26,12 @@ impl Drop for MockServer {
 }
 
 fn server_info() -> Value {
-    serde_json::from_str(include_str!(
-        "../../../contracts/fixtures/server-http-v1.json"
-    ))
-    .unwrap()
+    json!({
+        "product": "alloy",
+        "version": "1.1.2",
+        "httpContracts": [1],
+        "desktopBridgeContracts": [2]
+    })
 }
 
 async fn mock_server(info: Value) -> MockServer {
@@ -84,7 +86,7 @@ async fn respond(mut stream: TcpStream, info: Value, received: Arc<Mutex<Option<
     let body = if first.starts_with("GET /api/server-info ") {
         info
     } else if first.starts_with("GET /api/auth-config ") {
-        json!({ "setupRequired": false, "desktopAuth": { "version": 1 } })
+        json!({ "setupRequired": false })
     } else {
         assert!(first.starts_with("POST /api/auth/desktop/token "));
         // The server labels the desktop session with this.
@@ -119,7 +121,7 @@ async fn selected_server_must_advertise_the_exact_bridge_contract() {
     compatible.server.check().await.unwrap();
 
     let mut info = server_info();
-    info["desktopBridgeContracts"] = json!([2]);
+    info["desktopBridgeContracts"] = json!([1]);
     let incompatible = mock_server(info).await;
     assert!(incompatible.server.check().await.is_err());
 }

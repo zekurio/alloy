@@ -14,17 +14,13 @@ lib.cleanSourceWith {
     # Nix expressions configure the derivation, but are not build inputs.
     !(builtins.elem name [
       ".cache"
-      ".devenv"
-      ".devenv.flake.nix"
       ".direnv"
       ".env"
       ".git"
-      ".turbo"
       ".venv"
       "__pycache__"
       "build"
       "data"
-      "devenv.local.nix"
       "dist"
       "nix"
       "node_modules"

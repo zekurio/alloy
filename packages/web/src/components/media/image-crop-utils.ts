@@ -2,7 +2,6 @@ import { t } from "@alloy/i18n"
 export type CropMode =
   | "avatar"
   | "banner"
-  | "thumbnail"
   | "gameHero"
   | "gameGrid"
   | "gameIcon"
@@ -13,7 +12,7 @@ type CropConfig = {
   outputHeight: number
   outputWidth: number
   /** "strip" spans the full stage width (wide banners); "cover" requires the
-   * source image to always fill the frame (avatar, thumbnail, game art). */
+   * source image to always fill the frame (avatar, game art). */
   frameFit: "strip" | "cover"
   /** Aspect of the stage the frame is laid out in — wide frames get a wide
    * stage, tall or square ones need the extra height. */
@@ -35,14 +34,6 @@ export const CROP_CONFIG = {
     label: t("Edit banner"),
     outputHeight: 375,
     outputWidth: 1500,
-    stageClass: "aspect-video",
-  },
-  thumbnail: {
-    aspect: 16 / 9,
-    frameFit: "cover",
-    label: t("Edit thumbnail"),
-    outputHeight: 720,
-    outputWidth: 1280,
     stageClass: "aspect-video",
   },
   // Game artwork mirrors the sizes the server renders to, so the crop the
@@ -74,7 +65,7 @@ export const CROP_CONFIG = {
 } satisfies Record<CropMode, CropConfig>
 
 const PAN_AXIS_EPSILON_PX = 0.5
-export const DEFAULT_PREVIEW_ZOOM = 1
+const DEFAULT_PREVIEW_ZOOM = 1
 export const MAX_PREVIEW_ZOOM = 4
 
 export type LoadedImage = {

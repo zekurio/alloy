@@ -2,7 +2,6 @@ import {
   isObjectRecord,
   isStringValue,
   THEME_MODES,
-  type ContractJsonInput,
   type SyncedThemePreferences,
 } from "@alloy/contracts"
 import { createLocalStorageDriver } from "@alloy/ui/lib/local-storage"
@@ -27,9 +26,7 @@ export const DEFAULT_THEME_PREFERENCES: ThemePreferences = {
   sync: true,
 }
 
-export function normalizeThemePreferences(
-  value: ContractJsonInput,
-): ThemePreferences {
+function normalizeThemePreferences(value: unknown): ThemePreferences {
   if (!isObjectRecord(value)) return { ...DEFAULT_THEME_PREFERENCES }
 
   const mode =

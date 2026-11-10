@@ -6,10 +6,9 @@ use url::{Host, Url};
 
 use crate::logging::logged;
 
-pub const HTTP_CONTRACT_1: u64 = 1;
-pub const BRIDGE_CONTRACT_1: u64 = 1;
-/// The largest contract ID the renderer's JSON numbers carry exactly.
-pub const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
+const HTTP_CONTRACT_1: u64 = 1;
+/// Equal to `DESKTOP_BRIDGE_CONTRACT` in `@alloy/contracts`.
+const BRIDGE_CONTRACT: u64 = 2;
 const MAX_JSON_BODY: usize = 64 * 1024;
 
 #[derive(Clone)]
@@ -42,28 +41,20 @@ impl Server {
     /// server-hosted webview. Returns the trimmed, non-empty server version.
     pub async fn check(&self) -> Result<String, String> {
         let info: ServerInfo = self.get_json("/api/server-info").await?;
-        let valid_ids = |ids: &[u64]| ids.iter().all(|id| *id > 0 && *id <= MAX_SAFE_INTEGER);
-        if info.schema != "alloy.server-info"
-            || info.product != "alloy"
+        if info.product != "alloy"
             || info.version.trim().is_empty()
-            || !valid_ids(&info.http_contracts)
             || !info.http_contracts.contains(&HTTP_CONTRACT_1)
-            || !valid_ids(&info.desktop_bridge_contracts)
-            || !info.desktop_bridge_contracts.contains(&BRIDGE_CONTRACT_1)
-            || info.capabilities.auth.desktop_auth != 1
-            || info.capabilities.auth.session_cookies != 1
-            || info.capabilities.transport.json != 1
-            || info.capabilities.transport.credentialed_fetch != 1
+            || !info.desktop_bridge_contracts.contains(&BRIDGE_CONTRACT)
         {
-            return Err("This server does not support Alloy desktop HTTP contract 1.".into());
+            return Err(
+                "This server and this app are on different Alloy versions. Update both, then connect again."
+                    .into(),
+            );
         }
 
         let config: AuthConfig = self.get_json("/api/auth-config").await?;
         if config.setup_required {
             return Err("Finish server setup in your browser, then connect again.".into());
-        }
-        if config.desktop_auth.version != 1 {
-            return Err("This server does not support desktop login.".into());
         }
         Ok(info.version.trim().to_owned())
     }
@@ -165,42 +156,14 @@ fn is_loopback(url: &Url) -> bool {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ServerInfo {
-    schema: String,
     version: String,
     product: String,
     http_contracts: Vec<u64>,
     desktop_bridge_contracts: Vec<u64>,
-    capabilities: Capabilities,
-}
-
-#[derive(Deserialize)]
-struct Capabilities {
-    auth: AuthCapabilities,
-    transport: TransportCapabilities,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct AuthCapabilities {
-    desktop_auth: u64,
-    session_cookies: u64,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct TransportCapabilities {
-    json: u64,
-    credentialed_fetch: u64,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AuthConfig {
     setup_required: bool,
-    desktop_auth: AuthVersion,
-}
-
-#[derive(Deserialize)]
-struct AuthVersion {
-    version: u64,
 }

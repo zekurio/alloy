@@ -10,20 +10,14 @@ import { ThemeAccentsSchema, type ThemeAccents } from "./theme"
 import { DEFAULT_UPLOAD_LIMITS, UploadLimitsSchema } from "./upload-limits"
 
 export {
-  AdminOidcConfigSchema,
-  OAUTH_AVATAR_CLAIM_DEFAULT,
   OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD,
   OAUTH_CLIENT_SECRET_POST_AUTH_METHOD,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_TOKEN_AUTH_METHODS,
-  OAUTH_USERNAME_CLAIM_DEFAULT,
   OIDC_CALLBACK_PATH,
   OIDC_CALLBACK_ROUTE,
-  OIDC_CLIENT_SECRET_SOURCES,
-  OIDC_DISPLAY_NAME_DEFAULT,
   OIDC_PROVIDER_ID,
-  OIDC_SCOPES_DEFAULT,
   OidcConfigSchema,
 } from "./admin-auth"
 export type {
@@ -33,7 +27,6 @@ export type {
   OAuthTokenAuthMethod,
   OidcClientSecretSource,
   OidcConfig,
-  UsernameClaim,
 } from "./admin-auth"
 
 const PositiveIntegerSchema = t.number().int().positive()
@@ -61,7 +54,7 @@ export const LimitsConfigSchema = t.object({
 
 export type LimitsConfig = t.infer<typeof LimitsConfigSchema>
 
-export const StorageConfigSchema = t.looseObject({
+const StorageConfigSchema = t.looseObject({
   /**
    * Filesystem root for clip sources and derived clip media. Relative paths
    * resolve from the server working directory; absolute paths are used as-is.
@@ -83,12 +76,10 @@ export const StorageConfigSchema = t.looseObject({
 
 export type StorageConfig = t.infer<typeof StorageConfigSchema>
 
-export type AdminStorageConfig = StorageConfig
+const LOGIN_SPLASH_MAX_BLUR_PX = 48
+const LOGIN_SPLASH_MAX_DARKEN_OPACITY = 1
 
-export const LOGIN_SPLASH_MAX_BLUR_PX = 48
-export const LOGIN_SPLASH_MAX_DARKEN_OPACITY = 1
-
-export const LoginSplashConfigSchema = t.looseObject({
+const LoginSplashConfigSchema = t.looseObject({
   enabled: t.boolean(),
   blurPx: t.number().nonnegative().max(LOGIN_SPLASH_MAX_BLUR_PX),
   darkenOpacity: t.number().nonnegative().max(LOGIN_SPLASH_MAX_DARKEN_OPACITY),
@@ -105,7 +96,7 @@ export interface PublicLoginSplashConfig {
  * public clips the login page rotates through as full-screen backdrops;
  * `thumbVersion` carries the thumbnail cache version.
  */
-export interface LoginBackdropClip {
+interface LoginBackdropClip {
   id: string
   thumbVersion: string
 }
@@ -198,7 +189,7 @@ export function compareRenditions(
   return b.height - a.height || b.fps - a.fps
 }
 
-export const DEFAULT_RENDITION_TIERS: RenditionTierConfig[] = [
+const DEFAULT_RENDITION_TIERS: RenditionTierConfig[] = [
   { height: 1080, maxFps: 60, maxrateKbps: 8000, og: true },
   { height: 720, maxFps: 60, maxrateKbps: 5000 },
   { height: 480, maxFps: 30, maxrateKbps: 2500 },
@@ -255,7 +246,7 @@ export type TranscodingConfig = t.infer<typeof TranscodingConfigSchema>
  * it is listed but a functional test encode errored (e.g. no GPU present), and
  * "ok" when a test encode succeeded.
  */
-export const TranscodingEncoderProbeSchema = t.looseObject({
+const TranscodingEncoderProbeSchema = t.looseObject({
   codec: VideoCodecSchema,
   acceleration: HardwareAccelerationSchema,
   encoder: t.string(),
@@ -266,7 +257,7 @@ export type TranscodingEncoderProbe = t.infer<
   typeof TranscodingEncoderProbeSchema
 >
 
-export const TranscodingCapabilitiesSchema = t.looseObject({
+const TranscodingCapabilitiesSchema = t.looseObject({
   ffmpegPath: t.string(),
   version: t.string().nullable(),
   jellyfin: t.boolean(),
@@ -311,7 +302,7 @@ export const RUNTIME_CONFIG_VERSION = 1
  * section starts from built-in defaults, takes ALLOY_* environment variables
  * on top, and then any value an admin saved in the settings UI.
  */
-export const RuntimeConfigSchema = t.looseObject({
+const RuntimeConfigSchema = t.looseObject({
   runtimeConfigVersion: PositiveIntegerSchema.refine(
     (value) => value === RUNTIME_CONFIG_VERSION,
     `runtimeConfigVersion must be ${RUNTIME_CONFIG_VERSION}`,
@@ -336,7 +327,7 @@ export type RuntimeConfig = t.infer<typeof RuntimeConfigSchema>
  * differs from its default was saved in the UI; saving the default value
  * again hands the setting back to the environment.
  */
-export const AdminConfigDefaultsSchema = t.looseObject({
+const AdminConfigDefaultsSchema = t.looseObject({
   openRegistrations: t.boolean(),
   passkeyEnabled: t.boolean(),
   requireAuthToBrowse: t.boolean(),
@@ -347,13 +338,11 @@ export const AdminConfigDefaultsSchema = t.looseObject({
   transcoding: TranscodingConfigSchema,
 })
 
-export type AdminConfigDefaults = t.infer<typeof AdminConfigDefaultsSchema>
-
 /**
  * Admin runtime config response. Built from {@link RuntimeConfig} plus
  * secret-source flags; it carries no secret values.
  */
-export const AdminRuntimeConfigSchema = RuntimeConfigSchema.extend({
+const AdminRuntimeConfigSchema = RuntimeConfigSchema.extend({
   oidc: AdminOidcConfigSchema,
   defaults: AdminConfigDefaultsSchema,
   authBaseURL: UrlStringSchema,
@@ -366,12 +355,6 @@ export interface PublicOidcConfig {
   displayName: string
   /** Whether signing in with it can create a new account. */
   allowSignUp: boolean
-}
-
-export const DESKTOP_AUTH_CAPABILITY_VERSION = 1
-
-export interface PublicDesktopAuthConfig {
-  version: number
 }
 
 /** Response of `GET /api/setup/status`, for the browser that asks. */
@@ -392,7 +375,6 @@ export interface PublicAuthConfig {
   openRegistrations: boolean
   passkeyEnabled: boolean
   requireAuthToBrowse: boolean
-  desktopAuth: PublicDesktopAuthConfig
   /** Null unless OIDC sign-in is enabled and has a client secret. */
   oidc: PublicOidcConfig | null
   loginSplash: PublicLoginSplashConfig

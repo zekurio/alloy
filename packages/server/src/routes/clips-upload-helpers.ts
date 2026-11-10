@@ -16,7 +16,7 @@ export type UploadQuotaResult =
   | { ok: true }
   | { ok: false; usedBytes: number; quotaBytes: number }
 
-export { selectLockedQuotaState, uploadWouldExceedQuota }
+export { selectLockedQuotaState }
 
 export function uploadQuotaExceededResponse(
   c: Context,
@@ -106,7 +106,7 @@ export async function markUploadFailed(
       .returning({ id: clip.id })
     if (!row) return { updated: false, queued: 0 }
     const queued = await deleteUploadTicketsWithStorageIntents(
-      { type: "clip", id: clipId },
+      clipId,
       `clip upload failed: ${reason}`,
       tx,
     )

@@ -1,5 +1,4 @@
-import type { UploadTicketRole } from "@alloy/contracts"
-import { clip, uploadTicket, type UploadTicketTarget } from "@alloy/db/schema"
+import { clip, uploadTicket } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { stagedUploadDeletionIntent } from "@alloy/server/storage/deletion-producers"
@@ -8,22 +7,9 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm"
 
 import { completedUploadDeadline, uploadTicketCanFinalize } from "./deadline"
 
-/** Identifies the clip an upload ticket belongs to. */
-export interface UploadTarget {
-  type: UploadTicketTarget
-  id: string
-}
-
-function targetMatch(target: UploadTarget) {
-  return and(
-    eq(uploadTicket.target_type, target.type),
-    eq(uploadTicket.target_id, target.id),
-  )
-}
-
 export async function createUploadTickets(
   input: {
-    target: UploadTarget
+    clipId: string
     ownerId: string
     videoKey: string
     videoContentType: string
@@ -35,9 +21,7 @@ export async function createUploadTickets(
   const executor = options.tx ?? db
   await executor.insert(uploadTicket).values({
     owner_id: input.ownerId,
-    target_type: input.target.type,
-    target_id: input.target.id,
-    role: "video",
+    target_id: input.clipId,
     storage_key: input.videoKey,
     content_type: input.videoContentType,
     expected_bytes: input.videoBytes,
@@ -46,7 +30,7 @@ export async function createUploadTickets(
 }
 
 export async function assertUsableVideoTicket(input: {
-  target: UploadTarget
+  clipId: string
   storageKey: string
   contentType: string
   expectedBytes: number
@@ -61,11 +45,10 @@ export async function assertUsableVideoTicket(input: {
     .from(uploadTicket)
     .where(
       and(
-        targetMatch(input.target),
+        eq(uploadTicket.target_id, input.clipId),
         eq(uploadTicket.storage_key, input.storageKey),
         eq(uploadTicket.content_type, input.contentType),
         eq(uploadTicket.expected_bytes, input.expectedBytes),
-        eq(uploadTicket.role, "video"),
       ),
     )
     .limit(1)
@@ -84,9 +67,14 @@ export interface SelectedUploadTicket {
   createdAt: Date
 }
 
-async function selectTicket(
-  target: UploadTarget,
-  role: UploadTicketRole,
+/**
+ * The clip's upload ticket, limited to `ownerId`'s when given. Initiate
+ * inserts the only one, in the transaction that creates the clip row, so the
+ * ordering just keeps the pick deterministic.
+ */
+export async function selectVideoTicket(
+  clipId: string,
+  options: { ownerId?: string } = {},
 ): Promise<SelectedUploadTicket | null> {
   const [ticket] = await db
     .select({
@@ -99,7 +87,14 @@ async function selectTicket(
       createdAt: uploadTicket.created_at,
     })
     .from(uploadTicket)
-    .where(and(targetMatch(target), eq(uploadTicket.role, role)))
+    .where(
+      and(
+        eq(uploadTicket.target_id, clipId),
+        options.ownerId === undefined
+          ? undefined
+          : eq(uploadTicket.owner_id, options.ownerId),
+      ),
+    )
     .orderBy(desc(uploadTicket.created_at), desc(uploadTicket.id))
     .limit(1)
   return ticket ?? null
@@ -107,19 +102,13 @@ async function selectTicket(
 
 /** SQL condition: the clip row in scope still owns a staged upload. */
 export function clipOwnsUpload() {
-  return sql`exists (select 1 from ${uploadTicket} where ${uploadTicket.target_type} = 'clip' and ${uploadTicket.target_id} = ${clip.id})`
+  return sql`exists (select 1 from ${uploadTicket} where ${uploadTicket.target_id} = ${clip.id})`
 }
 
-export function selectVideoTicketKey(
-  target: UploadTarget,
+export async function selectVideoTicketKey(
+  clipId: string,
 ): Promise<string | null> {
-  return selectTicket(target, "video").then(
-    (ticket) => ticket?.storageKey ?? null,
-  )
-}
-
-export function selectVideoTicket(target: UploadTarget) {
-  return selectTicket(target, "video")
+  return (await selectVideoTicket(clipId))?.storageKey ?? null
 }
 
 /** Mark one accepted ticket used inside its caller's transaction. */
@@ -185,33 +174,17 @@ type DeletedUploadTicket = {
 }
 
 /**
- * Atomically detach every staged object owned by a target. The physical worker
+ * Atomically detach every staged object owned by a clip. The physical worker
  * is woken by the caller only after this transaction commits.
  */
 export async function deleteUploadTicketsWithStorageIntents(
-  target: UploadTarget,
+  clipId: string,
   reason: string,
   tx: DbTransaction,
 ): Promise<number> {
   const rows = await tx
     .delete(uploadTicket)
-    .where(targetMatch(target))
-    .returning({
-      id: uploadTicket.id,
-      storageKey: uploadTicket.storage_key,
-    })
-  return enqueueDeletedUploadTickets(rows, reason, tx)
-}
-
-/** Atomically detach every residual staged object owned by one account. */
-export async function deleteOwnedUploadTicketsWithStorageIntents(
-  ownerId: string,
-  reason: string,
-  tx: DbTransaction,
-): Promise<number> {
-  const rows = await tx
-    .delete(uploadTicket)
-    .where(eq(uploadTicket.owner_id, ownerId))
+    .where(eq(uploadTicket.target_id, clipId))
     .returning({
       id: uploadTicket.id,
       storageKey: uploadTicket.storage_key,
@@ -233,51 +206,6 @@ export async function deleteUploadTicketWithStorageIntent(
       storageKey: uploadTicket.storage_key,
     })
   return enqueueDeletedUploadTickets(rows, reason, tx)
-}
-
-/** Claim every expired, unused ticket without racing a late successful use. */
-export async function deleteExpiredUploadTicketWithStorageIntent(
-  ticketId: string,
-  targetId: string,
-  expiresBefore: Date,
-  reason: string,
-  tx: DbTransaction,
-): Promise<number> {
-  const rows = await tx
-    .delete(uploadTicket)
-    .where(
-      expiredOrphanUploadTicketPredicate(ticketId, targetId, expiresBefore),
-    )
-    .returning({
-      id: uploadTicket.id,
-      storageKey: uploadTicket.storage_key,
-    })
-  return enqueueDeletedUploadTickets(rows, reason, tx)
-}
-
-/** Exact destructive CAS repeated after acquiring the target upload-stop gate. */
-function expiredOrphanUploadTicketPredicate(
-  ticketId: string,
-  targetId: string,
-  expiresBefore: Date,
-) {
-  return and(
-    eq(uploadTicket.id, ticketId),
-    eq(uploadTicket.target_type, "clip"),
-    eq(uploadTicket.target_id, targetId),
-    isNull(uploadTicket.used_at),
-    // upload_ticket predates timestamptz. Compare the DB scan's captured
-    // instant against its timestamp-without-time-zone value as UTC.
-    sql`${uploadTicket.expires_at} <= (cast(${expiresBefore} as timestamptz) at time zone 'UTC')`,
-    // Pending cleanup owns crash recovery, while processing may still read a
-    // ticket's object. Terminal and missing owners are safe to retire.
-    sql`not exists (
-      select 1
-      from ${clip} owner
-      where owner.id = ${targetId}
-        and owner.status in ('pending', 'processing')
-    )`,
-  )!
 }
 
 async function enqueueDeletedUploadTickets(

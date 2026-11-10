@@ -81,9 +81,7 @@ export async function claimClipMedia(
     requestId: claimed.encode_request_id,
     attempt: selected.encodeAttempt,
     targetGeneration: generation.generation,
-    force:
-      claimed.encode_request_force ||
-      selected.encodeGeneration < generation.forceGeneration,
+    force: claimed.encode_request_force,
     status: selected.status,
     row: selected,
     encodeFingerprint: selected.encodeFingerprint,
@@ -191,7 +189,7 @@ async function claimReconciliation(
         where c.status = 'ready' and c.media_kind = 'video'
           and c.source_key is not null
           and c.encode_request_id is null
-          and not (c.id = any($5::uuid[]))
+          and not (c.id = any($4::uuid[]))
           and (
             c.encode_run_id is null
             or c.encode_locked_at is null
@@ -222,7 +220,7 @@ async function claimReconciliation(
       update clip c
       set
         encode_request_id = $2::uuid,
-        encode_request_force = c.encode_generation < $4::int,
+        encode_request_force = false,
         encode_requested_at = now(),
         encode_run_after = now(),
         encode_priority = 90,
@@ -236,13 +234,7 @@ async function claimReconciliation(
       where c.id = candidate.id
       returning c.id, c.encode_request_id, c.encode_request_force
     `,
-    [
-      runId,
-      requestId,
-      generation.generation,
-      generation.forceGeneration,
-      excludedClipIds,
-    ],
+    [runId, requestId, generation.generation, excludedClipIds],
   )
   return result.rows[0] ?? null
 }

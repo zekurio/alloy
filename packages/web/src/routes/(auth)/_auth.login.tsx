@@ -41,7 +41,7 @@ export const Route = createFileRoute("/(auth)/_auth/login")({
     const result: LoginSearch = {}
     const target = sanitizeLoginRedirect(search.redirect)
     if (target) result.redirect = target
-    if (search.reactivate === true || search.reactivate === "true") {
+    if (searchFlag(search.reactivate)) {
       result.reactivate = true
     }
     if (searchFlag(search[OAUTH_LINK_QUERY_KEY])) {

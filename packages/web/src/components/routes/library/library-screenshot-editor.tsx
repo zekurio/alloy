@@ -10,7 +10,6 @@ import {
 } from "@/components/media/screenshot-edit"
 import { ScreenshotEditor } from "@/components/media/screenshot-editor"
 import { useUpdateClipImageMutation } from "@/lib/clip-queries"
-import { apiOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
 
 export function useLibraryScreenshotEdit({
@@ -33,7 +32,7 @@ export function useLibraryScreenshotEdit({
   const imageMutation = useUpdateClipImageMutation()
   const mediaUrl = clipSourceFileUrl(
     row.id,
-    apiOrigin(),
+    window.location.origin,
     sourceVersion ?? undefined,
   )
   const saveMutation = useMutation({

@@ -125,19 +125,16 @@ async function thumbnailReference(
 
 function activeRunReferenceCondition(source: StorageDeletionReferenceSource) {
   if (source.type !== "media-run" || !source.id) return undefined
-  return sql`lower(${clip.encode_run_id}::text) <> lower(${source.id}::text)`
+  // Run ids come from randomUUID and the uuid column, both lowercase.
+  return sql`${clip.encode_run_id}::text <> ${source.id}`
 }
 
-export function activeRunBlocksStorageDeletion(
+function activeRunBlocksStorageDeletion(
   activeRunId: string | null,
   source: StorageDeletionReferenceSource,
 ): boolean {
   if (!activeRunId) return false
-  return !(
-    source.type === "media-run" &&
-    source.id !== null &&
-    activeRunId.toLowerCase() === source.id.toLowerCase()
-  )
+  return !(source.type === "media-run" && activeRunId === source.id)
 }
 
 async function assetHasLiveReference(key: string): Promise<boolean> {
@@ -186,7 +183,7 @@ function storageKeyMatches(column: AnyColumn, key: string) {
 }
 
 /** Attribute a single-file clip object to its sharded clip directory. */
-export function clipStorageKeyClipId(key: string): string | null {
+function clipStorageKeyClipId(key: string): string | null {
   const match =
     /^[0-9a-f]{2}\/[0-9a-f]{2}\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/[^/]+$/i.exec(
       key,

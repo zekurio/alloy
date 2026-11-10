@@ -58,7 +58,7 @@ export function useVerticalPaging<T>({
 }: {
   prev: T | null
   next: T | null
-  onPage: ((target: T) => void) | null
+  onPage: (target: T) => void
   pageKey: string
 }) {
   const trackRef = useRef<HTMLDivElement | null>(null)
@@ -107,7 +107,7 @@ export function useVerticalPaging<T>({
   const turnPage = (target: T, offset: number) => {
     settlingRef.current = true
     settle(offset, () => {
-      onPage?.(target)
+      onPage(target)
       // A navigation that never lands would leave the neighbour on screen.
       timerRef.current = window.setTimeout(() => {
         timerRef.current = null
@@ -125,7 +125,7 @@ export function useVerticalPaging<T>({
   }
 
   const onTouchStart = (event: TouchEvent<HTMLElement>) => {
-    if (!onPage || settlingRef.current) return
+    if (settlingRef.current) return
     if (event.touches.length !== 1) {
       springBack()
       return

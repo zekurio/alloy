@@ -1,5 +1,3 @@
-import type { IsoDateString } from "./shared"
-
 export interface RecordingAllowedGame {
   id: string
   name: string
@@ -19,35 +17,6 @@ export interface RecordingGameProcess {
   iconUrl: string | null
 }
 
-export const RECORDING_GAME_GUESS_SOURCES = [
-  "discord-detectable",
-  "manual",
-] as const
-
-export const RECORDING_GAME_GUESS_MATCH_KINDS = [
-  "executable",
-  "manual",
-] as const
-
-export type RecordingGameGuessSource =
-  (typeof RECORDING_GAME_GUESS_SOURCES)[number]
-export type RecordingGameGuessMatchKind =
-  (typeof RECORDING_GAME_GUESS_MATCH_KINDS)[number]
-
-export interface RecordingGameGuess {
-  source: RecordingGameGuessSource
-  sourceId: string | null
-  name: string
-  aliases: string[]
-  executable: string | null
-  path: string | null
-  windowTitle: string | null
-  windowClass: string | null
-  iconUrl: string | null
-  confidence: number
-  matchKind: RecordingGameGuessMatchKind
-}
-
 export interface RecordingGame {
   /** Stable detector id when known, e.g. a Discord/arRPC application id. */
   id: string | null
@@ -58,6 +27,4 @@ export interface RecordingGame {
   iconUrl?: string | null
   windowTitle?: string | null
   windowClass?: string | null
-  startedAt: IsoDateString | null
-  guess: RecordingGameGuess | null
 }

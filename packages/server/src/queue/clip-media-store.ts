@@ -1,9 +1,9 @@
+import type { EncodeStage } from "@alloy/contracts"
+// Clip-row writes for the media pipeline. Every write is guarded by the
+// encode runId and returns false/null once the run has moved on
+// (stale-takeover safe).
 import { clip, clipRendition } from "@alloy/db/schema"
-import {
-  publishClipProgress,
-  publishClipUpsert,
-  publishClipUpsertById,
-} from "@alloy/server/clips/events"
+import { publishClipUpsertById } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { mediaAssetDeletionIntents } from "@alloy/server/storage/deletion-producers"
@@ -21,11 +21,10 @@ import {
   sourcePatchToColumns,
   thumbPatchToColumns,
 } from "./clip-media-store-columns"
-import { commitClipMediaReady } from "./clip-media-store-ready"
 import type {
   MediaCompletion,
   MediaSourcePatch,
-  MediaStore,
+  MediaStageTier,
   MediaThumbPatch,
 } from "./media-store"
 
@@ -106,157 +105,195 @@ async function commitAssetReplacement(
   return true
 }
 
-export const clipMediaStore: MediaStore = {
-  target: "clip",
+/** True while the row still holds this run's lease. */
+export async function runStillPresent(
+  id: string,
+  runId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: clip.id })
+    .from(clip)
+    .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+    .limit(1)
+  return Boolean(row)
+}
 
-  async stillPresent(id, runId) {
-    const [row] = await db
-      .select({ id: clip.id })
-      .from(clip)
-      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-      .limit(1)
-    return Boolean(row)
-  },
+/** Reset progress at the start of the run body; false if lease lost. */
+export async function beginProcessing(
+  id: string,
+  runId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .update(clip)
+    .set({
+      status: keepReadyStatus,
+      encode_progress: 0,
+      failure_reason: null,
+      updated_at: new Date(),
+    })
+    .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+    .returning({ id: clip.id })
+  return Boolean(row)
+}
 
-  async beginProcessing(id, runId) {
-    const [row] = await db
-      .update(clip)
-      .set({
-        status: keepReadyStatus,
-        encode_progress: 0,
-        failure_reason: null,
-        updated_at: new Date(),
-      })
-      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-      .returning({ id: clip.id })
-    return Boolean(row)
-  },
+/** Persist active encode stage labels, guarded by runId. */
+export async function commitStage(
+  id: string,
+  runId: string,
+  stage: EncodeStage,
+  tier?: MediaStageTier,
+): Promise<boolean> {
+  const [row] = await db
+    .update(clip)
+    .set({
+      encode_stage: stage,
+      encode_tier: tier?.name ?? null,
+      encode_tier_index: tier?.index ?? null,
+      encode_tier_count: tier?.count ?? null,
+      updated_at: new Date(),
+    })
+    .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+    .returning({ id: clip.id })
+  if (!row) return false
+  void publishClipUpsertById(id)
+  return true
+}
 
-  async commitStage(id, runId, stage, tier) {
-    const [row] = await db
-      .update(clip)
-      .set({
-        encode_stage: stage,
-        encode_tier: tier?.name ?? null,
-        encode_tier_index: tier?.index ?? null,
-        encode_tier_count: tier?.count ?? null,
-        updated_at: new Date(),
-      })
-      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-      .returning({ id: clip.id })
-    if (!row) return false
-    void publishClipUpsertById(id)
-    return true
-  },
+/** Persist a progress %, guarded by runId; true if the row advanced. */
+export async function commitProgress(
+  id: string,
+  runId: string,
+  pct: number,
+): Promise<boolean> {
+  const rows = await db
+    .update(clip)
+    .set({ encode_progress: pct, updated_at: new Date() })
+    .where(
+      and(
+        eq(clip.id, id),
+        eq(clip.encode_run_id, runId),
+        lt(clip.encode_progress, pct),
+      ),
+    )
+    .returning({ id: clip.id })
+  return rows.length > 0
+}
 
-  async commitProgress(id, runId, pct) {
-    const rows = await db
-      .update(clip)
-      .set({ encode_progress: pct, updated_at: new Date() })
-      .where(
-        and(
-          eq(clip.id, id),
-          eq(clip.encode_run_id, runId),
-          lt(clip.encode_progress, pct),
-        ),
-      )
-      .returning({ id: clip.id })
-    return rows.length > 0
-  },
+/** Commit source facts plus the current materialized cut reference. */
+export async function commitSource(
+  id: string,
+  runId: string,
+  patch: MediaSourcePatch,
+): Promise<boolean> {
+  return withUploadActivityStopped(id, () =>
+    commitAssetReplacement(id, runId, {
+      columns: { ...sourcePatchToColumns(patch), updated_at: new Date() },
+      replaced: ["sourceKey", "waveformKey", "cutKey"],
+      retainedKeys: [patch.sourceKey, patch.waveformKey, patch.cutKey],
+      reason: "media source replaced",
+      alsoQueue: (tx) =>
+        deleteUploadTicketsWithStorageIntents(id, "media source committed", tx),
+    }),
+  )
+}
 
-  publishProgress(authorId, id, pct) {
-    publishClipProgress(authorId, id, pct)
-  },
+/** Commit the poster; false if lease lost. */
+export async function commitThumb(
+  id: string,
+  runId: string,
+  patch: MediaThumbPatch,
+): Promise<boolean> {
+  return commitAssetReplacement(id, runId, {
+    columns: { ...thumbPatchToColumns(patch), updated_at: new Date() },
+    replaced: ["thumbKey"],
+    retainedKeys: [patch.thumbKey],
+    reason: "media thumbnail replaced",
+  })
+}
 
-  async commitSource(id, runId, patch: MediaSourcePatch) {
-    return withUploadActivityStopped(id, () =>
-      commitAssetReplacement(id, runId, {
-        columns: { ...sourcePatchToColumns(patch), updated_at: new Date() },
-        replaced: ["sourceKey", "waveformKey", "cutKey"],
-        retainedKeys: [patch.sourceKey, patch.waveformKey, patch.cutKey],
-        reason: "media source replaced",
-        alsoQueue: (tx) =>
-          deleteUploadTicketsWithStorageIntents(
-            { type: "clip", id },
-            "media source committed",
-            tx,
-          ),
+/** Clear a thumbnail-only run after success. */
+export async function finishThumbnailBackfill(
+  id: string,
+  runId: string,
+  completion: MediaCompletion,
+): Promise<boolean> {
+  const [row] = await db
+    .update(clip)
+    .set(finishedAssetLeaseColumns(completion))
+    .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+    .returning({ id: clip.id })
+  return Boolean(row)
+}
+
+/** Mark content as permanently unsuitable for poster extraction. */
+export async function commitThumbFailed(
+  id: string,
+  runId: string,
+  completion: MediaCompletion,
+): Promise<boolean> {
+  const [row] = await db
+    .update(clip)
+    .set(
+      finishedAssetLeaseColumns(completion, {
+        thumb_failed_at: new Date(),
       }),
     )
-  },
+    .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+    .returning({ id: clip.id })
+  return Boolean(row)
+}
 
-  async commitThumb(id, runId, patch: MediaThumbPatch) {
-    return commitAssetReplacement(id, runId, {
-      columns: { ...thumbPatchToColumns(patch), updated_at: new Date() },
-      replaced: ["thumbKey"],
-      retainedKeys: [patch.thumbKey],
-      reason: "media thumbnail replaced",
+/**
+ * Transitions the row to publicly playable once source and thumbnail state
+ * are committed, while the encode ladder continues under the same lease.
+ * This is the eager-release moment: when the clip is public it also stamps
+ * `published_at` (write-once) since the clip is now feed-visible. Does not
+ * touch encode_progress; only commitClipMediaReady owns the full encode
+ * result.
+ */
+export async function commitPlayable(
+  id: string,
+  runId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .update(clip)
+    .set({
+      status: "ready",
+      published_at: publishedAtStamp,
+      updated_at: new Date(),
     })
-  },
+    .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+    .returning({ id: clip.id })
+  // commitClipMediaReady announces after the OG rendition is publicly
+  // reachable.
+  return Boolean(row)
+}
 
-  async finishThumbnailBackfill(id, runId, completion) {
-    const [row] = await db
-      .update(clip)
-      .set(finishedAssetLeaseColumns(completion))
-      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-      .returning({ id: clip.id })
-    return Boolean(row)
-  },
-
-  async commitThumbFailed(id, runId, completion) {
-    const [row] = await db
-      .update(clip)
-      .set(
-        finishedAssetLeaseColumns(completion, {
-          thumb_failed_at: new Date(),
-        }),
-      )
-      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-      .returning({ id: clip.id })
-    return Boolean(row)
-  },
-
-  async commitPlayable(id, runId) {
-    const [row] = await db
-      .update(clip)
-      .set({
-        status: "ready",
-        published_at: publishedAtStamp,
-        updated_at: new Date(),
-      })
-      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-      .returning({ id: clip.id })
-    // commitReady announces after the OG rendition is publicly reachable.
-    return Boolean(row)
-  },
-
-  async commitReady(id, runId, patch, renditions, completion) {
-    return commitClipMediaReady(id, runId, patch, renditions, completion)
-  },
-
-  async currentAssetKeys(id) {
-    const [row] = await db
-      .select({
-        sourceKey: clip.source_key,
-        waveformKey: clip.waveform_key,
-        cutKey: clip.cut_key,
-        thumbKey: clip.thumb_key,
-      })
-      .from(clip)
-      .where(eq(clip.id, id))
-      .limit(1)
-    if (!row) return null
-    const renditionRows = await db
-      .select({ storageKey: clipRendition.storage_key })
-      .from(clipRendition)
-      .where(eq(clipRendition.clip_id, id))
-    return {
-      ...row,
-      renditionKeys: renditionRows.map((rendition) => rendition.storageKey),
-    }
-  },
-
-  publishUpsert(authorId, id) {
-    void publishClipUpsert(authorId, id)
-  },
+/** Current asset keys, so a failing run never deletes live assets. */
+export async function currentAssetKeys(id: string): Promise<{
+  sourceKey: string | null
+  waveformKey: string | null
+  cutKey: string | null
+  thumbKey: string | null
+  renditionKeys: string[]
+} | null> {
+  const [row] = await db
+    .select({
+      sourceKey: clip.source_key,
+      waveformKey: clip.waveform_key,
+      cutKey: clip.cut_key,
+      thumbKey: clip.thumb_key,
+    })
+    .from(clip)
+    .where(eq(clip.id, id))
+    .limit(1)
+  if (!row) return null
+  const renditionRows = await db
+    .select({ storageKey: clipRendition.storage_key })
+    .from(clipRendition)
+    .where(eq(clipRendition.clip_id, id))
+  return {
+    ...row,
+    renditionKeys: renditionRows.map((rendition) => rendition.storageKey),
+  }
 }

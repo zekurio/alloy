@@ -17,13 +17,11 @@ import { configStore, initializeConfigStore } from "./config/store"
 import { warmDatabase } from "./db"
 import { env } from "./env"
 import { KILL_GRACE_MS } from "./media/run-process"
-import { configureTranscode } from "./media/transcode-settings"
 import {
   startClipMediaWorker,
   stopClipMediaWorker,
 } from "./queue/clip-media-worker"
 import { clearMediaWorkDirs } from "./queue/media-run-helpers"
-import { startThumbnailVariantBackfill } from "./queue/thumbnail-variant-backfill"
 import { requestShutdown } from "./runtime/shutdown"
 import {
   startStorageDeletionWorker,
@@ -45,10 +43,6 @@ const logger = createLogger("server")
 process.on("unhandledRejection", (reason) => {
   logger.error("unhandled promise rejection:", reason)
 })
-
-// Media modules default to a bare `ffmpeg`; apply env overrides before the
-// worker can run any transcodes.
-configureTranscode(env.transcode)
 
 if (env.NODE_ENV === "production") {
   await migrateDatabase(env.DATABASE_URL)
@@ -94,13 +88,10 @@ try {
   startAuthChallengeExpiryWorker()
   // Expired sessions are already ignored by lookups; this only prunes them.
   startAuthSessionExpiryWorker()
-  // Pending clip uploads and detached ticket owners share one globally ordered
-  // deadline coordinator. Pending clips retain exact-object crash recovery.
+  // Pending clip uploads expire through their own deadline coordinator, which
+  // first recovers an upload whose bytes landed before the database knew.
   startUploadExpiryWorker()
   startWebhookDeliveryWorker()
-  // Resized thumbnails for clips that predate them; runs once, in the
-  // background, and stops at shutdown.
-  startThumbnailVariantBackfill()
 } catch (err) {
   logger.error("failed to start durable background workers:", err)
   process.exit(1)

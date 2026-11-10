@@ -90,7 +90,6 @@ const CATEGORIES = [
       alias("accent color", message("Create theme")),
       alias("custom theme", message("Create theme")),
       alias("import", message("Add theme")),
-      alias("vs code", message("Add theme")),
       alias("catppuccin"),
       alias("frappe"),
       alias("macchiato"),

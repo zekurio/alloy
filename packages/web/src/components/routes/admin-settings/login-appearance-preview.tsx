@@ -3,7 +3,6 @@ import type {
   PublicAuthConfig,
   PublicLoginSplashConfig,
 } from "@alloy/api"
-import { DESKTOP_AUTH_CAPABILITY_VERSION } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Slider } from "@alloy/ui/components/slider"
 import {
@@ -36,7 +35,6 @@ function toPublicAuthConfig(
     openRegistrations: config.openRegistrations,
     passkeyEnabled: config.passkeyEnabled,
     requireAuthToBrowse: config.requireAuthToBrowse,
-    desktopAuth: { version: DESKTOP_AUTH_CAPABILITY_VERSION },
     oidc: config.oidc.enabled
       ? {
           displayName: config.oidc.displayName,

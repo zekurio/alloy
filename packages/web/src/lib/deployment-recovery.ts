@@ -6,7 +6,6 @@ import {
   writeSessionStorageItem,
 } from "./browser-storage"
 import { clientLogger } from "./client-log"
-import { alloyDesktop } from "./desktop"
 
 const RELOADED_ASSET_SIGNATURE_KEY = "alloy.deployment-recovery-target"
 const WEB_BUILD_TOAST_ID = "alloy-web-build-update"
@@ -158,11 +157,6 @@ function showWebBuildUpdateNotice(latestAssetSignature: string): void {
 }
 
 function reloadApp(): void {
-  const desktop = alloyDesktop()
-  if (desktop) {
-    void desktop.reloadApp().catch(() => window.location.reload())
-    return
-  }
   window.location.reload()
 }
 

@@ -7,13 +7,12 @@ import {
   resolveFfmpegPath,
   resolveFfprobePath,
 } from "./media/transcode-settings"
-import { lazy } from "./runtime/lazy"
 
 // Deploy-time env is the only source for storage, integrations, and secret
 // material. Admin-editable settings take their defaults from env (see
 // config/sections.ts) and their saved overrides from Postgres.
 
-// Fill in unset variables from the workspace `.env` (non-devenv local dev);
+// Fill in unset variables from the workspace `.env` (local dev outside Nix);
 // real shell environment always wins. Production deployments set NODE_ENV in
 // the wrapper and never probe the filesystem.
 if (process.env.NODE_ENV !== "production") {
@@ -27,17 +26,6 @@ function envText(source: EnvSource, name: string): string | undefined {
   return value ? value : undefined
 }
 
-function requiredSecret(source: EnvSource, name: string): string {
-  const value = envText(source, name)
-  if (!value) {
-    throw new Error(`[server/env] ${name} is required.`)
-  }
-  if (value.length < 32) {
-    throw new Error(`[server/env] ${name} must be at least 32 characters.`)
-  }
-  return value
-}
-
 function requiredText(source: EnvSource, name: string): string {
   const value = envText(source, name)
   if (!value) {
@@ -46,7 +34,7 @@ function requiredText(source: EnvSource, name: string): string {
   return value
 }
 
-export function parseServerEnv(source: EnvSource = process.env) {
+function parseServerEnv(source: EnvSource = process.env) {
   const defaultPublicServerUrl =
     source.PUBLIC_SERVER_URL ?? "http://localhost:2552"
 
@@ -70,11 +58,6 @@ export function parseServerEnv(source: EnvSource = process.env) {
 
   const storage = storageConfigFromRaw(raw)
 
-  const viewerCookieSecret = requiredSecret(
-    source,
-    "ALLOY_VIEWER_COOKIE_SECRET",
-  )
-  const uploadHmacSecret = requiredSecret(source, "ALLOY_UPLOAD_HMAC_SECRET")
   // Game search, artwork, and canonical game names all come from SteamGridDB,
   // so a server without a key would be missing core features.
   const steamgriddbApiKey = requiredText(source, "ALLOY_STEAMGRIDDB_API_KEY")
@@ -103,16 +86,10 @@ export function parseServerEnv(source: EnvSource = process.env) {
       concurrency: raw.ALLOY_TRANSCODE_CONCURRENCY,
       threads: raw.ALLOY_TRANSCODE_THREADS,
     },
-    viewerCookieSecret,
-    uploadHmacSecret,
     steamgriddbApiKey,
     setupToken,
   } as const
 }
 
-/**
- * Parsed on first property read, not at import, so importing a module never
- * validates env as a side effect. `src/index.ts` reads env immediately, so a
- * misconfigured deploy still fails at boot.
- */
-export const env = lazy(parseServerEnv)
+/** Parsed once at startup, so a misconfigured deploy fails at boot. */
+export const env = parseServerEnv()

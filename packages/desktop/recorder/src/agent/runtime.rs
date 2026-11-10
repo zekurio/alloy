@@ -26,7 +26,7 @@ use crate::{
         time::timestamp_millis,
         watchdog::RecorderProgress,
     },
-    protocol::{RECORDER_CAPABILITIES, RECORDER_PROTOCOL_VERSION, SIDE_CAR_NAME},
+    protocol::{RECORDER_PROTOCOL_VERSION, SIDE_CAR_NAME},
     types::{
         ConfigureParams, PlayNotificationSoundParams, RecordingStatus, Request, Response,
         SaveReplayClipParams, SidecarVersion,
@@ -82,7 +82,6 @@ fn sidecar_version() -> SidecarVersion {
         name: SIDE_CAR_NAME,
         version: env!("CARGO_PKG_VERSION"),
         protocol_version: RECORDER_PROTOCOL_VERSION,
-        capabilities: RECORDER_CAPABILITIES,
     }
 }
 

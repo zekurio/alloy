@@ -75,7 +75,7 @@ export const clip = pgTable(
     // clip — the UI shows a placeholder.
     thumb_key: text(),
     thumb_blur_hash: text(),
-    thumb_failed_at: timestamp(),
+    thumb_failed_at: timestamp({ withTimezone: true }),
     // Source-time ms of the frame the owner picked as the poster; null for an
     // automatic poster. Reprocessing keeps a picked poster while the trim
     // still contains its frame.
@@ -102,7 +102,9 @@ export const clip = pgTable(
     // exactly once: by commitPlayable/commitReady for clips public when the
     // encode finishes, or by the privacy-flip route for the rest. Feeds and
     // the clip.published webhook key off this, never off created_at.
-    published_at: timestamp({ withTimezone: true }),
+    // Millisecond precision so a JS Date in the feed keyset cursors carries
+    // the exact stored value.
+    published_at: timestamp({ withTimezone: true, precision: 3 }),
     queue_dismissed_at: timestamp({ withTimezone: true }),
     // Canonical desired-state JSON stamped by commitReady; null until the
     // first encode completes.
@@ -117,7 +119,7 @@ export const clip = pgTable(
     encode_tier_index: integer(),
     encode_tier_count: integer(),
     encode_run_id: uuid(),
-    encode_locked_at: timestamp(),
+    encode_locked_at: timestamp({ withTimezone: true }),
     encode_attempt: integer().notNull().default(0),
     // The clip row owns its media work. A request id is the durable pending
     // marker; the claimed id lets a completing run avoid clearing a newer
@@ -134,8 +136,8 @@ export const clip = pgTable(
     encode_failed_generation: integer(),
     failure_reason: text(),
 
-    created_at: timestamp().notNull().defaultNow(),
-    updated_at: timestamp().notNull().defaultNow(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check("clip_media_kind_check", sql`${t.media_kind} in ('video', 'image')`),
@@ -221,7 +223,7 @@ export const clipRendition = pgTable(
     // filtering and quality-label disambiguation.
     codecs: text().notNull(),
     size_bytes: bigint({ mode: "number" }).notNull(),
-    created_at: timestamp().notNull().defaultNow(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex("clip_rendition_clip_name_idx").on(t.clip_id, t.name),
@@ -277,7 +279,7 @@ export const clipView = pgTable(
     user_id: uuid().references(() => user.id, {
       onDelete: "set null",
     }),
-    created_at: timestamp().notNull().defaultNow(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     primaryKey({ columns: [t.clip_id, t.viewer_key] }),

@@ -16,7 +16,6 @@ import {
   startClipDownload,
   useClipDownload,
 } from "@/lib/clip-downloads"
-import { apiOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
 
 function clipDownloadActionSupported(row: ClipRow): boolean {
@@ -94,7 +93,7 @@ export function ClipBrowserDownloadMenuItem({ row }: { row: ClipRow }) {
       onClick={(event) => {
         event.stopPropagation()
         const started = startBrowserDownload(
-          clipDownloadUrl(row.id, apiOrigin()),
+          clipDownloadUrl(row.id, window.location.origin),
         )
         if (!started) toast.error(t("Couldn't start download"))
       }}

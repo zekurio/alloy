@@ -1,36 +1,27 @@
 import { resolve } from "node:path"
 
-import { secretStore } from "@alloy/server/config/secret-store"
 import { env } from "@alloy/server/env"
-import { lazy } from "@alloy/server/runtime/lazy"
 
 import { clipKeyDeletionNamespace } from "./clip-key"
-import type { StorageDriver } from "./driver"
 import { FsStorageDriver } from "./fs-driver"
 import { configuredFilesystemStoragePath, type StorageNamespace } from "./paths"
 
-// Storage config is deploy-time env, so each namespace binds to its root once,
-// on first use. User and game assets share the assets root.
-function createFsStorage(namespace: StorageNamespace): StorageDriver {
-  return lazy(
-    () =>
-      new FsStorageDriver({
-        root: resolve(configuredFilesystemStoragePath(env.storage, namespace)),
-        publicBaseUrl: env.PUBLIC_SERVER_URL,
-        hmacSecret: secretStore.get("uploadHmacSecret"),
-      }),
-  )
+// Storage config is deploy-time env, so each namespace binds to its root
+// once. User and game assets share the assets root.
+function createFsStorage(namespace: StorageNamespace): FsStorageDriver {
+  return new FsStorageDriver({
+    root: resolve(configuredFilesystemStoragePath(env.storage, namespace)),
+  })
 }
 
-export const clipStorage: StorageDriver = createFsStorage("clips")
-export const clipThumbnailStorage: StorageDriver = createFsStorage("thumbnails")
-export const assetStorage: StorageDriver = createFsStorage("assets")
+export const clipStorage = createFsStorage("clips")
+export const clipThumbnailStorage = createFsStorage("thumbnails")
+export const assetStorage = createFsStorage("assets")
 
-export function clipStorageForKey(key: string): StorageDriver {
+export function clipStorageForKey(key: string): FsStorageDriver {
   return clipKeyDeletionNamespace(key) === "thumbnails"
     ? clipThumbnailStorage
     : clipStorage
 }
 
-export type { StorageDriver } from "./driver"
 export { versionedAssetKey } from "./driver"

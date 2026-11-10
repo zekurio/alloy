@@ -16,14 +16,11 @@ export function createAuthExpiryWorker(input: {
   const { table } = input
   const logger = createLogger(`${table.replaceAll("_", "-")}-expiry`)
 
-  // Both tables predate the repository's timestamptz convention. Interpret
-  // their timestamp-without-time-zone values as UTC at both SQL boundaries so
-  // process and database host offsets cannot shift the worker deadline.
   const deleteSql = `
     with doomed as (
       select id
       from ${table}
-      where expires_at <= (now() at time zone 'UTC')
+      where expires_at <= now()
       order by expires_at, id
       limit $1
     )
@@ -33,7 +30,7 @@ export function createAuthExpiryWorker(input: {
     returning ${table}.id
   `
   const nextSql = `
-    select min(expires_at) at time zone 'UTC' as "nextRunAt"
+    select min(expires_at) as "nextRunAt"
     from ${table}
   `
 

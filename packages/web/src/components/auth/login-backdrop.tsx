@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
 
 import { backdropsQueryOptions } from "@/lib/auth-query-keys"
-import { apiOrigin } from "@/lib/env"
 
 type LoginBackdropProps = {
   enabled: boolean
@@ -120,7 +119,7 @@ export function LoginBackdrop({
       data?.clips.map((clip) =>
         clipThumbnailUrl(
           clip.id,
-          apiOrigin(),
+          window.location.origin,
           clip.thumbVersion,
           TILE_THUMBNAIL_WIDTH,
         ),

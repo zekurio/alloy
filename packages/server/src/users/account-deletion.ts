@@ -1,19 +1,15 @@
 import { randomUUID } from "node:crypto"
 
 import { user } from "@alloy/db/auth-schema"
-import { clip, clipView, uploadTicket } from "@alloy/db/schema"
+import { clip, clipView } from "@alloy/db/schema"
 import type { AccountDisableSource } from "@alloy/server/auth/account-state"
-import {
-  disableUserIdentity,
-  type AuthTransaction,
-} from "@alloy/server/auth/identity"
+import { disableUserIdentity } from "@alloy/server/auth/identity"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { db } from "@alloy/server/db/index"
 import { postgresErrorHasCode } from "@alloy/server/db/postgres-error"
+import type { DbTransaction } from "@alloy/server/db/transaction"
 import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
-import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
-import { deleteOwnedUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
 import { and, eq } from "drizzle-orm"
 
 import { accountDeletionState } from "./account-deletion-state"
@@ -31,8 +27,6 @@ type FinalTransactionResult =
       queuedDeletions: number
     }
 
-class UngatedUploadTargetError extends Error {}
-
 export function deleteUserAccount(
   userId: string,
   source: AccountDisableSource,
@@ -40,19 +34,6 @@ export function deleteUserAccount(
   return accountDeletionState.run(userId, () =>
     runAccountDeletion(userId, source),
   )
-}
-
-export async function withCanonicalUploadTargetsStopped<T>(
-  targetIds: readonly string[],
-  operation: () => Promise<T>,
-  stop: typeof withUploadActivityStopped = withUploadActivityStopped,
-): Promise<T> {
-  const canonical = canonicalIds(targetIds)
-  const acquire = (index: number): Promise<T> => {
-    const targetId = canonical[index]
-    return targetId ? stop(targetId, () => acquire(index + 1)) : operation()
-  }
-  return acquire(0)
 }
 
 async function runAccountDeletion(
@@ -68,30 +49,19 @@ async function runAccountDeletion(
     const authoredClip = await selectAuthoredClip(userId)
     if (authoredClip) {
       // Media/upload gates may wait. Never hold the user row transaction while
-      // draining them.
+      // draining them. Deleting a clip removes its upload ticket with it, and
+      // every ticket belongs to one of its owner's clips, so no ticket is left
+      // once the clips are gone.
       await deleteClipRowAndAssets(authoredClip)
       continue
     }
 
-    const gatedTargetIds = await selectOwnedUploadTargetIds(userId)
-    try {
-      const finalized = await withCanonicalUploadTargetsStopped(
-        gatedTargetIds,
-        () =>
-          finalizeWithDeadlockRetry(
-            userId,
-            new Set(canonicalIds(gatedTargetIds)),
-          ),
-      )
-      if (finalized.kind === "retry-clips") continue
-      if (finalized.kind === "not-found") return "not-found"
+    const finalized = await finalizeWithDeadlockRetry(userId)
+    if (finalized.kind === "retry-clips") continue
+    if (finalized.kind === "not-found") return "not-found"
 
-      if (finalized.queuedDeletions > 0) wakeStorageDeletionWorker()
-      return "deleted"
-    } catch (cause) {
-      if (cause instanceof UngatedUploadTargetError) continue
-      throw cause
-    }
+    if (finalized.queuedDeletions > 0) wakeStorageDeletionWorker()
+    return "deleted"
   }
 }
 
@@ -105,31 +75,18 @@ async function selectAuthoredClip(userId: string) {
   return row ?? null
 }
 
-async function selectOwnedUploadTargetIds(userId: string): Promise<string[]> {
-  const rows = await db
-    .selectDistinct({ targetId: uploadTicket.target_id })
-    .from(uploadTicket)
-    .where(eq(uploadTicket.owner_id, userId))
-  return canonicalIds(rows.map((row) => row.targetId))
-}
-
 async function finalizeWithDeadlockRetry(
   userId: string,
-  gatedTargetIds: ReadonlySet<string>,
 ): Promise<FinalTransactionResult> {
   return retryPostgresDeadlocks(
-    () =>
-      db.transaction((tx) =>
-        finalizeAccountDeletion(tx, userId, gatedTargetIds),
-      ),
+    () => db.transaction((tx) => finalizeAccountDeletion(tx, userId)),
     FINAL_TRANSACTION_DEADLOCK_RETRIES,
   )
 }
 
 async function finalizeAccountDeletion(
-  tx: AuthTransaction,
+  tx: DbTransaction,
   userId: string,
-  gatedTargetIds: ReadonlySet<string>,
 ): Promise<FinalTransactionResult> {
   const [lockedUser] = await tx
     .select({
@@ -152,20 +109,6 @@ async function finalizeAccountDeletion(
     .limit(1)
   if (remainingClip) return { kind: "retry-clips" }
 
-  const currentTicketTargets = await tx
-    .selectDistinct({ targetId: uploadTicket.target_id })
-    .from(uploadTicket)
-    .where(eq(uploadTicket.owner_id, userId))
-  if (
-    canonicalIds(currentTicketTargets.map((row) => row.targetId)).some(
-      (targetId) => !gatedTargetIds.has(targetId),
-    )
-  ) {
-    // Throw rather than return so no future mutation added above this check
-    // can accidentally commit before the larger stable gate set is retried.
-    throw new UngatedUploadTargetError()
-  }
-
   const assetIntents = [
     ...userAssetDeletionIntents({
       userId,
@@ -183,11 +126,6 @@ async function finalizeAccountDeletion(
     }),
   ]
   await enqueueStorageDeletions(assetIntents, { tx })
-  const stagedIntentCount = await deleteOwnedUploadTicketsWithStorageIntents(
-    userId,
-    `account ${userId} deleted`,
-    tx,
-  )
 
   const viewRows = await tx
     .select({ clipId: clipView.clip_id, viewerKey: clipView.viewer_key })
@@ -213,17 +151,10 @@ async function finalizeAccountDeletion(
     .returning({ id: user.id })
   if (!deletedUser) throw new Error("Locked user could not be deleted")
 
-  return {
-    kind: "deleted",
-    queuedDeletions: assetIntents.length + stagedIntentCount,
-  }
+  return { kind: "deleted", queuedDeletions: assetIntents.length }
 }
 
-export function canonicalIds(ids: readonly string[]): string[] {
-  return [...new Set(ids.map((id) => id.toLowerCase()))].sort()
-}
-
-export async function retryPostgresDeadlocks<T>(
+async function retryPostgresDeadlocks<T>(
   operation: () => Promise<T>,
   maxRetries: number,
 ): Promise<T> {

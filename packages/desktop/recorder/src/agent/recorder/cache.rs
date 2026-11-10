@@ -1,7 +1,4 @@
-use std::{
-    os::raw::c_int,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use crate::agent::obs::{
     encoders::{
@@ -18,8 +15,7 @@ use crate::agent::obs::{
 use crate::protocol::SIDE_CAR_NAME;
 use crate::settings::default_audio_devices;
 use crate::types::{
-    RecordingActionResult, RecordingAudioMode, RecordingCodec, RecordingEncoder, RecordingMode,
-    RecordingSettings,
+    RecordingActionResult, RecordingAudioMode, RecordingCodec, RecordingEncoder, RecordingSettings,
 };
 
 use super::{
@@ -163,10 +159,8 @@ impl Recorder {
             };
             let caps = CodecCaps {
                 hardware: available_video_codecs(
-                    &obs,
                     &hardware_settings,
                     &encoders,
-                    adapter,
                     selected_gpu_label(settings, &self.cached_gpus),
                 ),
                 software_h264: has_software_h264_encoder(&encoders),
@@ -193,9 +187,9 @@ impl Recorder {
         }
     }
 
-    /// Each lookup starts PowerShell on this thread, and adapters only change
-    /// with a driver install or an external GPU. Keep the first list Windows
-    /// returns; retry on the idle cadence only while lookups fail.
+    /// Adapters only change with a driver install or an external GPU. Keep
+    /// the first list the platform returns; retry on the idle cadence only
+    /// while lookups fail.
     pub(super) fn refresh_gpu_cache(&mut self) {
         if self.cached_gpus_listed
             || !self.should_refresh_idle_cache(self.cached_gpus_at, HARDWARE_DISCOVERY_CACHE_TTL)
@@ -212,7 +206,7 @@ impl Recorder {
         if self
             .should_refresh_idle_cache(self.cached_audio_devices_at, HARDWARE_DISCOVERY_CACHE_TTL)
         {
-            match platform_audio_devices(self.obs.as_ref()) {
+            match platform_audio_devices() {
                 Ok(physical_devices) => {
                     let mut devices = default_audio_devices();
                     devices.extend(physical_devices);
@@ -258,15 +252,7 @@ impl Recorder {
 
     fn should_refresh_idle_cache(&self, last_refresh: Option<Instant>, ttl: Duration) -> bool {
         last_refresh.is_none()
-            || (self.current_mode() == RecordingMode::Idle && cache_expired(last_refresh, ttl))
-    }
-
-    pub(super) fn current_mode(&self) -> RecordingMode {
-        if self.replay_buffer_available() {
-            RecordingMode::ReplayBuffer
-        } else {
-            RecordingMode::Idle
-        }
+            || (!self.replay_buffer_available() && cache_expired(last_refresh, ttl))
     }
 }
 
@@ -320,23 +306,6 @@ pub(super) fn plan_audio_sources(
 
 fn cache_expired(last_refresh: Option<Instant>, ttl: Duration) -> bool {
     last_refresh.is_none_or(|last_refresh| last_refresh.elapsed() >= ttl)
-}
-
-pub(super) fn nonnegative_c_int(value: c_int) -> Option<u32> {
-    u32::try_from(value).ok()
-}
-
-pub(super) fn ns_to_ms(value: u64) -> f64 {
-    value as f64 / 1_000_000.0
-}
-
-pub(super) fn percent(part: Option<u32>, total: Option<u32>) -> Option<f64> {
-    let part = part?;
-    let total = total?;
-    if total == 0 {
-        return Some(0.0);
-    }
-    Some((f64::from(part) / f64::from(total)) * 100.0)
 }
 
 /// Union of cached and freshly observed codec capabilities, in canonical

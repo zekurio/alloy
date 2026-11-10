@@ -13,7 +13,7 @@ export type DesktopUpdateStatus =
  * act on it. "unverified": the installer failed its signature check and was
  * deleted, so the user should reinstall from the releases page.
  */
-export type DesktopUpdateError = "unverified"
+type DesktopUpdateError = "unverified"
 export interface DesktopUpdateState {
   /** False when this build has no native updater configuration. */
   supported: boolean

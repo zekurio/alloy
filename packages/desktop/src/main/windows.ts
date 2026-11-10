@@ -1,7 +1,6 @@
 import { join } from "node:path"
 
 import {
-  app,
   BrowserWindow,
   Menu,
   session,
@@ -14,16 +13,17 @@ import {
 
 import { SELECTED_ORIGIN_ARGUMENT } from "../shared/ipc"
 import { watchSessionCookies } from "./cookies"
-import { connectPagePath, isConnectPageUrl, type Host } from "./host"
+import {
+  connectDevServerUrl,
+  connectPagePath,
+  isConnectPageUrl,
+  type Host,
+} from "./host"
 import { asError, log } from "./log"
 import { appIconPath } from "./paths"
 import { isExternalWebUrl, isSameOrigin, serverPartition } from "./policy"
-import {
-  MIN_WINDOW_HEIGHT,
-  MIN_WINDOW_WIDTH,
-  restoredWindowState,
-  trackWindowState,
-} from "./window-state"
+import { MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH } from "./preferences"
+import { restoredWindowState, trackWindowState } from "./window-state"
 
 /**
  * Painted behind every window until the page renders, so windows never
@@ -69,7 +69,7 @@ export function showWindow(window: BrowserWindow): void {
 }
 
 /** Hands a link the shell will not open itself to the user's browser. */
-export function openExternal(url: string): void {
+function openExternal(url: string): void {
   if (!isExternalWebUrl(url)) return
   shell.openExternal(url).catch((cause: Error) => {
     log.warn("Could not open a link in the browser. %s", cause)
@@ -201,7 +201,7 @@ function createConnectWindow(host: Host): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: false,
-      devTools: !app.isPackaged,
+      devTools: import.meta.env.DEV,
     },
   })
   if (state.maximized) maximizeOnShow.add(window)
@@ -227,11 +227,10 @@ function createConnectWindow(host: Host): BrowserWindow {
     host.connectWindow = null
     host.connectPending = false
   })
-  const devServer = process.env.ELECTRON_RENDERER_URL
-  const loaded =
-    !app.isPackaged && devServer
-      ? window.loadURL(devServer)
-      : window.loadFile(connectPagePath())
+  const devServer = connectDevServerUrl()
+  const loaded = devServer
+    ? window.loadURL(devServer)
+    : window.loadFile(connectPagePath())
   loaded.catch((cause: Error) => {
     // Closing the window while it loads aborts the load; that is no error.
     if (!window.isDestroyed()) {
@@ -280,7 +279,7 @@ export function showSettings(host: Host): void {
  * A mounted web app opens its settings through its router. Pages outside the
  * app layout fall back to navigating there.
  */
-export function openSettings(window: BrowserWindow): Promise<void> {
+function openSettings(window: BrowserWindow): Promise<void> {
   return window.webContents
     .executeJavaScript(
       "(() => { if (!window.dispatchEvent(new Event('alloy:open-settings', { cancelable: true }))) return; const url = new URL(window.location.href); url.pathname = '/'; url.search = '?settings=desktop'; window.location.assign(url.href); })()",
@@ -335,7 +334,7 @@ export function createRemoteWindow(
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: false,
-      devTools: !app.isPackaged,
+      devTools: import.meta.env.DEV,
       additionalArguments: [`${SELECTED_ORIGIN_ARGUMENT}${origin}`],
     },
   })

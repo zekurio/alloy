@@ -14,9 +14,9 @@ import { useActionFeedback } from "@/lib/use-action-feedback"
 
 /**
  * The shortcuts the desktop bound, kept current from "shortcuts" events.
- * Null outside a shell that binds them, or until the first answer.
+ * Null outside the desktop app, or until the first answer.
  */
-function useDesktopShortcuts(): [
+export function useDesktopShortcuts(): [
   DesktopShortcutsState | null,
   (state: DesktopShortcutsState) => void,
 ] {
@@ -52,12 +52,17 @@ function useDesktopShortcuts(): [
  * portal). The desktop owns the keys, so they are shown rather than edited,
  * and changed in the desktop's own settings.
  */
-export function GlobalShortcutsSection() {
+export function GlobalShortcutsSection({
+  state,
+  setState,
+}: {
+  state: DesktopShortcutsState
+  setState: (state: DesktopShortcutsState) => void
+}) {
   const recording = alloyDesktop()?.recording ?? null
-  const [state, setState] = useDesktopShortcuts()
   const { feedback, run } = useActionFeedback()
 
-  if (!recording || !state?.supported) return <ShortcutCommandsHint />
+  if (!recording) return null
 
   const trigger = (id: string) =>
     state.shortcuts.find((shortcut) => shortcut.id === id)?.trigger ?? ""
@@ -136,7 +141,7 @@ export function GlobalShortcutsSection() {
           ) : null}
         </SettingRow>
       </SettingRows>
-      {state.error ? <ShortcutCommandsHint inline /> : null}
+      {state.error ? <ShortcutCommandsHint /> : null}
     </SettingsSubsection>
   )
 }
@@ -165,9 +170,9 @@ function ShortcutTrigger({
  * Where the desktop can't bind shortcuts, its own keyboard settings can run
  * the app with an action instead.
  */
-function ShortcutCommandsHint({ inline = false }: { inline?: boolean }) {
-  const hint = (
-    <p className={cn("text-foreground-dim text-xs", inline && "mt-3")}>
+function ShortcutCommandsHint() {
+  return (
+    <p className="text-foreground-dim mt-3 text-xs">
       {t(
         "Without a shortcut portal, bind {clip} and {screenshot} in your desktop's keyboard settings instead.",
         {
@@ -176,11 +181,5 @@ function ShortcutCommandsHint({ inline = false }: { inline?: boolean }) {
         },
       )}
     </p>
-  )
-  if (inline) return hint
-  return (
-    <SettingsSubsection id="hotkeys" title={t("Hotkeys")}>
-      {hint}
-    </SettingsSubsection>
   )
 }

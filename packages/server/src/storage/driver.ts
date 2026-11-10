@@ -1,4 +1,4 @@
-import type { GameAssetRole, UploadTicket } from "@alloy/contracts"
+import type { GameAssetRole } from "@alloy/contracts"
 
 export interface ResolvedObject {
   stream: (opts?: {
@@ -14,25 +14,6 @@ export interface ResolvedObject {
   lastModified: Date | null
 }
 
-interface ListedObject {
-  key: string
-  lastModified: Date | null
-}
-
-export interface MintUploadUrlInput {
-  /** Opaque storage key the bytes will land at. Must already be unique. */
-  key: string
-  /** MIME type; baked into the upload ticket and stored on the row. */
-  contentType: string
-  /** Expected upload size. FS enforces during upload; finalize verifies all drivers. */
-  maxBytes: number
-  /** Time-to-live for the ticket, in seconds. */
-  expiresInSec: number
-  userId: string
-  /** Bind the ticket to the reserved clip row (defence-in-depth). */
-  clipId: string
-}
-
 export interface WriteUploadPartInput {
   key: string
   partNumber: number
@@ -43,80 +24,12 @@ export interface WriteUploadPartInput {
 
 export interface CompleteUploadInput {
   key: string
-  contentType: string
   maxBytes: number
-  partSizeBytes?: number
+  partSizeBytes: number
 }
 
 export interface AbortUploadInput {
   key: string
-}
-
-export interface StorageDriver {
-  /**
-   * Server-side write. Returns the byte length actually written so the
-   * caller can echo it back into Content-Length / clip asset metadata.
-   */
-  put(
-    key: string,
-    body: Uint8Array | ReadableStream<Uint8Array>,
-    contentType: string,
-  ): Promise<{ size: number }>
-
-  /**
-   * Stat + open. Returns `null` when the key doesn't exist — callers map
-   * that to a 404 instead of treating it as a 500.
-   */
-  resolve(key: string): Promise<ResolvedObject | null>
-
-  /** Issue a browser-bound upload URL. */
-  mintUploadUrl(input: MintUploadUrlInput): Promise<UploadTicket>
-
-  writeUploadPart(input: WriteUploadPartInput): Promise<{ size: number }>
-
-  /** Publish a resumable upload into its final staged object. */
-  completeUpload(input: CompleteUploadInput): Promise<void>
-
-  /** Best-effort cleanup for resumable upload state. */
-  abortUpload(input: AbortUploadInput): Promise<void>
-
-  /** Best-effort delete; missing keys must not throw. */
-  delete(key: string): Promise<void>
-
-  /** Recursively list objects under a storage prefix. */
-  list(prefix: string): AsyncIterable<ListedObject>
-
-  /**
-   * Materialize a stored object as a local file — media processing needs a
-   * filesystem path it can read directly. The filesystem driver hardlinks
-   * where possible. The destination's parent dir must exist.
-   */
-  downloadToFile(key: string, destPath: string): Promise<void>
-
-  /**
-   * Run `fn` with a path media tools can read a stored object from, for work
-   * that only reads it, such as a poster grab. The filesystem driver hands
-   * over the stored file itself rather than a copy. The path is only valid
-   * inside `fn` and must not be written to.
-   */
-  withLocalFile<T>(key: string, fn: (path: string) => Promise<T>): Promise<T>
-
-  /**
-   * Publish a local file under a storage key. The filesystem driver hardlinks
-   * where possible. Returns the size committed.
-   */
-  uploadFromFile(
-    localPath: string,
-    key: string,
-    contentType: string,
-  ): Promise<{ size: number }>
-
-  /** Copy an existing object to another key, replacing Content-Type metadata. */
-  copy(input: {
-    fromKey: string
-    toKey: string
-    contentType: string
-  }): Promise<{ size: number }>
 }
 
 export function clipAssetDir(clipId: string): string {
@@ -161,5 +74,3 @@ export function assetRoleKeyBase(
 ): string {
   return `${shardedAssetDir(id)}/${role}`
 }
-
-export type { UploadTicket, UploadTicketStrategy } from "@alloy/contracts"

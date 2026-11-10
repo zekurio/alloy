@@ -17,7 +17,7 @@ const THEME_EDITOR_SELECTOR = "[data-theme-editor]"
  * to a probe color in turn, and the first role that changes the element (or
  * its nearest ancestor) wins — fill before border before text.
  */
-export function inspectThemeRole(target: Element): ThemeColorRole | null {
+function inspectThemeRole(target: Element): ThemeColorRole | null {
   const chain: Element[] = []
   for (
     let element: Element | null = target;

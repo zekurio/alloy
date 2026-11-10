@@ -1,5 +1,6 @@
+import { env } from "@alloy/server/env"
+
 import { runProcess } from "./run-process"
-import { transcodeSettings } from "./transcode-settings"
 
 const STDERR_TAIL_LINES = 100
 
@@ -36,7 +37,7 @@ export function runFfmpeg(opts: {
   const stderrTail: string[] = []
   return runProcess({
     name: "ffmpeg",
-    command: transcodeSettings().ffmpegPath,
+    command: env.transcode.ffmpegPath,
     args: [
       ...FFMPEG_BATCH_ARGS,
       "-v",

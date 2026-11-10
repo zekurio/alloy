@@ -1,5 +1,3 @@
-"use client"
-
 import { useEffect, useEffectEvent } from "react"
 
 export function useWindowEvent<K extends keyof WindowEventMap>(
@@ -11,7 +9,7 @@ export function useWindowEvent<K extends keyof WindowEventMap>(
   const onEvent = useEffectEvent(listener)
 
   useEffect(() => {
-    if (!enabled || !globalThis.window) return
+    if (!enabled) return
 
     const handleEvent = (event: WindowEventMap[K]) => {
       onEvent(event)

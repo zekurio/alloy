@@ -40,12 +40,7 @@ export async function cleanupPendingUploadCandidate(
         })
         .from(uploadTicket)
         .where(
-          and(
-            eq(uploadTicket.target_type, "clip"),
-            eq(uploadTicket.target_id, row.id),
-            eq(uploadTicket.role, "video"),
-            isNull(uploadTicket.used_at),
-          ),
+          and(eq(uploadTicket.target_id, row.id), isNull(uploadTicket.used_at)),
         )
       for (const ticket of tickets) {
         const object = await resolveStagedUpload(ticket.storageKey)

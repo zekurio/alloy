@@ -4,13 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "turbo run build",
-    "dev": "pnpm db:push && turbo run dev --filter=@alloy/server --filter=@alloy/web",
-    "dev:all": "pnpm db:push && turbo run dev --filter=@alloy/server --filter=@alloy/web --filter=@alloy/desktop",
-    "dev:server": "pnpm db:push && turbo run dev --filter=@alloy/server",
-    "dev:web": "turbo run dev --filter=@alloy/web",
-    "recorder:build": "pnpm --filter @alloy/desktop build:recorder",
-    "recorder:build:release": "pnpm --filter @alloy/desktop build:recorder:release",
+    "build": "pnpm -r build",
+    "dev": "pnpm db:push && pnpm --parallel --filter @alloy/server --filter @alloy/web dev",
+    "dev:all": "pnpm db:push && pnpm --parallel --filter @alloy/server --filter @alloy/web --filter @alloy/desktop dev",
+    "dev:server": "pnpm db:push && pnpm --filter @alloy/server dev",
+    "dev:web": "pnpm --filter @alloy/web dev",
     "desktop:obs:install": "pnpm --filter @alloy/desktop obs:install",
     "desktop:dev": "pnpm --filter @alloy/desktop dev",
     "desktop:build": "pnpm --filter @alloy/desktop build:app",
@@ -23,9 +21,7 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint && pnpm --filter @alloy/i18n check:catalogs",
-    "lint:github": "pnpm lint",
-    "typecheck": "turbo run typecheck typecheck:oxlint",
-    "typecheck:oxlint": "tsc -p tools/oxlint",
+    "typecheck": "pnpm -r --parallel typecheck && tsc -p tools/oxlint",
     "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck"
   },
   "devDependencies": {
@@ -34,9 +30,7 @@
     "oxfmt": "0.74.0",
     "oxlint": "1.89.0",
     "oxlint-tsgolint": "7.0.2004",
-    "turbo": "2.11.9",
-    "typescript": "7.0.2",
-    "vite": "catalog:"
+    "typescript": "7.0.2"
   },
   "engines": {
     "node": ">=24"

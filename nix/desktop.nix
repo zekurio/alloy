@@ -34,7 +34,7 @@ let
 
   # The Rust and the Electron builds each see only their own files, so a
   # change to one doesn't rebuild the other, and a change to the server or
-  # web app rebuilds neither. nix-desktop.yml runs on changes to these files.
+  # web app rebuilds neither.
   rustFiles = lib.fileset.unions [
     ../Cargo.toml
     ../Cargo.lock
@@ -43,20 +43,17 @@ let
     ../packages/desktop/recorder
     ../packages/desktop/update-signer
   ];
-  # The workspace packages the shell bundles, the public folder the connect
-  # screen ships, and every workspace manifest, which pnpm's offline install
-  # reads. Documentation is left out.
+  # The workspace packages the shell bundles and every workspace manifest,
+  # which pnpm's offline install reads. Documentation is left out.
   shellFiles = lib.fileset.difference (lib.fileset.unions (
     [
       ../package.json
       ../pnpm-lock.yaml
       ../pnpm-workspace.yaml
       ../tsconfig.base.json
-      ../public
       ../packages/desktop
       ../packages/contracts
       ../packages/i18n
-      ../packages/primitives
       ../packages/ui
     ]
     ++ lib.mapAttrsToList (name: _: lib.fileset.maybeMissing (../packages + "/${name}/package.json")) (

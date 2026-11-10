@@ -1,5 +1,3 @@
-"use client"
-
 import { t } from "@alloy/i18n"
 import {
   AlertDialog,

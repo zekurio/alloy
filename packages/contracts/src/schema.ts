@@ -27,7 +27,7 @@ import {
 } from "./schema-validation"
 
 export type { Schema, StaticInput } from "./schema-types"
-export { parse, safeParse, SchemaError } from "./schema-validation"
+export { safeParse, SchemaError } from "./schema-validation"
 
 const trimmed = Symbol("alloy.schema.trimmed")
 const stringSchema = Type.String()

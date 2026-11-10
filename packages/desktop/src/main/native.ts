@@ -23,7 +23,6 @@ export interface NativeAddon {
     signature: string,
     update: DownloadedUpdate,
   ): Promise<boolean>
-  Preferences: new (stateDirectory: string) => NativePreferences
   startBrowserSignIn(server: string): Promise<NativeBrowserSignIn>
   createRuntime(
     folders: RuntimeFolders,
@@ -33,7 +32,7 @@ export interface NativeAddon {
 
 export type LogLevel = "info" | "warn" | "error"
 
-export interface DownloadedUpdate {
+interface DownloadedUpdate {
   /** The installer electron-updater downloaded. */
   path: string
   /** The version the release feed offers. */
@@ -48,35 +47,19 @@ export interface PreparedServer {
   version: string
 }
 
-export interface WindowState {
-  width: number
-  height: number
-  maximized: boolean
-}
-
-export interface NativePreferences {
-  servers(): NativeJson
-  currentServer(): string | null
-  rememberServer(server: string, version: string): NativeJson
-  forgetServer(server: string): NativeJson
-  windowState(): WindowState | null
-  rememberWindowState(state: WindowState): WindowState
-  clampWindowState(state: WindowState): WindowState
-}
-
 export interface SessionToken {
   token: string
   /** Seconds since the Unix epoch. */
   expiresAt: number
 }
 
-export interface NativeBrowserSignIn {
+interface NativeBrowserSignIn {
   readonly authorizeUrl: string
   finish(): Promise<SessionToken>
   cancel(): void
 }
 
-export interface RuntimeFolders {
+interface RuntimeFolders {
   dataDir: string
   cacheDir: string
   replayScratchDir: string
@@ -96,7 +79,7 @@ export interface NativeRuntime {
     cookie: string,
     requestJson: string,
   ): Promise<NativeJson>
-  notificationSoundsFolder(event: string): string
+  notificationSoundsFolder(): string
   trigger(action: CaptureAction): void
   /**
    * Asks the desktop to bind the clip and screenshot shortcuts, in the

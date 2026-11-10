@@ -7,7 +7,7 @@ export function gameAssetImagePath(key: string, updatedAt: Date): string {
   return `${GAME_ASSET_PATH_PREFIX}${key}?v=${version}`
 }
 
-export interface FeedChipGame {
+interface FeedChipGame {
   id: string
   steamgriddbId: number | null
   slug: string
@@ -121,7 +121,7 @@ export interface AdminUpdateGameInput {
   iconUrl?: string | null
 }
 
-export const GAME_NAME_LOOKUP_REASONS = [
+const GAME_NAME_LOOKUP_REASONS = [
   "indexed-exact-name",
   "indexed-normalized-name",
   "steamgriddb-exact-name",
@@ -129,7 +129,7 @@ export const GAME_NAME_LOOKUP_REASONS = [
   "no-match",
   "ambiguous",
 ] as const
-export type GameNameLookupReason = (typeof GAME_NAME_LOOKUP_REASONS)[number]
+type GameNameLookupReason = (typeof GAME_NAME_LOOKUP_REASONS)[number]
 
 export interface GameNameLookupResult {
   name: string

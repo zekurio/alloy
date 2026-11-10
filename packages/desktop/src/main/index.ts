@@ -1,6 +1,5 @@
 import { detectLocale, setClientLocale, t } from "@alloy/i18n"
 import { app, dialog, Menu } from "electron"
-import { z } from "zod"
 
 import { RECORDING_EVENT_CHANNEL, UPDATES_EVENT_CHANNEL } from "../shared/ipc"
 import { launchedAtLogin } from "./autostart"
@@ -15,15 +14,20 @@ import {
   resolveFolders,
   type AppFolders,
 } from "./paths"
+import { Preferences } from "./preferences"
 import { createTray } from "./tray"
 import { Updates } from "./updater"
 import { flushWindowState } from "./window-state"
 import { showActive, showConnect } from "./windows"
 
-/** What a second launch hands to the running app. */
-const LaunchRequestSchema = z.object({
-  action: z.enum(["clip", "screenshot"]).nullable(),
-})
+/** The capture a second launch asks the running app for, if any. */
+function launchAction(request: unknown): CaptureAction | null {
+  if (typeof request !== "object" || request === null) return null
+  if (!("action" in request)) return null
+  return request.action === "clip" || request.action === "screenshot"
+    ? request.action
+    : null
+}
 
 /**
  * `--action clip` or `--action screenshot` (or `--action=clip`), which a
@@ -97,7 +101,10 @@ async function start(
     )
   }
 
-  const host = new Host(native, new native.Preferences(folders.data), folders)
+  const preferences = new Preferences(folders.data, (url) =>
+    native.normalizeServerOrigin(url),
+  )
+  const host = new Host(native, preferences, folders)
   ready(host)
   const updates = new Updates(native, (state) =>
     host.sendToRemote(UPDATES_EVENT_CHANNEL, { ...state }),
@@ -161,8 +168,7 @@ function main(): void {
     if (!host) return
     // The action travels as lock data: Chromium may reorder the argv it
     // forwards here.
-    const parsed = LaunchRequestSchema.safeParse(request)
-    const requested = parsed.success ? parsed.data.action : null
+    const requested = launchAction(request)
     if (requested) host.runtime?.trigger(requested)
     else showActive(host)
   })

@@ -8,7 +8,7 @@ import {
   type SetStateAction,
 } from "react"
 
-export type ImageZoomOffset = { x: number; y: number }
+type ImageZoomOffset = { x: number; y: number }
 
 /** Zoom and pan change together, so they live in one state. */
 export type ImageZoomView = { zoom: number; offset: ImageZoomOffset }

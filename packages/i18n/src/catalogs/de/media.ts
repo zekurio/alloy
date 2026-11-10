@@ -34,8 +34,6 @@ export const MEDIA_MESSAGES = {
     "Klicke auf Avatar oder Banner, um Medien hinzuzufügen.",
   Clip: "Clip",
   "Clip actions": "Clip-Aktionen",
-  "Clip deleted": "Clip gelöscht",
-  "Clip deleted from server": "Clip vom Server gelöscht",
   "Clip deleted from server, but the local copy couldn't be removed":
     "Clip vom Server gelöscht, aber die lokale Kopie konnte nicht entfernt werden",
   "Clip deleted from server, but the local sync link couldn't be cleared":
@@ -99,7 +97,6 @@ export const MEDIA_MESSAGES = {
   "Drag to scrub, pinch to zoom": "Zum Spulen ziehen, zum Zoomen kneifen",
   "Edit cover": "Cover bearbeiten",
   "Edit icon": "Symbol bearbeiten",
-  "Edit thumbnail": "Vorschaubild bearbeiten",
   "Edit {title}": "{title} bearbeiten",
   "Exit fullscreen": "Vollbild beenden",
   Failed: "Fehlgeschlagen",
@@ -235,13 +232,14 @@ export const MEDIA_MESSAGES = {
   Square: "Quadratisch",
   "Square app tile": "Quadratische App-Kachel",
   Started: "Gestartet",
-  SteamGridDB: "SteamGridDB",
   Stop: "Stoppen",
   "Swipe to navigate": "Zum Navigieren wischen",
   "The browser could not decode this video.":
     "Der Browser konnte dieses Video nicht dekodieren.",
   "This clip is no longer available.": "Dieser Clip ist nicht mehr verfügbar.",
   "This game doesn't exist.": "Dieses Spiel gibt es nicht.",
+  "This key can't be used in a shortcut.":
+    "Diese Taste kann nicht in einem Tastenkürzel verwendet werden.",
   "This shortcut is already assigned to clips.":
     "Dieses Tastenkürzel ist bereits Clips zugewiesen.",
   "This shortcut is already assigned to screenshots.":
@@ -275,7 +273,6 @@ export const MEDIA_MESSAGES = {
   "Upload center: {label}": "Upload-Center: {label}",
   "Upload failed": "Upload fehlgeschlagen",
   "Upload media": "Medien hochladen",
-  "Upload started": "Upload gestartet",
   "Upload started, but the clip link couldn't be copied.":
     "Der Upload wurde gestartet, aber der Clip-Link konnte nicht kopiert werden.",
   Uploaded: "Hochgeladen",
@@ -283,8 +280,6 @@ export const MEDIA_MESSAGES = {
   "Uploading...": "Wird hochgeladen...",
   "Uploading…": "Wird hochgeladen…",
   Uploads: "Uploads",
-  "Uploads are unavailable in this browser":
-    "Uploads sind in diesem Browser nicht verfügbar",
   "Use as link preview": "Als Link-Vorschau verwenden",
   "Use frame as poster": "Frame als Poster verwenden",
   "Vertical box art": "Vertikales Box-Artwork",
@@ -296,7 +291,6 @@ export const MEDIA_MESSAGES = {
     "Sichtbarkeit aktualisiert, aber der Link konnte nicht kopiert werden",
   Volume: "Lautstärke",
   "Wide page header": "Breiter Seitenkopf",
-  Width: "Breite",
   "Your library is empty": "Deine Bibliothek ist leer",
   Zoom: "Zoom",
   "Zoom in": "Vergrößern",
@@ -307,7 +301,6 @@ export const MEDIA_MESSAGES = {
   post: "Beitrag",
   posts: "Beiträge",
   px: "px",
-  recently: "kürzlich",
   view: "Aufruf",
   views: "Aufrufe",
   "{count} failed": "{count} fehlgeschlagen",

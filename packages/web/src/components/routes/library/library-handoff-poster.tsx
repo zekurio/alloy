@@ -30,7 +30,7 @@ export function setLibraryHandoffPoster(
   })
 }
 
-export function readLibraryHandoffPoster(
+function readLibraryHandoffPoster(
   captureId: string,
 ): LibraryHandoffPoster | null {
   const entry = handoffPosters.get(captureId)
@@ -38,7 +38,7 @@ export function readLibraryHandoffPoster(
   return entry.poster
 }
 
-export function clearLibraryHandoffPoster(captureId: string): void {
+function clearLibraryHandoffPoster(captureId: string): void {
   handoffPosters.delete(captureId)
 }
 

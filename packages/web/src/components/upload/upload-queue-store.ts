@@ -25,7 +25,7 @@ import {
 import { type ActiveUpload, canRetryActiveUpload } from "./upload-queue-mapping"
 import { revokeUploadThumbUrl } from "./upload-thumbnail-urls"
 
-export interface UploadQueueStoreState {
+interface UploadQueueStoreState {
   /** Uploads this page still owns, by local id, until the server row takes over. */
   active: ReadonlyMap<string, ActiveUpload>
   /** Local thumbnails kept per clip until the server's own thumbnail loads. */

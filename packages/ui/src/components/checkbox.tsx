@@ -1,5 +1,3 @@
-"use client"
-
 import { cn } from "@alloy/ui/lib/utils"
 import { Checkbox } from "@base-ui/react/checkbox"
 import { CheckIcon } from "lucide-react"

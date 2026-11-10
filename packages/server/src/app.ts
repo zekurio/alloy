@@ -28,7 +28,6 @@ import { usersRoute } from "./routes/users"
 import { userAssetsRoute, usersUploadRoute } from "./routes/users-upload"
 import { internalServerError, unauthorized } from "./runtime/http-response"
 import { isShareableClipRequest } from "./runtime/shareable-paths"
-import { storageRoute } from "./storage/fs-upload-route"
 import { mountWeb } from "./web"
 
 const requestLogger = createLogger("http")
@@ -57,16 +56,13 @@ const USER_SELF_SERVICE_ROUTES = new Set(
 const API_BODY_LIMIT_BYTES = 1024 * 1024
 
 // File uploads enforce their own, larger limits: imageBodyLimit on image
-// routes, and the signed ticket's byte budget on /api/assets/upload.
+// routes, and the upload ticket's part size on clip source chunks.
 const OWN_BODY_LIMIT_ROUTES = [
-  /^\/api\/assets\/upload\//,
+  /^\/api\/clips\/[^/]+\/upload\/chunks\/[^/]+$/,
   /^\/api\/users\/me\/(?:avatar|banner)\/upload$/,
   /^\/api\/clips\/[^/]+\/image$/,
   /^\/api\/admin\/games(?:\/[^/]+\/assets\/[^/]+)?$/,
 ]
-
-// Upload URLs carry their signed bearer token as a path segment.
-const UPLOAD_TOKEN_PATH_RE = /^(\/api\/assets\/upload\/)[^/]+/
 
 const REQUEST_ID_RE = /^[\w-]{1,64}$/
 
@@ -131,7 +127,7 @@ const requestCorrelation = createMiddleware(async (c, next) => {
       const durationMs = Math.round(performance.now() - startedAt)
       const status = didThrow ? 500 : c.res.status
       requestLogger.info(
-        `${c.req.method} ${c.req.path.replace(UPLOAD_TOKEN_PATH_RE, "$1:token")} ${status} ${durationMs}ms`,
+        `${c.req.method} ${c.req.path} ${status} ${durationMs}ms`,
       )
     }
   })
@@ -218,7 +214,6 @@ const apiApp = new Hono()
   .route("/api/users", usersRoute)
   .route("/api/users", usersUploadRoute)
   .route("/api/events", eventsRoute)
-  .route("/api/assets", storageRoute)
   .route("/api/assets/users", userAssetsRoute)
   .route("/api/assets/games", gameAssetsRoute)
   .onError((err, c) => {

@@ -8,11 +8,12 @@ import { clipStorage } from "@alloy/server/storage/index"
 import { downloadStagedUploadToFile } from "@alloy/server/uploads/staged"
 import { selectVideoTicketKey } from "@alloy/server/uploads/tickets"
 
+import { commitStage } from "./clip-media-store"
 import { abortMediaProcessing } from "./media-abort"
 import { runScopedSourceKey } from "./media-asset-keys"
 import { publishOriginalSource, type SourceAsset } from "./media-publish"
 import type { RunUploads } from "./media-run-workspace"
-import type { MediaRow, MediaStore } from "./media-store"
+import type { MediaRow } from "./media-store"
 
 /**
  * Download the committed or staged source into the run workspace. Committed
@@ -20,7 +21,6 @@ import type { MediaRow, MediaStore } from "./media-store"
  * fresh uploads need the faststart check.
  */
 export async function acquireSourceFile(options: {
-  store: MediaStore
   id: string
   runId: string
   row: MediaRow
@@ -29,18 +29,13 @@ export async function acquireSourceFile(options: {
   signal: AbortSignal
 }): Promise<string> {
   const rawSourcePath = join(options.workDir, "source")
-  if (
-    !(await options.store.commitStage(options.id, options.runId, "downloading"))
-  )
+  if (!(await commitStage(options.id, options.runId, "downloading")))
     throw abortMediaProcessing()
   if (options.row.sourceKey) {
     await clipStorage.downloadToFile(options.row.sourceKey, rawSourcePath)
     return rawSourcePath
   }
-  const uploadKey = await selectVideoTicketKey({
-    type: options.store.target,
-    id: options.id,
-  })
+  const uploadKey = await selectVideoTicketKey(options.id)
   if (!uploadKey) throw new Error("Uploaded source is missing")
   await downloadStagedUploadToFile(uploadKey, rawSourcePath)
   return faststartPath(

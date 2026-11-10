@@ -1,5 +1,3 @@
-"use client"
-
 import { t, getRuntimeLocale, localeToLanguageTag } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {

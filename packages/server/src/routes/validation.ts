@@ -51,8 +51,20 @@ export function tbValidator<
   }) as MiddlewareHandler<AppEnv, Path, Value>
 }
 
+/**
+ * A uuid, lowercased. Postgres returns uuids lowercase, and in-process locks
+ * and maps key on the string, so an uppercase id from a request must not
+ * reach them as is.
+ */
+export function lowercaseUuid() {
+  return t.uuid().transform((value) => value.toLowerCase())
+}
+
 // Route params named `id` are uuids everywhere.
-export const IdParam = t.object({ id: t.uuid() })
+export const IdParam = t.object({ id: lowercaseUuid() })
+
+/** Middleware input for routes that validate `:id` with IdParam first. */
+export type IdParamInput = { out: { param: { id: string } } }
 
 export function limitQueryParam(max: number, defaultValue: number) {
   return t.coerce.number().int().min(1).max(max).$default(defaultValue)

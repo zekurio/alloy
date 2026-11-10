@@ -13,12 +13,12 @@ import {
 import { Button } from "@alloy/ui/components/button"
 import { DropdownMenuItem } from "@alloy/ui/components/dropdown-menu"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
+import { GameIcon } from "@alloy/ui/components/game-icon"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import { MoreVerticalIcon, RefreshCwIcon, Share2Icon } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { GameIcon } from "@/components/game/game-icon"
 import { PRIVACY_BY_VALUE } from "@/lib/clip-fields"
 import { useReEncodeClipMutation } from "@/lib/clip-queries"
 

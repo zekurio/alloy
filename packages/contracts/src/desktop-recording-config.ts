@@ -1,7 +1,7 @@
 import type { RecordingAllowedGame } from "./desktop-recording-games"
 
 export const RECORDING_ENCODERS = ["hardware", "software"] as const
-export const RECORDING_CODECS = ["h264", "hevc", "av1"] as const
+const RECORDING_CODECS = ["h264", "hevc", "av1"] as const
 export const RECORDING_RESOLUTIONS = [
   "source",
   "720p",
@@ -27,31 +27,24 @@ export const RECORDING_BITRATES = [
 
 /** Where the replay buffer is held while recording: RAM or scratch on disk. */
 export const RECORDING_BUFFER_STORAGE = ["memory", "disk"] as const
-export const RECORDING_CAPTURE_MODES = ["game", "display"] as const
-export const RECORDING_CAPTURE_KINDS = ["replay", "screenshot"] as const
-export const RECORDING_QUALITY_PROFILES = [
+const RECORDING_CAPTURE_MODES = ["game", "display"] as const
+const RECORDING_CAPTURE_KINDS = ["replay", "screenshot"] as const
+const RECORDING_QUALITY_PROFILES = [
   "low",
   "standard",
   "high",
   "custom",
 ] as const
-export const RECORDING_RUN_STATES = [
-  "idle",
-  "paused",
-  "replay-buffer",
-  "stopping",
-  "error",
-] as const
-export const RECORDING_CAPTURE_SOURCES = ["game", "display"] as const
+const RECORDING_CAPTURE_SOURCES = ["game", "display"] as const
 export const RECORDING_AUDIO_MODES = ["devices", "applications"] as const
-export const RECORDING_AUDIO_DEVICE_KINDS = ["output", "input"] as const
+const RECORDING_AUDIO_DEVICE_KINDS = ["output", "input"] as const
 /**
  * Most audio sources one capture can hold at once. libobs exposes 64 output
  * channels and channel 0 carries video, so the recorder accepts at most 63;
  * the settings UI blocks enabling more than this.
  */
 export const RECORDING_MAX_AUDIO_SOURCES = 63
-export const RECORDING_NOTIFICATION_SOUND_EVENTS = [
+const RECORDING_NOTIFICATION_SOUND_EVENTS = [
   "replayBufferStarted",
   "clipSaved",
 ] as const
@@ -66,7 +59,6 @@ export type RecordingCaptureMode = (typeof RECORDING_CAPTURE_MODES)[number]
 export type RecordingCaptureKind = (typeof RECORDING_CAPTURE_KINDS)[number]
 export type RecordingQualityProfile =
   (typeof RECORDING_QUALITY_PROFILES)[number]
-export type RecordingRunState = (typeof RECORDING_RUN_STATES)[number]
 export type RecordingCaptureSource = (typeof RECORDING_CAPTURE_SOURCES)[number]
 export type RecordingAudioMode = (typeof RECORDING_AUDIO_MODES)[number]
 export type RecordingAudioDeviceKind =
@@ -78,7 +70,7 @@ export type RecordingNotificationSoundEvent =
  * upload accept list (mp4 only): imported local recordings can sit in the
  * library in any of these containers — they just can't all be published.
  */
-export const RECORDING_VIDEO_CONTENT_TYPES = [
+const RECORDING_VIDEO_CONTENT_TYPES = [
   "video/mp4",
   "video/quicktime",
   "video/x-matroska",
@@ -123,7 +115,7 @@ export const RECORDING_QUALITY_PRESETS: Array<
 ]
 
 /** Keyboard shortcuts for the capture controls (empty string = unbound). */
-export interface RecordingHotkeys {
+interface RecordingHotkeys {
   screenshot: string
   /** Saves the full replay buffer (its length is `replayBufferSeconds`). */
   clip: string
@@ -137,7 +129,7 @@ export interface RecordingNotificationSoundSettings {
   path: string
 }
 
-export type RecordingNotificationSounds = Record<
+type RecordingNotificationSounds = Record<
   RecordingNotificationSoundEvent,
   RecordingNotificationSoundSettings
 >
@@ -149,12 +141,6 @@ export interface RecordingNotificationSoundOption {
   /** File name shown in the picker dropdown. */
   name: string
 }
-
-/** Available sound files per event, used to populate the sound pickers. */
-export type RecordingNotificationSoundLibrary = Record<
-  RecordingNotificationSoundEvent,
-  RecordingNotificationSoundOption[]
->
 
 /** An audio device currently exposed by the capture backend. */
 export interface RecordingAudioDevice {

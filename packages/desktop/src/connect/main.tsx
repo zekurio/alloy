@@ -9,7 +9,6 @@ import { Button } from "@alloy/ui/components/button"
 import { Input } from "@alloy/ui/components/input"
 import { Toaster } from "@alloy/ui/components/sonner"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { initTheme } from "@alloy/ui/lib/theme"
 import { toast } from "@alloy/ui/lib/toast"
 import {
   StrictMode,
@@ -285,12 +284,28 @@ function SavedServerList({
   )
 }
 
+/**
+ * Shows Alloy's own light or dark theme as the OS asks, as the web app's
+ * theme engine does without stored preferences, which this page never has:
+ * it loads from a file URL. `globals.css` holds both themes' colors.
+ */
+function followSystemAppearance(): void {
+  const dark = window.matchMedia("(prefers-color-scheme: dark)")
+  const apply = () => {
+    const root = document.documentElement
+    root.classList.toggle("dark", dark.matches)
+    root.classList.toggle("light", !dark.matches)
+  }
+  apply()
+  dark.addEventListener("change", apply)
+}
+
 const root = document.getElementById("root")
 
 if (!root) throw new Error("Missing root element")
 
 initializeClientLocale()
-initTheme()
+followSystemAppearance()
 
 createRoot(root).render(
   <StrictMode>

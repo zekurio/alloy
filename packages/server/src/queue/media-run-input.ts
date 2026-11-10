@@ -6,10 +6,11 @@ import { probeMedia } from "@alloy/server/media/probe"
 import { putClipThumbnail } from "@alloy/server/media/thumbnail-variants"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 
+import { commitStage } from "./clip-media-store"
 import { abortMediaProcessing } from "./media-abort"
 import { runScopedThumbKey } from "./media-asset-keys"
 import type { RunUploads } from "./media-run-workspace"
-import type { MediaRow, MediaStore } from "./media-store"
+import type { MediaRow } from "./media-store"
 
 const logger = createLogger("queue")
 
@@ -33,13 +34,12 @@ export function trimRange(
 }
 
 export async function materializeEffectiveMedia(
-  store: MediaStore,
   id: string,
   row: MediaRow,
   runId: string,
   options: { workDir: string; signal: AbortSignal },
 ): Promise<{ path: string; durationMs: number }> {
-  if (!(await store.commitStage(id, runId, "downloading"))) {
+  if (!(await commitStage(id, runId, "downloading"))) {
     throw abortMediaProcessing()
   }
   const mediaPath = join(options.workDir, "media.mp4")

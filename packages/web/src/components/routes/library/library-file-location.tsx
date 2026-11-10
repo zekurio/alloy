@@ -137,7 +137,7 @@ function LocationMenu({
     <div className="flex flex-col items-start gap-1.5">
       <DropdownMenu>
         <DropdownMenuTrigger
-          render={<Chip size="xl" className="max-w-full justify-start" />}
+          render={<Chip className="max-w-full justify-start" />}
         >
           {icon}
           <span className="min-w-0 truncate">{label}</span>

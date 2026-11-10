@@ -48,8 +48,8 @@ export const user = pgTable(
     banner: text(),
     role: text().$type<UserRole>().notNull().default("user"),
     status: text().$type<UserStatus>().notNull().default("active"),
-    disabled_at: timestamp(),
-    admin_suspended_at: timestamp(),
+    disabled_at: timestamp({ withTimezone: true }),
+    admin_suspended_at: timestamp({ withTimezone: true }),
     storage_quota_bytes: bigint({ mode: "number" }),
     // Opt-out for instance webhooks. Positive polarity: false means this
     // author's clips are never announced.
@@ -57,8 +57,12 @@ export const user = pgTable(
     // Theme choice shared by the user's devices. Written without touching
     // updated_at, which is the revision avatar and banner uploads compare.
     theme_preferences: jsonb().$type<SyncedThemePreferences>(),
-    created_at: timestamp().notNull().defaultNow(),
-    updated_at: timestamp().notNull().defaultNow(),
+    // Millisecond precision so a JS Date in the admin keyset cursor carries
+    // the exact stored value.
+    created_at: timestamp({ withTimezone: true, precision: 3 })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex("user_username_lower_unique").on(sql`lower(${t.username})`),
@@ -92,7 +96,7 @@ export const authSession = pgTable(
     user_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    expires_at: timestamp().notNull(),
+    expires_at: timestamp({ withTimezone: true }).notNull(),
     // Last seen address, refreshed when use moves `expires_at`.
     ip_address: text(),
     // Raw User-Agent of the client that signed in, kept for display only.
@@ -100,9 +104,9 @@ export const authSession = pgTable(
     client_kind: text().$type<AuthSessionClientKind>().notNull(),
     // Computer name the desktop app reports at sign-in. Null for browsers.
     device_name: text(),
-    created_at: timestamp().notNull().defaultNow(),
-    updated_at: timestamp().notNull().defaultNow(),
-    last_seen_at: timestamp().notNull().defaultNow(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    last_seen_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("auth_session_user_idx").on(t.user_id),
@@ -133,9 +137,9 @@ export const userPasskey = pgTable(
     backed_up: boolean().notNull().default(false),
     transports: text(),
     aaguid: text(),
-    created_at: timestamp().notNull().defaultNow(),
-    updated_at: timestamp().notNull().defaultNow(),
-    last_used_at: timestamp(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    last_used_at: timestamp({ withTimezone: true }),
   },
   (t) => [index("user_passkey_user_idx").on(t.user_id)],
 )
@@ -153,8 +157,8 @@ export const authAccount = pgTable(
     // linked accounts apart in settings. Null when the provider sends none;
     // never populated from the provider's email claim.
     account_label: text(),
-    created_at: timestamp().notNull().defaultNow(),
-    updated_at: timestamp().notNull().defaultNow(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex("auth_account_provider_account_idx").on(
@@ -176,8 +180,8 @@ export const authChallenge = pgTable(
     identifier: text().notNull(),
     challenge: text().notNull(),
     payload: jsonb().$type<AuthChallengePayload>().notNull().default({}),
-    expires_at: timestamp().notNull(),
-    created_at: timestamp().notNull().defaultNow(),
+    expires_at: timestamp({ withTimezone: true }).notNull(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("auth_challenge_user_idx").on(t.user_id),

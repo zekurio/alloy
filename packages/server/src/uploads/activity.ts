@@ -14,6 +14,7 @@ export function withUploadActivityStopped<T>(
   return locks.request(uploadLockName(clipId), operation)
 }
 
+// Callers pass ids from the database or a validated request, both lowercase.
 function uploadLockName(clipId: string): string {
-  return `upload:${clipId.toLowerCase()}`
+  return `upload:${clipId}`
 }

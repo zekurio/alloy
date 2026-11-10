@@ -11,12 +11,8 @@ use crate::agent::{
         user_facing_process_name, ProcessDisplayName,
     },
     platform::{DetectedGame, GameDetection},
-    time::now_iso,
 };
-use crate::types::{
-    RecordingGame, RecordingGameGuess, RecordingGameGuessSource, RecordingGameProcess,
-    RecordingSettings,
-};
+use crate::types::{RecordingGame, RecordingGameProcess, RecordingSettings};
 
 /// Wine and Proton processes that run beside every Windows game.
 const WINE_HELPERS: &[&str] = &[
@@ -102,10 +98,7 @@ pub(in crate::agent) fn detect_game_activity(
                 .into_iter()
                 .max_by_key(|game| (game.detection_score, game.process_start_ticks))
         })?;
-    Some(GameDetection {
-        game,
-        focused: true,
-    })
+    Some(GameDetection { game })
 }
 
 pub(in crate::agent) fn is_detected_game_alive(game: &DetectedGame) -> bool {
@@ -132,27 +125,14 @@ fn detected_game(process: Process, settings: &RecordingSettings) -> Option<Detec
     if executable.is_some_and(is_wine_helper) {
         return None;
     }
-    let candidate = candidate_game_detection_match(path, executable, None, None, None, settings)?;
+    let candidate = candidate_game_detection_match(path, executable, None, None, settings)?;
     // Windows only counts a catalog match once the process has a game-like
     // window. Without window information, it counts once the process
     // renders, as in the picker; a game the user allowed always counts.
-    if !matches!(candidate.source, RecordingGameGuessSource::Manual) && !uses_gpu(process.pid) {
+    if !candidate.manual && !uses_gpu(process.pid) {
         return None;
     }
-    let name = readable_detected_game_name(&candidate, path, None, executable);
-    let guess = RecordingGameGuess {
-        source: candidate.source,
-        source_id: candidate.source_id,
-        name: candidate.name,
-        aliases: candidate.aliases,
-        executable: process.executable.clone(),
-        path: process.path.clone(),
-        window_title: None,
-        window_class: None,
-        icon_url: candidate.icon_url.clone(),
-        confidence: candidate.confidence,
-        match_kind: candidate.match_kind,
-    };
+    let name = readable_detected_game_name(&candidate);
     let Process {
         pid, start_ticks, ..
     } = process;
@@ -166,8 +146,6 @@ fn detected_game(process: Process, settings: &RecordingSettings) -> Option<Detec
             icon_url: candidate.icon_url,
             window_title: None,
             window_class: None,
-            started_at: Some(now_iso()),
-            guess: Some(guess),
         },
         obs_window: vkcapture_client_name(pid),
         window_key: format!("pid:{pid}:{start_ticks}"),
@@ -209,7 +187,6 @@ pub(in crate::agent) fn list_game_processes() -> Vec<RecordingGameProcess> {
                         title: None,
                         executable: process.executable.as_deref(),
                         fallback: process.executable.as_deref(),
-                        preserve_preferred: false,
                     })
                 })
                 .unwrap_or_else(|| format!("Process {}", process.pid));

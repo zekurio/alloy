@@ -86,7 +86,6 @@ export const DESKTOP_MESSAGES = {
   "Clear shortcut": "Tastenkürzel löschen",
   "Clip shortcut": "Clip-Tastenkürzel",
   "Close process picker": "Prozessauswahl schließen",
-  "Compatible when last checked": "Bei der letzten Prüfung kompatibel",
   "Connect to Alloy": "Mit Alloy verbinden",
   "Connect to another Alloy server?":
     "Mit einem anderen Alloy-Server verbinden?",
@@ -110,8 +109,6 @@ export const DESKTOP_MESSAGES = {
     "Der Anmeldecode konnte nicht eingelöst werden.",
   "Could not open Alloy settings.":
     "Die Alloy-Einstellungen konnten nicht geöffnet werden.",
-  "Could not open the connect window.":
-    "Das Verbindungsfenster konnte nicht geöffnet werden.",
   "Could not open the sign-in page in your browser.":
     "Die Anmeldeseite konnte nicht im Browser geöffnet werden.",
   "Could not reach server.": "Server konnte nicht erreicht werden.",
@@ -146,8 +143,6 @@ export const DESKTOP_MESSAGES = {
   "Couldn't finish passkey account setup":
     "Einrichtung deines Passkey-Kontos konnte nicht abgeschlossen werden",
   "Couldn't forget server.": "Server konnte nicht entfernt werden.",
-  "Couldn't load display preview.":
-    "Display-Vorschau konnte nicht geladen werden.",
   "Couldn't load displays.": "Displays konnten nicht geladen werden.",
   "Couldn't load notification sounds.":
     "Benachrichtigungssounds konnten nicht geladen werden.",
@@ -200,7 +195,6 @@ export const DESKTOP_MESSAGES = {
   "Display capture": "Bildschirmaufnahme",
   "Display capture off": "Bildschirmaufnahme aus",
   "Display capture ready": "Bildschirmaufnahme bereit",
-  "Download clip": "Clip herunterladen",
   "Download failed": "Download fehlgeschlagen",
   "Download update": "Update herunterladen",
   Downloading: "Wird heruntergeladen",
@@ -235,7 +229,6 @@ export const DESKTOP_MESSAGES = {
     "Diagnosedaten der Desktop-App und des Recorders werden in alloy-desktop.log gespeichert.",
   Hotkeys: "Hotkeys",
   Icon: "Symbol",
-  "Incompatible when last checked": "Bei der letzten Prüfung nicht kompatibel",
   Input: "Eingabe",
   "Input devices": "Eingabegeräte",
   "Install and restart": "Installieren und neu starten",
@@ -418,10 +411,8 @@ export const DESKTOP_MESSAGES = {
     "Das Serverfenster ist für diesen Server nicht autorisiert.",
   "The update couldn't be verified. Reinstall Alloy from the releases page.":
     "Das Update konnte nicht verifiziert werden. Installiere Alloy erneut über die Release-Seite.",
-  "This server does not support Alloy desktop HTTP contract 1.":
-    "Dieser Server unterstützt den Alloy-Desktop-HTTP-Vertrag 1 nicht.",
-  "This server does not support desktop login.":
-    "Dieser Server unterstützt keine Desktop-Anmeldung.",
+  "This server and this app are on different Alloy versions. Update both, then connect again.":
+    "Dieser Server und diese App nutzen unterschiedliche Alloy-Versionen. Aktualisiere beide und verbinde dich dann erneut.",
   "This server now runs a newer version of Alloy. Reload to use it.":
     "Dieser Server läuft jetzt mit einer neueren Version von Alloy. Lade neu, um sie zu verwenden.",
   Unavailable: "Nicht verfügbar",

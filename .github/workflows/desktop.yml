@@ -15,11 +15,10 @@ on:
       - "Cargo.lock"
       # The installer ships the logo.
       - "public/logo.png"
-      # `tests/connection.rs` embeds this fixture.
-      - "packages/contracts/fixtures/**"
       # Electron and electron-builder are pinned here.
       - "pnpm-lock.yaml"
       - ".github/workflows/desktop.yml"
+      - ".github/workflows/windows-installer.yml"
       - "!**/*.md"
   schedule:
     - cron: "23 4 * * 1"
@@ -130,8 +129,8 @@ jobs:
           exit $LASTEXITCODE
 
   # The Linux recorder and the host's non-Windows paths are behind `cfg`, so
-  # the Windows job does not compile them. Clippy covers the whole workspace;
-  # the tests run for the recorder, whose Linux code the host tests don't reach.
+  # the Windows job does not compile them. Clippy does, for the whole
+  # workspace. The tests are the host's and run on Windows.
   rust-linux:
     name: check rust on linux
     if: github.event_name != 'schedule'
@@ -165,79 +164,9 @@ jobs:
       - name: check rust workspace
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
-      - name: test recorder
-        run: cargo test --package alloy-agent --all-targets --locked
-
+  # The same build as the release's, without the update keys, so the test
+  # installer has automatic updates off.
   installer:
     name: build windows installer
     if: github.event_name != 'schedule'
-    runs-on: windows-latest
-    timeout-minutes: 90
-    steps:
-      - name: checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: set up pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-
-      - name: set up node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: set up rust
-        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
-        with:
-          toolchain: stable
-
-      # Same key as the release job in publish.yml: both build the release
-      # profile, and a cache saved on `dev` is the one a pull request restores.
-      - name: cache cargo artifacts
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: .
-          shared-key: desktop
-
-      - name: install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # The staging scripts pin OBS and FFmpeg and decide what lands in the
-      # runtime folder, so their hash keys the cache. The addon script does
-      # not touch these folders.
-      - name: cache native runtimes
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            packages/desktop/resources/obs-runtime
-            packages/desktop/.cache/ffmpeg
-          key: windows-native-${{ hashFiles('packages/desktop/scripts/archive.mjs', 'packages/desktop/scripts/build-agent.mjs', 'packages/desktop/scripts/install-obs-runtime.mjs', 'packages/desktop/scripts/obs-runtime.mjs', 'packages/desktop/scripts/prepare-native.mjs') }}
-
-      - name: stage obs runtime
-        run: pnpm --filter @alloy/desktop obs:install
-
-      # `dist:win:installer` stages the recorder, FFmpeg, and the addon itself
-      # before it packages, so this job repeats none of the staging steps.
-      # Without the release key the build has automatic updates off.
-      - name: build unsigned installer
-        run: pnpm desktop:dist:win:installer
-
-      # Electron brings no Visual C++ runtime, so the addon must not import
-      # one: a machine without the redistributable could not start Alloy.
-      - name: check the addon needs no Visual C++ runtime
-        shell: pwsh
-        run: |
-          $addon = "packages/desktop/resources/native/alloy-desktop.node"
-          if (Select-String -Path $addon -Pattern "VCRUNTIME140" -SimpleMatch -Quiet) {
-            throw "The desktop addon imports the Visual C++ runtime."
-          }
-
-      - name: upload test installer
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: alloy-desktop-windows-x64-${{ github.sha }}
-          path: packages/desktop/release/*-setup.exe
-          if-no-files-found: error
-          retention-days: 14
+    uses: ./.github/workflows/windows-installer.yml

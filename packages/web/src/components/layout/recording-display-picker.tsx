@@ -68,17 +68,9 @@ function DisplayOption({
       className="border-border hover:border-border-strong overflow-hidden rounded-md border text-left transition-colors hover:bg-white/[0.03]"
     >
       <div className="bg-black">
-        {display.thumbnailDataUrl ? (
-          <img
-            src={display.thumbnailDataUrl}
-            alt=""
-            className="aspect-video w-full object-cover"
-          />
-        ) : (
-          <div className="flex aspect-video items-center justify-center">
-            <MonitorIcon className="text-foreground-dim size-8" />
-          </div>
-        )}
+        <div className="flex aspect-video items-center justify-center">
+          <MonitorIcon className="text-foreground-dim size-8" />
+        </div>
       </div>
       <div className="flex items-center justify-between gap-2 px-3 py-2">
         <div className="min-w-0">

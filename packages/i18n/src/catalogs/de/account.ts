@@ -2,7 +2,6 @@ import type { TranslationCatalog } from "../catalog"
 
 export const ACCOUNT_MESSAGES = {
   " and {count} {label}": " und {count} {label}",
-  Account: "Konto",
   "Account & data": "Konto & Daten",
   "Actions here affect your whole account.":
     "Aktionen hier betreffen dein gesamtes Konto.",
@@ -161,7 +160,6 @@ export const ACCOUNT_MESSAGES = {
   "Sign up": "Registrieren",
   "Sign-in": "Anmeldung",
   "Sign-in methods": "Anmeldemethoden",
-  "Sign-in timed out.": "Zeitüberschreitung bei der Anmeldung.",
   "Sign-up is currently closed.": "Die Registrierung ist derzeit geschlossen.",
   "Sign-up page preview": "Vorschau der Registrierungsseite",
   "Sign-ups are disabled": "Registrierungen sind deaktiviert",

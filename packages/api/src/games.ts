@@ -9,20 +9,10 @@ import type {
 } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
-import {
-  validateGameCreatorsResponse,
-  validateGameDetail,
-  validateGameListRows,
-  validateGameNameLookupResponse,
-  validateGameRow,
-  validateGameRows,
-  validateSteamGridDBSearchResults,
-} from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 import { queryParams } from "./paths"
 
 export type {
-  GameCreator,
   GameCreatorsResponse,
   GameDetail,
   GameListRow,
@@ -43,7 +33,7 @@ export function createGamesApi(context: ApiContext) {
       query: { media },
       param: { slug: gameSlug },
     })
-    return readJsonOrThrow(res, validateGameDetail)
+    return readJsonOrThrow(res)
   }
 
   return {
@@ -55,28 +45,28 @@ export function createGamesApi(context: ApiContext) {
         { query: { q: query } },
         { init: { signal } },
       )
-      return readJsonOrThrow(res, validateSteamGridDBSearchResults)
+      return readJsonOrThrow(res)
     },
     async localSearch(query: string, signal?: AbortSignal): Promise<GameRow[]> {
       const res = await games["local-search"].$get(
         { query: { q: query } },
         { init: { signal } },
       )
-      return readJsonOrThrow(res, validateGameRows)
+      return readJsonOrThrow(res)
     },
     async resolve(steamgriddbId: number): Promise<GameRow> {
       const res = await games.resolve.$post({ json: { steamgriddbId } })
-      return readJsonOrThrow(res, validateGameRow)
+      return readJsonOrThrow(res)
     },
     async lookupByNames(names: string[]): Promise<GameNameLookupResponse> {
       const res = await games.lookup.$post({ json: { names } })
-      return readJsonOrThrow(res, validateGameNameLookupResponse)
+      return readJsonOrThrow(res)
     },
     async fetchAll(
       params: { limit?: number; offset?: number; media?: MediaFilter } = {},
     ): Promise<GameListRow[]> {
       const res = await games.$get({ query: queryParams(params) })
-      return readJsonOrThrow(res, validateGameListRows)
+      return readJsonOrThrow(res)
     },
     fetchById,
     async fetchCreators(
@@ -88,7 +78,7 @@ export function createGamesApi(context: ApiContext) {
         param: { slug: gameSlug },
         query: queryParams({ limit, media }),
       })
-      return readJsonOrThrow(res, validateGameCreatorsResponse)
+      return readJsonOrThrow(res)
     },
   }
 }

@@ -2,7 +2,6 @@ import type {
   RecordingCaptureKind,
   RecordingCaptureSource,
 } from "./desktop-recording-config"
-import type { RecordingGameGuess } from "./desktop-recording-games"
 import type { ClipPrivacy } from "./shared"
 
 /** Minimal user summary persisted with capture drafts to rehydrate pickers. */
@@ -27,7 +26,6 @@ export interface RecordingLibraryItem {
   groupLabel: string
   gameName: string | null
   gameIconUrl: string | null
-  gameGuess: RecordingGameGuess | null
   sizeBytes: number
   durationMs: number | null
   width: number | null
@@ -112,7 +110,6 @@ export interface RecordingLibraryMetaPatch {
   title?: string
   gameName?: string | null
   gameIconUrl?: string | null
-  gameGuess?: RecordingGameGuess | null
   description?: string | null
   tags?: string | null
   mentions?: RecordingCaptureMention[]
@@ -203,10 +200,7 @@ export interface RecordingLibraryDownloadRequest {
   gameName: string | null
 }
 
-export type RecordingLibraryDownloadStatus =
-  | "downloading"
-  | "completed"
-  | "failed"
+type RecordingLibraryDownloadStatus = "downloading" | "completed" | "failed"
 
 /** Live state of one clip download, pushed as "library-download" events. */
 export interface RecordingLibraryDownload {

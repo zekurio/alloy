@@ -1,3 +1,10 @@
+import { publishClipUpsert } from "@alloy/server/clips/events"
+
+import {
+  commitThumb,
+  commitThumbFailed,
+  finishThumbnailBackfill,
+} from "./clip-media-store"
 import { abortMediaProcessing } from "./media-abort"
 import {
   extractPosterBestEffort,
@@ -8,10 +15,9 @@ import {
   ensureStillPresent,
   withMediaRunWorkspace,
 } from "./media-run-workspace"
-import type { MediaCompletion, MediaRow, MediaStore } from "./media-store"
+import type { MediaCompletion, MediaRow } from "./media-store"
 
 export async function runThumbnailBackfill(
-  store: MediaStore,
   id: string,
   row: MediaRow,
   runId: string,
@@ -19,13 +25,13 @@ export async function runThumbnailBackfill(
   completion: MediaCompletion,
 ): Promise<void> {
   await withMediaRunWorkspace(
-    { store, id, runId, row, cleanupLabel: "thumbnail" },
+    { id, runId, row, cleanupLabel: "thumbnail" },
     async (workspace) => {
-      const media = await materializeEffectiveMedia(store, id, row, runId, {
+      const media = await materializeEffectiveMedia(id, row, runId, {
         workDir: workspace.workDir,
         signal,
       })
-      await ensureStillPresent(store, id, runId, signal)
+      await ensureStillPresent(id, runId, signal)
 
       const poster = await extractPosterBestEffort(
         media.path,
@@ -39,7 +45,7 @@ export async function runThumbnailBackfill(
         throw new Error("Thumbnail extraction failed transiently")
       }
       if (poster.kind === "permanent-empty") {
-        if (!(await store.commitThumbFailed(id, runId, completion))) {
+        if (!(await commitThumbFailed(id, runId, completion))) {
           throw abortMediaProcessing()
         }
         return
@@ -51,14 +57,14 @@ export async function runThumbnailBackfill(
         poster.poster,
         workspace.uploadedKeys,
       )
-      if (!(await store.commitThumb(id, runId, thumb))) {
+      if (!(await commitThumb(id, runId, thumb))) {
         throw abortMediaProcessing()
       }
       workspace.retainedKeys.add(thumb.thumbKey)
-      if (!(await store.finishThumbnailBackfill(id, runId, completion))) {
+      if (!(await finishThumbnailBackfill(id, runId, completion))) {
         throw abortMediaProcessing()
       }
-      store.publishUpsert(row.authorId, id)
+      void publishClipUpsert(row.authorId, id)
     },
   )
 }

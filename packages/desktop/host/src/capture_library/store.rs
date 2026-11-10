@@ -16,9 +16,9 @@ use crate::capture_library::paths::{
 };
 use crate::capture_library::poster::{PosterFailures, discard_poster};
 use crate::capture_library::types::{
-    CaptureKind, CaptureManifest, CaptureRecord, CaptureSource, CommitImport, GameGuess,
-    LibraryGroup, LibraryItem, LibrarySnapshot, MANIFEST_VERSION, ManifestEntry, MetaPatch,
-    StagedImport, TrimUpdate, collection_for,
+    CaptureKind, CaptureManifest, CaptureRecord, CaptureSource, CommitImport, LibraryGroup,
+    LibraryItem, LibrarySnapshot, MANIFEST_VERSION, ManifestEntry, MetaPatch, StagedImport,
+    TrimUpdate, collection_for,
 };
 use crate::capture_library::work::MediaWork;
 
@@ -665,7 +665,6 @@ impl CaptureLibrary {
                 source: capture.source,
                 game_name: capture.game.as_ref().map(|game| game.name.clone()),
                 game_icon_url: capture.game.as_ref().and_then(|game| game.icon_url.clone()),
-                game_guess: capture.game.as_ref().and_then(|game| game.guess.clone()),
                 size_bytes: Some(metadata.len()),
                 duration_ms: capture.duration_ms,
                 width: capture.width,
@@ -752,9 +751,6 @@ impl CaptureLibrary {
             }
             if let Some(value) = patch.game_icon_url {
                 entry.game_icon_url = value;
-            }
-            if let Some(value) = patch.game_guess {
-                entry.game_guess = value;
             }
             if let Some(value) = patch.description {
                 entry.description = value;
@@ -927,7 +923,6 @@ impl CaptureLibrary {
                     source: CaptureSource::Display,
                     game_name: request.game_name.clone(),
                     game_icon_url: request.game_icon_url.clone(),
-                    game_guess: None,
                     size_bytes: Some(size_bytes),
                     duration_ms: staged.duration_ms,
                     width: staged.width,
@@ -1006,7 +1001,6 @@ impl CaptureLibrary {
                     source: CaptureSource::Display,
                     game_name: request.game_name.clone(),
                     game_icon_url: None,
-                    game_guess: None,
                     size_bytes: Some(size_bytes),
                     duration_ms: request.duration_ms.filter(|value| *value > 0),
                     width: request.width,
@@ -1259,10 +1253,6 @@ fn validate_manifest_entry(key: &str, entry: &ManifestEntry) -> bool {
             .iter()
             .all(|mention| mention.id.len() <= 128 && mention.username.len() <= 256)
         && entry
-            .game_guess
-            .as_ref()
-            .is_none_or(|value| validate_game_guess(value).is_ok())
-        && entry
             .description
             .as_deref()
             .is_none_or(|value| value.len() <= MAX_DESCRIPTION_LENGTH)
@@ -1409,7 +1399,6 @@ fn add_item(
         group_label,
         game_name,
         game_icon_url: entry.and_then(|value| value.game_icon_url.clone()),
-        game_guess: entry.and_then(|value| value.game_guess.clone()),
         size_bytes: entry
             .and_then(|value| value.size_bytes)
             .unwrap_or(metadata.len()),
@@ -1482,7 +1471,6 @@ fn manifest_entry_from_item(item: &LibraryItem) -> ManifestEntry {
         source: item.source,
         game_name: item.game_name.clone(),
         game_icon_url: item.game_icon_url.clone(),
-        game_guess: item.game_guess.clone(),
         size_bytes: Some(item.size_bytes),
         duration_ms: item.duration_ms,
         width: item.width,
@@ -1523,9 +1511,6 @@ fn validate_meta_patch(patch: &MetaPatch) -> Result<()> {
         .and_then(|value| value.as_deref())
     {
         validate_url(value)?;
-    }
-    if let Some(guess) = patch.game_guess.as_ref().and_then(|value| value.as_ref()) {
-        validate_game_guess(guess)?;
     }
     if let Some(value) = patch
         .description
@@ -1576,23 +1561,6 @@ fn validate_meta_patch(patch: &MetaPatch) -> Result<()> {
         return Err(LibraryError::InvalidMetadata(
             "invalid uploaded clip id".into(),
         ));
-    }
-    Ok(())
-}
-
-/// The detector fields (`source`, `matchKind`) are enums on the wire, so only
-/// the free-form parts still need bounds.
-fn validate_game_guess(value: &GameGuess) -> Result<()> {
-    if value.name.trim().is_empty()
-        || value.name.len() > 256
-        || value.aliases.len() > 100
-        || value.aliases.iter().any(|alias| alias.len() > 256)
-        || value.confidence > 100
-    {
-        return Err(LibraryError::InvalidMetadata("invalid game guess".into()));
-    }
-    if let Some(icon_url) = value.icon_url.as_deref() {
-        validate_url(icon_url)?;
     }
     Ok(())
 }
@@ -1751,7 +1719,7 @@ fn system_time_rfc3339(value: SystemTime) -> String {
         .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string())
 }
 
-fn is_capture_id(value: &str) -> bool {
+pub(crate) fn is_capture_id(value: &str) -> bool {
     (12..=64).contains(&value.len())
         && value
             .bytes()
@@ -1786,7 +1754,7 @@ fn is_safe_server_id(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
-fn validate_download_request(
+pub(crate) fn validate_download_request(
     request: &crate::capture_library::types::DownloadRequest,
 ) -> Result<()> {
     if request.clip_id.is_empty()

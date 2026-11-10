@@ -1,4 +1,4 @@
-import { uploadToTicket } from "@alloy/api"
+import { uploadClipSource } from "@alloy/api"
 
 import { api } from "@/lib/api"
 import { clientLogger } from "@/lib/client-log"
@@ -101,8 +101,8 @@ async function completeUpload(
 ): Promise<void> {
   const { clipId } = initiate
 
-  await uploadToTicket(
-    initiate.ticket,
+  await uploadClipSource(
+    initiate,
     payload.file,
     (loaded, total) => {
       attempt.update({ bytesLoaded: loaded, bytesTotal: total })

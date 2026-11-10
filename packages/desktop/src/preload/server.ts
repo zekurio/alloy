@@ -1,8 +1,8 @@
 import type { AlloyDesktopRecordingApi } from "@alloy/contracts/desktop-api"
 import type { AlloyDesktop } from "@alloy/contracts/desktop-bridge"
+import { DESKTOP_BRIDGE_CONTRACT } from "@alloy/contracts/desktop-bridge-contract"
 import type { RecordingEvent } from "@alloy/contracts/desktop-recording-status"
 import type { DesktopUpdateState } from "@alloy/contracts/desktop-update"
-import { DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron"
 
 import {
@@ -16,7 +16,7 @@ import {
   type ShellOperation,
 } from "../shared/ipc"
 
-// Installs bridge contract 1 for the selected server's web app, which reads
+// Installs the bridge for the selected server's web app, which reads
 // it from `window.alloyDesktop`. The main process checks the sender and its
 // origin on every call; this check only keeps the bridge off pages that could
 // never use it.
@@ -117,12 +117,11 @@ function bridge(): AlloyDesktop {
   const typed = <T>(pending: Promise<NativeJson | undefined>) =>
     pending as Promise<T>
   return {
-    bridgeContract: DESKTOP_BRIDGE_CONTRACT_1,
+    bridgeContract: DESKTOP_BRIDGE_CONTRACT,
     minimizeWindow: () => shell("minimizeWindow"),
     toggleMaximizeWindow: () => shell("toggleMaximizeWindow"),
     closeWindow: () => shell("closeWindow"),
     openConnect: () => shell("openConnect"),
-    openSettings: () => shell("openSettings"),
     onOpenSettings: (listener) => {
       // The main process dispatches this cancelable event in the page; a
       // handled event keeps it from navigating to the settings URL.
@@ -134,11 +133,11 @@ function bridge(): AlloyDesktop {
       return () => window.removeEventListener("alloy:open-settings", handle)
     },
     openLogsFolder: () => shell("openLogsFolder"),
-    reloadApp: () => shell("reloadApp"),
     servers: {
-      switchTo: (url) => typed(call("servers.switchTo", url)),
+      switchTo: async (url) => {
+        await call("servers.switchTo", url)
+      },
       list: () => typed(call("servers.list")),
-      current: () => typed(call("servers.current")),
       forget: (url) => typed(call("servers.forget", url)),
     },
     recording: recordingApi(),

@@ -5,21 +5,16 @@ import { env } from "@alloy/server/env"
 import { getConnInfo } from "@hono/node-server/conninfo"
 import type { Context } from "hono"
 
-import { lazy } from "./lazy"
-
 const logger = createLogger("server")
 let warnedUntrustedForwarding = false
 
-const trustedProxies = lazy(() => {
-  const list = new BlockList()
-  for (const entry of env.trustedProxies) {
-    const [address = "", prefix] = entry.split("/")
-    const type = isIP(address) === 4 ? "ipv4" : "ipv6"
-    if (prefix === undefined) list.addAddress(address, type)
-    else list.addSubnet(address, Number(prefix), type)
-  }
-  return list
-})
+const trustedProxies = new BlockList()
+for (const entry of env.trustedProxies) {
+  const [address = "", prefix] = entry.split("/")
+  const type = isIP(address) === 4 ? "ipv4" : "ipv6"
+  if (prefix === undefined) trustedProxies.addAddress(address, type)
+  else trustedProxies.addSubnet(address, Number(prefix), type)
+}
 
 function normalizedIp(value: string | null | undefined): string | null {
   const trimmed = value?.trim()

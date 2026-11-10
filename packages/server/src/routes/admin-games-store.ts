@@ -15,31 +15,29 @@ import {
   gameSelection,
   serialiseGameRow,
 } from "@alloy/server/games/ref"
+import type { ErrorStatusCode } from "@alloy/server/runtime/http-response"
 import { prewriteAssetDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import {
-  cancelStorageDeletion,
   enqueueStorageDeletion,
   enqueueStorageDeletions,
 } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { assetStorage, versionedAssetKey } from "@alloy/server/storage/index"
-import { withStorageObjectWriteActivity } from "@alloy/server/storage/write-activity"
+import {
+  adoptStorageWrites,
+  withReservedStorageWrites,
+} from "@alloy/server/storage/write-reservation"
 import { eq, getTableColumns, sql } from "drizzle-orm"
-import type { ContentfulStatusCode } from "hono/utils/http-status"
 
 import {
   clearedGameAssetColumns,
-  enqueueGameAssetCleanupNow,
-  GAME_ASSET_CONTENT_TYPE,
   GAME_ASSET_URL_COLUMN,
   gameAssetColumns,
   prepareGameAsset,
   type PreparedGameAsset,
   urlAssetColumns,
-  withGameAssetWriteFences,
 } from "./admin-game-assets"
 
-const PREWRITE_DELETION_DELAY_MS = 60 * 1000
 const GAME_ASSET_INPUT_COLUMN = {
   hero: "heroUrl",
   grid: "gridUrl",
@@ -49,7 +47,7 @@ const GAME_ASSET_INPUT_COLUMN = {
 
 type AdminGameFailure = {
   ok: false
-  status: ContentfulStatusCode
+  status: ErrorStatusCode
   error: string
 }
 
@@ -105,78 +103,49 @@ export async function createCustomGame(input: {
   }[]
 }): Promise<AdminGameResult> {
   const gameId = randomUUID()
-  const writes = input.assets.map((asset) => {
-    const attemptId = randomUUID()
-    return {
-      ...asset,
-      attemptId,
-      key: versionedAssetKey(gameId, asset.role, attemptId),
-    }
-  })
-  let wakeAfterWrite = false
-  try {
-    return await withGameAssetMutation(gameId, () =>
-      withGameAssetWriteFences(
-        writes.map(({ key }) => key),
-        async () => {
-          try {
-            await enqueueStorageDeletions(
-              writes.map(prewriteAssetDeletionIntent),
-              { runAt: new Date(Date.now() + PREWRITE_DELETION_DELAY_MS) },
-            )
-            for (const write of writes) {
-              await assetStorage.put(
-                write.key,
-                write.prepared.bytes,
-                GAME_ASSET_CONTENT_TYPE,
-              )
-            }
+  const writes = input.assets.map((asset) => ({
+    ...asset,
+    namespace: "assets" as const,
+    key: versionedAssetKey(gameId, asset.role, randomUUID()),
+  }))
+  return withGameAssetMutation(gameId, () =>
+    // Reserved before the uploads and fenced until the insert commits. If
+    // either fails, or the process dies in between, the reservations delete
+    // whatever no row points at.
+    withReservedStorageWrites(writes, randomUUID(), async () => {
+      for (const write of writes) {
+        await assetStorage.put(write.key, write.prepared.bytes)
+      }
 
-            const updatedAt = new Date()
-            const assetColumns: Partial<typeof game.$inferInsert> = {}
-            for (const write of writes) {
-              Object.assign(
-                assetColumns,
-                gameAssetColumns(
-                  write.role,
-                  write.key,
-                  write.prepared,
-                  updatedAt,
-                ),
-              )
-            }
-            const inserted = await db.transaction(async (tx) => {
-              const [row] = await tx
-                .insert(game)
-                .values({
-                  id: gameId,
-                  source: "custom",
-                  name: input.name,
-                  slug: input.slug,
-                  release_date: input.releaseDate,
-                  updated_at: updatedAt,
-                  ...assetColumns,
-                })
-                .returning({ id: game.id })
-              if (!row) return false
-              for (const write of writes) {
-                await cancelStorageDeletion("assets", write.key, { tx })
-              }
-              return true
-            })
-            if (!inserted) return badGamePersistenceResult()
-            return loadAdminGame(gameId)
-          } catch (cause) {
-            wakeAfterWrite = writes.length > 0
-            await enqueueGameAssetCleanupNow(writes, "game creation failed")
-            throw cause
-          }
-        },
-      ),
-    )
-  } finally {
-    if (wakeAfterWrite) wakeStorageDeletionWorker()
-  }
+      const updatedAt = new Date()
+      const assetColumns: Partial<typeof game.$inferInsert> = {}
+      for (const write of writes) {
+        Object.assign(
+          assetColumns,
+          gameAssetColumns(write.role, write.key, write.prepared, updatedAt),
+        )
+      }
+      const inserted = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .insert(game)
+          .values({
+            id: gameId,
+            source: "custom",
+            name: input.name,
+            slug: input.slug,
+            release_date: input.releaseDate,
+            updated_at: updatedAt,
+            ...assetColumns,
+          })
+          .returning({ id: game.id })
+        if (!row) return false
+        await adoptStorageWrites(writes, tx)
+        return true
+      })
+      if (!inserted) return badGamePersistenceResult()
+      return loadAdminGame(gameId)
+    }),
+  )
 }
 
 type UpdateGameInput = Parameters<typeof urlAssetColumns>[0] & {
@@ -326,70 +295,62 @@ export async function uploadGameAsset(
 
   const attemptId = randomUUID()
   const key = versionedAssetKey(gameId, role, attemptId)
-  let wakeAfterWrite = false
-  try {
-    return await withGameAssetMutation(gameId, () =>
-      withStorageObjectWriteActivity("assets", key, async () => {
-        await enqueueStorageDeletion(
-          prewriteAssetDeletionIntent({ key, attemptId }),
-          { runAt: new Date(Date.now() + PREWRITE_DELETION_DELAY_MS) },
-        )
-        try {
-          await assetStorage.put(key, prepared.bytes, GAME_ASSET_CONTENT_TYPE)
-          const transactionResult = await db.transaction(async (tx) => {
-            const locked = await lockGame(tx, gameId)
-            if (!locked) {
-              await enqueueStorageDeletion(
-                prewriteAssetDeletionIntent({
-                  key,
-                  attemptId,
-                  reason: "game row missing after asset upload",
-                }),
-                { tx, runAt: new Date() },
-              )
-              return { result: missingGameResult(), queued: 1 }
-            }
-            const previousUrl = locked[GAME_ASSET_URL_COLUMN[role]]
-            const updatedAt = new Date()
-            const [updated] = await tx
-              .update(game)
-              .set({
-                updated_at: updatedAt,
-                source: "custom",
-                ...gameAssetColumns(role, key, prepared, updatedAt),
-              })
-              .where(eq(game.id, gameId))
-              .returning({ id: game.id })
-            if (!updated) {
-              return { result: badGamePersistenceResult(), queued: 0 }
-            }
-            await cancelStorageDeletion("assets", key, { tx })
-            const intents = gameAssetDeletionIntents({
-              gameId,
-              role,
-              previousUrl,
-              retainedKey: key,
-              reason: `${role} replaced`,
-              source: { type: "game-asset", id: gameId },
+  const writes = [{ namespace: "assets", key }] as const
+  return withGameAssetMutation(gameId, async () => {
+    // Reserved before the upload and fenced until the swap commits. If either
+    // fails, or the process dies in between, the reservation deletes the
+    // object unless a row points at it.
+    const transactionResult = await withReservedStorageWrites(
+      writes,
+      attemptId,
+      async () => {
+        await assetStorage.put(key, prepared.bytes)
+        return db.transaction(async (tx) => {
+          const locked = await lockGame(tx, gameId)
+          if (!locked) {
+            await enqueueStorageDeletion(
+              prewriteAssetDeletionIntent({
+                key,
+                attemptId,
+                reason: "game row missing after asset upload",
+              }),
+              { tx, runAt: new Date() },
+            )
+            return { result: missingGameResult(), queued: 1 }
+          }
+          const previousUrl = locked[GAME_ASSET_URL_COLUMN[role]]
+          const updatedAt = new Date()
+          const [updated] = await tx
+            .update(game)
+            .set({
+              updated_at: updatedAt,
+              source: "custom",
+              ...gameAssetColumns(role, key, prepared, updatedAt),
             })
-            await enqueueStorageDeletions(intents, { tx })
-            return { result: null, queued: intents.length }
+            .where(eq(game.id, gameId))
+            .returning({ id: game.id })
+          if (!updated) {
+            return { result: badGamePersistenceResult(), queued: 0 }
+          }
+          await adoptStorageWrites(writes, tx)
+          const intents = gameAssetDeletionIntents({
+            gameId,
+            role,
+            previousUrl,
+            retainedKey: key,
+            reason: `${role} replaced`,
+            source: { type: "game-asset", id: gameId },
           })
-          wakeAfterWrite ||= transactionResult.queued > 0
-          return transactionResult.result ?? loadAdminGame(gameId)
-        } catch (cause) {
-          wakeAfterWrite = true
-          await enqueueGameAssetCleanupNow(
-            [{ key, attemptId }],
-            "game asset upload failed",
-          )
-          throw cause
-        }
-      }),
+          await enqueueStorageDeletions(intents, { tx })
+          return { result: null, queued: intents.length }
+        })
+      },
     )
-  } finally {
-    if (wakeAfterWrite) wakeStorageDeletionWorker()
-  }
+    // Woken only once the fence is gone, which would otherwise defer the
+    // deletions just queued.
+    if (transactionResult.queued > 0) wakeStorageDeletionWorker()
+    return transactionResult.result ?? loadAdminGame(gameId)
+  })
 }
 
 const badGamePersistenceResult = (): AdminGameFailure => ({

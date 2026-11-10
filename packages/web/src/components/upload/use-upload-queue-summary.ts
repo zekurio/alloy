@@ -9,10 +9,6 @@ export interface UploadQueueSummary {
   items: QueueItem[]
   activeCount: number
   failedCount: number
-  /** Aggregate percent across active rows that report determinate progress. */
-  percent: number
-  /** True when work is in flight but no row reports a numeric percent yet. */
-  indeterminate: boolean
   label: string
 }
 
@@ -27,36 +23,20 @@ export function useUploadQueueSummary(): UploadQueueSummary | null {
 
     const active = queue.filter(
       (item) =>
-        item.status !== "failed" &&
-        item.status !== "paused" &&
-        !isCompletedQueueStatus(item.status),
+        item.status !== "failed" && !isCompletedQueueStatus(item.status),
     )
     const failedCount = queue.filter((item) => item.status === "failed").length
-    const determinate = active.filter(
-      (item) => item.showProgress !== false && !item.indeterminate,
-    )
-    const percent =
-      determinate.length > 0
-        ? Math.round(
-            determinate.reduce(
-              (sum, item) => sum + Math.max(0, Math.min(100, item.progress)),
-              0,
-            ) / determinate.length,
-          )
-        : 0
 
     return {
       items: queue,
       activeCount: active.length,
       failedCount,
-      percent,
-      indeterminate: active.length > 0 && determinate.length === 0,
-      label: pillLabel(active, failedCount),
+      label: summaryLabel(active, failedCount),
     }
   }, [queue])
 }
 
-function pillLabel(active: QueueItem[], failedCount: number): string {
+function summaryLabel(active: QueueItem[], failedCount: number): string {
   if (active.length === 0 && failedCount > 0) {
     return t("{count} failed", { count: failedCount })
   }

@@ -5,7 +5,7 @@ import { app } from "electron"
  * The login item passes this, and such a start stays in the tray with no
  * window.
  */
-export const AUTOSTART_ARGUMENT = "--autostart"
+const AUTOSTART_ARGUMENT = "--autostart"
 /**
  * The registry value under `HKCU\...\CurrentVersion\Run`. The uninstaller
  * removes it by this name.

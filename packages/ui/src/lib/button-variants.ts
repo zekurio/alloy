@@ -29,9 +29,6 @@ const buttonVariants = cva(
         // step (e.g. settings danger zone) where a solid fill would be too loud.
         danger:
           "border-[color-mix(in_oklab,var(--danger)_40%,transparent)] bg-transparent text-danger hover:bg-[color-mix(in_oklab,var(--danger)_14%,transparent)]",
-        // shadcn aliases
-        default:
-          "border-accent bg-accent text-accent-foreground hover:border-accent-hover hover:bg-accent-hover active:bg-accent-active",
         // Solid destructive — the emphasized confirm action in alert dialogs.
         destructive:
           "border-danger bg-danger text-white hover:border-[color-mix(in_oklab,var(--danger)_85%,black)] hover:bg-[color-mix(in_oklab,var(--danger)_85%,black)] active:bg-[color-mix(in_oklab,var(--danger)_78%,black)]",
@@ -39,7 +36,6 @@ const buttonVariants = cva(
       size: {
         default: "h-9 px-4 text-sm leading-4 sm:h-8",
         sm: "h-7 px-3.5 text-xs leading-4",
-        md: "h-9 px-4 text-sm leading-4 sm:h-8",
         lg: "h-10 px-5 text-md leading-5 sm:h-9",
         // Tracks the Input/Select control-height contract (h-9 sm:h-8) so an
         // icon button can sit in the same row as a form control.

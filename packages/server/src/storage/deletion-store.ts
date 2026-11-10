@@ -4,16 +4,14 @@ import {
 } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
-import { and, asc, eq, sql } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 
-import { publishStorageDeletionWake } from "./deletion-events"
 import {
-  LIVE_REFERENCE_RECHECK_MS,
-  storageDeletionRetryAt,
   type StorageDeletionInput,
   validateStorageDeletionInput,
   validateStorageKey,
 } from "./deletion-policy"
+import { wakeStorageDeletionWorker } from "./deletion-worker"
 
 export interface EnqueueStorageDeletionOptions {
   /**
@@ -60,7 +58,7 @@ export async function enqueueStorageDeletion(
     })
     .returning({ id: storageDeletion.id })
   if (!row) throw new Error("Could not enqueue storage deletion")
-  if (!options.tx) publishStorageDeletionWake()
+  if (!options.tx) wakeStorageDeletionWorker()
   return row.id
 }
 
@@ -86,105 +84,4 @@ export async function cancelStorageDeletion(
         eq(storageDeletion.storage_key, key),
       ),
     )
-}
-
-export async function probeStorageDeletionStore(): Promise<void> {
-  await db.select({ id: storageDeletion.id }).from(storageDeletion).limit(1)
-}
-
-export async function selectNextStorageDeletion() {
-  const [row] = await db
-    .select({
-      id: storageDeletion.id,
-      namespace: storageDeletion.namespace,
-      key: storageDeletion.storage_key,
-      abortUpload: storageDeletion.abort_upload,
-      reason: storageDeletion.reason,
-      sourceType: storageDeletion.source_type,
-      sourceId: storageDeletion.source_id,
-      nextAttemptAt: storageDeletion.next_attempt_at,
-      attempts: storageDeletion.attempts,
-      revision: storageDeletion.revision,
-    })
-    .from(storageDeletion)
-    .orderBy(
-      asc(storageDeletion.next_attempt_at),
-      asc(storageDeletion.created_at),
-    )
-    .limit(1)
-  return row ?? null
-}
-
-export type PendingStorageDeletion = NonNullable<
-  Awaited<ReturnType<typeof selectNextStorageDeletion>>
->
-
-export async function completeStorageDeletion(
-  row: Pick<PendingStorageDeletion, "id" | "revision">,
-): Promise<void> {
-  await db
-    .delete(storageDeletion)
-    .where(
-      and(
-        eq(storageDeletion.id, row.id),
-        eq(storageDeletion.revision, row.revision),
-      ),
-    )
-}
-
-export async function deferReferencedStorageDeletion(
-  row: Pick<PendingStorageDeletion, "id" | "revision">,
-  checkedAt: Date,
-): Promise<void> {
-  await db
-    .update(storageDeletion)
-    .set({
-      next_attempt_at: new Date(
-        checkedAt.getTime() + LIVE_REFERENCE_RECHECK_MS,
-      ),
-      updated_at: checkedAt,
-    })
-    .where(
-      and(
-        eq(storageDeletion.id, row.id),
-        eq(storageDeletion.revision, row.revision),
-      ),
-    )
-}
-
-export function retryStorageDeletion(
-  row: Pick<PendingStorageDeletion, "id" | "revision" | "attempts">,
-  error: string,
-  attemptedAt: Date,
-): Promise<boolean> {
-  return recordStorageDeletionFailure(
-    row,
-    error,
-    storageDeletionRetryAt(row.attempts, attemptedAt),
-    attemptedAt,
-  )
-}
-
-async function recordStorageDeletionFailure(
-  row: Pick<PendingStorageDeletion, "id" | "revision">,
-  error: string,
-  nextAttemptAt: Date,
-  attemptedAt: Date,
-): Promise<boolean> {
-  const updated = await db
-    .update(storageDeletion)
-    .set({
-      attempts: sql`${storageDeletion.attempts} + 1`,
-      last_error: error,
-      next_attempt_at: nextAttemptAt,
-      updated_at: attemptedAt,
-    })
-    .where(
-      and(
-        eq(storageDeletion.id, row.id),
-        eq(storageDeletion.revision, row.revision),
-      ),
-    )
-    .returning({ id: storageDeletion.id })
-  return updated.length > 0
 }

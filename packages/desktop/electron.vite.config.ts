@@ -74,7 +74,8 @@ export default defineConfig({
   },
   renderer: {
     root: fromHere("src/connect"),
-    publicDir: fromHere("../../public"),
+    // The connect screen draws its logo inline and links no static files.
+    publicDir: false,
     resolve: {
       tsconfigPaths: true,
     },

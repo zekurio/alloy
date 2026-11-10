@@ -271,7 +271,7 @@ export function AllowedGamesSection({
                         </div>
                         <Button
                           type="button"
-                          variant={selected ? "secondary" : "default"}
+                          variant={selected ? "secondary" : "primary"}
                           size="sm"
                           disabled={busy || selected}
                           className="shrink-0"

@@ -8,8 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 pub use alloy_recorder::types::{
     RecordingCapture as CaptureRecord, RecordingCaptureKind as CaptureKind,
     RecordingCapturePostProcess as PostProcess, RecordingCaptureSource as CaptureSource,
-    RecordingGame as CaptureGame, RecordingGameGuess as GameGuess,
-    RecordingGameGuessMatchKind as GameGuessMatchKind, RecordingGameGuessSource as GameGuessSource,
+    RecordingGame as CaptureGame,
 };
 
 /// The output subfolder a capture kind lives in. The recorder chooses these
@@ -39,7 +38,6 @@ pub struct ManifestEntry {
     pub source: CaptureSource,
     pub game_name: Option<String>,
     pub game_icon_url: Option<String>,
-    pub game_guess: Option<GameGuess>,
     pub size_bytes: Option<u64>,
     pub duration_ms: Option<u64>,
     pub width: Option<u32>,
@@ -99,7 +97,6 @@ pub struct LibraryItem {
     pub group_label: String,
     pub game_name: Option<String>,
     pub game_icon_url: Option<String>,
-    pub game_guess: Option<GameGuess>,
     pub size_bytes: u64,
     pub duration_ms: Option<u64>,
     pub width: Option<u32>,
@@ -153,8 +150,6 @@ pub struct MetaPatch {
     pub game_name: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_nullable")]
     pub game_icon_url: Option<Option<String>>,
-    #[serde(default, deserialize_with = "deserialize_nullable")]
-    pub game_guess: Option<Option<GameGuess>>,
     #[serde(default, deserialize_with = "deserialize_nullable")]
     pub description: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_nullable")]

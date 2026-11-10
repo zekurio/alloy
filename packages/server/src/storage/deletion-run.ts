@@ -1,7 +1,13 @@
 import type { StorageDeletionNamespace } from "@alloy/db/schema"
+import {
+  thumbnailVariantBase,
+  thumbnailVariantKeys,
+} from "@alloy/server/media/thumbnail-variants"
 
-import type { StorageDeletionReference } from "./deletion-references"
-import type { StorageDriver } from "./driver"
+import { storageDeletionReference } from "./deletion-references"
+import type { FsStorageDriver } from "./fs-driver"
+import { assetStorage, clipStorage, clipThumbnailStorage } from "./index"
+import { storageObjectWriteIsActive } from "./write-activity"
 
 export interface StorageDeletionRunInput {
   namespace: StorageDeletionNamespace
@@ -9,19 +15,6 @@ export interface StorageDeletionRunInput {
   abortUpload: boolean
   sourceType: string
   sourceId: string | null
-}
-
-export interface StorageDeletionRunDependencies {
-  storage: StorageDriver
-  /** Objects that exist only for `key`, such as a thumbnail's variants. */
-  derivedKeys(namespace: StorageDeletionNamespace, key: string): string[]
-  isWriteActive(namespace: StorageDeletionNamespace, key: string): boolean
-  liveReference(
-    namespace: StorageDeletionNamespace,
-    key: string,
-    source: { type: string; id: string | null },
-  ): Promise<StorageDeletionReference>
-  signal: AbortSignal
 }
 
 export type StorageDeletionRunResult =
@@ -37,9 +30,9 @@ export type StorageDeletionRunResult =
  */
 export async function runStorageDeletion(
   input: StorageDeletionRunInput,
-  dependencies: StorageDeletionRunDependencies,
+  signal: AbortSignal,
 ): Promise<StorageDeletionRunResult> {
-  if (dependencies.signal.aborted) return "interrupted"
+  if (signal.aborted) return "interrupted"
 
   // A durable prewrite reservation deliberately exists before its object is
   // attached to a row. Keep this process-local fence distinct from the DB
@@ -47,34 +40,54 @@ export async function runStorageDeletion(
   // reference means that a prewrite reservation was successfully adopted. A
   // media run that holds the object's clip may still attach it, so its
   // reservation waits for the run like any other deletion.
-  if (dependencies.isWriteActive(input.namespace, input.key)) {
-    return "referenced"
-  }
-  const reference = await dependencies.liveReference(
-    input.namespace,
-    input.key,
-    {
-      type: input.sourceType,
-      id: input.sourceId,
-    },
-  )
+  if (isWriteActive(input.namespace, input.key)) return "referenced"
+  const reference = await storageDeletionReference(input.namespace, input.key, {
+    type: input.sourceType,
+    id: input.sourceId,
+  })
   if (reference === "row" && input.sourceType === "storage-prewrite") {
     return "adopted"
   }
   if (reference) return "referenced"
-  if (dependencies.signal.aborted) return "interrupted"
+  if (signal.aborted) return "interrupted"
 
+  const storage = storageDriver(input.namespace)
   if (input.abortUpload) {
-    await dependencies.storage.abortUpload({ key: input.key })
+    await storage.abortUpload({ key: input.key })
     // The abort is independently idempotent. If shutdown arrived while it was
     // running, leave the row for startup recovery rather than begin a delete.
-    if (dependencies.signal.aborted) return "interrupted"
+    if (signal.aborted) return "interrupted"
   }
   // Derived objects go first: a retry after a crash in between still finds
-  // the key that names them.
-  for (const key of dependencies.derivedKeys(input.namespace, input.key)) {
-    await dependencies.storage.delete(key)
+  // the key that names them. A thumbnail's variants exist only for it.
+  if (input.namespace === "thumbnails") {
+    for (const key of thumbnailVariantKeys(input.key)) {
+      await storage.delete(key)
+    }
   }
-  await dependencies.storage.delete(input.key)
+  await storage.delete(input.key)
   return "deleted"
+}
+
+/**
+ * A thumbnail's variants are written under the thumbnail's own reservation
+ * and fence, so a variant waits on writes to its thumbnail too.
+ */
+function isWriteActive(namespace: StorageDeletionNamespace, key: string) {
+  const thumbKey = namespace === "thumbnails" ? thumbnailVariantBase(key) : null
+  return (
+    storageObjectWriteIsActive(namespace, key) ||
+    (thumbKey !== null && storageObjectWriteIsActive(namespace, thumbKey))
+  )
+}
+
+function storageDriver(namespace: StorageDeletionNamespace): FsStorageDriver {
+  switch (namespace) {
+    case "clips":
+      return clipStorage
+    case "thumbnails":
+      return clipThumbnailStorage
+    case "assets":
+      return assetStorage
+  }
 }

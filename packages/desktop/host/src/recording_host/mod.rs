@@ -26,23 +26,30 @@ use tokio::{
     time::{sleep, timeout},
 };
 
+use crate::capture_library::paths::is_media;
+
 pub use models::{
-    AGENT_NAME, AGENT_PROTOCOL_VERSION, CaptureManifest, EventEnvelope,
-    PlayNotificationSoundRequest, RecorderHostOptions, RecordingActionResult, RecordingAllowedGame,
-    RecordingAudioApplicationSelection, RecordingAudioDevice, RecordingAudioDeviceKind,
-    RecordingAudioDeviceSelection, RecordingAudioLevel, RecordingAudioLevelTarget,
-    RecordingAudioMode, RecordingBackendState, RecordingBitrate, RecordingBufferStorage,
-    RecordingCapture, RecordingCaptureKind, RecordingCaptureMode, RecordingCapturePostProcess,
-    RecordingCaptureSource, RecordingCodec, RecordingDisplay, RecordingEncoder, RecordingEvent,
-    RecordingGame, RecordingGameGuess, RecordingGameGuessMatchKind, RecordingGameGuessSource,
-    RecordingGameProcess, RecordingHotkeys, RecordingMode, RecordingNotificationSoundSettings,
-    RecordingNotificationSounds, RecordingQualityProfile, RecordingQualitySettings,
-    RecordingResolution, RecordingRunState, RecordingSettings, RecordingStatus,
-    RecordingStorageInfo, RecordingTelemetry, SaveReplayClipRequest, SidecarVersion,
+    PlayNotificationSoundRequest, RecorderHostOptions, RecordingCapture, RecordingCaptureKind,
+    RecordingEvent, RecordingSettings, SaveReplayClipRequest,
 };
+
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
+const CONFIGURE_TIMEOUT: Duration = Duration::from_secs(45);
+// OBS may take up to eight seconds to flush and stop an output. Keep the
+// force windows below bounded after this request grace.
+const SHUTDOWN_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+const GRACEFUL_EXIT_TIMEOUT: Duration = Duration::from_millis(1_500);
+const FORCED_EXIT_TIMEOUT: Duration = Duration::from_millis(1_500);
+/// Wait after the first failed start; each failure in a row doubles it.
+const RESPAWN_DELAY: Duration = Duration::from_secs(3);
+const RESPAWN_STREAK_RESET: Duration = Duration::from_secs(60);
+const MAX_CONSECUTIVE_RESPAWNS: u32 = 5;
+/// Longest wait between starts while the agent keeps failing.
+const MAX_RESPAWN_BACKOFF: Duration = Duration::from_secs(5 * 60);
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(30);
+const MAX_LINE_BYTES: usize = 4 * 1024 * 1024;
 const SETTINGS_FILE: &str = "recording-settings.json";
 const CAPTURES_FILE: &str = "recording-captures.json";
-const CAPTURE_EXTENSIONS: &[&str] = &["mp4", "mkv", "mov", "webm", "png", "jpg", "jpeg", "webp"];
 const DISCORD_DETECTABLE_URL: &str = "https://discord.com/api/v9/applications/detectable";
 const DISCORD_CACHE_FILE_NAME: &str = "discord-detections.json";
 const DISCORD_CACHE_SCHEMA_VERSION: u32 = 1;
@@ -81,7 +88,6 @@ struct DiscordDetectionCache {
 struct DiscordDetectionGame {
     id: String,
     name: String,
-    aliases: Vec<String>,
     icon_hash: Option<String>,
 }
 
@@ -89,7 +95,6 @@ struct DiscordDetectionGame {
 #[serde(rename_all = "camelCase")]
 struct DiscordExecutableRule {
     game_id: String,
-    is_launcher: bool,
     score: i32,
 }
 
@@ -257,15 +262,11 @@ impl Session {
 
         let stdout_session = Arc::clone(&session);
         let stdout_inner = Arc::downgrade(inner);
-        let max_line_bytes = options.max_line_bytes;
         tokio::spawn(async move {
-            read_stdout(stdout, stdout_session, stdout_inner, max_line_bytes).await;
+            read_stdout(stdout, stdout_session, stdout_inner).await;
         });
 
-        let stderr_inner = Arc::downgrade(inner);
-        tokio::spawn(async move {
-            read_stderr(stderr, stderr_inner, max_line_bytes).await;
-        });
+        tokio::spawn(read_stderr(stderr));
 
         let wait_session = Arc::clone(&session);
         let wait_inner = Arc::downgrade(inner);
@@ -273,21 +274,7 @@ impl Session {
             wait_for_exit(child, wait_session, wait_inner).await;
         });
 
-        if !options.heartbeat_interval.is_zero() {
-            let heartbeat_session = Arc::clone(&session);
-            let heartbeat_inner = Arc::downgrade(inner);
-            let interval = options.heartbeat_interval;
-            let request_timeout = options.request_timeout;
-            tokio::spawn(async move {
-                heartbeat(
-                    heartbeat_session,
-                    heartbeat_inner,
-                    interval,
-                    request_timeout,
-                )
-                .await;
-            });
-        }
+        tokio::spawn(heartbeat(Arc::clone(&session), Arc::downgrade(inner)));
 
         Ok(session)
     }
@@ -380,10 +367,10 @@ impl Session {
         }
     }
 
-    async fn stop(&self, options: &RecorderHostOptions) -> bool {
+    async fn stop(&self) -> bool {
         let _ = timeout(
-            options.shutdown_request_timeout,
-            self.request("shutdown", Value::Null, options.shutdown_request_timeout),
+            SHUTDOWN_REQUEST_TIMEOUT,
+            self.request("shutdown", Value::Null, SHUTDOWN_REQUEST_TIMEOUT),
         )
         .await;
         self.alive.store(false, Ordering::Release);
@@ -393,13 +380,13 @@ impl Session {
             let _ = stdin.shutdown().await;
         }
 
-        self.wait_until_exited(options.graceful_exit_timeout).await;
+        self.wait_until_exited(GRACEFUL_EXIT_TIMEOUT).await;
         if self.exited.load(Ordering::Acquire) {
             self.fail_pending("Alloy recorder stopped.").await;
             return true;
         }
         self.kill_notify.notify_one();
-        let exited = self.wait_until_exited(options.forced_exit_timeout).await;
+        let exited = self.wait_until_exited(FORCED_EXIT_TIMEOUT).await;
         self.fail_pending("Alloy recorder was terminated.").await;
         exited
     }
@@ -449,7 +436,6 @@ struct Inner {
     status: RwLock<RecordingStatus>,
     captures: Mutex<CaptureManifest>,
     emitted_captures: Mutex<HashSet<String>>,
-    completed_captures: Mutex<HashMap<String, RecordingCapture>>,
     events: broadcast::Sender<RecordingEvent>,
     session: Mutex<Option<Arc<Session>>>,
     start_lock: Mutex<()>,
@@ -509,7 +495,6 @@ impl RecorderHost {
                 status: RwLock::new(status),
                 captures: Mutex::new(captures),
                 emitted_captures: Mutex::new(HashSet::new()),
-                completed_captures: Mutex::new(HashMap::new()),
                 events,
                 session: Mutex::new(None),
                 start_lock: Mutex::new(()),
@@ -587,7 +572,7 @@ impl RecorderHost {
             .is_some_and(|applied| applied == settings)
         {
             let response = session
-                .request("status", Value::Null, self.inner.options.request_timeout)
+                .request("status", Value::Null, REQUEST_TIMEOUT)
                 .await?;
             let status: RecordingStatus = decode_response(response, "status")?;
             self.apply_status(status.clone()).await;
@@ -596,8 +581,8 @@ impl RecorderHost {
         let response = session
             .request(
                 "configure",
-                self.configure_params(settings).await?,
-                self.inner.options.configure_timeout,
+                configure_params(&self.inner.options, settings)?,
+                CONFIGURE_TIMEOUT,
             )
             .await?;
         let status: RecordingStatus = decode_response(response, "configure")?;
@@ -624,22 +609,14 @@ impl RecorderHost {
         &self,
     ) -> Result<Vec<RecordingGameProcess>, RecorderHostError> {
         let result = self
-            .request_value(
-                "listGameProcesses",
-                Value::Null,
-                self.inner.options.request_timeout,
-            )
+            .request_value("listGameProcesses", Value::Null, REQUEST_TIMEOUT)
             .await?;
         decode_value(result, "listGameProcesses")
     }
 
     pub async fn list_displays(&self) -> Result<Vec<RecordingDisplay>, RecorderHostError> {
         let result = self
-            .request_value(
-                "listDisplays",
-                Value::Null,
-                self.inner.options.request_timeout,
-            )
+            .request_value("listDisplays", Value::Null, REQUEST_TIMEOUT)
             .await?;
         decode_value(result, "listDisplays")
     }
@@ -658,7 +635,7 @@ impl RecorderHost {
                 "saveReplayClip",
                 serde_json::to_value(request)
                     .map_err(|source| json_error("Failed to encode replay request", source))?,
-                self.inner.options.request_timeout,
+                REQUEST_TIMEOUT,
             )
             .await?;
         let result: RecordingActionResult = decode_value(result, "saveReplayClip")?;
@@ -669,11 +646,7 @@ impl RecorderHost {
     pub async fn save_screenshot(&self) -> Result<RecordingActionResult, RecorderHostError> {
         let _session = self.ensure_session().await?;
         let result = self
-            .request_value(
-                "saveScreenshot",
-                Value::Null,
-                self.inner.options.request_timeout,
-            )
+            .request_value("saveScreenshot", Value::Null, REQUEST_TIMEOUT)
             .await?;
         let result: RecordingActionResult = decode_value(result, "saveScreenshot")?;
         self.remember_action_capture(&result).await?;
@@ -682,22 +655,14 @@ impl RecorderHost {
 
     pub async fn subscribe_audio_levels(&self) -> Result<(), RecorderHostError> {
         let result = self
-            .request_value(
-                "subscribeAudioLevels",
-                Value::Null,
-                self.inner.options.request_timeout,
-            )
+            .request_value("subscribeAudioLevels", Value::Null, REQUEST_TIMEOUT)
             .await?;
         ensure_null_result(result, "subscribeAudioLevels")
     }
 
     pub async fn stop_audio_levels(&self) -> Result<(), RecorderHostError> {
         let result = self
-            .request_value(
-                "stopAudioLevels",
-                Value::Null,
-                self.inner.options.request_timeout,
-            )
+            .request_value("stopAudioLevels", Value::Null, REQUEST_TIMEOUT)
             .await?;
         ensure_null_result(result, "stopAudioLevels")
     }
@@ -721,7 +686,7 @@ impl RecorderHost {
                 "playNotificationSound",
                 serde_json::to_value(request)
                     .map_err(|source| json_error("Failed to encode sound request", source))?,
-                self.inner.options.request_timeout,
+                REQUEST_TIMEOUT,
             )
             .await?;
         ensure_null_result(result, "playNotificationSound")
@@ -784,9 +749,7 @@ impl RecorderHost {
     ///
     /// The recorder manifest is the recovery queue for raw captures. Keep the
     /// entry until the caller confirms that finalization and library storage
-    /// both succeeded. The completed value also protects status updates from
-    /// replacing finalized metadata with the recorder's raw post-process
-    /// metadata.
+    /// both succeeded.
     pub async fn complete_capture(
         &self,
         capture: RecordingCapture,
@@ -807,56 +770,11 @@ impl RecorderHost {
             *manifest = original;
             return Err(error);
         }
-        drop(manifest);
-
-        {
-            let mut completed = self.inner.completed_captures.lock().await;
-            for key in capture_identity_keys(&capture) {
-                completed.insert(key, capture.clone());
-            }
-        }
-
-        let mut status = self.inner.status.write().await;
-        if status
-            .current_capture
-            .as_ref()
-            .is_some_and(|current| captures_match(current, &capture))
-        {
-            status.current_capture = Some(capture);
-        }
         Ok(())
     }
 
     async fn ensure_session(&self) -> Result<Arc<Session>, RecorderHostError> {
         ensure_session(&self.inner).await
-    }
-
-    async fn configure_params(
-        &self,
-        settings: &RecordingSettings,
-    ) -> Result<Value, RecorderHostError> {
-        let output_folder = effective_output_folder(&self.inner.options, settings);
-        fs::create_dir_all(&output_folder).map_err(|source| {
-            io_error(
-                format!(
-                    "Failed to create capture folder {}",
-                    output_folder.display()
-                ),
-                source,
-            )
-        })?;
-        fs::create_dir_all(&self.inner.options.agent_state_folder)
-            .map_err(|source| io_error("Failed to create recorder state folder", source))?;
-        fs::create_dir_all(&self.inner.options.replay_scratch_folder)
-            .map_err(|source| io_error("Failed to create replay scratch folder", source))?;
-        serde_json::to_value(json!({
-            "settings": settings,
-            "agentStateFolder": self.inner.options.agent_state_folder,
-            "outputFolder": output_folder,
-            "replayScratchFolder": self.inner.options.replay_scratch_folder,
-            "obsRuntimeDir": self.inner.options.obs_runtime_dir,
-        }))
-        .map_err(|source| json_error("Failed to encode recorder configuration", source))
     }
 
     async fn request_value(
@@ -894,15 +812,13 @@ impl RecorderHost {
 
     async fn refresh_status_settings(&self, settings: &RecordingSettings) {
         let mut status = self.inner.status.write().await;
-        status.capture_mode = settings.capture_mode.clone();
-        status.replay_buffer_seconds = settings.replay_buffer_seconds;
         status.available_audio_applications = settings.audio_applications.clone();
     }
 
     async fn stop_current_session(&self) -> bool {
         let session = self.inner.session.lock().await.take();
         match session {
-            Some(session) => session.stop(&self.inner.options).await,
+            Some(session) => session.stop().await,
             None => true,
         }
     }
@@ -946,7 +862,7 @@ async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHost
 
     let startup = async {
         let version_value = session
-            .request("version", Value::Null, inner.options.request_timeout)
+            .request("version", Value::Null, REQUEST_TIMEOUT)
             .await
             .map_err(|error| error.to_string())?;
         let version: SidecarVersion =
@@ -958,22 +874,10 @@ async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHost
             ));
         }
         let settings = inner.settings.read().await.clone();
-        let output_folder = effective_output_folder(&inner.options, &settings);
-        fs::create_dir_all(&output_folder)
-            .map_err(|error| format!("Failed to create capture folder: {error}"))?;
-        fs::create_dir_all(&inner.options.agent_state_folder)
-            .map_err(|error| format!("Failed to create recorder state folder: {error}"))?;
-        fs::create_dir_all(&inner.options.replay_scratch_folder)
-            .map_err(|error| format!("Failed to create replay scratch folder: {error}"))?;
-        let config = json!({
-            "settings": settings,
-            "agentStateFolder": inner.options.agent_state_folder,
-            "outputFolder": output_folder,
-            "replayScratchFolder": inner.options.replay_scratch_folder,
-            "obsRuntimeDir": inner.options.obs_runtime_dir,
-        });
+        let config =
+            configure_params(&inner.options, &settings).map_err(|error| error.to_string())?;
         let configure_value = session
-            .request("configure", config, inner.options.configure_timeout)
+            .request("configure", config, CONFIGURE_TIMEOUT)
             .await
             .map_err(|error| error.to_string())?;
         let status: RecordingStatus =
@@ -1000,7 +904,7 @@ async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHost
                 false
             }
         };
-        session.stop(&inner.options).await;
+        session.stop().await;
         let error = RecorderHostError::Protocol(message.clone());
         if removed {
             set_error_status(inner, message).await;
@@ -1027,22 +931,20 @@ async fn ensure_session(inner: &Arc<Inner>) -> Result<Arc<Session>, RecorderHost
 }
 
 /// Counts a failed start or an unexpected exit and opens a retry window that
-/// doubles with each consecutive failure, up to `max_respawn_backoff`.
+/// doubles with each consecutive failure, up to `MAX_RESPAWN_BACKOFF`.
 async fn record_start_failure(inner: &Arc<Inner>, message: String) {
     let mut respawn = inner.respawn.lock().await;
     if respawn
         .running_since
         .take()
-        .is_some_and(|since| since.elapsed() >= inner.options.respawn_streak_reset)
+        .is_some_and(|since| since.elapsed() >= RESPAWN_STREAK_RESET)
     {
         respawn.consecutive = 0;
     }
     respawn.consecutive = respawn.consecutive.saturating_add(1);
-    let wait = inner
-        .options
-        .respawn_delay
+    let wait = RESPAWN_DELAY
         .saturating_mul(1 << (respawn.consecutive - 1).min(16))
-        .min(inner.options.max_respawn_backoff);
+        .min(MAX_RESPAWN_BACKOFF);
     log::warn!(
         "[alloy-recording-host] recorder start failed ({} in a row); next start in {}s: {message}",
         respawn.consecutive,
@@ -1081,22 +983,22 @@ enum BoundedLine {
     Line(String),
 }
 
-/// Reads one line without buffering more than `max_line_bytes` of it. A line
+/// Reads one line without buffering more than `MAX_LINE_BYTES` of it. A line
 /// that runs past the limit is reported as oversized while its tail is still
 /// in the stream; `discard_line_tail` drops the rest.
-async fn read_bounded_line<R>(reader: &mut R, max_line_bytes: usize) -> io::Result<BoundedLine>
+async fn read_bounded_line<R>(reader: &mut R) -> io::Result<BoundedLine>
 where
     R: AsyncBufRead + Unpin,
 {
     let mut buffer = Vec::new();
     let count = reader
-        .take(max_line_bytes as u64 + 1)
+        .take(MAX_LINE_BYTES as u64 + 1)
         .read_until(b'\n', &mut buffer)
         .await?;
     if count == 0 {
         return Ok(BoundedLine::Eof);
     }
-    if count > max_line_bytes {
+    if count > MAX_LINE_BYTES {
         return Ok(BoundedLine::Oversized);
     }
     let line = String::from_utf8(buffer)
@@ -1118,21 +1020,21 @@ where
     }
 }
 
-async fn read_stdout<R>(stdout: R, session: Arc<Session>, inner: Weak<Inner>, max_line_bytes: usize)
+async fn read_stdout<R>(stdout: R, session: Arc<Session>, inner: Weak<Inner>)
 where
     R: AsyncRead + Unpin,
 {
     let mut reader = BufReader::new(stdout);
     loop {
-        let line = match read_bounded_line(&mut reader, max_line_bytes).await {
+        let line = match read_bounded_line(&mut reader).await {
             Ok(BoundedLine::Line(line)) => line,
             Ok(BoundedLine::Eof) => break,
             Ok(BoundedLine::Oversized) => {
                 session
                     .fail_pending("Alloy agent sent an oversized protocol line.")
                     .await;
-                if let Some(inner) = inner.upgrade() {
-                    let _ = session.stop(&inner.options).await;
+                if inner.upgrade().is_some() {
+                    let _ = session.stop().await;
                 }
                 break;
             }
@@ -1150,13 +1052,13 @@ where
     }
 }
 
-async fn read_stderr<R>(stderr: R, _inner: Weak<Inner>, max_line_bytes: usize)
+async fn read_stderr<R>(stderr: R)
 where
     R: AsyncRead + Unpin,
 {
     let mut reader = BufReader::new(stderr);
     loop {
-        let line = match read_bounded_line(&mut reader, max_line_bytes).await {
+        let line = match read_bounded_line(&mut reader).await {
             Ok(BoundedLine::Line(line)) => line,
             Ok(BoundedLine::Eof) => break,
             Ok(BoundedLine::Oversized) => {
@@ -1256,12 +1158,6 @@ async fn handle_event(inner: &Arc<Inner>, event: RecordingEvent) {
 
 async fn begin_capture_event(inner: &Arc<Inner>, capture: &RecordingCapture) -> bool {
     let keys = capture_identity_keys(capture);
-    let completed = inner.completed_captures.lock().await;
-    if keys.iter().any(|key| completed.contains_key(key)) {
-        return false;
-    }
-    drop(completed);
-
     let mut emitted = inner.emitted_captures.lock().await;
     if keys.iter().any(|key| emitted.contains(key)) {
         return false;
@@ -1293,48 +1189,34 @@ fn captures_match(left: &RecordingCapture, right: &RecordingCapture) -> bool {
         || (!left.filename.is_empty() && left.filename == right.filename)
 }
 
-async fn apply_status_inner(inner: &Arc<Inner>, mut status: RecordingStatus) {
-    if let Some(capture) = status.current_capture.as_ref() {
-        let completed = inner.completed_captures.lock().await;
-        if let Some(finalized) = capture_identity_keys(capture)
-            .iter()
-            .find_map(|key| completed.get(key))
-        {
-            status.current_capture = Some(finalized.clone());
-        }
-    }
+async fn apply_status_inner(inner: &Arc<Inner>, status: RecordingStatus) {
     *inner.status.write().await = status;
 }
 
-async fn heartbeat(
-    session: Arc<Session>,
-    inner: Weak<Inner>,
-    interval: Duration,
-    request_timeout: Duration,
-) {
+async fn heartbeat(session: Arc<Session>, inner: Weak<Inner>) {
     loop {
-        sleep(interval).await;
+        sleep(HEARTBEAT_INTERVAL).await;
         if !session.is_alive() {
             return;
         }
         let result = session
-            .request("status", Value::Null, request_timeout)
+            .request("status", Value::Null, REQUEST_TIMEOUT)
             .await;
         let Ok(response) = result else {
-            if let Some(inner) = inner.upgrade() {
-                let _ = session.stop(&inner.options).await;
+            if inner.upgrade().is_some() {
+                let _ = session.stop().await;
             }
             return;
         };
         if !response.ok {
-            if let Some(inner) = inner.upgrade() {
-                let _ = session.stop(&inner.options).await;
+            if inner.upgrade().is_some() {
+                let _ = session.stop().await;
             }
             return;
         }
         if response.result.is_none() && response.status.is_none() {
-            if let Some(inner) = inner.upgrade() {
-                let _ = session.stop(&inner.options).await;
+            if inner.upgrade().is_some() {
+                let _ = session.stop().await;
             }
             return;
         }
@@ -1368,12 +1250,9 @@ async fn process_exited(inner: &Arc<Inner>, session_id: u64, message: String) {
     }
     *inner.applied_settings.lock().await = None;
     set_error_status(inner, message.clone()).await;
-    record_start_failure(inner, message.clone()).await;
+    record_start_failure(inner, message).await;
     let status = inner.status.read().await.clone();
-    let _ = inner.events.send(RecordingEvent::Error {
-        error: message,
-        status,
-    });
+    let _ = inner.events.send(RecordingEvent::Status { status });
     schedule_respawn(inner);
 }
 
@@ -1391,7 +1270,7 @@ fn schedule_respawn(inner: &Arc<Inner>) {
                 return;
             }
             let mut state = inner.respawn.lock().await;
-            if state.consecutive > inner.options.max_consecutive_respawns || state.scheduled {
+            if state.consecutive > MAX_CONSECUTIVE_RESPAWNS || state.scheduled {
                 return;
             }
             state.scheduled = true;
@@ -1430,16 +1309,10 @@ fn schedule_respawn(inner: &Arc<Inner>) {
 async fn set_error_status(inner: &Arc<Inner>, message: String) {
     let mut status = inner.status.read().await.clone();
     status.backend = RecordingBackendState::Error;
-    status.mode = RecordingMode::Idle;
-    status.run_state = RecordingRunState::Error;
     status.replay_active = false;
     status.active_game = None;
     status.active_game_detail = None;
     status.active_display = None;
-    status.focused = false;
-    status.current_source = None;
-    status.current_capture = None;
-    status.telemetry = None;
     status.message = Some(message);
     *inner.status.write().await = status;
 }
@@ -1611,6 +1484,36 @@ fn validate_non_empty(value: &str, field: &str) -> Result<(), RecorderHostError>
     }
 }
 
+/// The `configure` request: the settings and the folders the agent works in,
+/// which are created first.
+fn configure_params(
+    options: &RecorderHostOptions,
+    settings: &RecordingSettings,
+) -> Result<Value, RecorderHostError> {
+    let output_folder = effective_output_folder(options, settings);
+    let agent_state_folder = options.agent_state_folder();
+    fs::create_dir_all(&output_folder).map_err(|source| {
+        io_error(
+            format!(
+                "Failed to create capture folder {}",
+                output_folder.display()
+            ),
+            source,
+        )
+    })?;
+    fs::create_dir_all(&agent_state_folder)
+        .map_err(|source| io_error("Failed to create recorder state folder", source))?;
+    fs::create_dir_all(&options.replay_scratch_folder)
+        .map_err(|source| io_error("Failed to create replay scratch folder", source))?;
+    Ok(json!({
+        "settings": settings,
+        "agentStateFolder": agent_state_folder,
+        "outputFolder": output_folder,
+        "replayScratchFolder": options.replay_scratch_folder,
+        "obsRuntimeDir": options.obs_runtime_dir,
+    }))
+}
+
 fn effective_output_folder(options: &RecorderHostOptions, settings: &RecordingSettings) -> PathBuf {
     if settings.output_folder.trim().is_empty() {
         options.output_folder.clone()
@@ -1685,18 +1588,7 @@ fn sum_capture_bytes(path: &Path) -> u64 {
             if !metadata.is_file() {
                 return 0;
             }
-            let extension = path
-                .extension()
-                .and_then(|value| value.to_str())
-                .unwrap_or("");
-            if CAPTURE_EXTENSIONS
-                .iter()
-                .any(|candidate| candidate.eq_ignore_ascii_case(extension))
-            {
-                metadata.len()
-            } else {
-                0
-            }
+            if is_media(&path) { metadata.len() } else { 0 }
         })
         .sum()
 }
@@ -1880,7 +1772,6 @@ fn trim_discord_detections(payload: Value) -> Result<DiscordDetectionCache, Stri
                     .or_default()
                     .push(DiscordExecutableRule {
                         game_id: id.clone(),
-                        is_launcher,
                         score: if is_launcher { 82 } else { 112 },
                     });
             }
@@ -1889,24 +1780,10 @@ fn trim_discord_detections(payload: Value) -> Result<DiscordDetectionCache, Stri
             continue;
         }
 
-        let mut aliases = row
-            .get("aliases")
-            .and_then(Value::as_array)
-            .map(|values| {
-                values
-                    .iter()
-                    .map(|value| discord_string(Some(value)))
-                    .filter(|value| !value.is_empty())
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        aliases.sort();
-        aliases.dedup();
         let icon_hash = discord_string(row.get("icon_hash"));
         games.push(DiscordDetectionGame {
             id,
             name,
-            aliases,
             icon_hash: (!icon_hash.is_empty()).then_some(icon_hash),
         });
     }
@@ -1993,9 +1870,7 @@ fn configure_runtime_environment(
     if let Some(path) = discord_cache_path {
         command.env("ALLOY_DISCORD_DETECTIONS_PATH", path);
     }
-    let Some(runtime) = options.obs_runtime_dir.as_ref() else {
-        return;
-    };
+    let runtime = &options.obs_runtime_dir;
     command.env("ALLOY_OBS_RUNTIME_DIR", runtime);
     let candidates = [
         runtime.clone(),

@@ -16,7 +16,6 @@ import {
   CLIP_MEDIA_MAX_ATTEMPTS,
   type ClipMediaAction,
 } from "./clip-media-policy"
-import { clipMediaStore } from "./clip-media-store"
 import {
   clipMediaClaimCompleted,
   completeClipMediaWithoutPipeline,
@@ -28,7 +27,6 @@ import {
   selectClipMediaFacts,
 } from "./clip-media-work-store"
 import {
-  forceMediaGeneration,
   synchronizeMediaGeneration,
   type MediaGeneration,
 } from "./media-generation"
@@ -122,14 +120,6 @@ class ClipMediaWorker {
 
   wake(): void {
     this.scheduler.wake()
-  }
-
-  async forceReconciliation(): Promise<MediaGeneration> {
-    const config = frozenConfig(configStore.get("transcoding"))
-    const generation = await forceMediaGeneration(config)
-    this.installSnapshot(generation, config)
-    this.wake()
-    return generation
   }
 
   async withStopped<T>(
@@ -256,7 +246,6 @@ class ClipMediaWorker {
           await this.failRun(claim, snapshot, action, ATTEMPTS_EXHAUSTED_REASON)
         } else if (action === "thumbnail") {
           await runThumbnailBackfill(
-            clipMediaStore,
             claim.id,
             claim.row,
             claim.runId,
@@ -265,7 +254,6 @@ class ClipMediaWorker {
           )
         } else {
           await runMediaProcessing(
-            clipMediaStore,
             claim.id,
             claim.row,
             claim.runId,
@@ -371,8 +359,6 @@ const clipMediaWorker = new ClipMediaWorker()
 export const startClipMediaWorker = () => clipMediaWorker.start()
 export const stopClipMediaWorker = () => clipMediaWorker.stop()
 export const wakeClipMediaWorker = () => clipMediaWorker.wake()
-export const forceReconcileClipMedia = () =>
-  clipMediaWorker.forceReconciliation()
 export const withClipMediaStopped = <T>(
   clipId: string,
   operation: () => Promise<T>,

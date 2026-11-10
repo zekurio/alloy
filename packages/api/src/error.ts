@@ -2,7 +2,7 @@ import { messageFromUnknown } from "@alloy/contracts"
 
 import { HttpError } from "./http"
 
-export function errorMessage(cause: unknown, fallback: string): string {
+function errorMessage(cause: unknown, fallback: string): string {
   return messageFromUnknown(cause) ?? fallback
 }
 

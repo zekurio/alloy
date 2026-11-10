@@ -1,5 +1,5 @@
 /** One clip or screenshot shortcut as the desktop bound it. */
-export interface DesktopShortcut {
+interface DesktopShortcut {
   /** `clip` or `screenshot`. */
   id: string
   /** The desktop's description of the keys; empty while none are assigned. */

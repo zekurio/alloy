@@ -7,7 +7,7 @@ export const THEME_APPEARANCES = ["light", "dark"] as const
 export type ThemeAppearance = (typeof THEME_APPEARANCES)[number]
 
 /** Lowercase `#rrggbb`, the only form themes store colors in. */
-export const HexColorSchema = t.string().regex(/^#[0-9a-f]{6}$/)
+const HexColorSchema = t.string().regex(/^#[0-9a-f]{6}$/)
 
 /** Bundled ids such as `nord`, and custom ones such as `custom-1a2b3c:dark`. */
 const ThemeVariantIdSchema = t.string().regex(/^[a-z0-9][a-z0-9:-]{0,79}$/)
@@ -56,7 +56,7 @@ export const UserThemeIdSchema = t.string().regex(/^custom-[0-9a-f]{8,32}$/)
  * because clients derive the missing ones, so a role added later doesn't
  * invalidate themes saved before it existed.
  */
-export const UserThemeColorsSchema = t
+const UserThemeColorsSchema = t
   .object({
     background: HexColorSchema.optional(),
     surface: HexColorSchema.optional(),
@@ -119,7 +119,7 @@ export type ThemeColorRole = (typeof THEME_COLOR_ROLES)[number]
 export const UserThemeVariantIdSchema = t.string().regex(/^[a-z0-9]{1,16}$/)
 
 /** One palette of a custom theme, made for light or dark mode. */
-export const UserThemeVariantSchema = t.object({
+const UserThemeVariantSchema = t.object({
   id: UserThemeVariantIdSchema,
   /** Null names it by its appearance, such as "Dark" or "Dark 2". */
   name: t.string().trim().min(1).max(THEME_VARIANT_NAME_MAX_LENGTH).nullable(),
@@ -152,9 +152,3 @@ export const UserThemeSchema = UserThemeInputSchema.extend({
 })
 
 export type UserTheme = t.infer<typeof UserThemeSchema>
-
-export const UserThemeListResponseSchema = t.object({
-  themes: t.array(UserThemeSchema),
-})
-
-export const UserThemeResponseSchema = t.object({ theme: UserThemeSchema })

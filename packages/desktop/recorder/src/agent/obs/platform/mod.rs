@@ -35,10 +35,10 @@ pub(in crate::agent) use linux::{
 #[cfg(windows)]
 pub(in crate::agent) use windows::{
     audio_application_from_game, graphics_module, libobs_candidates, library_path, module_paths,
-    normalized_device_id, own_runtime_dir, platform_audio_devices,
-    platform_default_audio_device_id, platform_gpus, platform_modules, set_audio_device,
-    APPLICATION_AUDIO_PRIORITY, APPLICATION_AUDIO_SOURCE_ID, APPLICATION_AUDIO_TARGET_KEY,
-    AUDIO_INPUT_SOURCE_ID, AUDIO_OUTPUT_SOURCE_ID, GAME_CAPTURE_SOURCE_ID,
+    own_runtime_dir, platform_audio_devices, platform_default_audio_device_id, platform_gpus,
+    platform_modules, set_audio_device, APPLICATION_AUDIO_PRIORITY, APPLICATION_AUDIO_SOURCE_ID,
+    APPLICATION_AUDIO_TARGET_KEY, AUDIO_INPUT_SOURCE_ID, AUDIO_OUTPUT_SOURCE_ID,
+    GAME_CAPTURE_SOURCE_ID,
 };
 
 pub(in crate::agent) struct ObsModuleSpec {

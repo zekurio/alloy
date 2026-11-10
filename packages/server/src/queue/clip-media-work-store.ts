@@ -20,11 +20,13 @@ import {
 
 export interface RequestClipMediaOptions {
   force: boolean
-  priority: number
   requireIdle?: boolean
-  clearFailure?: boolean
   tx?: DbTransaction
 }
+
+// Requests come from an owner or admin waiting on the result, so they go
+// ahead of background reconciliation (priority 90).
+const REQUEST_PRIORITY = 10
 
 export type RequeueClipMediaResult =
   | { ok: true }
@@ -43,7 +45,7 @@ export async function requestClipMedia(
       encode_request_force: sql`case when ${clip.encode_request_id} is null then ${options.force} else ${clip.encode_request_force} or ${options.force} end`,
       encode_requested_at: sql`coalesce(${clip.encode_requested_at}, now())`,
       encode_run_after: sql`now()`,
-      encode_priority: sql`case when ${clip.encode_request_id} is null then ${options.priority} else least(${clip.encode_priority}, ${options.priority}) end`,
+      encode_priority: sql`case when ${clip.encode_request_id} is null then ${REQUEST_PRIORITY} else least(${clip.encode_priority}, ${REQUEST_PRIORITY}) end`,
       encode_claimed_request_id: sql`case when ${clip.encode_run_id} is null then null else ${clip.encode_claimed_request_id} end`,
       encode_attempt: sql`case when ${clip.encode_run_id} is null then 0 else ${clip.encode_attempt} end`,
       // Queue state and progress move together. In particular, ready clips must
@@ -53,9 +55,9 @@ export async function requestClipMedia(
       encode_tier: sql`case when ${clip.encode_run_id} is null then null else ${clip.encode_tier} end`,
       encode_tier_index: sql`case when ${clip.encode_run_id} is null then null else ${clip.encode_tier_index} end`,
       encode_tier_count: sql`case when ${clip.encode_run_id} is null then null else ${clip.encode_tier_count} end`,
-      failure_reason: options.clearFailure ? null : undefined,
-      encode_failed_fingerprint: options.clearFailure ? null : undefined,
-      encode_failed_generation: options.clearFailure ? null : undefined,
+      failure_reason: null,
+      encode_failed_fingerprint: null,
+      encode_failed_generation: null,
       updated_at: sql`now()`,
     })
     .where(
@@ -72,7 +74,7 @@ export async function requestClipMedia(
 
 export async function requeueClipMedia(
   clipId: string,
-  options: Pick<RequestClipMediaOptions, "clearFailure" | "force" | "priority">,
+  options: Pick<RequestClipMediaOptions, "force">,
 ): Promise<RequeueClipMediaResult> {
   if (
     await requestClipMedia(clipId, {
@@ -336,31 +338,6 @@ export async function recoverClipMediaWork(): Promise<
         })
       }
     }
-
-    await tx
-      .update(clip)
-      .set({
-        encode_requested_at: sql`coalesce(${clip.encode_requested_at}, now())`,
-        encode_run_after: sql`coalesce(${clip.encode_run_after}, now())`,
-        updated_at: sql`now()`,
-      })
-      .where(
-        sql`${clip.encode_request_id} is not null and (${clip.encode_requested_at} is null or ${clip.encode_run_after} is null)`,
-      )
-
-    await tx
-      .update(clip)
-      .set({
-        encode_request_id: sql`gen_random_uuid()`,
-        encode_request_force: false,
-        encode_requested_at: sql`now()`,
-        encode_run_after: sql`now()`,
-        encode_priority: 10,
-        encode_claimed_request_id: null,
-        encode_attempt: 0,
-        updated_at: sql`now()`,
-      })
-      .where(and(eq(clip.status, "processing"), isNull(clip.encode_request_id)))
 
     return interrupted
   })

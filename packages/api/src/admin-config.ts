@@ -2,7 +2,6 @@ import type {
   AdminAuthConfigPatch,
   AdminOidcConfigPatch,
   AdminRuntimeConfig,
-  ContractJsonInput,
   HardwareAcceleration,
   RenditionTierConfig,
   LimitsConfig,
@@ -10,10 +9,6 @@ import type {
   TranscodingCapabilities,
   UploadLimits,
   VideoCodec,
-} from "@alloy/contracts"
-import {
-  AdminRuntimeConfigSchema,
-  TranscodingCapabilitiesSchema,
 } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
@@ -41,18 +36,6 @@ export type TranscodingConfigPatch = {
   tiers?: RenditionTierConfig[]
 }
 
-function validateAdminRuntimeConfig(
-  value: ContractJsonInput,
-): AdminRuntimeConfig {
-  return AdminRuntimeConfigSchema.parse(value)
-}
-
-function validateTranscodingCapabilities(
-  value: ContractJsonInput,
-): TranscodingCapabilities {
-  return TranscodingCapabilitiesSchema.parse(value)
-}
-
 export function createAdminConfigApi(context: ApiContext) {
   const admin = context.rpc.api.admin
 
@@ -61,41 +44,41 @@ export function createAdminConfigApi(context: ApiContext) {
       limits: Partial<UploadLimits>,
     ): Promise<AdminRuntimeConfig> {
       const res = await admin["upload-limits"].$put({ json: limits })
-      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+      return readJsonOrThrow(res)
     },
     async updateLimits(
       limits: Partial<LimitsConfig>,
     ): Promise<AdminRuntimeConfig> {
       const res = await admin.limits.$put({ json: limits })
-      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+      return readJsonOrThrow(res)
     },
     async fetchRuntimeConfig(): Promise<AdminRuntimeConfig> {
       const res = await admin["runtime-config"].$get()
-      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+      return readJsonOrThrow(res)
     },
     async updateRuntimeConfig(
       input: RuntimeConfigPatch,
     ): Promise<AdminRuntimeConfig> {
       const res = await admin["runtime-config"].$patch({ json: input })
-      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+      return readJsonOrThrow(res)
     },
     async updateAppearanceConfig(
       patch: AppearanceConfigPatch,
     ): Promise<AdminRuntimeConfig> {
       const res = await admin.appearance.$patch({ json: patch })
-      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+      return readJsonOrThrow(res)
     },
     async updateTranscodingConfig(
       patch: TranscodingConfigPatch,
     ): Promise<AdminRuntimeConfig> {
       const res = await admin.transcoding.$patch({ json: patch })
-      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+      return readJsonOrThrow(res)
     },
     async updateAuthConfig(
       patch: AdminAuthConfigPatch,
     ): Promise<AdminRuntimeConfig> {
       const res = await admin["auth-config"].$patch({ json: patch })
-      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+      return readJsonOrThrow(res)
     },
     /**
      * Save the OIDC provider. Fields left out fall back to their defaults;
@@ -105,7 +88,7 @@ export function createAdminConfigApi(context: ApiContext) {
       config: AdminOidcConfigPatch,
     ): Promise<AdminRuntimeConfig> {
       const res = await admin.oidc.$put({ json: config })
-      return readJsonOrThrow(res, validateAdminRuntimeConfig)
+      return readJsonOrThrow(res)
     },
     async fetchTranscodingCapabilities(options?: {
       refresh?: boolean
@@ -113,7 +96,7 @@ export function createAdminConfigApi(context: ApiContext) {
       const res = await admin.transcoding.capabilities.$get({
         query: options?.refresh ? { refresh: "true" } : {},
       })
-      return readJsonOrThrow(res, validateTranscodingCapabilities)
+      return readJsonOrThrow(res)
     },
   }
 }

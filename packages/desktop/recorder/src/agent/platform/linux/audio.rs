@@ -157,7 +157,6 @@ pub(in crate::agent) fn audio_applications() -> Vec<RecordingAudioApplicationSel
                     title: None,
                     executable: Some(&application.executable),
                     fallback: Some(&application.executable),
-                    preserve_preferred: false,
                 })
             })
             .unwrap_or_else(|| application.executable.clone());

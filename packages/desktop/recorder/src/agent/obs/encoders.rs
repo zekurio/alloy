@@ -5,10 +5,9 @@
 use crate::types::{RecordingCodec, RecordingEncoder, RecordingSettings};
 
 use super::{
-    bindings::{LibObs, OBS_ENCODER_CAP_PASS_TEXTURE},
-    configure_video_encoder, create_video_encoder, gpu_adapter,
+    bindings::OBS_ENCODER_CAP_PASS_TEXTURE,
+    gpu_adapter,
     types::{ObsEncoderDescriptor, ObsEncoderKind},
-    video_config::effective_quality,
 };
 
 pub(in crate::agent) fn choose_video_encoder(
@@ -30,11 +29,12 @@ pub(in crate::agent) fn choose_video_encoder(
     })
 }
 
+/// The codecs this OBS instance registered an encoder for. Creating an
+/// encoder object would say no more: libobs only allocates it, and the
+/// encoder's own setup runs when an output starts.
 pub(in crate::agent) fn available_video_codecs(
-    obs: &LibObs,
     settings: &RecordingSettings,
     available: &[ObsEncoderDescriptor],
-    adapter: u32,
     selected_gpu_label: Option<&str>,
 ) -> Vec<RecordingCodec> {
     [
@@ -45,52 +45,10 @@ pub(in crate::agent) fn available_video_codecs(
     .into_iter()
     .filter(|codec| {
         codec_allowed_for_gpu_label(codec, selected_gpu_label)
-            && can_create_video_codec(obs, settings, available, codec, adapter, selected_gpu_label)
+            && !video_encoder_candidates(&settings.encoder, codec, available, selected_gpu_label)
+                .is_empty()
     })
     .collect()
-}
-
-fn can_create_video_codec(
-    obs: &LibObs,
-    settings: &RecordingSettings,
-    available: &[ObsEncoderDescriptor],
-    codec: &RecordingCodec,
-    adapter: u32,
-    selected_gpu_label: Option<&str>,
-) -> bool {
-    let candidates =
-        video_encoder_candidates(&settings.encoder, codec, available, selected_gpu_label);
-    if candidates.is_empty() {
-        return false;
-    }
-
-    unsafe {
-        for candidate in candidates {
-            let probe_settings = RecordingSettings {
-                codec: codec.clone(),
-                ..settings.clone()
-            };
-            let result = obs.with_data(|data| {
-                let quality = effective_quality(&probe_settings);
-                configure_video_encoder(
-                    obs,
-                    data,
-                    &candidate.id,
-                    adapter,
-                    &probe_settings,
-                    &quality,
-                )?;
-                create_video_encoder(obs, &candidate.id, data)
-            });
-
-            if let Ok(encoder) = result {
-                (obs.obs_encoder_release)(encoder);
-                return true;
-            }
-        }
-    }
-
-    false
 }
 
 fn video_encoder_candidates<'a>(
@@ -175,6 +133,10 @@ pub(in crate::agent) fn selected_gpu_label<'a>(
     })
 }
 
+/// The adapter index for the saved choice, `adapter:{index}:{name}` as it was
+/// listed when saved. The name decides when the list now has it at another
+/// index: after a GPU was added or removed, or when the choice was saved by
+/// a release that did not list Windows adapters in DXGI order.
 pub(in crate::agent) fn selected_gpu_adapter(
     settings: &RecordingSettings,
     available_gpus: &[String],
@@ -182,7 +144,18 @@ pub(in crate::agent) fn selected_gpu_adapter(
     if settings.gpu == "auto" {
         return u32::try_from(preferred_gpu_index(available_gpus)).unwrap_or(0);
     }
-    gpu_adapter(settings)
+    let saved = gpu_adapter(settings);
+    if available_gpus.contains(&settings.gpu) {
+        return saved;
+    }
+    gpu_setting_label(&settings.gpu)
+        .and_then(|label| {
+            available_gpus
+                .iter()
+                .position(|gpu| gpu_setting_label(gpu) == Some(label))
+        })
+        .and_then(|position| u32::try_from(position).ok())
+        .unwrap_or(saved)
 }
 
 fn preferred_gpu_index(available_gpus: &[String]) -> usize {

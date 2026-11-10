@@ -1,5 +1,3 @@
-"use client"
-
 import {
   MODAL_FOOTER_BUTTON_CLASS_NAME,
   MODAL_OVERLAY_CLASS_NAME,
@@ -7,39 +5,12 @@ import {
 } from "@alloy/ui/lib/modal"
 import { cn } from "@alloy/ui/lib/utils"
 import { Drawer } from "@base-ui/react/drawer"
-import { createContext, isValidElement, useContext } from "react"
+import { isValidElement } from "react"
 import type { ComponentProps } from "react"
 
-type DrawerSide = "top" | "right" | "bottom" | "left"
-
-function swipeDirectionForSide(side: DrawerSide) {
-  switch (side) {
-    case "top":
-      return "up"
-    case "right":
-      return "right"
-    case "left":
-      return "left"
-    case "bottom":
-      return "down"
-  }
-}
-
-const DrawerDirectionContext = createContext<DrawerSide>("bottom")
-
-function DrawerRoot({
-  direction = "bottom",
-  ...props
-}: Drawer.Root.Props & { direction?: DrawerSide }) {
-  return (
-    <DrawerDirectionContext.Provider value={direction}>
-      <Drawer.Root
-        data-slot="drawer"
-        swipeDirection={swipeDirectionForSide(direction)}
-        {...props}
-      />
-    </DrawerDirectionContext.Provider>
-  )
+/** A sheet that rises from the bottom edge and swipes down to close. */
+function DrawerRoot(props: Drawer.Root.Props) {
+  return <Drawer.Root data-slot="drawer" swipeDirection="down" {...props} />
 }
 
 function DrawerTrigger({
@@ -126,17 +97,14 @@ function DrawerContent({
    *  the sheet renders above an element that is currently fullscreen. */
   container?: HTMLElement | null
 }) {
-  const direction = useContext(DrawerDirectionContext)
-
   return (
     <DrawerPortal container={container ?? undefined}>
       <DrawerOverlay />
       <DrawerViewport>
         <Drawer.Popup
           data-slot="drawer-content"
-          data-side={direction}
           className={cn(
-            "group/drawer-content pointer-events-auto fixed z-50 flex h-auto flex-col overflow-hidden bg-background will-change-transform data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:mt-24 data-[side=bottom]:max-h-[92dvh] data-[side=bottom]:rounded-t-lg data-[side=bottom]:border-t data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:mb-24 data-[side=top]:max-h-[92dvh] data-[side=top]:rounded-b-lg data-[side=top]:border-b data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm",
+            "group/drawer-content pointer-events-auto fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto max-h-[92dvh] flex-col overflow-hidden rounded-t-lg border-t bg-background will-change-transform",
             className,
           )}
           {...props}

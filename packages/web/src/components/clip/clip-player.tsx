@@ -28,7 +28,6 @@ import {
   type RenditionSource,
 } from "@/components/video/video-media-engine"
 import { VideoPlayer } from "@/components/video/video-player"
-import { apiOrigin } from "@/lib/env"
 import {
   localClipPublishedCopy,
   versionedLocalMediaUrl,
@@ -151,7 +150,7 @@ function ScreenshotPlayer({
             <img
               src={clipSourceFileUrl(
                 clipId,
-                apiOrigin(),
+                window.location.origin,
                 sourceVersion ?? undefined,
               )}
               alt={t("Screenshot")}
@@ -218,7 +217,7 @@ function VideoClipPlayer({
 }: ClipPlayerProps) {
   const poster =
     thumbnail === undefined
-      ? clipThumbnailUrl(clipId, apiOrigin())
+      ? clipThumbnailUrl(clipId, window.location.origin)
       : (thumbnail ?? undefined)
 
   // Poster shown while the clip has no playable media yet (processing/failed).
@@ -260,7 +259,11 @@ function VideoClipPlayer({
     const remoteSources = [
       {
         name: SOURCE_QUALITY_ID,
-        url: clipSourceFileUrl(clipId, apiOrigin(), sourceVersion ?? undefined),
+        url: clipSourceFileUrl(
+          clipId,
+          window.location.origin,
+          sourceVersion ?? undefined,
+        ),
         codecs: sourceCodecs ?? "",
         contentType: playbackContentType ?? "video/mp4",
       },
@@ -269,7 +272,7 @@ function VideoClipPlayer({
         url: clipRenditionFileUrl(
           clipId,
           rendition.name,
-          apiOrigin(),
+          window.location.origin,
           rendition.version,
         ),
         codecs: rendition.codecs,

@@ -4,11 +4,6 @@
   "compilerOptions": {
     "lib": ["ES2023", "DOM"],
     "types": ["node"],
-    "resolveJsonModule": true,
-    "paths": {
-      "@/*": ["./src/*"],
-      "@alloy/contracts": ["../contracts/src/index.ts"],
-      "@alloy/contracts/*": ["../contracts/src/*"]
-    }
+    "resolveJsonModule": true
   }
 }

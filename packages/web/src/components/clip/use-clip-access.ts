@@ -5,5 +5,6 @@ import { useSession } from "@/lib/auth-client"
 export function useClipAccess(authorId: string) {
   const { data: session } = useSession()
   const admin = isAdmin(session ?? null)
-  return { isAdmin: admin, canManage: session?.user.id === authorId || admin }
+  const isOwner = session?.user.id === authorId
+  return { isAdmin: admin, isOwner, canManage: isOwner || admin }
 }

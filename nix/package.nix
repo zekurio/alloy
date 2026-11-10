@@ -15,7 +15,7 @@
     inherit lib;
     root = ../.;
   },
-  pnpmDepsHash ? "sha256-r6Bn2F94KdJxZGvkjP5p2r4pvh8HiEBNj+aGaoaELO4=",
+  pnpmDepsHash ? "sha256-O6n4+eSNHyCPdZGmSWUUG8U16u/DWeqc6OhxkxR2oOc=",
 }:
 
 let
@@ -50,7 +50,6 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     runHook preBuild
 
     export HOME="$TMPDIR/home"
-    export TURBO_TELEMETRY_DISABLED=1
     export DO_NOT_TRACK=1
     mkdir -p "$HOME"
 

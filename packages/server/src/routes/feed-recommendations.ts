@@ -34,7 +34,7 @@ export function parseRecommendedClipCursor(
   const parsed = decodeCursorPayload(value)
   if (!parsed) return null
   const score = cursorFiniteNumber(parsed.score)
-  const publishedAt = cursorDate(parsed.publishedAt ?? parsed.createdAt)
+  const publishedAt = cursorDate(parsed.publishedAt)
   const id = cursorRequiredString(parsed.id)
   const asOf = cursorDate(parsed.asOf)
   if (score === null || !publishedAt || !id || !asOf) return null
@@ -127,9 +127,7 @@ async function selectRecommendedClipRows(
         and(
           sql`${clipView.user_id} = ${viewerId}::uuid`,
           sql`${clip.author_id} <> ${viewerId}::uuid`,
-          // View timestamps are UTC wall time, and connections use UTC, so
-          // PostgreSQL compares them to the pagination anchor correctly.
-          sql`${clipView.created_at} <= ${isoDate(asOf)}::timestamptz`,
+          lte(clipView.created_at, asOf),
           ...publicClipListingConditions("video"),
         ),
       ),

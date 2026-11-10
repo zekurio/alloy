@@ -126,13 +126,14 @@ impl DesktopRuntime {
         let obs = std::env::var_os("ALLOY_OBS_RUNTIME_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|| native_root.join("obs-runtime"));
-        let recorder = RecorderHost::new(
-            RecorderHostOptions::new(executable, &data)
-                .cache_dir(&cache)
-                .output_folder(&output)
-                .replay_scratch_folder(replay_scratch_dir)
-                .obs_runtime_dir(Some(obs)),
-        )
+        let recorder = RecorderHost::new(RecorderHostOptions {
+            executable,
+            state_dir: data.clone(),
+            cache_dir: cache.clone(),
+            output_folder: output.clone(),
+            replay_scratch_folder: replay_scratch_dir,
+            obs_runtime_dir: obs,
+        })
         .map_err(error)?;
         let default_output = output.clone();
         let settings = recorder.get_settings().await;
@@ -325,7 +326,7 @@ impl DesktopRuntime {
                     RecordingEvent::ScreenshotHotkey => runtime.trigger(CaptureAction::Screenshot),
                     RecordingEvent::CaptureReady { capture, .. } => {
                         tokio::spawn(async move {
-                            if let Err(cause) = runtime.finalize(capture, POSTER_WAIT).await {
+                            if let Err(cause) = runtime.finalize(*capture, POSTER_WAIT).await {
                                 runtime.report_error(cause).await;
                             }
                         });
@@ -799,7 +800,7 @@ impl DesktopRuntime {
                         files.push(json!({ "name": entry.file_name().to_string_lossy(), "path": entry.path().to_string_lossy() }));
                     }
                 }
-                Ok(json!({ "replayBufferStarted": files, "clipSaved": files }))
+                Ok(Value::Array(files))
             }
             "recording.previewNotificationSound" => {
                 self.preview_sound(&arg::<String>(args, 0)?, true).await?;
@@ -865,10 +866,9 @@ impl DesktopRuntime {
         to_value(library.downloads.start(request).map_err(error)?)
     }
 
-    /// The shared notification sounds folder, for the event's settings row.
-    pub fn notification_sounds_folder(&self, event: &str) -> Result<PathBuf, String> {
-        sound_file(event)?;
-        Ok(self.sounds.clone())
+    /// The notification sounds folder every event picks its file from.
+    pub fn notification_sounds_folder(&self) -> PathBuf {
+        self.sounds.clone()
     }
 
     /// Waits until `start` has swept the capture folder.

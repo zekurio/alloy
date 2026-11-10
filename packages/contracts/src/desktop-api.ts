@@ -1,6 +1,6 @@
 import type {
   RecordingNotificationSoundEvent,
-  RecordingNotificationSoundLibrary,
+  RecordingNotificationSoundOption,
   RecordingSettings,
 } from "./desktop-recording-config"
 import type { RecordingGameProcess } from "./desktop-recording-games"
@@ -27,13 +27,8 @@ import type { DesktopShortcutsState } from "./desktop-shortcuts"
 
 export interface DesktopSavedServer {
   serverUrl: string
-  lastConnectedAt: string
   /** Server version returned by the most recent successful native validation. */
   serverVersion: string
-  /** Last exact desktop HTTP contract validated for this server. */
-  httpContract: number
-  /** Last exact native bridge contract advertised by this server's web app. */
-  bridgeContract: number
 }
 
 export interface AlloyDesktopRecordingApi {
@@ -107,12 +102,10 @@ export interface AlloyDesktopRecordingApi {
   subscribeAudioLevels(): Promise<void>
   /** Stops audio-level events without waiting for the subscription to expire. */
   stopAudioLevels(): Promise<void>
-  /** Lists the audio files available in the shared notification sounds folder. */
-  listNotificationSounds(): Promise<RecordingNotificationSoundLibrary>
+  /** Lists the audio files in the notification sounds folder every event shares. */
+  listNotificationSounds(): Promise<RecordingNotificationSoundOption[]>
   /** Opens the shared notification sounds folder so the user can add files. */
-  openNotificationSoundsFolder(
-    sound: RecordingNotificationSoundEvent,
-  ): Promise<void>
+  openNotificationSoundsFolder(): Promise<void>
   /** Plays an event's configured sound once so the user can audition it. */
   previewNotificationSound(
     sound: RecordingNotificationSoundEvent,
