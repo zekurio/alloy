@@ -1,31 +1,34 @@
-import type {
-  RecordingSettings,
-  RecordingStatus,
-} from "@alloy/contracts/desktop"
+import type { RecordingSettings } from "@alloy/contracts/desktop"
 import { t } from "@alloy/i18n"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { toast } from "@alloy/ui/lib/toast"
 
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 
-import { GlobalShortcutsSection } from "./desktop-global-shortcuts"
-import { recorderSupports } from "./desktop-recording-capabilities"
+import {
+  GlobalShortcutsSection,
+  useDesktopShortcuts,
+} from "./desktop-global-shortcuts"
 import { HotkeyInput } from "./hotkey-input"
 
 export function HotkeysSection({
   settings,
-  status,
   busy,
   save,
 }: {
   settings: RecordingSettings
-  status: RecordingStatus
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
 }) {
+  const [shortcuts, setShortcuts] = useDesktopShortcuts()
+  // Wait for the host to say who binds the keys, so the other platform's
+  // controls never flash.
+  if (!shortcuts) return null
   // Where the recorder has no key hook (Linux), the desktop binds the
   // shortcuts and owns their keys.
-  if (!recorderSupports(status, "hotkeys")) return <GlobalShortcutsSection />
+  if (shortcuts.supported) {
+    return <GlobalShortcutsSection state={shortcuts} setState={setShortcuts} />
+  }
 
   return (
     <SettingsSubsection id="hotkeys" title={t("Hotkeys")}>

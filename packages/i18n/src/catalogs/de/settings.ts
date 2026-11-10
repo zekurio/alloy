@@ -54,8 +54,8 @@ export const SETTINGS_MESSAGES = {
   "Delete theme?": "Theme löschen?",
   "Dim accent": "Gedämpfter Akzent",
   "Dim text": "Blasser Text",
-  "Drop Alloy or VS Code .json files here.":
-    "Ziehe Alloy- oder VS-Code-.json-Dateien hierher.",
+  "Drop Alloy theme .json files here.":
+    "Ziehe .json-Dateien mit Alloy-Themes hierher.",
   Duplicate: "Duplizieren",
   "Duplicate variant": "Variante duplizieren",
   "Duplicate {theme}": "{theme} duplizieren",
@@ -64,8 +64,7 @@ export const SETTINGS_MESSAGES = {
   Expand: "Ausklappen",
   "Expected a list of variants.": "Erwartet wurde eine Liste von Varianten.",
   "Expected a theme object.": "Erwartet wurde ein Theme-Objekt.",
-  "Expected an Alloy or VS Code theme.":
-    "Erwartet wurde ein Alloy- oder VS-Code-Theme.",
+  "Expected an Alloy theme.": "Erwartet wurde ein Alloy-Theme.",
   "Expected {appearance} colors to be an object.":
     "Die Farben für „{appearance}“ müssen ein Objekt sein.",
   Export: "Exportieren",
@@ -74,12 +73,10 @@ export const SETTINGS_MESSAGES = {
   "Fix the invalid settings before saving.":
     "Korrigiere die ungültigen Einstellungen vor dem Speichern.",
   General: "Allgemein",
-  "Import Alloy theme files or VS Code color themes into your account.":
-    "Importiere Alloy-Theme-Dateien oder VS-Code-Farbschemata in dein Konto.",
-  "Imported theme": "Importiertes Theme",
+  "Import Alloy theme files into your account.":
+    "Importiere Alloy-Theme-Dateien in dein Konto.",
   Info: "Info",
   Inspect: "Untersuchen",
-  Interface: "Oberfläche",
   Language: "Sprache",
   "Language and announcement settings.":
     "Sprach- und Ankündigungseinstellungen.",
@@ -120,8 +117,6 @@ export const SETTINGS_MESSAGES = {
     "Theme-Dateien dürfen höchstens 256 KB groß sein.",
   "Theme name": "Theme-Name",
   Themes: "Themes",
-  "This VS Code theme doesn't set an editor background.":
-    "Dieses VS-Code-Theme legt keinen Editor-Hintergrund fest.",
   "This isn't valid JSON.": "Das ist kein gültiges JSON.",
   'Unknown theme color "{key}".': "Unbekannte Theme-Farbe „{key}“.",
   "Unsaved changes": "Ungespeicherte Änderungen",

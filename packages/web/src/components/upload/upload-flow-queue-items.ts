@@ -6,7 +6,6 @@ import { absoluteClipHref } from "@/lib/app-paths"
 import { removeClipDownload, useClipDownloads } from "@/lib/clip-downloads"
 import { copyTextToClipboard } from "@/lib/clipboard"
 import { alloyDesktop } from "@/lib/desktop"
-import { publicOrigin } from "@/lib/env"
 
 import {
   type ActiveUpload,
@@ -148,7 +147,7 @@ function useDownloadQueueItems(downloads: ReturnType<typeof useClipDownloads>) {
 
 async function copyClipLink(row: QueueClip): Promise<void> {
   const copied = await copyTextToClipboard(
-    absoluteClipHref(row.gameSlug ?? null, row.id, publicOrigin()),
+    absoluteClipHref(row.gameSlug ?? null, row.id, window.location.origin),
     { action: "copy uploaded clip link" },
   )
   if (!copied) throw new Error(t("Couldn't copy link"))

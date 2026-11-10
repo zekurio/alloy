@@ -8,13 +8,13 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@alloy/ui/components/combobox"
+import { GameIcon } from "@alloy/ui/components/game-icon"
 import { InputGroupAddon } from "@alloy/ui/components/input-group"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { SearchIcon } from "lucide-react"
 import { useCallback, useMemo, useRef, useState } from "react"
 
-import { GameIcon } from "@/components/game/game-icon"
 import { errorMessage } from "@/lib/error-message"
 import {
   useLocalGameSearchQuery,

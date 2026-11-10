@@ -199,7 +199,7 @@ async function commitReadyTransaction(
   await enqueueStorageDeletions(mediaIntents, { tx })
   await replaceRenditions(tx, id, renditions)
   const stagedIntents = await deleteUploadTicketsWithStorageIntents(
-    { type: "clip", id },
+    id,
     "media source committed",
     tx,
   )
@@ -217,6 +217,12 @@ async function commitReadyTransaction(
   }
 }
 
+/**
+ * Transactional replacement keeps readers from seeing partial ladders.
+ * Stamps `published_at` under the same rule as commitPlayable, covering
+ * retried runs whose source (and thus playable transition) predates them.
+ * Only a clip's first completed encode claims webhook announcements.
+ */
 export async function commitClipMediaReady(
   id: string,
   runId: string,

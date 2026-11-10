@@ -22,8 +22,7 @@ export interface ClipStorageDeletionSnapshot {
 export function clipStorageDeletionIntents(
   snapshot: ClipStorageDeletionSnapshot,
 ): StorageDeletionInput[] {
-  const clipId = snapshot.clipId.toLowerCase()
-  const source = { type: "clip", id: clipId }
+  const source = { type: "clip", id: snapshot.clipId }
   const intents: StorageDeletionInput[] = []
 
   for (const key of [

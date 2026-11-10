@@ -2,7 +2,6 @@ export type QueueItemStatus =
   | "preparing"
   | "uploading"
   | "queued"
-  | "paused"
   | "published"
   | "downloading"
   | "downloaded"
@@ -19,7 +18,7 @@ export interface QueueItem {
   title: string
   /** Which transport this row belongs to. */
   kind: "upload" | "download"
-  /** Coarse phase for aggregate labels (e.g. the global pill). */
+  /** Coarse phase for the upload center's aggregate label. */
   phase?: "upload" | "processing" | "download"
   status: QueueItemStatus
   /** 0-100. `queued` items should pass 0. */

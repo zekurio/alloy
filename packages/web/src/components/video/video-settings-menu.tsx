@@ -156,7 +156,7 @@ export function VideoSettingsMenu(props: VideoSettingsMenuProps) {
 
   if (sheet) {
     return (
-      <Drawer direction="bottom" open={open} onOpenChange={onOpenChange}>
+      <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerTrigger asChild>{trigger}</DrawerTrigger>
         <DrawerContent
           container={sheetContainer}

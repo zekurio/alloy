@@ -28,7 +28,7 @@ export function mergeConfig(
  * the default, so clearing an optional field hands it back to the
  * environment.
  */
-export function configOverrides(
+function configOverrides(
   value: ContractJsonValue,
   defaults: ContractJsonValue,
 ): ContractJsonValue {

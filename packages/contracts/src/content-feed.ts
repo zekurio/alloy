@@ -21,7 +21,7 @@ export interface FeedPage {
   nextCursor: string | null
 }
 
-export interface GameCreator extends UserSummary {
+interface GameCreator extends UserSummary {
   clipCount: number
 }
 

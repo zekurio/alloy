@@ -2,29 +2,23 @@ import { locks } from "node:worker_threads"
 
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
-import { sql } from "drizzle-orm"
 
-const ADMIN_ACCESS_ADVISORY_LOCK = sql`select pg_advisory_xact_lock(hashtext('alloy:admin-access'))`
-
+/**
+ * Serialises every change that can take away the last admin's access or
+ * create the first admin: role and status changes, removing a sign-in
+ * method, sign-in config saves, and first-admin setup. The server is a single
+ * process, so an in-process lock covers them all. It is not reentrant: code
+ * holding it must not call anything that takes it again.
+ */
 export function withAdminAccessChange<T>(
   operation: () => Promise<T>,
 ): Promise<T> {
   return locks.request("alloy:admin-access", operation)
 }
 
-export async function lockAdminAccessInvariant(
-  tx: DbTransaction,
-): Promise<void> {
-  await tx.execute(ADMIN_ACCESS_ADVISORY_LOCK)
-}
-
+/** Runs `operation` in a transaction under the admin access lock. */
 export function withAdminAccessInvariant<T>(
   operation: (tx: DbTransaction) => Promise<T>,
 ): Promise<T> {
-  return withAdminAccessChange(() =>
-    db.transaction(async (tx) => {
-      await lockAdminAccessInvariant(tx)
-      return operation(tx)
-    }),
-  )
+  return withAdminAccessChange(() => db.transaction(operation))
 }

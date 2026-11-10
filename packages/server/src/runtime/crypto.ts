@@ -19,31 +19,9 @@ export async function sha256Base64Url(value: string): Promise<string> {
   return bytesToBase64Url(new Uint8Array(digest))
 }
 
-export async function hmacSha256(
-  payload: string | Uint8Array,
-  secret: string,
-): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    textEncoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  )
-  const payloadBytes =
-    payload instanceof Uint8Array ? payload : textEncoder.encode(payload)
-  return new Uint8Array(
-    await crypto.subtle.sign("HMAC", key, bytesToArrayBuffer(payloadBytes)),
-  )
-}
-
 export function constantTimeEqual(
   left: Uint8Array,
   right: Uint8Array,
 ): boolean {
   return left.byteLength === right.byteLength && timingSafeEqual(left, right)
-}
-
-function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.slice().buffer
 }

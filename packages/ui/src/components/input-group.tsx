@@ -1,5 +1,3 @@
-"use client"
-
 import { Button } from "@alloy/ui/components/button"
 import { Input } from "@alloy/ui/components/input"
 import { fieldControlTransitionClassName } from "@alloy/ui/lib/field-control"

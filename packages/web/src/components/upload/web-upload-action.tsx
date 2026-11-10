@@ -30,7 +30,6 @@ import { api } from "@/lib/api"
 import { absoluteClipHref } from "@/lib/app-paths"
 import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
 import { copyTextToClipboard } from "@/lib/clipboard"
-import { publicOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
@@ -197,7 +196,7 @@ export function useWebUploadAction(
           const link = absoluteClipHref(
             metadata.game?.slug ?? null,
             result.clipId,
-            publicOrigin(),
+            window.location.origin,
           )
           if (!(await copyUploadedClipLink(link))) {
             outcome = {

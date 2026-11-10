@@ -1,13 +1,13 @@
 import {
   AUTH_ERROR_CODES,
   type AuthErrorCode,
-  type ContractJsonInput,
   type ContractJsonValue,
   isObjectRecord,
   isStringValue,
 } from "@alloy/contracts"
+import type { ClientResponse } from "hono/client"
+import type { SuccessStatusCode } from "hono/utils/http-status"
 
-import type { JsonValidator } from "./auth-validators"
 export class HttpError extends Error {
   readonly status: number
   readonly code: AuthErrorCode | null
@@ -46,12 +46,12 @@ async function readErrorBody(res: Response): Promise<ErrorBody> {
     .catch(() => null)
 }
 
-function asErrorBody(value: ContractJsonInput): ErrorBody {
+function asErrorBody(value: unknown): ErrorBody {
   if (!isObjectRecord(value)) return null
   return { error: value.error, message: value.message }
 }
 
-function errorText(value: ContractJsonInput): string | null {
+function errorText(value: unknown): string | null {
   if (isStringValue(value)) {
     const trimmed = value.trim()
     return trimmed || null
@@ -94,12 +94,13 @@ function responseAuthErrorCode(body: ErrorBody): AuthErrorCode | null {
   return null
 }
 
-export function parseJsonPayload<T>(
-  data: string,
-  validate: (value: ContractJsonInput) => T,
-): T | null {
+/**
+ * Parse a server-sent event payload, or null when it is not JSON. The caller
+ * states which event its stream carries.
+ */
+export function parseJsonPayload(data: string) {
   try {
-    return validate(JSON.parse(data))
+    return JSON.parse(data)
   } catch {
     return null
   }
@@ -122,9 +123,8 @@ async function readUnexpectedBodyType(res: Response): Promise<string> {
   return `Expected JSON response but received ${contentType}${suffix}`
 }
 
-export type { JsonValidator } from "./auth-validators"
-
-async function throwIfNotOk(res: Response): Promise<void> {
+/** Reject with the server's error message unless the response is 2xx. */
+export async function expectOk(res: Response): Promise<void> {
   if (res.ok) return
   const body = await readErrorBody(res)
   throw new HttpError(
@@ -134,26 +134,39 @@ async function throwIfNotOk(res: Response): Promise<void> {
   )
 }
 
-export async function readJsonOrThrow<T>(
-  res: Response,
-  validate: JsonValidator<T>,
-): Promise<T> {
-  await throwIfNotOk(res)
+/**
+ * The JSON body a route answers with on a 2xx status. The Hono client infers
+ * it from the server's handler, so a server change that breaks a caller fails
+ * the typecheck.
+ */
+type SuccessJson<TypedResponse> =
+  TypedResponse extends ClientResponse<infer Body, infer Status, "json">
+    ? Status extends SuccessStatusCode
+      ? Body
+      : never
+    : never
+
+async function readJson(res: Response) {
+  await expectOk(res)
 
   if (!isJsonResponse(res)) {
     throw new HttpError(res.status, await readUnexpectedBodyType(res))
   }
 
-  return validate(await res.json())
+  return res.json()
 }
 
-export async function readNoContentOrThrow(res: Response): Promise<void> {
-  await throwIfNotOk(res)
+/** Read the body of a successful response from the typed client. */
+export function readJsonOrThrow<TypedResponse extends Response>(
+  res: TypedResponse,
+): Promise<SuccessJson<TypedResponse>> {
+  return readJson(res)
+}
 
-  if (res.status !== 204) {
-    throw new HttpError(
-      res.status,
-      `Expected empty response but received ${res.status} ${res.statusText}`,
-    )
-  }
+/**
+ * Read the body of a successful response the typed client did not make.
+ * `Body` is the caller's statement of what the route returns.
+ */
+export function readUntypedJsonOrThrow<Body>(res: Response): Promise<Body> {
+  return readJson(res)
 }

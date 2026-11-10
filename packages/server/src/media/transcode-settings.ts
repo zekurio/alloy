@@ -1,23 +1,10 @@
 import { existsSync } from "node:fs"
 
-/**
- * Process-wide ffmpeg invocation settings. Media modules read these instead
- * of the server env so they stay importable without full server
- * configuration; the server entrypoint applies env overrides at startup
- * before the queue runs any transcodes.
- */
-export interface TranscodeSettings {
-  /** ffmpeg binary to spawn. */
-  ffmpegPath: string
-  /** ffprobe binary to spawn. */
-  ffprobePath: string
-  /** Encoder thread cap; 0 lets ffmpeg pick (all cores). */
-  threads: number
-}
-
-export const TRANSCODE_DEFAULTS: TranscodeSettings = {
+/** What ffmpeg runs with when the env names nothing else. */
+export const TRANSCODE_DEFAULTS = {
   ffmpegPath: "ffmpeg",
   ffprobePath: "ffprobe",
+  /** Encoder thread cap; 0 lets ffmpeg pick (all cores). */
   threads: 0,
 }
 
@@ -27,8 +14,6 @@ const JELLYFIN_FFMPEG_PATHS = [
   "/opt/homebrew/opt/jellyfin-ffmpeg/bin/ffmpeg",
   "/usr/local/opt/jellyfin-ffmpeg/bin/ffmpeg",
 ] as const
-
-let settings = TRANSCODE_DEFAULTS
 
 export function resolveFfmpegPath(envPath: string | undefined): string {
   if (envPath) return envPath
@@ -52,16 +37,4 @@ export function resolveFfprobePath(
     if (existsSync(sibling)) return sibling
   }
   return TRANSCODE_DEFAULTS.ffprobePath
-}
-
-export function configureTranscode(next: TranscodeSettings): void {
-  settings = {
-    ffmpegPath: next.ffmpegPath,
-    ffprobePath: next.ffprobePath,
-    threads: next.threads,
-  }
-}
-
-export function transcodeSettings(): TranscodeSettings {
-  return settings
 }

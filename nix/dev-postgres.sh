@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Repo-local Postgres shared by every devenv shell. It listens only on a Unix
-# socket under devenv's runtime directory, so DATABASE_URL and PGHOST are
-# static values from devenv.nix and nothing can collide with a system-wide
-# Postgres. `start` reuses the running server or starts one; `stop` shuts it
-# down.
+# Repo-local Postgres shared by every dev shell of this checkout. It listens
+# only on a Unix socket under the shell's runtime directory, so nothing can
+# collide with a system-wide Postgres. `start` reuses the running server or
+# starts one; `stop` shuts it down.
 set -eu
 
-data="$DEVENV_ROOT/.devenv/state/alloy-postgres"
-# Must match postgresSocketDir in devenv.nix.
-run="$DEVENV_RUNTIME/postgres"
+data="$DEVSHELL_ROOT/data/postgres"
+# Must match PGHOST in dev-shell.nix.
+run="$DEVSHELL_RUNTIME/postgres"
 db=alloy
 user=postgres
 
@@ -36,7 +35,7 @@ start() {
   exec 9>"$run/lock"
   if ! flock -w 30 9; then
     echo "Timed out waiting for Alloy dev Postgres startup lock" >&2
-    echo "If no other shell is starting, run alloy-postgres-stop and try again." >&2
+    echo "If no other shell is starting, run 'alloy-postgres stop' and try again." >&2
     exit 1
   fi
 

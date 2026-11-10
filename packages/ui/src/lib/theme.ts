@@ -5,7 +5,6 @@ import {
   type ThemeAccents,
   type ThemeMode,
 } from "@alloy/contracts"
-import { t } from "@alloy/contracts/schema"
 import {
   normalizeThemeColor,
   THEME_APPEARANCES,
@@ -76,7 +75,6 @@ const THEME_CSS_CACHE_KEY = "alloy.theme-css"
  */
 const SERVER_ACCENTS_CACHE_KEY = "alloy.server-accents"
 const DARK_QUERY = "(prefers-color-scheme: dark)"
-const MatchMediaSchema = t.instanceof(Function)
 
 let preferences: ThemePreferences = DEFAULT_THEME_PREFERENCES
 let customThemes: readonly CustomTheme[] = []
@@ -159,13 +157,10 @@ export function initTheme(): void {
   systemAppearance = readSystemAppearance()
   refresh()
 
-  if (!globalThis.window) return
-  if (MatchMediaSchema.safeParse(window.matchMedia).success) {
-    window.matchMedia(DARK_QUERY).addEventListener("change", () => {
-      systemAppearance = readSystemAppearance()
-      refresh()
-    })
-  }
+  window.matchMedia(DARK_QUERY).addEventListener("change", () => {
+    systemAppearance = readSystemAppearance()
+    refresh()
+  })
   window.addEventListener("storage", (event) => {
     // A null key means the whole store was cleared, preferences included.
     if (
@@ -359,7 +354,6 @@ function buildState(): ThemeState {
 }
 
 function apply(): void {
-  if (!globalThis.document) return
   const root = document.documentElement
   const appearance = preview?.appearance ?? state.appearance
   root.classList.toggle("dark", appearance === "dark")
@@ -455,9 +449,6 @@ function findVariant(
   return undefined
 }
 
-// "system" falls back to dark when matchMedia is unavailable, matching the
-// pre-paint script.
 function readSystemAppearance(): ThemeAppearance {
-  if (!globalThis.window?.matchMedia) return "dark"
   return window.matchMedia(DARK_QUERY).matches ? "dark" : "light"
 }

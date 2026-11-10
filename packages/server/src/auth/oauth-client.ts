@@ -5,8 +5,7 @@ import {
   type OidcConfig,
   WELCOME_QUERY_KEY,
 } from "@alloy/contracts"
-import { secretStore } from "@alloy/server/config/secret-store"
-import { configStore } from "@alloy/server/config/store"
+import { configStore, oidcClientSecret } from "@alloy/server/config/store"
 import { env } from "@alloy/server/env"
 import { errorDetail, errorMessage } from "@alloy/server/runtime/error-message"
 import { DrizzleQueryError } from "drizzle-orm"
@@ -53,7 +52,7 @@ export async function oauthClient(
 }
 
 async function createOAuthClient(provider: OidcConfig): Promise<Configuration> {
-  const clientSecret = secretStore.oidcClientSecret()
+  const clientSecret = oidcClientSecret()
   const metadata = {
     client_secret: clientSecret,
   }
@@ -128,7 +127,7 @@ function oauthClientCacheKey(provider: OidcConfig): string {
   return JSON.stringify({
     authorizationUrl: provider.authorizationUrl,
     clientId: provider.clientId,
-    clientSecret: secretStore.oidcClientSecret(),
+    clientSecret: oidcClientSecret(),
     issuerUrl: provider.issuerUrl,
     tokenAuthMethod: provider.tokenAuthMethod,
     tokenUrl: provider.tokenUrl,

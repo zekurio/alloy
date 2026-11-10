@@ -5,12 +5,11 @@ import { toast } from "@alloy/ui/lib/toast"
 
 import { authClient } from "./auth-client"
 import { clientLogger } from "./client-log"
-import { publicOrigin } from "./env"
 import { errorMessage } from "./error-message"
 import { resetClientState } from "./query-client"
 
 export function authCallbackUrl(path: string): string {
-  return new URL(path, publicOrigin()).toString()
+  return new URL(path, window.location.origin).toString()
 }
 
 interface CompleteAuthSessionFlowOptions {

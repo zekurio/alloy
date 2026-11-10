@@ -56,4 +56,4 @@ function GameIcon({ src, name, size, className, ...props }: GameIconProps) {
   )
 }
 
-export { GameIcon, type GameIconProps }
+export { GameIcon }

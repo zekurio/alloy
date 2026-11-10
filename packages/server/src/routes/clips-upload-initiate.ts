@@ -1,4 +1,4 @@
-import { normalizeTags } from "@alloy/contracts"
+import { normalizeTags, type UploadTicket } from "@alloy/contracts"
 import { clip, clipMention, clipTag } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/session"
@@ -12,14 +12,11 @@ import { conflict, badRequest } from "@alloy/server/runtime/http-response"
 import { rateLimiter } from "@alloy/server/runtime/rate-limit"
 import { stagedUploadDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import { enqueueStorageDeletion } from "@alloy/server/storage/deletion-store"
+import { UPLOAD_PART_SIZE_BYTES } from "@alloy/server/storage/fs-driver"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
 import { uploadTicketDeadline } from "@alloy/server/uploads/deadline"
 import { commitUploadInitiateAndWake } from "@alloy/server/uploads/expiry"
-import {
-  mintStagedUpload,
-  stagedSourceKey,
-  uploadTicketForRequestOrigin,
-} from "@alloy/server/uploads/staged"
+import { stagedSourceKey } from "@alloy/server/uploads/staged"
 import { createUploadTickets } from "@alloy/server/uploads/tickets"
 import { accountDeletionState } from "@alloy/server/users/account-deletion-state"
 import { type Context, Hono } from "hono"
@@ -92,27 +89,6 @@ async function resolveInitiateDetails(
     mentionedIds: body.mentionedUserIds
       ? await resolveMentionIds(body.mentionedUserIds, viewerId)
       : [],
-  }
-}
-
-async function mintInitiateUpload(input: {
-  clipId: string
-  uploadKey: string
-  viewerId: string
-  body: InitiateBodyInput
-}): Promise<Awaited<ReturnType<typeof mintStagedUpload>>> {
-  try {
-    return await mintStagedUpload({
-      key: input.uploadKey,
-      contentType: input.body.contentType,
-      maxBytes: input.body.sizeBytes,
-      expiresInSec: configStore.get("limits").uploadTtlSec,
-      userId: input.viewerId,
-      clipId: input.clipId,
-    })
-  } catch (err) {
-    await cleanupFailedInitiate(input.clipId, input.uploadKey)
-    throw err
   }
 }
 
@@ -224,7 +200,7 @@ async function persistInitiate(input: {
       )
       await createUploadTickets(
         {
-          target: { type: "clip", id: input.clipId },
+          clipId: input.clipId,
           ownerId: input.viewerId,
           videoKey: input.uploadKey,
           videoContentType: input.body.contentType,
@@ -250,13 +226,12 @@ async function initiateClipUpload(
     const gameRef = gameId === null ? null : await getGameRefById(gameId)
     if (gameId !== null && !gameRef) return badRequest(c, "Unknown game")
     const details = await resolveInitiateDetails(body, viewerId, gameRef)
-    const videoUpload = await mintInitiateUpload({
-      clipId,
-      uploadKey,
-      viewerId,
-      body,
-    })
-    const expiresAt = uploadTicketDeadline(videoUpload.expiresAt)
+    const ticket: UploadTicket = {
+      chunkSizeBytes: UPLOAD_PART_SIZE_BYTES,
+      expiresAt:
+        Math.floor(Date.now() / 1000) + configStore.get("limits").uploadTtlSec,
+    }
+    const expiresAt = uploadTicketDeadline(ticket.expiresAt)
     let result: InitiateTransactionResult
     try {
       result = await persistInitiate({
@@ -277,10 +252,7 @@ async function initiateClipUpload(
       return uploadQuotaExceededResponse(c, result)
     }
     void publishClipUpsert(viewerId, clipId)
-    return c.json({
-      clipId,
-      ticket: uploadTicketForRequestOrigin(videoUpload, c.req.url),
-    })
+    return c.json({ clipId, ticket })
   })
 }
 
@@ -303,7 +275,7 @@ export const clipsUploadInitiateRoutes = new Hono().post(
   async (c) => {
     const viewerId = c.var.viewerId
     const body = c.req.valid("json")
-    const clipId = (body.clientClipId ?? crypto.randomUUID()).toLowerCase()
+    const clipId = body.clientClipId ?? crypto.randomUUID()
     const uploadKey = stagedSourceKey(
       clipId,
       body.contentType,

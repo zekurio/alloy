@@ -5,7 +5,6 @@
     "jsx": "react-jsx",
     "types": ["node"],
     "paths": {
-      "@/*": ["./src/*"],
       "@alloy/ui/*": ["./src/*"]
     }
   },

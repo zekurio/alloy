@@ -6,15 +6,10 @@ import type {
 } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
-import {
-  validateFeedChipsResponse,
-  validateFeedPage,
-} from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 import { queryParams } from "./paths"
 
 export type {
-  FeedChipGame,
   FeedChipsResponse,
   FeedFilter,
   FeedPage,
@@ -38,12 +33,12 @@ export function createFeedApi(context: ApiContext) {
           cursor: params.cursor,
         }),
       })
-      return readJsonOrThrow(res, validateFeedPage)
+      return readJsonOrThrow(res)
     },
 
     async fetchChips(media: MediaFilter = "video"): Promise<FeedChipsResponse> {
       const res = await context.rpc.api.feed.chips.$get({ query: { media } })
-      return readJsonOrThrow(res, validateFeedChipsResponse)
+      return readJsonOrThrow(res)
     },
   }
 }

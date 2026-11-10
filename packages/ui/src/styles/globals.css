@@ -48,7 +48,6 @@
   --tracking-tight: -0.02em;
   --tracking-normal: 0em;
   --tracking-wide: 0.03em;
-  --tracking-mono: -0.01em;
 
   --leading-tight: 1.2;
   --leading-normal: 1.5;
@@ -58,13 +57,10 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
@@ -122,16 +118,6 @@
   --color-neutral-800: var(--neutral-800);
   --color-neutral-900: var(--neutral-900);
 
-  /* Sidebar */
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-
   /* Radius — Alloy's fixed scale */
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
@@ -174,21 +160,6 @@
   --radius-lg: 8px;
   --radius-full: 9999px;
 
-  /* Spacing */
-  --space-0: 0px;
-  --space-1: 2px;
-  --space-2: 4px;
-  --space-3: 6px;
-  --space-4: 8px;
-  --space-5: 12px;
-  --space-6: 16px;
-  --space-7: 20px;
-  --space-8: 24px;
-  --space-9: 32px;
-  --space-10: 40px;
-  --space-11: 48px;
-  --space-12: 64px;
-
   /* Neutral scale — dark, pure-grey. Themes replace it at runtime (see
      lib/theme.ts). Steps 0-300 stay ~0.04-0.06 apart so surfaces, inputs,
      and borders remain distinguishable. */
@@ -216,7 +187,6 @@
   --shadow-sm: 0 1px 0 0 oklch(0 0 0 / 0.4);
   --shadow-md: 0 4px 12px -2px oklch(0 0 0 / 0.5);
   --shadow-lg: 0 16px 40px -8px oklch(0 0 0 / 0.6);
-  --shadow-inset-top: inset 0 1px 0 0 oklch(1 0 0 / 0.04);
   --floating-shadow-color: rgb(0 0 0 / 0.55);
   --floating-shadow-strong-color: rgb(0 0 0 / 0.78);
 
@@ -249,7 +219,6 @@
   --border-emphasis: var(--neutral-400);
 
   --card: var(--surface);
-  --card-foreground: var(--foreground);
 
   --popover: var(--surface-raised);
   --popover-foreground: var(--foreground);
@@ -259,8 +228,6 @@
   --primary-foreground: #0b0a0f;
 
   /* secondary = raised neutral */
-  --secondary: var(--surface-raised);
-  --secondary-foreground: var(--foreground-muted);
 
   --muted: var(--surface-raised);
   --muted-foreground: var(--foreground-dim);
@@ -279,16 +246,6 @@
 
   --input: var(--neutral-150);
   --ring: var(--accent);
-
-  /* Sidebar */
-  --sidebar: var(--surface);
-  --sidebar-foreground: var(--foreground-muted);
-  --sidebar-primary: var(--accent);
-  --sidebar-primary-foreground: var(--accent-foreground);
-  --sidebar-accent: var(--accent-soft);
-  --sidebar-accent-foreground: var(--foreground);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--accent);
 
   /* Status */
   --success: oklch(0.72 0.19 145);
@@ -335,7 +292,6 @@
   --shadow-sm: 0 1px 0 0 oklch(0 0 0 / 0.06);
   --shadow-md: 0 4px 12px -2px oklch(0 0 0 / 0.1);
   --shadow-lg: 0 16px 40px -8px oklch(0 0 0 / 0.14);
-  --shadow-inset-top: inset 0 1px 0 0 oklch(1 0 0 / 0.6);
   --floating-shadow-color: rgb(0 0 0 / 0.1);
   --floating-shadow-strong-color: rgb(0 0 0 / 0.14);
 
@@ -413,21 +369,6 @@ html[data-theme-inspecting] *:not([data-theme-editor], [data-theme-editor] *) {
 }
 
 @layer utilities {
-  /* "eyebrow" / mono label — used for nav labels, section eyebrows, etc. */
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: var(--text-2xs);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--foreground-faint);
-  }
-
-  /* monospaced inline text */
-  .mono {
-    font-family: var(--font-mono);
-    letter-spacing: var(--tracking-mono);
-  }
-
   /* Shared blurred surface for floating chrome (popovers, menus, the video
      player bar). The intent is *depth*, not transparency: a strong backdrop
      blur softens whatever is behind, but the fill stays mostly opaque so
@@ -518,64 +459,15 @@ html[data-theme-inspecting] *:not([data-theme-editor], [data-theme-editor] *) {
     transition-duration: var(--duration-slow);
   }
 
-  [data-slot="drawer-content"][data-side="bottom"][data-starting-style],
-  [data-slot="drawer-content"][data-side="bottom"][data-ending-style],
-  [data-slot="drawer-content"][data-side="bottom"][data-swipe-dismiss] {
+  [data-slot="drawer-content"][data-starting-style],
+  [data-slot="drawer-content"][data-ending-style],
+  [data-slot="drawer-content"][data-swipe-dismiss] {
     transform: translate3d(
       var(--drawer-swipe-movement-x, 0px),
       calc(
         100% + var(--drawer-swipe-movement-y, 0px) +
           var(--drawer-snap-point-offset, 0px)
       ),
-      0
-    );
-  }
-
-  [data-slot="drawer-content"][data-side="top"][data-starting-style],
-  [data-slot="drawer-content"][data-side="top"][data-ending-style],
-  [data-slot="drawer-content"][data-side="top"][data-swipe-dismiss] {
-    transform: translate3d(
-      var(--drawer-swipe-movement-x, 0px),
-      calc(
-        -100% + var(--drawer-swipe-movement-y, 0px) -
-          var(--drawer-snap-point-offset, 0px)
-      ),
-      0
-    );
-  }
-
-  [data-slot="drawer-content"][data-side="left"] {
-    transform: translate3d(
-      var(--drawer-swipe-movement-x, 0px),
-      var(--drawer-swipe-movement-y, 0px),
-      0
-    );
-  }
-
-  [data-slot="drawer-content"][data-side="left"][data-starting-style],
-  [data-slot="drawer-content"][data-side="left"][data-ending-style],
-  [data-slot="drawer-content"][data-side="left"][data-swipe-dismiss] {
-    transform: translate3d(
-      calc(-100% + var(--drawer-swipe-movement-x, 0px)),
-      var(--drawer-swipe-movement-y, 0px),
-      0
-    );
-  }
-
-  [data-slot="drawer-content"][data-side="right"] {
-    transform: translate3d(
-      var(--drawer-swipe-movement-x, 0px),
-      var(--drawer-swipe-movement-y, 0px),
-      0
-    );
-  }
-
-  [data-slot="drawer-content"][data-side="right"][data-starting-style],
-  [data-slot="drawer-content"][data-side="right"][data-ending-style],
-  [data-slot="drawer-content"][data-side="right"][data-swipe-dismiss] {
-    transform: translate3d(
-      calc(100% + var(--drawer-swipe-movement-x, 0px)),
-      var(--drawer-swipe-movement-y, 0px),
       0
     );
   }
@@ -644,37 +536,6 @@ html[data-theme-inspecting] *:not([data-theme-editor], [data-theme-editor] *) {
   @media (prefers-reduced-motion: reduce) {
     .animate-attention-shake {
       animation: none;
-    }
-  }
-
-  /* Sweep a soft accent highlight across the game-suggestion "thinking" verb
-     text so it reads as alive rather than a frozen label. */
-  @keyframes alloy-text-shimmer {
-    to {
-      background-position: -200% 0;
-    }
-  }
-  .animate-text-shimmer {
-    background-image: linear-gradient(
-      100deg,
-      var(--foreground-muted) 0%,
-      var(--foreground-muted) 38%,
-      var(--accent) 50%,
-      var(--foreground-muted) 62%,
-      var(--foreground-muted) 100%
-    );
-    background-size: 200% 100%;
-    background-position: 200% 0;
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
-    animation: alloy-text-shimmer 2.4s linear infinite;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-text-shimmer {
-      animation: none;
-      color: var(--foreground-muted);
     }
   }
 

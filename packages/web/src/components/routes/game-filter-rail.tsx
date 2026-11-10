@@ -1,4 +1,5 @@
 import { t } from "@alloy/i18n"
+import { GameIcon } from "@alloy/ui/components/game-icon"
 import { GlobeIcon } from "lucide-react"
 import type { ReactElement } from "react"
 
@@ -6,7 +7,6 @@ import {
   FilterChipRail,
   type FilterChipOption,
 } from "@/components/clip/filter-chip-rail"
-import { GameIcon } from "@/components/game/game-icon"
 
 const ALL_GAMES = "__all"
 

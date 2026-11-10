@@ -21,7 +21,6 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 concurrency:
   group: ${{ github.workflow }}
@@ -74,7 +73,6 @@ jobs:
       version: ${{ steps.release.outputs.version }}
       tag: ${{ steps.release.outputs.tag }}
       ref: ${{ steps.release.outputs.ref }}
-      previous_tag: ${{ steps.release.outputs.previous_tag }}
 
     steps:
       - name: checkout repository
@@ -100,22 +98,10 @@ jobs:
         run: corepack pnpm fmt:check
 
       - name: run lint
-        run: corepack pnpm lint:github
+        run: corepack pnpm lint
 
       - name: run typecheck
         run: corepack pnpm typecheck
-
-      # Only names the release commit's author. The push below still uses
-      # github.token, so it doesn't trigger the push workflows on dev. The
-      # checkout does not persist that token; the push passes it explicitly.
-      - name: mint alloy-gardener token
-        id: app
-        if: vars.GARDENER_CLIENT_ID != ''
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          client-id: ${{ vars.GARDENER_CLIENT_ID }}
-          private-key: ${{ secrets.GARDENER_PRIVATE_KEY }}
-          permission-contents: read
 
       - id: release
         name: resolve version, commit, and tag
@@ -123,7 +109,6 @@ jobs:
         env:
           INPUT_BUMP: ${{ inputs.bump }}
           INPUT_VERSION: ${{ inputs.version }}
-          APP_SLUG: ${{ steps.app.outputs.app-slug }}
           GH_TOKEN: ${{ github.token }}
         run: |
           # JavaScript template expressions must remain literal for node -e.
@@ -173,13 +158,6 @@ jobs:
 
           tag="v$version"
 
-          previous_tag="$(
-            git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname |
-              grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
-              grep -Fxv "$tag" |
-              head -n 1 || true
-          )"
-
           if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
             if release_published "$tag"; then
               echo "Release $tag is already published." >&2
@@ -188,30 +166,20 @@ jobs:
             # Rebuild the pending release from the exact tagged commit.
             ref="$(git rev-list -n 1 "$tag")"
           else
-            if [[ -n "$APP_SLUG" ]]; then
-              bot="${APP_SLUG}[bot]"
-              bot_id="$(gh api "users/$bot" --jq .id)"
-            else
-              bot="github-actions[bot]"
-              bot_id=41898282
-            fi
-            git config user.name "$bot"
-            git config user.email "$bot_id+$bot@users.noreply.github.com"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
             if [[ "$version" != "$current" ]]; then
+              # The checks above change no tracked file, so the release
+              # commit holds only the stamped version files.
               node scripts/update-release-package-versions.mjs "$version"
-              git add package.json \
-                Cargo.lock \
-                packages/desktop/package.json \
-                packages/desktop/host/Cargo.toml \
-                packages/desktop/native/Cargo.toml \
-                packages/desktop/recorder/Cargo.toml
-              git commit -m "chore: release $tag"
+              git commit --all -m "chore: release $tag"
             fi
 
             git tag "$tag"
             # The checkout dropped its credentials, so authenticate this push
-            # with the job token (masked in logs) instead of the remote.
+            # with the job token (masked in logs) instead of the remote. A
+            # push with that token does not trigger the push workflows on dev.
             git push --atomic "https://x-access-token:${GH_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git" dev "refs/tags/$tag"
             ref="$(git rev-parse HEAD)"
           fi
@@ -220,100 +188,22 @@ jobs:
             echo "version=$version"
             echo "tag=$tag"
             echo "ref=$ref"
-            echo "previous_tag=$previous_tag"
           } >> "$GITHUB_OUTPUT"
 
   # Builds the installer without the signing key: this job runs npm code and
   # electron-builder, so it gets no secrets and only reads the repository.
+  # The update keys are compiled into the app, which checks every update
+  # against them. The `signing` job has already failed the release if they
+  # are not configured.
   desktop:
     name: build windows desktop release
     needs: [preflight]
-    runs-on: windows-latest
-    timeout-minutes: 90
     permissions:
       contents: read
-
-    steps:
-      - name: checkout release source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          ref: ${{ needs.preflight.outputs.ref }}
-
-      - name: set up pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-
-      - name: set up node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: install dependencies
-        run: corepack pnpm install --frozen-lockfile
-
-      - name: set up rust
-        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
-        with:
-          toolchain: stable
-
-      - name: cache cargo artifacts
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: .
-          # Same key as the installer job in desktop.yml: a cache saved on `dev`
-          # is the only one a pull request can restore, so this release build
-          # is what keeps desktop CI from recompiling from scratch.
-          shared-key: desktop
-
-      # The staging scripts pin OBS and FFmpeg and decide what lands in the
-      # runtime folder, so their hash keys the cache. The addon script does
-      # not touch these folders.
-      - name: cache native runtimes
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            packages/desktop/resources/obs-runtime
-            packages/desktop/.cache/ffmpeg
-          key: windows-native-${{ hashFiles('packages/desktop/scripts/archive.mjs', 'packages/desktop/scripts/build-agent.mjs', 'packages/desktop/scripts/install-obs-runtime.mjs', 'packages/desktop/scripts/obs-runtime.mjs', 'packages/desktop/scripts/prepare-native.mjs') }}
-
-      - name: stage obs runtime
-        run: corepack pnpm --filter @alloy/desktop obs:install
-
-      # The public key is compiled into the app, which checks every update
-      # against it. Without it the build would ship with updates off.
-      - name: build desktop installer
-        env:
-          NODE_ENV: production
-          ALLOY_UPDATER_PUBLIC_KEY: ${{ vars.ALLOY_UPDATER_PUBLIC_KEY }}
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          if (!$env:ALLOY_UPDATER_PUBLIC_KEY) {
-            throw "Configure ALLOY_UPDATER_PUBLIC_KEY before a release."
-          }
-          corepack pnpm desktop:dist:win:installer
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      # Electron brings no Visual C++ runtime, so the addon must not import
-      # one: a machine without the redistributable could not start Alloy.
-      - name: check the addon needs no Visual C++ runtime
-        shell: pwsh
-        run: |
-          $addon = "packages/desktop/resources/native/alloy-desktop.node"
-          if (Select-String -Path $addon -Pattern "VCRUNTIME140" -SimpleMatch -Quiet) {
-            throw "The desktop addon imports the Visual C++ runtime."
-          }
-
-      - name: upload unsigned desktop installer
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: desktop-installer
-          path: |
-            packages/desktop/release/*-setup.exe
-            packages/desktop/release/*-setup.exe.blockmap
-            packages/desktop/release/latest.yml
-          if-no-files-found: error
+    uses: ./.github/workflows/windows-installer.yml
+    with:
+      ref: ${{ needs.preflight.outputs.ref }}
+      updater-public-key: ${{ vars.ALLOY_UPDATER_PUBLIC_KEY }}
 
   # Signs the installer apart from its build, so the signing key never shares
   # a job with npm code: only the signer is built, from Cargo.lock, as in the
@@ -383,6 +273,9 @@ jobs:
     needs: [preflight]
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: checkout release source
@@ -427,12 +320,6 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: checkout release source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          ref: ${{ needs.preflight.outputs.ref }}
-
       - name: download desktop release assets
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -452,40 +339,22 @@ jobs:
           mv "$tmp" release-assets/checksums.txt
           cat release-assets/checksums.txt
 
+      # GitHub's notes for the pull requests merged since the last release,
+      # in the categories of .github/release.yml. Written here rather than by
+      # the release action's `generate_release_notes`, which on a re-run, with
+      # the release already created, puts the old notes before the new ones.
       - name: write release notes
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
-          RELEASE_REF: ${{ needs.preflight.outputs.ref }}
-          PREVIOUS_TAG: ${{ needs.preflight.outputs.previous_tag }}
-        with:
-          script: |
-            const { writeReleaseNotes } = require("./scripts/write-release-notes.cjs")
-
-            await writeReleaseNotes({
-              github,
-              context,
-              core,
-              tag: process.env.RELEASE_TAG,
-              ref: process.env.RELEASE_REF,
-              previousTag: process.env.PREVIOUS_TAG,
-            })
-
-      # Publish as the alloy-gardener GitHub App when it is configured; it needs
-      # Contents read/write. Otherwise fall back to github-actions[bot].
-      - name: mint alloy-gardener token
-        id: app
-        if: vars.GARDENER_CLIENT_ID != ''
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          client-id: ${{ vars.GARDENER_CLIENT_ID }}
-          private-key: ${{ secrets.GARDENER_PRIVATE_KEY }}
-          permission-contents: write
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f tag_name="$RELEASE_TAG" --jq .body > release-notes.md
 
       - name: publish github release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          token: ${{ steps.app.outputs.token || github.token }}
+          token: ${{ github.token }}
           tag_name: ${{ needs.preflight.outputs.tag }}
           target_commitish: ${{ needs.preflight.outputs.ref }}
           name: ${{ needs.preflight.outputs.tag }}
@@ -508,6 +377,9 @@ jobs:
       - publish
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: log in to ghcr

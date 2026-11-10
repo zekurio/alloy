@@ -14,11 +14,10 @@ the repository map in [AGENTS.md](../AGENTS.md).
 
 ## Development Setup
 
-Nix users get the complete toolchain (Node, pnpm, PostgreSQL, ffmpeg, Rust) plus a repo-local Postgres via devenv:
+Nix users get the complete toolchain (Node, pnpm, PostgreSQL, ffmpeg, Rust) plus a repo-local Postgres from the flake's dev shell:
 
 ```bash
-nix profile install nixpkgs#devenv nixpkgs#direnv
-direnv allow
+nix develop        # or `direnv allow` to enter it on `cd`
 pnpm install
 pnpm dev
 ```
@@ -45,8 +44,8 @@ Never use npm, yarn, or Bun in this repo.
 - `dev` is the only long-lived branch; feature branches target `dev`.
   Releases are tagged from `dev` by maintainers (see
   [RELEASING.md](RELEASING.md)).
-- Branch names are at most three hyphen-separated words, without slashes or
-  type prefixes: `session-recovery`, `fix-scroll-state`.
+- Keep branch names short and hyphen-separated: `session-recovery`,
+  `fix/scroll-state`. A prefix such as `fix/` or `feat/` is optional.
 - Commits and PR titles use conventional commit style: `type(scope): summary`
   with types `feat`, `fix`, `perf`, `docs`, `chore`, `refactor`, or `test`, e.g.
   `fix(web): keep scroll position on feed refresh`.
@@ -72,11 +71,15 @@ validation in the PR. Native integration tests and the Nix security test remain.
 1. Make sure `pnpm verify` passes (fmt check, lint, and typecheck).
 2. Open the PR against `dev` and fill in the pull request template, including
    how you verified the change.
-3. CI runs formatting, lint, typecheck, and a server/web build. Changes that
+3. The PR gets one `changelog:*` label, which picks its section in the
+   release notes, or `changelog:skip` when it needs no release note. A
+   maintainer adds it if you can't.
+4. CI runs formatting, lint, typecheck, and a server/web build. Changes that
    touch Nix files, the lockfile, or the root manifests also run a Nix flake
-   check, and devenv changes build the development shell. Desktop changes
+   check, which also enters the development shell. Desktop changes
    additionally check the Rust crates on Windows and Linux and build the
-   Windows installer and the Nix desktop package.
+   Windows installer. Every PR builds the Nix desktop package, unless Cachix
+   already has that exact build.
 
 Releases are tagged from `dev` by maintainers; see
 [RELEASING.md](RELEASING.md) for the release process.

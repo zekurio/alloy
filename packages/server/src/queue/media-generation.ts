@@ -12,7 +12,6 @@ const GENERATION_KEY = "mediaEncodeGeneration"
 const MediaGenerationSchema = t.object({
   generation: t.number().int().min(1),
   signature: t.string().min(1),
-  forceGeneration: t.number().int().nonnegative(),
   retryFailuresGeneration: t.number().int().nonnegative(),
 })
 
@@ -20,7 +19,7 @@ export type MediaGeneration = Readonly<t.infer<typeof MediaGenerationSchema>>
 
 type Executor = Pick<DbTransaction, "insert" | "select" | "update">
 
-export function mediaConfigSignature(config: TranscodingConfig): string {
+function mediaConfigSignature(config: TranscodingConfig): string {
   return createHash("sha256")
     .update(
       JSON.stringify({
@@ -52,19 +51,6 @@ export async function synchronizeMediaGeneration(
   )
 }
 
-export async function forceMediaGeneration(
-  config: TranscodingConfig,
-): Promise<MediaGeneration> {
-  return db.transaction(async (tx) => {
-    const current = await synchronizeWithExecutor(config, tx)
-    return writeGeneration(tx, {
-      ...current,
-      generation: current.generation + 1,
-      forceGeneration: current.generation + 1,
-    })
-  })
-}
-
 async function synchronizeWithExecutor(
   config: TranscodingConfig,
   executor: Executor,
@@ -73,7 +59,6 @@ async function synchronizeWithExecutor(
   const initial: MediaGeneration = {
     generation: 1,
     signature: configSignature,
-    forceGeneration: 0,
     retryFailuresGeneration: 0,
   }
   await executor

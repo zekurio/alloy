@@ -24,10 +24,8 @@ interface LogRecord {
 
 const jsonFormat = process.env.LOG_FORMAT === "json"
 
-function formatLogArg(value: Parameters<typeof inspect>[0]): string {
-  if (Object.prototype.toString.call(value) === "[object String]") {
-    return String(value)
-  }
+function formatLogArg(value: unknown): string {
+  if (typeof value === "string") return value
   if (value instanceof Error) {
     return value.stack ?? `${value.name}: ${value.message}`
   }

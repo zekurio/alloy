@@ -4,12 +4,13 @@ import { fileURLToPath } from "node:url"
 import { app, type BrowserWindow, type IpcMainInvokeEvent } from "electron"
 
 import type { NativeJson } from "../shared/ipc"
-import type { NativeAddon, NativePreferences, NativeRuntime } from "./native"
+import type { NativeAddon, NativeRuntime } from "./native"
 import type { AppFolders } from "./paths"
 import { isSameOrigin } from "./policy"
+import type { Preferences } from "./preferences"
 
 /** One holder at a time; later callers queue in order. */
-export class AsyncLock {
+class AsyncLock {
   private locked = false
   private readonly waiters: (() => void)[] = []
 
@@ -52,10 +53,11 @@ export interface RemoteSession {
 
 /** The shell's shared state, and the checks every IPC call makes against it. */
 export class Host {
-  /** Held by a connection attempt, a server restore, and a forget. */
+  /**
+   * Held by a connection attempt, a server restore, and a forget, so one of
+   * them at a time switches the selected server window.
+   */
   readonly connecting = new AsyncLock()
-  /** Held while the selected server window changes. */
-  readonly selection = new AsyncLock()
   /** Cancels the connection attempt in progress. */
   cancel: AbortController | null = null
   remote: RemoteSession | null = null
@@ -71,7 +73,7 @@ export class Host {
 
   constructor(
     readonly native: NativeAddon,
-    readonly preferences: NativePreferences,
+    readonly preferences: Preferences,
     readonly folders: AppFolders,
   ) {}
 
@@ -110,12 +112,21 @@ function mainFrameUrl(event: IpcMainInvokeEvent): string | null {
   return frame.url
 }
 
+/**
+ * The connect screen's Vite dev server in `electron-vite dev`. Production
+ * bundles fold this to `undefined`, so no environment variable can point the
+ * connect window, and its preload, at another page.
+ */
+export function connectDevServerUrl(): string | undefined {
+  return import.meta.env.DEV ? process.env.ELECTRON_RENDERER_URL : undefined
+}
+
 /** The bundled connect page: the dev server's root, or the packaged file. */
 export function isConnectPageUrl(url: string): boolean {
   try {
     const parsed = new URL(url)
-    const devServer = process.env.ELECTRON_RENDERER_URL
-    if (!app.isPackaged && devServer) {
+    const devServer = connectDevServerUrl()
+    if (devServer) {
       const expected = new URL(devServer)
       return (
         parsed.origin === expected.origin &&

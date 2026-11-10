@@ -14,6 +14,8 @@ import { eq } from "drizzle-orm"
 import type { Context } from "hono"
 import { createMiddleware } from "hono/factory"
 
+import type { IdParamInput } from "./validation"
+
 export async function updatedClipResponse(c: Context, clipId: string) {
   const updated = await selectClipById(clipId)
   if (!updated) {
@@ -30,13 +32,15 @@ export async function updatedClipResponse(c: Context, clipId: string) {
 export function loadMutableClip(
   rule: { allowAdmin?: boolean; statuses?: readonly string[] } = {},
 ) {
-  return createMiddleware<{
-    Variables: { viewerId: string; clip: typeof clip.$inferSelect }
-  }>(async (c, next) => {
+  return createMiddleware<
+    { Variables: { viewerId: string; clip: typeof clip.$inferSelect } },
+    string,
+    IdParamInput
+  >(async (c, next) => {
     const [row] = await db
       .select()
       .from(clip)
-      .where(eq(clip.id, c.req.param("id") ?? ""))
+      .where(eq(clip.id, c.req.valid("param").id))
       .limit(1)
     if (!row) return notFound(c)
 
@@ -57,8 +61,11 @@ export function loadMutableClip(
 /**
  * Stops media work and uploads on the `:id` clip for the rest of the request,
  * so a later loadMutableClip reads a row neither can change underneath it.
+ * Goes after the param validator, which lowercases the id the locks key on.
  */
-export const withClipLocks = createMiddleware(async (c, next) => {
-  const id = c.req.param("id") ?? ""
-  await withClipMediaStopped(id, () => withUploadActivityStopped(id, next))
-})
+export const withClipLocks = createMiddleware<object, string, IdParamInput>(
+  async (c, next) => {
+    const { id } = c.req.valid("param")
+    await withClipMediaStopped(id, () => withUploadActivityStopped(id, next))
+  },
+)

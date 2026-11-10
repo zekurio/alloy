@@ -51,7 +51,7 @@ type UserSummaryFields = {
   image: string | null
 }
 
-export function serialiseUserSummary(row: UserSummaryFields): UserSummary {
+function serialiseUserSummary(row: UserSummaryFields): UserSummary {
   return {
     id: row.id,
     username: row.username,

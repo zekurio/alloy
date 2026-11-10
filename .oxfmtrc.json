@@ -15,22 +15,5 @@
   "sortImports": true,
   "sortPackageJson": true,
   "sortTailwindcss": true,
-  "ignorePatterns": [
-    ".devenv/**",
-    ".direnv/**",
-    ".git/**",
-    "target/**",
-    "packages/web/src/routeTree.gen.ts",
-    "packages/web/dist/**",
-    "packages/desktop/release/**",
-    "packages/desktop/.cache/**",
-    "packages/desktop/resources/**",
-    "packages/desktop/dist/**",
-    "packages/desktop/out/**",
-    "build/**",
-    "data/**",
-    "dist/**",
-    "node_modules/**",
-    "pnpm-lock.yaml"
-  ]
+  "ignorePatterns": ["packages/web/src/routeTree.gen.ts"]
 }

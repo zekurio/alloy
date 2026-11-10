@@ -10,8 +10,6 @@ import { pastelAvatarColors, pastelBannerGradient } from "@alloy/ui/lib/pastel"
 import { cn } from "@alloy/ui/lib/utils"
 import type { ComponentProps } from "react"
 
-import { apiOrigin } from "./env"
-
 type DisplayUser = {
   id?: string
   username?: string | null
@@ -46,7 +44,7 @@ export function userImageSrc(
 }
 
 function normalizeUserAssetPath(value: string): string {
-  return resolvePublicUrl(value, apiOrigin())
+  return resolvePublicUrl(value, window.location.origin)
 }
 
 /**

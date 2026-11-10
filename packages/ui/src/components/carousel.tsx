@@ -1,5 +1,3 @@
-"use client"
-
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"

@@ -10,7 +10,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@alloy/primitives": "workspace:*",
     "typebox": "1.4.2"
   }
 }

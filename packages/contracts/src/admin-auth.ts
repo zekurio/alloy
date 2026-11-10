@@ -1,9 +1,7 @@
 import { t } from "./schema"
 
-export type UsernameClaim = string
-
-export const OAUTH_USERNAME_CLAIM_DEFAULT = "preferred_username"
-export const OAUTH_AVATAR_CLAIM_DEFAULT = "picture"
+const OAUTH_USERNAME_CLAIM_DEFAULT = "preferred_username"
+const OAUTH_AVATAR_CLAIM_DEFAULT = "picture"
 
 export const OAUTH_QUOTA_CLAIM_DEFAULT = "alloy_quota"
 export const OAUTH_ROLE_CLAIM_DEFAULT = "alloy_role"
@@ -21,8 +19,8 @@ export const OIDC_CALLBACK_ROUTE =
   `/oauth2/callback/${OIDC_PROVIDER_ID}` as const
 /** The redirect URI path to register with the identity provider. */
 export const OIDC_CALLBACK_PATH = `/api/auth${OIDC_CALLBACK_ROUTE}` as const
-export const OIDC_DISPLAY_NAME_DEFAULT = "SSO"
-export const OIDC_SCOPES_DEFAULT = ["openid", "profile"]
+const OIDC_DISPLAY_NAME_DEFAULT = "SSO"
+const OIDC_SCOPES_DEFAULT = ["openid", "profile"]
 
 function oauthClientSecretAuthMethod<Suffix extends "post" | "basic">(
   suffix: Suffix,
@@ -96,7 +94,7 @@ export const OidcConfigSchema = t.object({
 
 export type OidcConfig = t.infer<typeof OidcConfigSchema>
 
-export const OIDC_CLIENT_SECRET_SOURCES = ["environment", "settings"] as const
+const OIDC_CLIENT_SECRET_SOURCES = ["environment", "settings"] as const
 export type OidcClientSecretSource = (typeof OIDC_CLIENT_SECRET_SOURCES)[number]
 
 /**

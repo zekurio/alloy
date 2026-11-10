@@ -1,5 +1,4 @@
 import type {
-  RecordingDisplay,
   RecordingSettings,
   RecordingStatus,
 } from "@alloy/contracts/desktop"
@@ -15,6 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
+import { GameIcon } from "@alloy/ui/components/game-icon"
 import {
   Popover,
   PopoverContent,
@@ -35,7 +35,6 @@ import {
 import { useMemo, useState } from "react"
 import type { ReactNode } from "react"
 
-import { GameIcon } from "@/components/game/game-icon"
 import {
   mergeAudioDevices,
   type RecordingAudioDeviceView,
@@ -51,7 +50,6 @@ import {
   captureTargetLabel,
   type RecordingStatusIndicator,
   type SaveRecordingSettings,
-  selectedDisplay,
   statusIndicator,
   statusLabel,
 } from "./recording-status-helpers"
@@ -73,7 +71,6 @@ export function DesktopRecordingStatus() {
             ? (state.status?.activeGameDetail ?? null)
             : null
         }
-        displays={state.displays}
         label={statusLabel(state.settings, state.status)}
         settings={state.settings}
         status={state.status}
@@ -99,7 +96,6 @@ export function DesktopRecordingStatus() {
 function RecordingStatusPopover({
   indicator,
   activeGame,
-  displays,
   label,
   settings,
   status,
@@ -108,7 +104,6 @@ function RecordingStatusPopover({
 }: {
   indicator: RecordingStatusIndicator
   activeGame: RecordingStatus["activeGameDetail"] | null
-  displays: RecordingDisplay[]
   label: string
   settings: RecordingSettings | null
   status: RecordingStatus | null
@@ -172,7 +167,6 @@ function RecordingStatusPopover({
         })}
       >
         <RecordingStatusContent
-          displays={displays}
           settings={settings}
           status={status}
           onOpenDisplayPicker={onOpenDisplayPicker}
@@ -188,14 +182,12 @@ function RecordingStatusPopover({
 }
 
 function RecordingStatusContent({
-  displays,
   settings,
   status,
   onOpenDisplayPicker,
   onOpenSettings,
   onSave,
 }: {
-  displays: RecordingDisplay[]
   settings: RecordingSettings | null
   status: RecordingStatus | null
   onOpenDisplayPicker: () => void
@@ -222,7 +214,6 @@ function RecordingStatusContent({
           onSave={onSave}
         />
         <RecordingCaptureTarget
-          displays={displays}
           settings={settings}
           status={status}
           onOpenDisplayPicker={onOpenDisplayPicker}
@@ -289,20 +280,16 @@ function RecordingAudioSettings({
 }
 
 function RecordingCaptureTarget({
-  displays,
   settings,
   status,
   onOpenDisplayPicker,
   onSave,
 }: {
-  displays: RecordingDisplay[]
   settings: RecordingSettings | null
   status: RecordingStatus | null
   onOpenDisplayPicker: () => void
   onSave: SaveRecordingSettings
 }) {
-  const activeDisplay = selectedDisplay(settings, status, displays)
-
   return (
     <>
       {settings?.captureMode === "display" ? (
@@ -314,28 +301,12 @@ function RecordingCaptureTarget({
             "--alloy-blur-shadow": "none",
           })}
         >
-          {activeDisplay?.thumbnailDataUrl ? (
-            <>
-              <img
-                src={activeDisplay.thumbnailDataUrl}
-                alt=""
-                draggable={false}
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute inset-x-0 bottom-0 bg-black/70 px-3 py-2">
-                <div className="truncate text-sm font-semibold">
-                  {captureTargetLabel(settings, status)}
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 py-4">
-              <MonitorIcon className="text-foreground-muted size-5" />
-              <div className="text-foreground-muted text-sm font-semibold">
-                {captureTargetLabel(settings, status)}
-              </div>
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 py-4">
+            <MonitorIcon className="text-foreground-muted size-5" />
+            <div className="text-foreground-muted text-sm font-semibold">
+              {captureTargetLabel(settings, status)}
             </div>
-          )}
+          </div>
         </div>
       ) : (
         <div className="border-border bg-surface-raised/40 flex min-h-12 items-center gap-3 rounded-md border px-3 py-2.5">

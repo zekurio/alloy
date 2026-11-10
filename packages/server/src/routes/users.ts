@@ -20,13 +20,7 @@ import {
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { db } from "@alloy/server/db/index"
 import { isoDate } from "@alloy/server/runtime/date"
-import {
-  accountState,
-  badRequest,
-  batchProgress,
-  booleanFlag,
-  forbidden,
-} from "@alloy/server/runtime/http-response"
+import { badRequest, forbidden } from "@alloy/server/runtime/http-response"
 import { clipStorage } from "@alloy/server/storage/index"
 import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
 import { accountDeletionState } from "@alloy/server/users/account-deletion-state"
@@ -89,7 +83,7 @@ export const usersRoute = new Hono()
     const disabledAt = disabled?.disabledAt ?? new Date()
     await deleteAllSessionsForUser(viewerId)
     clearSessionCookies(c)
-    return accountState(c, isoDate(disabledAt))
+    return c.json({ disabledAt: isoDate(disabledAt) })
   })
   .post("/me/reactivate", requireAnySession, async (c) => {
     const reactivated = await accountDeletionState.withInactive(
@@ -102,7 +96,7 @@ export const usersRoute = new Hono()
     if (reactivated.value !== "reactivated") {
       return forbidden(c, "An administrator must reactivate this account.")
     }
-    return accountState(c, null)
+    return c.json({ disabledAt: null })
   })
   .get("/me/clips/download", requireSession, async (c) => {
     const rows = await db
@@ -149,7 +143,7 @@ export const usersRoute = new Hono()
         await deleteClipRowAndAssets(row)
       }
 
-      return batchProgress(c, "deleted", batch.length, rows.length > limit)
+      return c.json({ deleted: batch.length, hasMore: rows.length > limit })
     },
   )
   .get(
@@ -227,7 +221,7 @@ export const usersRoute = new Hono()
         })
         .onConflictDoNothing()
 
-      return booleanFlag(c, "blocked", true)
+      return c.json({ blocked: true })
     },
   )
   .delete(
@@ -244,6 +238,6 @@ export const usersRoute = new Hono()
             eq(block.blocked_id, c.var.target.id),
           ),
         )
-      return booleanFlag(c, "blocked", false)
+      return c.json({ blocked: false })
     },
   )

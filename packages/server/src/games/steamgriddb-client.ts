@@ -5,7 +5,7 @@ import type {
   SteamGridDBSearchResult,
 } from "@alloy/contracts"
 import { safeParse, t } from "@alloy/contracts/schema"
-import { secretStore } from "@alloy/server/config/secret-store"
+import { env } from "@alloy/server/env"
 import { errorMessage } from "@alloy/server/runtime/error-message"
 import type { TSchema } from "typebox"
 
@@ -102,7 +102,7 @@ const AssetSchema = t.object({
 const AssetListSchema = t.array(AssetSchema)
 
 function getApiKey(): string {
-  return secretStore.get("steamgriddbApiKey")
+  return env.steamgriddbApiKey
 }
 
 /**

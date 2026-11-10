@@ -10,7 +10,6 @@ import {
 import { t } from "@alloy/i18n"
 
 import { formatRelativeTime } from "./date-format"
-import { apiOrigin } from "./env"
 import { canPlaySource } from "./media-capability"
 import { formatCount } from "./number-format"
 import { displayName, type UserAvatar, userAvatar } from "./user-display"
@@ -64,11 +63,16 @@ function previewStreamUrl(row: ClipRow): string {
   if (!lowest) {
     return clipSourceFileUrl(
       row.id,
-      apiOrigin(),
+      window.location.origin,
       row.sourceVersion ?? undefined,
     )
   }
-  return clipRenditionFileUrl(row.id, lowest.name, apiOrigin(), lowest.version)
+  return clipRenditionFileUrl(
+    row.id,
+    lowest.name,
+    window.location.origin,
+    lowest.version,
+  )
 }
 
 export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
@@ -96,10 +100,18 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     viewCount: row.viewCount,
     postedAt: formatRelativeTime(row.publishedAt ?? row.createdAt, now),
     thumbnail: row.thumbKey
-      ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
+      ? clipThumbnailUrl(
+          row.id,
+          window.location.origin,
+          row.thumbVersion ?? undefined,
+        )
       : undefined,
     thumbnailSrcSet: row.thumbKey
-      ? clipThumbnailSrcSet(row.id, apiOrigin(), row.thumbVersion ?? undefined)
+      ? clipThumbnailSrcSet(
+          row.id,
+          window.location.origin,
+          row.thumbVersion ?? undefined,
+        )
       : undefined,
     thumbnailBlurHash: row.thumbBlurHash,
     fallbackSeed: row.gameId ?? row.id,

@@ -30,7 +30,7 @@ export function toPlaybackTime(
   )
 }
 
-export function toMediaTime(
+function toMediaTime(
   playbackTime: number,
   mediaDuration: number,
   range: MediaPlaybackRange | undefined,

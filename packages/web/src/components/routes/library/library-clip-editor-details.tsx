@@ -31,7 +31,6 @@ import { absoluteClipHref } from "@/lib/app-paths"
 import { useUpdateClipMutation } from "@/lib/clip-queries"
 import { copyTextToClipboard } from "@/lib/clipboard"
 import { type RecordingLibraryItem } from "@/lib/desktop"
-import { publicOrigin } from "@/lib/env"
 import { useActionFeedback } from "@/lib/use-action-feedback"
 
 import {
@@ -196,7 +195,11 @@ export function ClipEditorDetails({
 
   const copyClipLink = async (clip: ClipRow = row) => {
     return copyTextToClipboard(
-      absoluteClipHref(clip.gameRef?.slug ?? null, clip.id, publicOrigin()),
+      absoluteClipHref(
+        clip.gameRef?.slug ?? null,
+        clip.id,
+        window.location.origin,
+      ),
       {
         action: "copy clip link",
       },

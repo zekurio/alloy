@@ -33,22 +33,15 @@ export function cursorDate(value: CursorValue): Date | null {
   const parsed = CursorStringSchema.safeParse(value)
   if (!parsed.success) return null
   const date = new Date(parsed.data)
-  return Number.isNaN(date.getTime()) ? null : date
+  // Years outside 1-9999 would fail PostgreSQL's cast, so treat them as an
+  // invalid cursor rather than a database error.
+  const year = date.getUTCFullYear()
+  return year >= 1 && year <= 9999 ? date : null
 }
 
 export function cursorRequiredString(value: CursorValue): string | null {
   const parsed = CursorStringSchema.safeParse(value)
   return parsed.success && parsed.data.trim() ? parsed.data : null
-}
-
-// Postgres timestamp (without time zone) ::text output, e.g.
-// "2026-07-04 12:34:56.123456". Users' created_at is a plain timestamp, so its
-// cursor is validated against this (no zone offset) before casting to ::timestamp.
-const TIMESTAMP_TEXT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?$/
-
-export function cursorTimestampText(value: CursorValue): string | null {
-  const parsed = CursorStringSchema.safeParse(value)
-  return parsed.success && TIMESTAMP_TEXT.test(parsed.data) ? parsed.data : null
 }
 
 export function cursorFiniteNumber(value: CursorValue): number | null {

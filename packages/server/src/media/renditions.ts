@@ -9,6 +9,7 @@ import {
   type VideoCodec,
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
+import { env } from "@alloy/server/env"
 
 import {
   buildEncoderGlobalArgs,
@@ -18,7 +19,6 @@ import {
 import { runFfmpeg, transcodeTimeoutMs } from "./ffmpeg"
 import { probeMedia } from "./probe"
 import { processFailureKind } from "./run-process"
-import { transcodeSettings } from "./transcode-settings"
 
 const logger = createLogger("media")
 
@@ -127,7 +127,7 @@ function buildRenditionArgs(options: {
     `scale=-2:${options.step.height}:flags=lanczos`,
     ...(options.step.capFps ? [`fps=${options.step.tier.maxFps}`] : []),
   ]
-  const threads = transcodeSettings().threads
+  const threads = env.transcode.threads
   const softwareEncoder = options.config.hardwareAcceleration === "none"
   return [
     ...buildEncoderGlobalArgs(options.config),

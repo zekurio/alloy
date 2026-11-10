@@ -14,13 +14,13 @@ use tokio_util::io::ReaderStream;
 use url::Url;
 use uuid::Uuid;
 
+use crate::capture_library::download::checked_server_origin;
 use crate::capture_library::error::{LibraryError, Result};
 use crate::capture_library::paths::{content_type, is_media};
 use crate::capture_library::poster::thumbnail_file;
-use crate::capture_library::store::CaptureLibrary;
+use crate::capture_library::store::{CaptureLibrary, is_capture_id};
 
 const TOKEN_QUERY: &str = "token";
-const MAX_ID_LENGTH: usize = 64;
 const MEDIA_STREAM_BUFFER_BYTES: u64 = 512 * 1024;
 
 #[derive(Clone)]
@@ -42,7 +42,6 @@ pub struct CaptureHttpServer {
     state: Arc<HttpState>,
     addr: std::net::SocketAddr,
     shutdown: Option<oneshot::Sender<()>>,
-    task: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl CaptureHttpServer {
@@ -58,7 +57,7 @@ impl CaptureHttpServer {
             .route("/{kind}/{id}", any(handle_request))
             .with_state(state.clone());
         let (shutdown, signal) = oneshot::channel();
-        let task = tokio::spawn(async move {
+        tokio::spawn(async move {
             let _ = axum::serve(listener, router)
                 .with_graceful_shutdown(async {
                     let _ = signal.await;
@@ -69,7 +68,6 @@ impl CaptureHttpServer {
             state,
             addr,
             shutdown: Some(shutdown),
-            task: Some(task),
         })
     }
 
@@ -92,7 +90,12 @@ impl CaptureHttpServer {
     /// Selects the origin allowed to read local media. Rotating the token
     /// makes URLs issued for the previous server unusable.
     pub async fn set_selected_origin(&self, origin: Option<Url>) -> Result<()> {
-        let normalized = origin.map(normalize_origin).transpose()?;
+        let normalized = origin
+            .map(|origin| {
+                checked_server_origin(origin)
+                    .map(|origin| origin.as_str().trim_end_matches('/').to_string())
+            })
+            .transpose()?;
         let mut access = self
             .state
             .access
@@ -103,17 +106,8 @@ impl CaptureHttpServer {
         Ok(())
     }
 
-    pub async fn shutdown(mut self) {
-        if let Some(signal) = self.shutdown.take() {
-            let _ = signal.send(());
-        }
-        if let Some(task) = self.task.take() {
-            let _ = task.await;
-        }
-    }
-
     fn url_for(&self, kind: &str, id: &str) -> Result<String> {
-        if !valid_id(id) {
+        if !is_capture_id(id) {
             return Err(LibraryError::InvalidPath);
         }
         let token = self
@@ -158,7 +152,7 @@ async fn handle_request(
     if method != Method::GET && method != Method::HEAD {
         return plain_response(StatusCode::METHOD_NOT_ALLOWED, "method not allowed");
     }
-    if !valid_id(&id) {
+    if !is_capture_id(&id) {
         return plain_response(StatusCode::NOT_FOUND, "not found");
     }
 
@@ -379,28 +373,6 @@ fn plain_response(status: StatusCode, message: &str) -> Response {
         .expect("valid error response")
 }
 
-fn normalize_origin(origin: Url) -> Result<String> {
-    if !matches!(origin.scheme(), "http" | "https")
-        || origin.username() != ""
-        || origin.password().is_some()
-        || (!origin.path().is_empty() && origin.path() != "/")
-        || origin.query().is_some()
-        || origin.fragment().is_some()
-    {
-        return Err(LibraryError::InvalidMetadata(
-            "invalid server origin".into(),
-        ));
-    }
-    Ok(origin.to_string().trim_end_matches('/').to_string())
-}
-
 fn new_token() -> String {
     Uuid::new_v4().simple().to_string()
-}
-
-fn valid_id(value: &str) -> bool {
-    (12..=MAX_ID_LENGTH).contains(&value.len())
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
 }

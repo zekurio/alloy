@@ -1,48 +1,12 @@
-import type { AcceptedMediaContentType, UploadTicket } from "@alloy/contracts"
-import { clipStorage, clipStorageForKey } from "@alloy/server/storage/index"
+import type { AcceptedMediaContentType } from "@alloy/contracts"
+import { clipStorageForKey } from "@alloy/server/storage/index"
 
 export function stagedSourceKey(
   recordingId: string,
   contentType: AcceptedMediaContentType,
   uploadAttemptId: string,
 ): string {
-  return `uploads/${recordingId.toLowerCase()}/${uploadAttemptId.toLowerCase()}/source${sourceExtension(contentType)}`
-}
-
-export async function mintStagedUpload(input: {
-  key: string
-  contentType: string
-  maxBytes: number
-  expiresInSec: number
-  userId: string
-  clipId: string
-}): Promise<UploadTicket> {
-  return clipStorage.mintUploadUrl(input)
-}
-
-/**
- * Filesystem tickets are served by this Alloy instance. Return them on the
- * request host, so reverse-proxy aliases stay same-origin. Preserve HTTPS
- * from the configured upload URL when the proxy forwards requests over HTTP.
- * Future external-storage tickets keep their provider URL unchanged.
- */
-export function uploadTicketForRequestOrigin(
-  ticket: UploadTicket,
-  requestUrl: string,
-): UploadTicket {
-  try {
-    const upload = new URL(ticket.uploadUrl)
-    const request = new URL(requestUrl)
-    if (!upload.pathname.startsWith("/api/assets/upload/")) return ticket
-    if (upload.protocol === "https:") request.protocol = "https:"
-    const rebased = new URL(
-      `${upload.pathname}${upload.search}`,
-      request.origin,
-    )
-    return { ...ticket, uploadUrl: rebased.toString() }
-  } catch {
-    return ticket
-  }
+  return `uploads/${recordingId}/${uploadAttemptId}/source${sourceExtension(contentType)}`
 }
 
 export async function resolveStagedUpload(key: string) {

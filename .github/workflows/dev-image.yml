@@ -17,7 +17,6 @@ on:
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
-      - "turbo.json"
       - "scripts/**"
       - ".github/workflows/dev-image.yml"
       - "!**/*.md"

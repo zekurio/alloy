@@ -5,7 +5,7 @@ import type { IsoDateString } from "./shared"
  * Where a webhook delivers. Discord and Fluxer receive a message containing
  * the clip link; "generic" receives a signed JSON envelope.
  */
-export const MESSAGE_WEBHOOK_PROVIDERS = ["discord", "fluxer"] as const
+const MESSAGE_WEBHOOK_PROVIDERS = ["discord", "fluxer"] as const
 export type MessageWebhookProvider = (typeof MESSAGE_WEBHOOK_PROVIDERS)[number]
 
 export const WEBHOOK_PROVIDERS = [
@@ -43,14 +43,14 @@ export const WEBHOOK_EVENT_HEADER = "X-Alloy-Event"
 export const WEBHOOK_DELIVERY_HEADER = "X-Alloy-Delivery"
 export const WEBHOOK_SIGNATURE_HEADER = "X-Alloy-Signature"
 
-export const WebhookProviderSchema = t.enum(WEBHOOK_PROVIDERS)
+const WebhookProviderSchema = t.enum(WEBHOOK_PROVIDERS)
 
 /**
  * A webhook as an admin sees it. Credentials never round-trip: `secret` is
  * reported only as `secretSet`, and a message webhook `url` arrives with its
  * token segment masked, so the list stays identifiable without leaking it.
  */
-export const AdminWebhookRowSchema = t.object({
+const AdminWebhookRowSchema = t.object({
   id: t.string(),
   name: t.string(),
   provider: WebhookProviderSchema,
@@ -67,9 +67,7 @@ export const AdminWebhookRowSchema = t.object({
 
 export type AdminWebhookRow = t.infer<typeof AdminWebhookRowSchema>
 
-export const AdminWebhookRowsSchema = t.array(AdminWebhookRowSchema)
-
-export const AdminWebhookTestResultSchema = t.object({
+const AdminWebhookTestResultSchema = t.object({
   ok: t.boolean(),
   status: t.number().int().nullable(),
   error: t.string().nullable(),

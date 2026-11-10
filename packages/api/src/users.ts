@@ -10,21 +10,8 @@ import type {
 } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
-import {
-  booleanFlagResponseValidator,
-  validateClipRows,
-  validateDeleteClipsResponse,
-  validateDisableAccountResponse,
-  validateProfileGameRows,
-  validatePublicUser,
-  validateReactivateAccountResponse,
-  validateUserProfile,
-  validateUserProfileViewer,
-  validateUserStorageUsage,
-  validateUserSummaries,
-} from "./contract-validators"
 import { blobAsFile } from "./form-file"
-import { readJsonOrThrow } from "./http"
+import { expectOk, readJsonOrThrow } from "./http"
 import { encodedPathSegment, queryParams, resolvePublicUrl } from "./paths"
 
 export type {
@@ -38,7 +25,7 @@ export type {
   UserSearchResult,
   UserStorageUsage,
 } from "@alloy/contracts"
-export { USER_ASSET_PATH_PREFIX, userAssetImagePath } from "@alloy/contracts"
+export { USER_ASSET_PATH_PREFIX } from "@alloy/contracts"
 
 function usernameParam(handle: string) {
   return { username: encodedPathSegment(handle) }
@@ -54,7 +41,7 @@ export function createUsersApi(context: ApiContext) {
     const res = await users.me[kind].upload.$post({
       form: { file: blobAsFile(blob, kind) },
     })
-    return readJsonOrThrow(res, validatePublicUser)
+    return readJsonOrThrow(res)
   }
 
   return {
@@ -66,29 +53,29 @@ export function createUsersApi(context: ApiContext) {
         param: usernameParam(handle),
         query: queryParams({ ...params }),
       })
-      return readJsonOrThrow(res, validateClipRows)
+      return readJsonOrThrow(res)
     },
     uploadAvatar: (blob: Blob) => uploadImage(blob, "avatar"),
     uploadBanner: (blob: Blob) => uploadImage(blob, "banner"),
     async removeAvatar(): Promise<PublicUser> {
       const res = await users.me.avatar.$delete()
-      return readJsonOrThrow(res, validatePublicUser)
+      return readJsonOrThrow(res)
     },
     async removeBanner(): Promise<PublicUser> {
       const res = await users.me.banner.$delete()
-      return readJsonOrThrow(res, validatePublicUser)
+      return readJsonOrThrow(res)
     },
     async fetchProfile(handle: string): Promise<UserProfile> {
       const res = await users[":username"].$get({
         param: usernameParam(handle),
       })
-      return readJsonOrThrow(res, validateUserProfile)
+      return readJsonOrThrow(res)
     },
     async fetchProfileViewer(handle: string): Promise<UserProfileViewer> {
       const res = await users[":username"].viewer.$get({
         param: usernameParam(handle),
       })
-      return readJsonOrThrow(res, validateUserProfileViewer)
+      return readJsonOrThrow(res)
     },
     async fetchProfileGames(
       handle: string,
@@ -98,7 +85,7 @@ export function createUsersApi(context: ApiContext) {
         param: usernameParam(handle),
         query: queryParams({ ...params }),
       })
-      return readJsonOrThrow(res, validateProfileGameRows)
+      return readJsonOrThrow(res)
     },
     async search(
       q: string,
@@ -109,31 +96,31 @@ export function createUsersApi(context: ApiContext) {
         { query: { q, limit: String(limit) } },
         { init: { signal } },
       )
-      return readJsonOrThrow(res, validateUserSummaries)
+      return readJsonOrThrow(res)
     },
     async unblock(handle: string): Promise<void> {
       const res = await users[":username"].block.$delete({
         param: usernameParam(handle),
       })
-      await readJsonOrThrow(res, booleanFlagResponseValidator("blocked", false))
+      await expectOk(res)
     },
     async fetchStorageUsage(): Promise<UserStorageUsage> {
       const res = await users.me.storage.$get()
-      return readJsonOrThrow(res, validateUserStorageUsage)
+      return readJsonOrThrow(res)
     },
     async disableAccount(): Promise<{ disabledAt: string }> {
       const res = await users.me.disable.$post()
-      return readJsonOrThrow(res, validateDisableAccountResponse)
+      return readJsonOrThrow(res)
     },
     async reactivateAccount(): Promise<{ disabledAt: null }> {
       const res = await users.me.reactivate.$post()
-      return readJsonOrThrow(res, validateReactivateAccountResponse)
+      return readJsonOrThrow(res)
     },
     downloadAllClipsUrl: () =>
       resolvePublicUrl("/api/users/me/clips/download", context.publicURL),
     async deleteAllClips(): Promise<{ deleted: number; hasMore: boolean }> {
       const res = await users.me.clips.$delete({ query: {} })
-      return readJsonOrThrow(res, validateDeleteClipsResponse)
+      return readJsonOrThrow(res)
     },
   }
 }

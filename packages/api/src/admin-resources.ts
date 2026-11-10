@@ -14,19 +14,8 @@ import type {
 } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
-import {
-  validateAdminGameRow,
-  validateAdminGameRows,
-  validateAdminUsersResponse,
-  validateAdminUserStorageRow,
-  validateAdminWebhookRow,
-  validateAdminWebhookRows,
-  validateAdminWebhookTestResult,
-  validateSteamGridDBArtworkResponse,
-} from "./contract-validators"
 import { blobAsFile } from "./form-file"
-import { readJsonOrThrow } from "./http"
-import { readDeletedJson, readSuccessJson } from "./mutations"
+import { expectOk, readJsonOrThrow } from "./http"
 
 export type AdminCreateUserInput = {
   username: string
@@ -60,13 +49,13 @@ export function createAdminResourcesApi(context: ApiContext) {
       if (options.limit) query.limit = String(options.limit)
       if (options.search) query.search = options.search
       const res = await admin.users.$get({ query })
-      return readJsonOrThrow(res, validateAdminUsersResponse)
+      return readJsonOrThrow(res)
     },
     async createUser(
       input: AdminCreateUserInput,
     ): Promise<AdminUserStorageRow> {
       const res = await admin.users.$post({ json: input })
-      return readJsonOrThrow(res, validateAdminUserStorageRow)
+      return readJsonOrThrow(res)
     },
     async updateUser(
       userId: string,
@@ -76,15 +65,15 @@ export function createAdminResourcesApi(context: ApiContext) {
         param: { id: userId },
         json: input,
       })
-      return readJsonOrThrow(res, validateAdminUserStorageRow)
+      return readJsonOrThrow(res)
     },
     async deleteUser(userId: string): Promise<void> {
       const res = await admin.users[":id"].$delete({ param: { id: userId } })
-      await readSuccessJson(res)
+      await expectOk(res)
     },
     async fetchGames(): Promise<AdminGameRow[]> {
       const res = await admin.games.$get()
-      return readJsonOrThrow(res, validateAdminGameRows)
+      return readJsonOrThrow(res)
     },
     async createGame(input: AdminCreateGameInput): Promise<AdminGameRow> {
       const form: AdminGameCreateForm = { name: input.name }
@@ -94,7 +83,7 @@ export function createAdminResourcesApi(context: ApiContext) {
       if (input.assets?.logo) form.logo = input.assets.logo
       if (input.assets?.icon) form.icon = input.assets.icon
       const res = await admin.games.$post({ form })
-      return readJsonOrThrow(res, validateAdminGameRow)
+      return readJsonOrThrow(res)
     },
     async fetchGameArtwork(
       gameId: string,
@@ -104,7 +93,7 @@ export function createAdminResourcesApi(context: ApiContext) {
         param: { id: gameId },
         query: { role },
       })
-      return readJsonOrThrow(res, validateSteamGridDBArtworkResponse)
+      return readJsonOrThrow(res)
     },
     async updateGame(
       gameId: string,
@@ -114,11 +103,11 @@ export function createAdminResourcesApi(context: ApiContext) {
         param: { id: gameId },
         json: input,
       })
-      return readJsonOrThrow(res, validateAdminGameRow)
+      return readJsonOrThrow(res)
     },
     async deleteGame(gameId: string): Promise<void> {
       const res = await admin.games[":id"].$delete({ param: { id: gameId } })
-      await readDeletedJson(res)
+      await expectOk(res)
     },
     async uploadGameAsset(
       gameId: string,
@@ -129,15 +118,15 @@ export function createAdminResourcesApi(context: ApiContext) {
         param: { id: gameId, role },
         form: { file: blobAsFile(blob, role) },
       })
-      return readJsonOrThrow(res, validateAdminGameRow)
+      return readJsonOrThrow(res)
     },
     async fetchWebhooks(): Promise<AdminWebhookRow[]> {
       const res = await admin.webhooks.$get()
-      return readJsonOrThrow(res, validateAdminWebhookRows)
+      return readJsonOrThrow(res)
     },
     async createWebhook(input: AdminWebhookInput): Promise<AdminWebhookRow> {
       const res = await admin.webhooks.$post({ json: input })
-      return readJsonOrThrow(res, validateAdminWebhookRow)
+      return readJsonOrThrow(res)
     },
     async updateWebhook(
       webhookId: string,
@@ -147,19 +136,19 @@ export function createAdminResourcesApi(context: ApiContext) {
         param: { id: webhookId },
         json: input,
       })
-      return readJsonOrThrow(res, validateAdminWebhookRow)
+      return readJsonOrThrow(res)
     },
     async deleteWebhook(webhookId: string): Promise<void> {
       const res = await admin.webhooks[":id"].$delete({
         param: { id: webhookId },
       })
-      await readDeletedJson(res)
+      await expectOk(res)
     },
     async testWebhook(webhookId: string): Promise<AdminWebhookTestResult> {
       const res = await admin.webhooks[":id"].test.$post({
         param: { id: webhookId },
       })
-      return readJsonOrThrow(res, validateAdminWebhookTestResult)
+      return readJsonOrThrow(res)
     },
   }
 }

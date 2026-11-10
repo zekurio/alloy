@@ -11,6 +11,7 @@ import {
   TRANSCODE_VIDEO_CODECS,
   TranscodingConfigSchema,
 } from "@alloy/contracts"
+import { env } from "@alloy/server/env"
 import { errorMessage } from "@alloy/server/runtime/error-message"
 
 import {
@@ -22,7 +23,6 @@ import {
 } from "./encoders"
 import { FFMPEG_BATCH_ARGS } from "./ffmpeg"
 import { processFailureKind, runProcess } from "./run-process"
-import { transcodeSettings } from "./transcode-settings"
 
 const PROBE_TIMEOUT_MS = 15_000
 
@@ -66,7 +66,7 @@ export function probeTranscodingCapabilities(options?: {
 async function probeCapabilities(
   vaapiDevice: string,
 ): Promise<TranscodingCapabilities> {
-  const ffmpegPath = transcodeSettings().ffmpegPath
+  const ffmpegPath = env.transcode.ffmpegPath
   const versionResult = await runProbe(ffmpegPath, ["-version"])
   if (versionResult.spawnFailed) {
     return {

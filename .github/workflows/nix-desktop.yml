@@ -1,39 +1,13 @@
 name: nix desktop
 
-# Builds `.#alloy-desktop`, whose Rust and Electron builds take a while, only
-# when its inputs change. The paths are the files `rustFiles`, `shellFiles`,
-# and `appFiles` in nix/desktop.nix select, the Nix files it imports, and the
-# nixpkgs pin. Keep them in step, so that every change to the package is built
-# and Cachix keeps the result.
+# Builds `.#alloy-desktop` on every pull request, unless Cachix already has
+# its output path. Nix derives that path from every input of the package, and
+# a same-repository run pushes it once built, so a pull request that leaves
+# the package as it was spends its time on evaluation only. A plain
+# `nix build` of a cached package would download its closure, over a
+# gigabyte, without building anything.
 on:
   pull_request:
-    paths:
-      - "nix/desktop.nix"
-      - "nix/electron.nix"
-      - "nix/obs-runtime.nix"
-      # The shell installs the server package's pnpm dependencies.
-      - "nix/package.nix"
-      - "nix/pipewire-client.nix"
-      - "nix/pnpm.nix"
-      - "nix/source.nix"
-      - "packages/desktop/**"
-      # The workspace packages the shell bundles.
-      - "packages/contracts/**"
-      - "packages/i18n/**"
-      - "packages/primitives/**"
-      - "packages/ui/**"
-      - "packages/*/package.json"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "public/**"
-      - "flake.nix"
-      - "flake.lock"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - "tsconfig.base.json"
-      - ".github/workflows/nix-desktop.yml"
-      - "!**/*.md"
   workflow_dispatch:
 
 permissions:
@@ -69,4 +43,10 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: build desktop package
-        run: nix build .#alloy-desktop --print-build-logs
+        run: |
+          out="$(nix eval --raw .#alloy-desktop.outPath)"
+          if nix path-info --store https://zekurio.cachix.org "$out" >/dev/null 2>&1; then
+            echo "Cachix already has $out."
+          else
+            nix build .#alloy-desktop --print-build-logs
+          fi

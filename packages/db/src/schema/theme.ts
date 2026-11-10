@@ -26,8 +26,8 @@ export const userTheme = pgTable(
     name: text().notNull(),
     variants: jsonb().$type<UserThemeVariant[]>().notNull(),
     guided: boolean().notNull().default(false),
-    created_at: timestamp().notNull().defaultNow(),
-    updated_at: timestamp().notNull().defaultNow(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     primaryKey({ columns: [t.user_id, t.id] }),

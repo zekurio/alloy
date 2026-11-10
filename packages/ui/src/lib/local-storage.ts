@@ -1,12 +1,10 @@
-import type { ContractJsonInput } from "@alloy/contracts"
-
 interface LocalStorageDriver<Value> {
   read(): Value
   refresh(): Value
   write(value: Value): Value
 }
 
-type LocalStorageNormalizer<Value> = (value: ContractJsonInput) => Value
+type LocalStorageNormalizer<Value> = (value: unknown) => Value
 
 /**
  * Treats one localStorage value as a small config file. Reads normalize in
@@ -16,13 +14,10 @@ type LocalStorageNormalizer<Value> = (value: ContractJsonInput) => Value
 export function createLocalStorageDriver<Value>(
   key: string,
   normalize: LocalStorageNormalizer<Value>,
-  storageOverride?: Storage,
 ): LocalStorageDriver<Value> {
   let sessionValue: Value | null = null
 
   function storage(): Storage | null {
-    if (storageOverride) return storageOverride
-    if (!globalThis.window) return null
     try {
       return window.localStorage
     } catch {
@@ -52,7 +47,7 @@ export function createLocalStorageDriver<Value>(
     const normalized = normalize(value)
     const currentStorage = storage()
     if (!currentStorage) {
-      if (globalThis.window) sessionValue = normalized
+      sessionValue = normalized
       return normalized
     }
 

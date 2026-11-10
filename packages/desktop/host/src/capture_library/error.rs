@@ -30,12 +30,8 @@ pub enum LibraryError {
     Download(String),
     #[error("download was cancelled")]
     DownloadCancelled,
-    #[error("HTTP request is not allowed")]
-    HttpForbidden,
     #[error("HTTP range is not satisfiable")]
     RangeNotSatisfiable,
-    #[error("manifest is invalid")]
-    InvalidManifest,
     #[error("capture manifest is unavailable: {0}")]
     ManifestUnavailable(String),
     #[error(transparent)]

@@ -10,12 +10,15 @@ const DEFAULT_CONNECT_TIMEOUT_MS = 10_000
 const UTC_SESSION_OPTION = "-c TimeZone=UTC"
 
 /**
- * Drizzle writes and reads `timestamp` columns as UTC wall time, but `now()`,
- * column defaults, and casts to `timestamptz` follow the session time zone.
- * Start every session in UTC so a server with another TimeZone setting cannot
- * shift timestamps. This goes in the URL because pg lets connection string
- * parameters override its config, and it comes after any options already
- * there so it wins over a TimeZone set in them.
+ * Every timestamp column is `timestamptz`, so stored instants do not depend on
+ * the session time zone, but their text form does. Drizzle and pg parse that
+ * text with JS `Date`, which cannot read the seconds-precision offsets
+ * PostgreSQL prints for historical dates in many zones (`-04:56:02`), and
+ * `::text` values such as cursors and revisions should not change with the
+ * database's TimeZone. Start every session in UTC so that text always ends in
+ * `+00`. This goes in the URL because pg lets connection string parameters
+ * override its config, and it comes after any options already there so it
+ * wins over a TimeZone set in them.
  */
 function withUtcSessions(databaseUrl: string): string {
   // Env validation already requires a URL. Refuse anything else rather than

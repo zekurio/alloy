@@ -86,7 +86,7 @@ export async function deleteClipRowAndAssets(
       })
       await enqueueStorageDeletions(assetIntents, { tx })
       const stagedIntents = await deleteUploadTicketsWithStorageIntents(
-        { type: "clip", id: row.id },
+        row.id,
         `clip ${row.id} deleted`,
         tx,
       )

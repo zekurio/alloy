@@ -18,8 +18,7 @@ use crate::agent::{
         estimated_replay_buffer_mb, game_capture_hook_poll, game_capture_hook_timeout_message,
         game_capture_source_hooked, game_capture_target_name, output_last_error,
         platform::free_calldata,
-        recording_source_from_kind, release_output_graph, release_video_graph, source_kind,
-        start_game_capture_hook_wait,
+        release_output_graph, release_video_graph, source_kind, start_game_capture_hook_wait,
         types::{GameCaptureHookWait, OutputSourceKind},
         video_config::effective_quality_for_base,
         GameCaptureHookPoll, LibObs,
@@ -28,7 +27,7 @@ use crate::agent::{
     time::timestamp_file_slug,
 };
 use crate::protocol::SIDE_CAR_NAME;
-use crate::types::{RecordingBufferStorage, RecordingCapture, RecordingSettings};
+use crate::types::{RecordingBufferStorage, RecordingSettings};
 
 use super::{
     replay::{
@@ -50,7 +49,6 @@ impl Recorder {
         &mut self,
         settings: &RecordingSettings,
         game: Option<&DetectedGame>,
-        capture: RecordingCapture,
         output_config: ReplayBufferConfig,
     ) -> Result<ActiveSession, String> {
         let source_kind = source_kind(settings);
@@ -257,15 +255,12 @@ impl Recorder {
             output,
             video_encoder,
             audio_encoder,
-            video_encoder_id,
-            audio_encoder_id,
-            video_codec,
             video_graph,
             video_config,
             audio_graph,
             source_kind,
             output_config,
-            capture,
+            game: self.active_game.as_ref().map(|game| game.game.clone()),
             target_game_key: game.map(|game| game.window_key.clone()),
             game_content_expires_at: None,
             game_capture_hook_wait,
@@ -362,7 +357,6 @@ impl Recorder {
             release_video_graph(obs, previous_graph);
         }
         session.source_kind = OutputSourceKind::Display;
-        session.capture.source = recording_source_from_kind(session.source_kind);
         session.game_capture_hook_wait = None;
         eprintln!(
             "[{SIDE_CAR_NAME}] display capture fallback is active for {}.",
@@ -446,7 +440,7 @@ impl Recorder {
                     return move_saved_replay_to_output(
                         &path,
                         output_directory,
-                        self.capture_context_game(&session.capture),
+                        self.capture_context_game(session),
                         duration_seconds,
                         *replay_seconds,
                     );
@@ -459,7 +453,7 @@ impl Recorder {
             return move_saved_replay_to_output(
                 &replay.path.to_string_lossy(),
                 output_directory,
-                self.capture_context_game(&session.capture),
+                self.capture_context_game(session),
                 duration_seconds,
                 *replay_seconds,
             );
@@ -497,7 +491,7 @@ impl Recorder {
         let saved = save_disk_replay_clip(
             scratch_directory,
             output_directory,
-            self.capture_context_game(&session.capture),
+            self.capture_context_game(session),
             replay_seconds,
             &segment.path,
         )?;

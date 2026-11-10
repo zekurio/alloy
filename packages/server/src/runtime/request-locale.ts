@@ -11,7 +11,7 @@ export function requestLocale(c: Context): Locale {
 }
 
 /** Tags ranked by an `Accept-Language` header, most preferred first. */
-export function languagePreferences(header: string | undefined): string[] {
+function languagePreferences(header: string | undefined): string[] {
   if (!header) return []
   return header
     .split(",")

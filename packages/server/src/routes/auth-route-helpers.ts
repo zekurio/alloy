@@ -8,18 +8,13 @@ import type { Context } from "hono"
 import { createMiddleware } from "hono/factory"
 
 export const MUTATING_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"])
-const CSRF_EXEMPT_PATHS = ["/api/assets/upload/"]
-
-function isCsrfExemptPath(path: string): boolean {
-  return CSRF_EXEMPT_PATHS.some((prefix) => path.startsWith(prefix))
-}
 
 function trustedOrigins(): Set<string> {
   return new Set(env.TRUSTED_ORIGINS)
 }
 
 export const csrf = createMiddleware(async (c, next) => {
-  if (!MUTATING_METHODS.has(c.req.method) || isCsrfExemptPath(c.req.path)) {
+  if (!MUTATING_METHODS.has(c.req.method)) {
     await next()
     return
   }

@@ -10,7 +10,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use alloy_desktop::login::BrowserLogin;
-use alloy_desktop::preferences::{DesktopWindowState, PreferencesStore};
 use alloy_desktop::runtime::{CaptureAction, DesktopRuntime, RuntimeOptions, ShortcutDescriptions};
 use alloy_desktop::server::{Server, server_origin};
 use napi::bindgen_prelude::*;
@@ -72,8 +71,8 @@ pub struct PreparedServer {
     pub version: String,
 }
 
-/// Validates a server URL and checks that the server speaks HTTP contract 1
-/// and bridge contract 1 and supports desktop sign-in.
+/// Validates a server URL and checks that the server speaks this build's HTTP
+/// and bridge contracts and has finished setup.
 #[napi]
 pub async fn prepare_server(input: String) -> Result<PreparedServer> {
     let server = Server::new(&input).map_err(reject)?;
@@ -124,91 +123,6 @@ pub async fn verify_update_signature(
         Ok(()) => Ok(true),
         Err(UpdateSignatureError::Invalid) => Ok(false),
         Err(error @ UpdateSignatureError::Unreadable) => Err(reject(error.to_string())),
-    }
-}
-
-#[napi(object)]
-pub struct WindowState {
-    pub width: u32,
-    pub height: u32,
-    pub maximized: bool,
-}
-
-/// Saved servers and window geometry in `preferences.json`.
-#[napi]
-pub struct Preferences {
-    store: PreferencesStore,
-}
-
-#[napi]
-impl Preferences {
-    #[napi(constructor)]
-    pub fn new(state_directory: String) -> Self {
-        Self {
-            store: PreferencesStore::new(state_directory),
-        }
-    }
-
-    #[napi]
-    pub fn servers(&self) -> Result<Value> {
-        serde_json::to_value(self.store.get_servers()).map_err(|error| reject(error.to_string()))
-    }
-
-    #[napi]
-    pub fn current_server(&self) -> Option<String> {
-        self.store.get_current_server()
-    }
-
-    /// Moves a server that passed `prepareServer` to the top of the list.
-    #[napi]
-    pub fn remember_server(&self, server: String, version: String) -> Result<Value> {
-        let servers = self
-            .store
-            .remember_server(&origin(&server)?, &version)
-            .map_err(reject)?;
-        serde_json::to_value(servers).map_err(|error| reject(error.to_string()))
-    }
-
-    #[napi]
-    pub fn forget_server(&self, server: String) -> Result<Value> {
-        let servers = self
-            .store
-            .forget_server(&origin(&server)?)
-            .map_err(reject)?;
-        serde_json::to_value(servers).map_err(|error| reject(error.to_string()))
-    }
-
-    #[napi]
-    pub fn window_state(&self) -> Option<WindowState> {
-        self.store.get_window_state().map(|state| WindowState {
-            width: state.width,
-            height: state.height,
-            maximized: state.maximized,
-        })
-    }
-
-    /// Saves a window size, clamped to what the web app can lay out in. Returns
-    /// the state as stored.
-    #[napi]
-    pub fn remember_window_state(&self, state: WindowState) -> Result<WindowState> {
-        let state = DesktopWindowState::clamped(state.width, state.height, state.maximized);
-        self.store.remember_window_state(state).map_err(reject)?;
-        Ok(WindowState {
-            width: state.width,
-            height: state.height,
-            maximized: state.maximized,
-        })
-    }
-
-    /// Clamps a size the same way `rememberWindowState` does.
-    #[napi]
-    pub fn clamp_window_state(&self, state: WindowState) -> WindowState {
-        let state = DesktopWindowState::clamped(state.width, state.height, state.maximized);
-        WindowState {
-            width: state.width,
-            height: state.height,
-            maximized: state.maximized,
-        }
     }
 }
 
@@ -299,7 +213,7 @@ pub struct Runtime {
 
 /// Opens the capture runtime. `onEvent` receives every event for the
 /// selected server window, already shaped as a bridge `RecordingEvent`.
-#[napi(ts_args_type = "folders: RuntimeFolders, onEvent: (event: unknown) => void")]
+#[napi]
 pub async fn create_runtime(folders: RuntimeFolders, on_event: EventCallback) -> Result<Runtime> {
     let on_event = Arc::new(on_event);
     let sink = Arc::new(move |event: Value| {
@@ -331,7 +245,7 @@ impl Runtime {
     }
 
     /// Runs a `recording.*` bridge operation with the renderer's arguments.
-    #[napi(ts_return_type = "Promise<unknown>")]
+    #[napi]
     pub async fn invoke(&self, operation: String, args_json: String) -> Result<Value> {
         let args = match parse_json(&args_json)? {
             Value::Array(args) => args,
@@ -352,12 +266,12 @@ impl Runtime {
         Ok(path.to_string_lossy().into_owned())
     }
 
-    #[napi(ts_return_type = "Promise<unknown>")]
+    #[napi]
     pub async fn stage_import(&self, path: String) -> Result<Value> {
         self.inner.stage_import(path.into()).await.map_err(reject)
     }
 
-    #[napi(ts_return_type = "Promise<unknown>")]
+    #[napi]
     pub async fn set_output_folder(&self, folder: String) -> Result<Value> {
         self.inner
             .set_output_folder(folder.into())
@@ -365,7 +279,7 @@ impl Runtime {
             .map_err(reject)
     }
 
-    #[napi(ts_return_type = "Promise<unknown>")]
+    #[napi]
     pub async fn download_clip(
         &self,
         server: String,
@@ -381,12 +295,11 @@ impl Runtime {
     }
 
     #[napi]
-    pub fn notification_sounds_folder(&self, event: String) -> Result<String> {
-        let folder = self
-            .inner
-            .notification_sounds_folder(&event)
-            .map_err(reject)?;
-        Ok(folder.to_string_lossy().into_owned())
+    pub fn notification_sounds_folder(&self) -> String {
+        self.inner
+            .notification_sounds_folder()
+            .to_string_lossy()
+            .into_owned()
     }
 
     /// Saves a clip (`"clip"`) or a screenshot (`"screenshot"`). Failures

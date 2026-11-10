@@ -1,6 +1,9 @@
 import { t } from "@alloy/contracts/schema"
 import { requireSession } from "@alloy/server/auth/session"
-import { errorResult } from "@alloy/server/runtime/http-response"
+import {
+  errorResult,
+  type ErrorStatusCode,
+} from "@alloy/server/runtime/http-response"
 import type { UserAssetRole } from "@alloy/server/storage/driver"
 import { assetStorage } from "@alloy/server/storage/index"
 import { imageBodyLimit } from "@alloy/server/uploads/image-body-limit"
@@ -11,7 +14,6 @@ import {
   userAssetLimit,
 } from "@alloy/server/users/user-assets"
 import { type Context, Hono } from "hono"
-import type { ContentfulStatusCode } from "hono/utils/http-status"
 
 import { imageFileError } from "./image-upload"
 import { immutableImageAssetsRoute } from "./immutable-image-assets"
@@ -40,7 +42,7 @@ async function uploadUserAssetResponse(
 
 type UserAssetMutation<U> =
   | { ok: true; user: U }
-  | { ok: false; error: string; status: ContentfulStatusCode }
+  | { ok: false; error: string; status: ErrorStatusCode }
 
 async function respondUserAsset<U>(
   c: Context,

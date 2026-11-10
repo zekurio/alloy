@@ -1,8 +1,7 @@
 # Nix packaging
 
 `flake.nix` exposes the Linux server package, container image, and NixOS
-module, and the Linux desktop app with its own module. The development shell
-lives separately in `devenv.nix`.
+module, the Linux desktop app with its own module, and the development shell.
 
 ## Files
 
@@ -17,8 +16,9 @@ lives separately in `devenv.nix`.
 - `obs-runtime.nix` builds `.#alloy-obs-runtime`, the OBS prefix the Linux
   desktop recorder loads through `ALLOY_OBS_RUNTIME_DIR`: libobs with the
   modules the recorder opens, obs-vkcapture, obs-pipewire-audio-capture, and
-  libpipewire. It copies them out of nixpkgs' OBS, so they come from the
-  binary cache without OBS's UI, browser source, scripting, and VLC source.
+  a link to nixpkgs' libpipewire. It copies the rest out of nixpkgs' OBS, so
+  they come from the binary cache without OBS's UI, browser source,
+  scripting, and VLC source.
   When the recorder opens another module, add it to the runtime's list. Build
   it from the same nixpkgs as the system, since libobs loads the system's
   graphics drivers.
@@ -27,13 +27,10 @@ lives separately in `devenv.nix`.
   bundles from the server package's pnpm dependencies (`alloy-desktop-shell`),
   the OBS runtime, FFmpeg, and the `dev.zekurio.alloy` desktop entry. It ships
   no graphics drivers; those come from the system. `nix flake check` doesn't
-  build it; the `nix desktop` workflow does when its inputs change.
+  build it; the `nix desktop` workflow builds it on every pull request unless
+  Cachix already has that exact output.
 - `electron.nix` fetches the Electron release `packages/desktop/package.json`
-  pins, for the desktop package and the devenv shell.
-- `pipewire-client.nix` copies the PipeWire client that OBS and Electron load
-  out of nixpkgs' PipeWire, without the daemon's plugins and the GStreamer,
-  Bluetooth, and Python they bring in. A client logs the modules and SPA
-  plugins it can't load; add any it needs to the lists there.
+  pins, for the desktop package and the dev shell.
 - `desktop-module.nix` (`nixosModules.desktop`) defines
   `programs.alloy-desktop`, which builds the app from the system's nixpkgs
   and sets up game capture.
@@ -41,11 +38,12 @@ lives separately in `devenv.nix`.
   storage, credentials, and systemd hardening.
 - `module-security-test.nix` checks production-mode and HTTPS enforcement,
   including environment overrides.
-- `dev-dotenv.sh` and `dev-postgres.sh` back the devenv shell hook. The first
-  creates `.env` from `.env.example` with generated local secrets. The second
-  runs the repo-local Postgres on a Unix socket under devenv's runtime
-  directory; `devenv.nix` exposes it as `alloy-postgres start|stop` and
-  `alloy-postgres-stop`.
+- `dev-shell.nix` is the development shell (`nix develop`, or direnv through
+  `.envrc`). It builds from the same nixpkgs as the packages.
+- `dev-dotenv.sh` and `dev-postgres.sh` back its entry hook. The first creates
+  `.env` from `.env.example` with generated local secrets. The second runs
+  the repo-local Postgres from `data/postgres` on a Unix socket under
+  `$XDG_RUNTIME_DIR`; the shell exposes it as `alloy-postgres start|stop`.
 
 The top-level `pnpmConfigHook` uses the pnpm executable in `nativeBuildInputs`.
 `fetchPnpmDeps` receives that same pinned package explicitly. Neither should
@@ -130,11 +128,8 @@ When the Electron pin in `packages/desktop/package.json` changes,
 `nix build .#alloy-desktop` fails with the new release's hash; copy its
 `got: sha256-...` into `electron.nix`.
 
-Keep the nixpkgs inputs in `flake.lock` and `devenv.lock` aligned: run
-`nix flake update nixpkgs` and `devenv update nixpkgs` together. The `devenv`
-workflow fails when the two revisions differ. Pinning pnpm does not pin
-nixpkgs' fetcher implementation, so a nixpkgs update still needs a package
-build.
+Pinning pnpm does not pin nixpkgs' fetcher implementation, so a nixpkgs update
+still needs a package build.
 
 ## Validation
 
@@ -142,14 +137,15 @@ build.
 pnpm verify
 nix flake check
 nix build .#alloy
-devenv test
+nix develop --command pg_isready
 ```
 
 After changing the desktop app, its Cargo workspace, or the Nix files and
 nixpkgs pin it builds from, also run `nix build .#alloy-desktop`.
 
-`devenv test` builds the shell, runs the entry hook and checks that it produced
-`.env` and a reachable Postgres. CI runs it when the devenv files change.
+Entering the dev shell runs its hook, which creates `.env` and starts
+Postgres; `pg_isready` then confirms it answers. The `nix` workflow does the
+same.
 
 On a non-Linux host, `nix flake check` skips the Linux checks. Use
 `nix flake check --all-systems --no-build` to evaluate them, and a Linux

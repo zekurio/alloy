@@ -27,7 +27,7 @@ interface EmptyStateProps extends ComponentProps<typeof Empty> {
 
 interface ContentEmptyStateProps extends Omit<EmptyStateProps, "icon"> {
   /** Stable face selection for the kaomoji. */
-  seed?: string | number
+  seed: string | number
 }
 
 const sizeClasses = {

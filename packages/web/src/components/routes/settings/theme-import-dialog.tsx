@@ -46,9 +46,9 @@ type ImportResult = {
 }
 
 /**
- * Adds themes from Alloy theme files or VS Code color themes, chosen as files
- * or pasted as JSON. Files are added as soon as they're picked; pasted JSON
- * waits for the button.
+ * Adds themes from Alloy theme files, chosen as files or pasted as JSON.
+ * Files are added as soon as they're picked; pasted JSON waits for the
+ * button.
  */
 export function ThemeImportDialog({
   open,
@@ -159,9 +159,7 @@ function ThemeImportForm({ onDone }: { onDone: () => void }) {
       <ResponsiveDialogHeader>
         <ResponsiveDialogTitle>{t("Add a theme")}</ResponsiveDialogTitle>
         <ResponsiveDialogDescription>
-          {t(
-            "Import Alloy theme files or VS Code color themes into your account.",
-          )}
+          {t("Import Alloy theme files into your account.")}
         </ResponsiveDialogDescription>
       </ResponsiveDialogHeader>
       <ResponsiveDialogBody className="flex flex-col gap-4">
@@ -180,7 +178,7 @@ function ThemeImportForm({ onDone }: { onDone: () => void }) {
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">{t("Theme files")}</p>
             <p className="text-foreground-dim text-xs">
-              {t("Drop Alloy or VS Code .json files here.")}
+              {t("Drop Alloy theme .json files here.")}
             </p>
           </div>
           <Button
@@ -196,7 +194,7 @@ function ThemeImportForm({ onDone }: { onDone: () => void }) {
           <input
             ref={fileInput}
             type="file"
-            accept=".json,.jsonc,application/json"
+            accept=".json,application/json"
             multiple
             hidden
             onChange={(event) => {

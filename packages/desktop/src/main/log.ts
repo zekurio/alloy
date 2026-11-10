@@ -40,14 +40,6 @@ export const log = {
     write("error", message, causes),
 }
 
-/** For `.catch`: logs the cause and rejects with the fixed message instead. */
-export function logged(message: string): (cause: Error) => never {
-  return (cause) => {
-    log.warn(`${message} %s`, cause)
-    throw new Error(message)
-  }
-}
-
 /** An `Error` for anything a promise rejected or a callback threw with. */
 export function asError(cause: unknown): Error {
   return cause instanceof Error ? cause : new Error(String(cause))

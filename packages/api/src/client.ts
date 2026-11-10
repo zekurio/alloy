@@ -9,7 +9,7 @@ export interface CreateApiOptions {
   init?: RequestInit
 }
 
-export interface ApiRequestOptions {
+interface ApiRequestOptions {
   method?: string
   query?: Record<string, QueryParamValue>
   json?: unknown
@@ -20,7 +20,7 @@ export interface ApiClient {
   request(path: string, options?: ApiRequestOptions): Promise<Response>
 }
 
-export type RpcClient = ReturnType<typeof hc<AppType>>
+type RpcClient = ReturnType<typeof hc<AppType>>
 
 export interface ApiContext {
   baseURL: string

@@ -1,5 +1,3 @@
-"use client"
-
 import { useEffect, useEffectEvent } from "react"
 
 export function useDocumentEvent<K extends keyof DocumentEventMap>(
@@ -11,7 +9,7 @@ export function useDocumentEvent<K extends keyof DocumentEventMap>(
   const onEvent = useEffectEvent(listener)
 
   useEffect(() => {
-    if (!enabled || !globalThis.document) return
+    if (!enabled) return
 
     const handleEvent = (event: DocumentEventMap[K]) => {
       onEvent(event)

@@ -541,9 +541,7 @@ pub(in crate::agent) fn mux_helper_ready() -> Result<(), String> {
 
 /// Devices from PipeWire. OBS can't list them instead: the device sources
 /// only know their nodes once created.
-pub(in crate::agent) fn platform_audio_devices(
-    _obs: Option<&LibObs>,
-) -> Result<Vec<RecordingAudioDevice>, String> {
+pub(in crate::agent) fn platform_audio_devices() -> Result<Vec<RecordingAudioDevice>, String> {
     let mut devices = audio_devices()?;
     sort_audio_devices(&mut devices);
     Ok(devices)

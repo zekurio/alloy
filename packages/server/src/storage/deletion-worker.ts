@@ -1,25 +1,15 @@
-import type { StorageDeletionNamespace } from "@alloy/db/schema"
+import { storageDeletion } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
-import {
-  thumbnailVariantBase,
-  thumbnailVariantKeys,
-} from "@alloy/server/media/thumbnail-variants"
+import { db } from "@alloy/server/db/index"
 import { errorMessage } from "@alloy/server/runtime/error-message"
 import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-worker"
+import { and, asc, eq, sql } from "drizzle-orm"
 
-import { subscribeStorageDeletionWake } from "./deletion-events"
-import { storageDeletionReference } from "./deletion-references"
-import { runStorageDeletion } from "./deletion-run"
 import {
-  completeStorageDeletion,
-  deferReferencedStorageDeletion,
-  probeStorageDeletionStore,
-  retryStorageDeletion,
-  selectNextStorageDeletion,
-} from "./deletion-store"
-import type { StorageDriver } from "./driver"
-import { assetStorage, clipStorage, clipThumbnailStorage } from "./index"
-import { storageObjectWriteIsActive } from "./write-activity"
+  LIVE_REFERENCE_RECHECK_MS,
+  storageDeletionRetryAt,
+} from "./deletion-policy"
+import { runStorageDeletion } from "./deletion-run"
 
 const logger = createLogger("storage-deletion")
 const RECONCILIATION_INTERVAL_MS = 60_000
@@ -33,7 +23,6 @@ const worker = new WakeableSerialWorker({
 })
 
 let started = false
-let unsubscribeWake: (() => void) | null = null
 
 /**
  * Verify the durable store before the HTTP listener opens, then start the
@@ -42,16 +31,9 @@ let unsubscribeWake: (() => void) | null = null
  */
 export async function startStorageDeletionWorker(): Promise<void> {
   if (started) return
-  const unsubscribe = subscribeStorageDeletionWake(() => worker.wake())
-  try {
-    await probeStorageDeletionStore()
-    worker.start()
-    unsubscribeWake = unsubscribe
-    started = true
-  } catch (cause) {
-    unsubscribe()
-    throw cause
-  }
+  await db.select({ id: storageDeletion.id }).from(storageDeletion).limit(1)
+  worker.start()
+  started = true
 }
 
 export function wakeStorageDeletionWorker(): void {
@@ -61,8 +43,6 @@ export function wakeStorageDeletionWorker(): void {
 export async function stopStorageDeletionWorker(): Promise<void> {
   if (!started) return
   started = false
-  unsubscribeWake?.()
-  unsubscribeWake = null
   await worker.stop()
 }
 
@@ -75,13 +55,7 @@ async function deleteNextPendingObject(signal: AbortSignal) {
 
   const attemptedAt = new Date()
   try {
-    const result = await runStorageDeletion(row, {
-      storage: storageDriver(row.namespace),
-      derivedKeys,
-      isWriteActive,
-      liveReference: storageDeletionReference,
-      signal,
-    })
+    const result = await runStorageDeletion(row, signal)
     if (result === "interrupted") {
       return { worked: false as const, nextRunAt: row.nextAttemptAt }
     }
@@ -109,29 +83,99 @@ async function deleteNextPendingObject(signal: AbortSignal) {
   }
 }
 
-function derivedKeys(namespace: StorageDeletionNamespace, key: string) {
-  return namespace === "thumbnails" ? thumbnailVariantKeys(key) : []
+async function selectNextStorageDeletion() {
+  const [row] = await db
+    .select({
+      id: storageDeletion.id,
+      namespace: storageDeletion.namespace,
+      key: storageDeletion.storage_key,
+      abortUpload: storageDeletion.abort_upload,
+      reason: storageDeletion.reason,
+      sourceType: storageDeletion.source_type,
+      sourceId: storageDeletion.source_id,
+      nextAttemptAt: storageDeletion.next_attempt_at,
+      attempts: storageDeletion.attempts,
+      revision: storageDeletion.revision,
+    })
+    .from(storageDeletion)
+    .orderBy(
+      asc(storageDeletion.next_attempt_at),
+      asc(storageDeletion.created_at),
+    )
+    .limit(1)
+  return row ?? null
 }
 
-/**
- * A thumbnail's variants are written under the thumbnail's own reservation
- * and fence, so a variant waits on writes to its thumbnail too.
- */
-function isWriteActive(namespace: StorageDeletionNamespace, key: string) {
-  const thumbKey = namespace === "thumbnails" ? thumbnailVariantBase(key) : null
-  return (
-    storageObjectWriteIsActive(namespace, key) ||
-    (thumbKey !== null && storageObjectWriteIsActive(namespace, thumbKey))
+type PendingStorageDeletion = NonNullable<
+  Awaited<ReturnType<typeof selectNextStorageDeletion>>
+>
+
+async function completeStorageDeletion(
+  row: Pick<PendingStorageDeletion, "id" | "revision">,
+): Promise<void> {
+  await db
+    .delete(storageDeletion)
+    .where(
+      and(
+        eq(storageDeletion.id, row.id),
+        eq(storageDeletion.revision, row.revision),
+      ),
+    )
+}
+
+async function deferReferencedStorageDeletion(
+  row: Pick<PendingStorageDeletion, "id" | "revision">,
+  checkedAt: Date,
+): Promise<void> {
+  await db
+    .update(storageDeletion)
+    .set({
+      next_attempt_at: new Date(
+        checkedAt.getTime() + LIVE_REFERENCE_RECHECK_MS,
+      ),
+      updated_at: checkedAt,
+    })
+    .where(
+      and(
+        eq(storageDeletion.id, row.id),
+        eq(storageDeletion.revision, row.revision),
+      ),
+    )
+}
+
+function retryStorageDeletion(
+  row: Pick<PendingStorageDeletion, "id" | "revision" | "attempts">,
+  error: string,
+  attemptedAt: Date,
+): Promise<boolean> {
+  return recordStorageDeletionFailure(
+    row,
+    error,
+    storageDeletionRetryAt(row.attempts, attemptedAt),
+    attemptedAt,
   )
 }
 
-function storageDriver(namespace: StorageDeletionNamespace): StorageDriver {
-  switch (namespace) {
-    case "clips":
-      return clipStorage
-    case "thumbnails":
-      return clipThumbnailStorage
-    case "assets":
-      return assetStorage
-  }
+async function recordStorageDeletionFailure(
+  row: Pick<PendingStorageDeletion, "id" | "revision">,
+  error: string,
+  nextAttemptAt: Date,
+  attemptedAt: Date,
+): Promise<boolean> {
+  const updated = await db
+    .update(storageDeletion)
+    .set({
+      attempts: sql`${storageDeletion.attempts} + 1`,
+      last_error: error,
+      next_attempt_at: nextAttemptAt,
+      updated_at: attemptedAt,
+    })
+    .where(
+      and(
+        eq(storageDeletion.id, row.id),
+        eq(storageDeletion.revision, row.revision),
+      ),
+    )
+    .returning({ id: storageDeletion.id })
+  return updated.length > 0
 }

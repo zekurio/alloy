@@ -9,9 +9,7 @@ export type AdminUserEditableFields = {
   storageQuotaBytes: number | null
 }
 
-export function adminUserEditableFields(
-  user: AdminUserRow,
-): AdminUserEditableFields {
+function adminUserEditableFields(user: AdminUserRow): AdminUserEditableFields {
   return {
     role: normalizeRole(user.role),
     storageQuotaBytes: user.storageQuotaBytes,

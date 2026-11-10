@@ -153,7 +153,7 @@ export function MobileActionsRail({
         }
       />
       {canManage || canDownload ? (
-        <Drawer direction="bottom">
+        <Drawer>
           <DrawerTrigger asChild>
             <button
               type="button"

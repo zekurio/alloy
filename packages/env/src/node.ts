@@ -4,7 +4,7 @@ import { dirname, join } from "node:path"
 /**
  * Load the nearest `.env` file, walking up from `startDir` (defaults to the
  * working directory) until the workspace root. Variables already present in
- * the environment always win, so devenv/CI/production shells override the
+ * the environment always win, so the dev shell, CI and production override the
  * file. No-op when no `.env` exists.
  *
  * Node-only (filesystem access); import via `@alloy/env/node` so browser

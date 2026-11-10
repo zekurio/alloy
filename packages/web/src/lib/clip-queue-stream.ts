@@ -11,7 +11,6 @@ import { useEffect } from "react"
 
 import { invalidateClipCaches, patchClipInCaches } from "./clip-query-cache"
 import { clipKeys } from "./clip-query-keys"
-import { apiOrigin } from "./env"
 import { bindEventSourceListeners } from "./event-source-listeners"
 import { recheckSession } from "./session-recheck"
 
@@ -144,7 +143,7 @@ export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
   useEffect(() => {
     if (!enabled) return
 
-    const url = uploadQueueStreamUrl(apiOrigin())
+    const url = uploadQueueStreamUrl(window.location.origin)
     const source = new EventSource(url, { withCredentials: true })
     const removeListeners = bindUploadQueueStream(source, queryClient)
     // `heartbeat` lands as an unhandled event — EventSource ignores it

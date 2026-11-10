@@ -17,13 +17,13 @@ import type { SafeParseResult } from "@alloy/contracts/schema-validation"
 import { OidcSettingsSchema } from "./oidc-schema"
 import type { ConfigOverrides } from "./overrides"
 
-export const AuthSettingsSchema = t.object({
+const AuthSettingsSchema = t.object({
   openRegistrations: t.boolean().$default(false),
   passkeyEnabled: t.boolean().$default(true),
   requireAuthToBrowse: t.boolean().$default(true),
 })
 
-export type AuthSettings = t.infer<typeof AuthSettingsSchema>
+type AuthSettings = t.infer<typeof AuthSettingsSchema>
 
 export interface ConfigSectionValues {
   auth: AuthSettings

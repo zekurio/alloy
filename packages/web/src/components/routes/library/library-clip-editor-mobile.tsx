@@ -36,7 +36,6 @@ import {
   LibraryEntryNavButton,
   type NavigableLibraryEntry,
 } from "./library-entry-navigation"
-import { LibraryHandoffPosterOverlay } from "./library-handoff-poster"
 
 interface MobileClipEditorProps {
   row: ClipRow
@@ -133,10 +132,6 @@ export function MobileClipEditor({
               <LibraryEntryNavButton side="right" target={nextEntry} />
             </>
           )}
-          <LibraryHandoffPosterOverlay
-            poster={media.publishHandoffPoster}
-            ready={media.cloudFrameReady}
-          />
         </MediaStage>
       </div>
 

@@ -64,10 +64,7 @@ function delay(milliseconds: number): Promise<void> {
  * Validates the server, signs in if needed, and opens its window. The
  * bundled connect screen and the in-app server switch both come here.
  */
-export async function connectToServer(
-  host: Host,
-  url: string,
-): Promise<{ serverUrl: string }> {
+export async function connectToServer(host: Host, url: string): Promise<void> {
   const release = host.connecting.tryAcquire()
   if (!release) throw new Error("A server connection is already in progress.")
   const attempt = new AbortController()
@@ -77,34 +74,20 @@ export async function connectToServer(
     const server = await untilCancelled(host.native.prepareServer(url), signal)
     let generation: number
     try {
-      generation = await withSelection(host, () =>
-        installRemote(host, server.origin, null, signal, true),
-      )
+      generation = await installRemote(host, server.origin, null, signal, true)
     } catch (cause) {
       if (!(cause instanceof NoSavedSession)) throw cause
       const token = await browserSignIn(host, server.origin, signal)
       ensureNotCancelled(signal)
-      generation = await withSelection(host, () =>
-        installRemote(host, server.origin, token, signal, true),
-      )
+      generation = await installRemote(host, server.origin, token, signal, true)
     }
     if (signal.aborted) {
       await abandonRemote(host, generation)
       throw new Error(SIGN_IN_CANCELLED)
     }
     rememberConnected(host, server)
-    return { serverUrl: server.origin }
   } finally {
     if (host.cancel === attempt) host.cancel = null
-    release()
-  }
-}
-
-async function withSelection<T>(host: Host, run: () => Promise<T>): Promise<T> {
-  const release = await host.selection.acquire()
-  try {
-    return await run()
-  } finally {
     release()
   }
 }
@@ -236,14 +219,12 @@ async function activateRemote(
 }
 
 async function abandonRemote(host: Host, generation: number): Promise<void> {
-  await withSelection(host, async () => {
-    const session = host.remote
-    if (session?.generation !== generation) return
-    host.clearRemote(generation)
-    await host.runtime?.selectServer(null).catch(() => undefined)
-    session.window.destroy()
-    showConnect(host)
-  })
+  const session = host.remote
+  if (session?.generation !== generation) return
+  host.clearRemote(generation)
+  await host.runtime?.selectServer(null).catch(() => undefined)
+  session.window.destroy()
+  showConnect(host)
 }
 
 /**
@@ -260,7 +241,7 @@ export async function forgetSavedServer(
     allowed()
     const active = host.remote?.origin === origin ? host.remote : null
     if (active) {
-      await withSelection(host, () => clearActiveProfile(host, active))
+      await clearActiveProfile(host, active)
     } else {
       await clearProfile(serverSession(origin), origin)
     }
@@ -321,9 +302,7 @@ export async function restoreSavedServer(
     try {
       // The restore is never cancelled.
       const signal = new AbortController().signal
-      await withSelection(host, () =>
-        installRemote(host, server.origin, null, signal, show),
-      )
+      await installRemote(host, server.origin, null, signal, show)
       rememberConnected(host, server)
       // The connect screen only exists here if it was opened from the tray
       // while the server was still being restored. The user asked for a

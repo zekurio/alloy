@@ -10,8 +10,7 @@ use alloy_desktop::capture_library::protocol::CaptureHttpServer;
 use alloy_desktop::capture_library::store::{CaptureLibrary, CaptureLibraryConfig};
 use alloy_desktop::capture_library::types::{
     CaptureGame, CaptureKind, CaptureRecord, CaptureSource, CommitImport, ExportRequest,
-    ExportSegment, GameGuess, GameGuessMatchKind, GameGuessSource, MetaPatch, PostProcess,
-    TrimUpdate,
+    ExportSegment, MetaPatch, PostProcess, TrimUpdate,
 };
 use alloy_desktop::capture_library::{
     LibraryError, download::DownloadManager, types::DownloadRequest,
@@ -60,8 +59,6 @@ fn capture(filename: &str, kind: CaptureKind) -> CaptureRecord {
             icon_url: Some("https://example.test/icon.png".to_string()),
             window_title: Some("Test".to_string()),
             window_class: None,
-            started_at: Some("2026-01-01T00:00:00Z".to_string()),
-            guess: None,
         }),
         source: CaptureSource::Game,
         kind,
@@ -75,8 +72,8 @@ async fn manifest_keeps_valid_entries_beside_malformed_records() {
     let temp = TempDir::new().unwrap();
     let library = library(&temp);
     let path = temp.path().join("user-data/recording-library.json");
-    // An entry the reader accepts, with a game guess as the recorder reports
-    // it, confidence in percent. Each rejected copy below changes one field.
+    // An entry the reader accepts, with the game guess released builds wrote,
+    // which this build ignores. The rejected copy below changes one field.
     let accepted = serde_json::json!({
         "id": "valid-capture-002",
         "filename": "guess.mp4",
@@ -99,9 +96,6 @@ async fn manifest_keeps_valid_entries_beside_malformed_records() {
     // An enum value no build knows.
     let mut bogus_kind = accepted.clone();
     bogus_kind["kind"] = serde_json::json!("bogus");
-    // A guess past its bounds.
-    let mut overconfident = accepted.clone();
-    overconfident["gameGuess"]["confidence"] = serde_json::json!(250);
     let fixture = serde_json::json!({
         "version": 2,
         "captures": {
@@ -121,8 +115,7 @@ async fn manifest_keeps_valid_entries_beside_malformed_records() {
             "array.mp4": [1, 2, 3],
             "wrong-type.mp4": {"id": 42},
             "invalid.mp4": {"id": "short", "title": "Invalid ID"},
-            "bogus-kind.mp4": bogus_kind,
-            "overconfident.mp4": overconfident
+            "bogus-kind.mp4": bogus_kind
         }
     });
     fs::write(&path, serde_json::to_vec(&fixture).unwrap())
@@ -134,13 +127,7 @@ async fn manifest_keeps_valid_entries_beside_malformed_records() {
         manifest.captures["valid.mp4"].title,
         "Quoted \"title\" with Unicode: 日本語"
     );
-    assert_eq!(
-        manifest.captures["guess.mp4"]
-            .game_guess
-            .as_ref()
-            .map(|guess| guess.confidence),
-        Some(96)
-    );
+    assert_eq!(manifest.captures["guess.mp4"].title, "Guessed game");
     let mut future_version = fixture;
     future_version["version"] = serde_json::json!(255);
     fs::write(&path, serde_json::to_vec(&future_version).unwrap())
@@ -151,6 +138,54 @@ async fn manifest_keeps_valid_entries_beside_malformed_records() {
         .await
         .unwrap();
     assert!(library.read_manifest().captures.is_empty());
+}
+
+#[test]
+fn capture_queue_reads_games_released_builds_wrote() {
+    // `recording-captures.json` from a released build carries the game's
+    // detection time and catalog guess, which this build no longer has.
+    let capture: CaptureRecord = serde_json::from_value(serde_json::json!({
+        "id": "capture-1",
+        "filename": "/tmp/clip.mp4",
+        "contentType": "video/mp4",
+        "sizeBytes": null,
+        "durationMs": 2000,
+        "width": 160,
+        "height": 90,
+        "game": {
+            "id": "game-id",
+            "name": "Test Game",
+            "processId": 42,
+            "executable": "game.exe",
+            "path": null,
+            "iconUrl": null,
+            "windowTitle": null,
+            "windowClass": null,
+            "startedAt": "2026-01-01T00:00:00Z",
+            "guess": {
+                "source": "discord-detectable",
+                "sourceId": "700136079562375258",
+                "name": "Test Game",
+                "aliases": [],
+                "executable": "game.exe",
+                "path": null,
+                "windowTitle": null,
+                "windowClass": null,
+                "iconUrl": null,
+                "confidence": 96,
+                "matchKind": "executable"
+            }
+        },
+        "source": "game",
+        "kind": "replay",
+        "postProcess": null,
+        "createdAt": "2026-01-01T00:00:00Z"
+    }))
+    .expect("released capture reads");
+    assert_eq!(
+        capture.game.map(|game| game.name).as_deref(),
+        Some("Test Game")
+    );
 }
 
 #[tokio::test]
@@ -183,7 +218,6 @@ async fn manifest_uses_renderer_wire_names_and_mutations_are_bounded() {
             title: Some("Edited title".to_string()),
             game_name: Some(Some("Test Game".to_string())),
             game_icon_url: Some(None),
-            game_guess: None,
             description: Some(Some("description".to_string())),
             tags: Some(Some("tag".to_string())),
             mentions: None,
@@ -236,7 +270,6 @@ async fn manifest_uses_renderer_wire_names_and_mutations_are_bounded() {
                 title: None,
                 game_name: None,
                 game_icon_url: None,
-                game_guess: None,
                 description: None,
                 tags: None,
                 mentions: None,
@@ -330,29 +363,8 @@ fn display_capture_with_detected_game_keeps_source_and_game_group() {
     std::fs::write(&source, b"not a real mp4").unwrap();
     let mut record = capture(source.to_str().unwrap(), CaptureKind::Replay);
     record.source = CaptureSource::Display;
-    // The recorder reports confidence in percent, like the host models.
-    let guess = GameGuess {
-        source: GameGuessSource::DiscordDetectable,
-        source_id: Some("700136079562375258".to_string()),
-        name: "Test Game".to_string(),
-        aliases: Vec::new(),
-        executable: Some("game.exe".to_string()),
-        path: None,
-        window_title: None,
-        window_class: None,
-        icon_url: None,
-        confidence: 96,
-        match_kind: GameGuessMatchKind::Executable,
-    };
-    record.game.as_mut().unwrap().guess = Some(guess.clone());
 
     library.remember_capture(&record).unwrap();
-
-    // The host writes the guess the way its reader takes it back.
-    let manifest = library.read_manifest();
-    assert_eq!(manifest.captures.len(), 1);
-    let entry = manifest.captures.into_values().next().unwrap();
-    assert_eq!(entry.game_guess, Some(guess));
 
     let snapshot = library.snapshot().unwrap();
     let item = snapshot.items.first().expect("remembered capture");
@@ -678,7 +690,6 @@ async fn manifest_writes_refuse_a_manifest_they_could_not_read() {
             title: Some("Kept".to_string()),
             game_name: None,
             game_icon_url: None,
-            game_guess: None,
             description: None,
             tags: None,
             mentions: None,
@@ -804,7 +815,6 @@ async fn loopback_server_streams_ranges_and_rotates_tokens() {
         response.headers()["access-control-allow-origin"],
         "https://alloy.example"
     );
-    server.shutdown().await;
 }
 
 #[tokio::test]
@@ -852,7 +862,6 @@ async fn loopback_streams_large_files_and_ranges_across_buffer_boundaries() {
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     assert_eq!(response.content_length(), Some(0));
     assert!(response.bytes().await.unwrap().is_empty());
-    server.shutdown().await;
 }
 
 #[tokio::test]
@@ -2105,7 +2114,7 @@ async fn posters_carry_a_blur_hash_into_the_snapshot() {
         "image/jpeg"
     );
     assert_eq!(jpeg_size(&response.bytes().await.unwrap()), (1280, 720));
-    server.shutdown().await;
+    drop(server);
 
     // Filing the display screenshot under a game moves the file but keeps
     // its id, so the poster and BlurHash stay with it.
@@ -2120,7 +2129,6 @@ async fn posters_carry_a_blur_hash_into_the_snapshot() {
             title: None,
             game_name: Some(Some("Test Game".to_string())),
             game_icon_url: None,
-            game_guess: None,
             description: None,
             tags: None,
             mentions: None,
@@ -2215,7 +2223,6 @@ async fn screenshots_stand_in_for_posters_they_cannot_get() {
         response.bytes().await.unwrap().as_ref(),
         fs::read(&shot).await.unwrap()
     );
-    server.shutdown().await;
 }
 
 #[tokio::test]
@@ -2294,7 +2301,7 @@ async fn a_new_file_at_a_capture_drops_the_old_poster() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(jpeg_size(&response.bytes().await.unwrap()), (640, 360));
-    server.shutdown().await;
+    drop(server);
     assert!(
         library.snapshot().unwrap().items[0]
             .thumb_blur_hash

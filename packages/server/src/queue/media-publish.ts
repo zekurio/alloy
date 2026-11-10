@@ -25,11 +25,7 @@ export async function publishOriginalSource({
   contentType: string
   probe: MediaProbe
 }): Promise<SourceAsset> {
-  const { size } = await clipStorage.uploadFromFile(
-    sourcePath,
-    sourceKey,
-    contentType,
-  )
+  const { size } = await clipStorage.uploadFromFile(sourcePath, sourceKey)
   return {
     storageKey: sourceKey,
     contentType,

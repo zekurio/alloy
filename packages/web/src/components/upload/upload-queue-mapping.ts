@@ -7,7 +7,6 @@ import { stableHue } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 
 import type { RecordingLibraryDownload } from "@/lib/desktop"
-import { apiOrigin } from "@/lib/env"
 import { formatBytes } from "@/lib/storage-format"
 
 import type { DeferredPublishPayload, PublishPayload } from "./new-clip-helpers"
@@ -173,8 +172,8 @@ export function downloadToQueueItem(
     label,
     detail,
     hue: stableHue(download.clipId),
-    thumbUrl: clipThumbnailUrl(download.clipId, apiOrigin()),
-    thumbSrcSet: clipThumbnailSrcSet(download.clipId, apiOrigin()),
+    thumbUrl: clipThumbnailUrl(download.clipId, window.location.origin),
+    thumbSrcSet: clipThumbnailSrcSet(download.clipId, window.location.origin),
     onCancel: handlers.onCancel,
     onOpen: handlers.onOpen,
     onDismiss: handlers.onDismiss,
@@ -193,12 +192,20 @@ interface ServerRowHandlers {
 
 function queueThumbnailUrl(row: QueueClip): string | null {
   if (!row.hasThumb) return null
-  return clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
+  return clipThumbnailUrl(
+    row.id,
+    window.location.origin,
+    row.thumbVersion ?? undefined,
+  )
 }
 
 function queueThumbnailSrcSet(row: QueueClip): string | null {
   if (!row.hasThumb) return null
-  return clipThumbnailSrcSet(row.id, apiOrigin(), row.thumbVersion ?? undefined)
+  return clipThumbnailSrcSet(
+    row.id,
+    window.location.origin,
+    row.thumbVersion ?? undefined,
+  )
 }
 
 export function serverToQueueItem(

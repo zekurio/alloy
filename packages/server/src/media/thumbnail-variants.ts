@@ -3,7 +3,7 @@ import {
   type ClipThumbnailWidth,
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
-import type { StorageDriver } from "@alloy/server/storage/driver"
+import type { FsStorageDriver } from "@alloy/server/storage/fs-driver"
 
 import { loadSharp } from "./sharp"
 
@@ -46,11 +46,11 @@ export function parseClipThumbnailWidth(
  * thumbnail, so that reservation covers the variants too.
  */
 export async function putClipThumbnail(
-  storage: StorageDriver,
+  storage: FsStorageDriver,
   thumbKey: string,
   jpeg: Buffer,
 ): Promise<void> {
-  await storage.put(thumbKey, jpeg, "image/jpeg")
+  await storage.put(thumbKey, jpeg)
   await putThumbnailVariants(storage, thumbKey, jpeg)
 }
 
@@ -58,11 +58,11 @@ export async function putClipThumbnail(
  * Best effort: the thumbnail route serves the JPEG for a missing variant, so a
  * failure here only costs bandwidth, never the thumbnail.
  */
-export async function putThumbnailVariants(
-  storage: StorageDriver,
+async function putThumbnailVariants(
+  storage: FsStorageDriver,
   thumbKey: string,
   jpeg: Buffer,
-): Promise<boolean> {
+): Promise<void> {
   try {
     const sharp = await loadSharp()
     const image = sharp(jpeg)
@@ -72,15 +72,9 @@ export async function putThumbnailVariants(
         .resize({ width, withoutEnlargement: true })
         .webp({ quality: VARIANT_QUALITY })
         .toBuffer()
-      await storage.put(
-        thumbnailVariantKey(thumbKey, width),
-        bytes,
-        "image/webp",
-      )
+      await storage.put(thumbnailVariantKey(thumbKey, width), bytes)
     }
-    return true
   } catch (cause) {
     logger.warn(`could not write thumbnail variants for ${thumbKey}:`, cause)
-    return false
   }
 }

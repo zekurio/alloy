@@ -1,5 +1,5 @@
 import type { AlloyDesktop } from "@alloy/contracts/desktop-bridge"
-import { DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
+import { DESKTOP_BRIDGE_CONTRACT } from "@alloy/contracts/desktop-bridge-contract"
 
 export type { AlloyDesktop } from "@alloy/contracts/desktop-bridge"
 
@@ -27,7 +27,7 @@ export function alloyDesktop(): AlloyDesktop | null {
   // SAFETY: The optional host property is checked by the runtime contract ID
   // before it is returned to web code.
   const host = globalThis as { alloyDesktop?: AlloyDesktop }
-  return host.alloyDesktop?.bridgeContract === DESKTOP_BRIDGE_CONTRACT_1
+  return host.alloyDesktop?.bridgeContract === DESKTOP_BRIDGE_CONTRACT
     ? host.alloyDesktop
     : null
 }

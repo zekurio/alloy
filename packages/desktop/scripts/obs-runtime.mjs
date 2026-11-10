@@ -11,7 +11,7 @@ import {
 import { basename, dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-export const packageDir = fileURLToPath(new URL("../", import.meta.url))
+const packageDir = fileURLToPath(new URL("../", import.meta.url))
 export const workspaceDir = resolve(packageDir, "../..")
 export const cacheDir = join(packageDir, ".cache")
 export const resourcesDir = join(packageDir, "resources")
@@ -50,7 +50,7 @@ export function stageObsHelpers() {
 }
 
 export function pruneObsRuntime() {
-  // Modules loaded by the sidecar (see platform_modules in recorder/src/agent/obs/platform.rs).
+  // Modules loaded by the sidecar (see platform_modules in recorder/src/agent/obs/platform/windows.rs).
   const keptObsModules = [
     "obs-ffmpeg",
     "obs-outputs",
@@ -154,7 +154,7 @@ export function normalizeObsRuntimeDir(candidate) {
   return null
 }
 
-export function hasObsDll(candidate) {
+function hasObsDll(candidate) {
   return existsSync(join(candidate, "obs.dll"))
 }
 

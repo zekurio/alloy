@@ -11,9 +11,7 @@
   "dependencies": {
     "@alloy/api": "workspace:*",
     "@alloy/contracts": "workspace:*",
-    "@alloy/env": "workspace:*",
     "@alloy/i18n": "workspace:*",
-    "@alloy/primitives": "workspace:*",
     "@alloy/ui": "workspace:*",
     "@base-ui/react": "1.9.0",
     "@tailwindcss/vite": "4.3.3",

@@ -1,4 +1,8 @@
 import { normalizeBlurHash, type TranscodingConfig } from "@alloy/contracts"
+import {
+  publishClipProgress,
+  publishClipUpsert,
+} from "@alloy/server/clips/events"
 import { trimShowsFrame } from "@alloy/server/clips/trim-range"
 import {
   encodeFingerprint,
@@ -7,6 +11,15 @@ import {
 } from "@alloy/server/media/encode-fingerprint"
 import { probeMedia, sourceCodecsString } from "@alloy/server/media/probe"
 
+import {
+  beginProcessing,
+  commitPlayable,
+  commitProgress,
+  commitSource,
+  commitStage,
+  commitThumb,
+} from "./clip-media-store"
+import { commitClipMediaReady } from "./clip-media-store-ready"
 import { abortMediaProcessing } from "./media-abort"
 import {
   FINALIZE_PHASE_COST,
@@ -37,7 +50,6 @@ import type {
   MediaCompletion,
   MediaRow,
   MediaSourcePatch,
-  MediaStore,
   MediaThumbPatch,
 } from "./media-store"
 
@@ -49,7 +61,6 @@ export { runThumbnailBackfill } from "./media-thumbnail-backfill"
  * finishes the encode ladder under the same lease.
  */
 export async function runMediaProcessing(
-  store: MediaStore,
   id: string,
   row: MediaRow,
   runId: string,
@@ -60,11 +71,10 @@ export async function runMediaProcessing(
   },
 ): Promise<void> {
   if (row.sourceContentType?.startsWith("image/")) {
-    return runImageProcessing(store, id, row, runId, signal, options.completion)
+    return runImageProcessing(id, row, runId, signal, options.completion)
   }
   await withMediaRunWorkspace(
     {
-      store,
       id,
       runId,
       row,
@@ -72,7 +82,6 @@ export async function runMediaProcessing(
     },
     async (workspace) => {
       await runPipelineInWorkDir({
-        store,
         id,
         row,
         runId,
@@ -91,7 +100,6 @@ export async function runMediaProcessing(
 }
 
 async function runPipelineInWorkDir({
-  store,
   id,
   row,
   runId,
@@ -103,7 +111,6 @@ async function runPipelineInWorkDir({
   retainSourceAsset,
   retainPublishedKey,
 }: {
-  store: MediaStore
   id: string
   row: MediaRow
   runId: string
@@ -120,7 +127,6 @@ async function runPipelineInWorkDir({
     throw new Error("Recording is missing source content type")
 
   const sourcePath = await acquireSourceFile({
-    store,
     id,
     runId,
     row,
@@ -128,10 +134,10 @@ async function runPipelineInWorkDir({
     workDir,
     signal,
   })
-  await ensureStillPresent(store, id, runId, signal)
+  await ensureStillPresent(id, runId, signal)
 
-  if (!(await store.beginProcessing(id, runId))) throw abortMediaProcessing()
-  if (!(await store.commitStage(id, runId, "processing")))
+  if (!(await beginProcessing(id, runId))) throw abortMediaProcessing()
+  if (!(await commitStage(id, runId, "processing")))
     throw abortMediaProcessing()
 
   const sourceProbe = await probeMedia(sourcePath)
@@ -154,7 +160,7 @@ async function runPipelineInWorkDir({
       hardwareFailed = true
     },
   })
-  await ensureStillPresent(store, id, runId, signal)
+  await ensureStillPresent(id, runId, signal)
 
   const durationMs = cut.durationMs ?? sourceProbe.durationMs
   const sourceFps = persistedSourceFps(sourceProbe.fps)
@@ -168,8 +174,8 @@ async function runPipelineInWorkDir({
 
   const writeProgress = makeMediaProgressWriter({
     id,
-    commit: (pct) => store.commitProgress(id, runId, pct),
-    onCommitted: (pct) => store.publishProgress(row.authorId, id, pct),
+    commit: (pct) => commitProgress(id, runId, pct),
+    onCommitted: (pct) => publishClipProgress(row.authorId, id, pct),
   })
   const progress = makeEncodeProgressTracker(ladder, writeProgress)
 
@@ -205,7 +211,7 @@ async function runPipelineInWorkDir({
     cut,
     durationMs,
   })
-  const sourceCommitted = await store.commitSource(id, runId, sourcePatch)
+  const sourceCommitted = await commitSource(id, runId, sourcePatch)
   if (!sourceCommitted) {
     throw abortMediaProcessing()
   }
@@ -214,7 +220,7 @@ async function runPipelineInWorkDir({
   if (cut.key) retainPublishedKey(cut.key)
   progress.complete(SOURCE_PHASE_COST)
 
-  await ensureStillPresent(store, id, runId, signal)
+  await ensureStillPresent(id, runId, signal)
   // Publish the poster before the encode ladder so viewers see a real
   // thumbnail for the whole encode instead of only the BlurHash. A poster the
   // owner picked stays while the cut still shows its frame. Otherwise
@@ -241,21 +247,20 @@ async function runPipelineInWorkDir({
   const thumbFailedAt =
     poster?.kind === "permanent-empty" ? new Date() : undefined
   if (
-    !(await store.commitThumb(id, runId, {
+    !(await commitThumb(id, runId, {
       ...thumb,
       thumbFailedAt,
     }))
   )
     throw abortMediaProcessing()
   // Reprocess runs keep old renditions until commitReady swaps them.
-  if (!row.sourceKey && !(await store.commitPlayable(id, runId)))
+  if (!row.sourceKey && !(await commitPlayable(id, runId)))
     throw abortMediaProcessing()
   if (thumbKey) retainPublishedKey(thumbKey)
-  store.publishUpsert(row.authorId, id)
+  void publishClipUpsert(row.authorId, id)
   progress.complete(POSTER_PHASE_COST)
 
   const renditions = await encodeAndUploadRenditions({
-    store,
     id,
     runId,
     signal,
@@ -270,10 +275,10 @@ async function runPipelineInWorkDir({
     progress,
   })
 
-  await ensureStillPresent(store, id, runId, signal)
-  if (!(await store.commitStage(id, runId, "finalizing")))
+  await ensureStillPresent(id, runId, signal)
+  if (!(await commitStage(id, runId, "finalizing")))
     throw abortMediaProcessing()
-  const committed = await store.commitReady(
+  const committed = await commitClipMediaReady(
     id,
     runId,
     {
@@ -287,7 +292,7 @@ async function runPipelineInWorkDir({
   )
   if (!committed) throw abortMediaProcessing()
   progress.complete(FINALIZE_PHASE_COST)
-  store.publishUpsert(row.authorId, id)
+  void publishClipUpsert(row.authorId, id)
 }
 
 /** The poster the owner picked, while the cut still shows its frame. */

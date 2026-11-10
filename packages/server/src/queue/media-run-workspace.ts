@@ -5,9 +5,10 @@ import { clipKeyDeletionNamespace } from "@alloy/server/storage/clip-key"
 import { enqueueUnownedMediaAssets } from "@alloy/server/storage/media-deletion"
 import { reserveStorageWrites } from "@alloy/server/storage/write-reservation"
 
+import { currentAssetKeys, runStillPresent } from "./clip-media-store"
 import { abortMediaProcessing } from "./media-abort"
 import { makeMediaWorkDir } from "./media-run-helpers"
-import type { MediaRow, MediaStore } from "./media-store"
+import type { MediaRow } from "./media-store"
 
 const logger = createLogger("queue")
 
@@ -39,7 +40,6 @@ type MediaRunWorkspace = {
 
 export async function withMediaRunWorkspace(
   options: {
-    store: MediaStore
     id: string
     runId: string
     row: MediaRow
@@ -62,7 +62,7 @@ export async function withMediaRunWorkspace(
   try {
     await run({ workDir, uploadedKeys, retainedKeys })
   } catch (err) {
-    await retainRowAssetKeys(options.store, options.id, retainedKeys)
+    await retainRowAssetKeys(options.id, retainedKeys)
     await enqueueUnownedMediaAssets({
       keys: new Set(uploadedKeys.keys),
       retainedKeys,
@@ -81,13 +81,12 @@ export async function withMediaRunWorkspace(
 }
 
 export async function ensureStillPresent(
-  store: MediaStore,
   id: string,
   runId: string,
   signal: AbortSignal,
 ): Promise<void> {
   signal.throwIfAborted()
-  if (await store.stillPresent(id, runId)) return
+  if (await runStillPresent(id, runId)) return
   throw abortMediaProcessing()
 }
 
@@ -97,12 +96,11 @@ export async function ensureStillPresent(
  * still safe to enqueue because every generated key is scoped to this run.
  */
 async function retainRowAssetKeys(
-  store: MediaStore,
   id: string,
   retainedKeys: Set<string>,
 ): Promise<void> {
   try {
-    const fresh = await store.currentAssetKeys(id)
+    const fresh = await currentAssetKeys(id)
     if (fresh?.sourceKey) retainedKeys.add(fresh.sourceKey)
     if (fresh?.waveformKey) retainedKeys.add(fresh.waveformKey)
     if (fresh?.cutKey) retainedKeys.add(fresh.cutKey)

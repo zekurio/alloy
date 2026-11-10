@@ -51,7 +51,7 @@ function UserMenuInner({ className }: { className?: string }) {
     return (
       <Link
         to="/login"
-        className={buttonVariants({ variant: "ghost", size: "md", className })}
+        className={buttonVariants({ variant: "ghost", className })}
       >
         <LogInIcon />
         {t("Sign in")}
@@ -91,7 +91,7 @@ function UserMenuInner({ className }: { className?: string }) {
     // A bottom sheet within thumb reach, like the clip actions sheet, rather
     // than a small menu pinned to the top corner.
     return (
-      <Drawer direction="bottom" open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Drawer open={sheetOpen} onOpenChange={setSheetOpen}>
         <DrawerTrigger asChild>{trigger}</DrawerTrigger>
         <DrawerContent className={mobileDrawerContentClass}>
           <MobileDrawerHandle />

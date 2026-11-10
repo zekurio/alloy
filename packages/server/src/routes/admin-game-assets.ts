@@ -4,7 +4,6 @@ import { gameAssetImagePath, type GameAssetRole } from "@alloy/contracts"
 import { game } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
-import { db } from "@alloy/server/db/index"
 import { GAME_ASSET_ROUTE_KEY_RE } from "@alloy/server/games/game-asset-deletion"
 import {
   imageBlurHash,
@@ -12,18 +11,13 @@ import {
 } from "@alloy/server/media/blurhash"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { loadSharp } from "@alloy/server/media/sharp"
-import { prewriteAssetDeletionIntent } from "@alloy/server/storage/deletion-producers"
-import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
+import type { ErrorStatusCode } from "@alloy/server/runtime/http-response"
 import { assetStorage } from "@alloy/server/storage/index"
-import { withStorageObjectWriteActivity } from "@alloy/server/storage/write-activity"
-import type { ContentfulStatusCode } from "hono/utils/http-status"
 
 import { imageFileError } from "./image-upload"
 import { immutableImageAssetsRoute } from "./immutable-image-assets"
 
 const logger = createLogger("admin-games")
-
-const GAME_ASSET_CONTENT_TYPE = "image/webp"
 
 // Standardized output sizes. Hero/grid are cropped to a fixed frame; logo and
 // icon keep their aspect ratio and transparency (no flatten).
@@ -54,7 +48,7 @@ const GAME_ASSET_BLUR_COLUMN = new Map<
 
 export type PreparedGameAsset =
   | { ok: true; bytes: Buffer; blurHash: string | null }
-  | { ok: false; status: ContentfulStatusCode; error: string }
+  | { ok: false; status: ErrorStatusCode; error: string }
 
 export async function prepareGameAsset(
   role: GameAssetRole,
@@ -129,32 +123,6 @@ export function clearedGameAssetColumns(
   return patch
 }
 
-export function withGameAssetWriteFences<T>(
-  keys: readonly string[],
-  operation: () => Promise<T>,
-  index = 0,
-): Promise<T> {
-  const key = keys[index]
-  return key
-    ? withStorageObjectWriteActivity("assets", key, () =>
-        withGameAssetWriteFences(keys, operation, index + 1),
-      )
-    : operation()
-}
-
-export async function enqueueGameAssetCleanupNow(
-  writes: readonly { key: string; attemptId: string }[],
-  reason: string,
-): Promise<void> {
-  if (writes.length === 0) return
-  await db.transaction(async (tx) => {
-    await enqueueStorageDeletions(
-      writes.map((write) => prewriteAssetDeletionIntent({ ...write, reason })),
-      { tx, runAt: new Date() },
-    )
-  })
-}
-
 async function processGameAsset(
   role: GameAssetRole,
   bytes: Buffer,
@@ -184,5 +152,3 @@ export const gameAssetsRoute = immutableImageAssetsRoute(
   assetStorage,
   GAME_ASSET_ROUTE_KEY_RE,
 )
-
-export { GAME_ASSET_CONTENT_TYPE }

@@ -93,10 +93,9 @@ impl Recorder {
     pub(in crate::agent) fn save_screenshot(&mut self) -> RecordingActionResult {
         match self.capture_screenshot() {
             Ok(capture) => {
-                self.last_capture = Some(capture.clone());
                 let status = self.status();
                 emit_event(RecordingEvent::CaptureReady {
-                    capture: capture.clone(),
+                    capture: Box::new(capture.clone()),
                     status: status.clone(),
                 });
                 RecordingActionResult {
@@ -125,7 +124,7 @@ impl Recorder {
             .output_folder
             .as_ref()
             .ok_or("Capture folder is unavailable.")?;
-        let game = self.capture_context_game(&session.capture);
+        let game = self.capture_context_game(session);
         let directory = root
             .join("Screenshots")
             .join(recording_context_folder(game));
@@ -147,7 +146,7 @@ impl Recorder {
             width: Some(width),
             height: Some(height),
             game: game.cloned(),
-            source: session.capture.source,
+            source: session.source(),
             kind: RecordingCaptureKind::Screenshot,
             post_process: None,
             created_at: now_iso(),

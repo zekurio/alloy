@@ -10,11 +10,11 @@ export function searchString(cause: unknown): string | undefined {
 }
 
 /**
- * A presence flag. Any non-empty value counts, so URLs from older servers that
- * put the provider ID in the flag (`link=oidc`, `welcome=oidc`) still set it.
+ * A flag the server writes as `=true`. The router JSON-parses query values,
+ * so it usually arrives as a boolean.
  */
 export function searchFlag(cause: unknown): boolean {
-  return cause === true || searchString(cause) !== undefined
+  return cause === true || cause === "true"
 }
 
 export function searchEnum<T extends string>(

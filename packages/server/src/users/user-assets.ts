@@ -10,14 +10,16 @@ import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { loadSharp } from "@alloy/server/media/sharp"
 import { prewriteAssetDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import {
-  cancelStorageDeletion,
   enqueueStorageDeletion,
   enqueueStorageDeletions,
 } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import type { UserAssetRole } from "@alloy/server/storage/driver"
 import { assetStorage, versionedAssetKey } from "@alloy/server/storage/index"
-import { withStorageObjectWriteActivity } from "@alloy/server/storage/write-activity"
+import {
+  adoptStorageWrites,
+  withReservedStorageWrites,
+} from "@alloy/server/storage/write-reservation"
 import { eq, getTableColumns, sql } from "drizzle-orm"
 
 import { toPublicUser } from "../routes/users-helpers"
@@ -28,10 +30,6 @@ import {
 
 const logger = createLogger("users")
 
-const USER_ASSET_CONTENT_TYPE = "image/webp"
-// The active-write fence provides correctness. This short delay merely avoids
-// waking the worker during the normal small-image upload/attach path.
-export const PREWRITE_DELETION_DELAY_MS = 60 * 1000
 const USER_ASSET_TARGETS = {
   avatar: { width: 512, height: 512 },
   banner: { width: 1500, height: 375 },
@@ -133,116 +131,104 @@ export async function uploadUserAsset(input: {
 
   const attemptId = randomUUID()
   const key = versionedAssetKey(input.userId, input.role, attemptId)
-  let wakeAfterWrite = false
-  try {
-    return await withStorageObjectWriteActivity("assets", key, async () => {
-      await enqueueStorageDeletion(
-        prewriteAssetDeletionIntent({ key, attemptId }),
-        { runAt: new Date(Date.now() + PREWRITE_DELETION_DELAY_MS) },
-      )
-
-      let cleanupReason = "user asset upload failed"
-      try {
-        await assetStorage.put(key, resized, USER_ASSET_CONTENT_TYPE)
-        cleanupReason = "user asset swap failed"
-        const transactionResult = await db.transaction(
-          async (
-            tx,
-          ): Promise<{
-            result: UserAssetUpdateResult
-            queuedDeletions: number
-          }> => {
-            const [locked] = await tx
-              .select({
-                row: getTableColumns(user),
-                revision: sql<string>`${user.updated_at}::text`,
-              })
-              .from(user)
-              .where(eq(user.id, input.userId))
-              .limit(1)
-              .for("update")
-            if (!locked) {
-              return rejectUserAssetUpload(
-                tx,
-                key,
-                "user row missing after asset upload",
-                attemptId,
-                missingUserResult(),
-              )
-            }
-
-            const column = USER_ASSET_COLUMN[input.role]
-            if (
-              !userAssetConditionalUploadMatches(
-                locked.row[column],
-                locked.revision,
-                input.expected,
-              )
-            ) {
-              return rejectUserAssetUpload(
-                tx,
-                key,
-                "conditional user asset upload rejected",
-                attemptId,
-                { ok: true, user: toPublicUser(locked.row) },
-              )
-            }
-
-            const previousUrl = locked.row[column]
-            const updatedAt = new Date()
-            const patch: Partial<typeof user.$inferInsert> = {
-              updated_at: updatedAt,
-            }
-            patch[column] = userAssetImagePath(key, updatedAt)
-            const [updated] = await tx
-              .update(user)
-              .set(patch)
-              .where(eq(user.id, input.userId))
-              .returning()
-            if (!updated) {
-              return rejectUserAssetUpload(
-                tx,
-                key,
-                "user asset update rejected",
-                attemptId,
-                missingUserResult(),
-              )
-            }
-
-            // The pointer and reservation change atomically. An uncertain commit
-            // is still safe: re-enqueueing below is blocked by the live reference.
-            await cancelStorageDeletion("assets", key, { tx })
-            const displaced = userAssetDeletionIntents({
-              userId: input.userId,
-              role: input.role,
-              previousUrl,
-              retainedKey: key,
-              reason: `${input.role} replaced`,
-              source: { type: "user-asset", id: input.userId },
+  const writes = [{ namespace: "assets", key }] as const
+  // Reserved before the upload and fenced until the swap commits. If either
+  // fails, or the process dies in between, the reservation deletes the
+  // object unless a row points at it.
+  const transactionResult = await withReservedStorageWrites(
+    writes,
+    attemptId,
+    async () => {
+      await assetStorage.put(key, resized)
+      return db.transaction(
+        async (
+          tx,
+        ): Promise<{
+          result: UserAssetUpdateResult
+          queuedDeletions: number
+        }> => {
+          const [locked] = await tx
+            .select({
+              row: getTableColumns(user),
+              revision: sql<string>`${user.updated_at}::text`,
             })
-            await enqueueStorageDeletions(displaced, { tx })
-            return {
-              result: { ok: true, user: toPublicUser(updated) },
-              queuedDeletions: displaced.length,
-            }
-          },
-        )
-        wakeAfterWrite ||= transactionResult.queuedDeletions > 0
-        return transactionResult.result
-      } catch (cause) {
-        wakeAfterWrite = true
-        await enqueueUserAssetCleanupNow({
-          key,
-          reason: cleanupReason,
-          attemptId,
-        })
-        throw cause
-      }
-    })
-  } finally {
-    // Never wake an immediately-due cleanup until its writer fence is gone.
-    if (wakeAfterWrite) wakeStorageDeletionWorker()
-  }
+            .from(user)
+            .where(eq(user.id, input.userId))
+            .limit(1)
+            .for("update")
+          if (!locked) {
+            return rejectUserAssetUpload(
+              tx,
+              key,
+              "user row missing after asset upload",
+              attemptId,
+              missingUserResult(),
+            )
+          }
+
+          const column = USER_ASSET_COLUMN[input.role]
+          if (
+            !userAssetConditionalUploadMatches(
+              locked.row[column],
+              locked.revision,
+              input.expected,
+            )
+          ) {
+            return rejectUserAssetUpload(
+              tx,
+              key,
+              "conditional user asset upload rejected",
+              attemptId,
+              { ok: true, user: toPublicUser(locked.row) },
+            )
+          }
+
+          const previousUrl = locked.row[column]
+          const updatedAt = new Date()
+          const patch: Partial<typeof user.$inferInsert> = {
+            updated_at: updatedAt,
+          }
+          patch[column] = userAssetImagePath(key, updatedAt)
+          const [updated] = await tx
+            .update(user)
+            .set(patch)
+            .where(eq(user.id, input.userId))
+            .returning()
+          if (!updated) {
+            return rejectUserAssetUpload(
+              tx,
+              key,
+              "user asset update rejected",
+              attemptId,
+              missingUserResult(),
+            )
+          }
+
+          // The pointer and reservation change atomically. An uncertain
+          // commit is still safe: re-enqueueing below is blocked by the live
+          // reference.
+          await adoptStorageWrites(writes, tx)
+          const displaced = userAssetDeletionIntents({
+            userId: input.userId,
+            role: input.role,
+            previousUrl,
+            retainedKey: key,
+            reason: `${input.role} replaced`,
+            source: { type: "user-asset", id: input.userId },
+          })
+          await enqueueStorageDeletions(displaced, { tx })
+          return {
+            result: { ok: true, user: toPublicUser(updated) },
+            queuedDeletions: displaced.length,
+          }
+        },
+      )
+    },
+  )
+  // Woken only once the fence is gone, which would otherwise defer the
+  // deletions just queued.
+  if (transactionResult.queuedDeletions > 0) wakeStorageDeletionWorker()
+  return transactionResult.result
 }
 
 export async function removeUserAsset(
@@ -288,17 +274,4 @@ export async function removeUserAsset(
 
 function missingUserResult(): UserAssetUpdateResult {
   return { ok: false, status: 500, error: "User update did not persist" }
-}
-
-async function enqueueUserAssetCleanupNow(input: {
-  key: string
-  reason: string
-  attemptId: string
-}): Promise<void> {
-  await db.transaction(async (tx) => {
-    await enqueueStorageDeletion(prewriteAssetDeletionIntent(input), {
-      tx,
-      runAt: new Date(),
-    })
-  })
 }

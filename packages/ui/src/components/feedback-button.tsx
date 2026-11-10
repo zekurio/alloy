@@ -59,7 +59,6 @@ function FeedbackButton({
     variant !== undefined &&
     variant !== null &&
     variant !== "primary" &&
-    variant !== "default" &&
     variant !== "destructive"
   const labels = {
     idle: children,
@@ -154,4 +153,3 @@ function layerWidth(layers: HTMLElement, index: number): number {
 }
 
 export { FeedbackButton }
-export type { FeedbackButtonProps }

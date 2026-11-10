@@ -19,40 +19,37 @@ use crate::agent::obs::{
         AudioGraph, AudioSource, GameCaptureHookWait, ObsEncoderDescriptor, ObsVideoConfig,
         OutputSourceKind, VideoGraph,
     },
-    video_config::{effective_quality, effective_quality_for_base, obs_video_config},
+    video_config::{effective_quality, obs_video_config},
 };
 use crate::agent::{
     events::emit_event,
     obs::{
         audio_source_configs, clear_audio_output_sources, create_audio_source, output_last_error,
         recording_source_from_kind, release_audio_source, route_audio_source, source_kind,
-        target_bitrate_kbps, validate_audio_source_count, LibObs,
+        validate_audio_source_count, LibObs,
     },
     platform::{
         detect_game_activity, detected_game_allowed, hotkeys, is_detected_game_alive,
         refresh_capture_metadata, selected_display, valid_capture_dimensions, DetectedGame,
         GameDetection,
     },
-    time::{now_iso, system_time_iso, timestamp_millis, unix_millis_to_system_time},
+    time::{system_time_iso, timestamp_millis, unix_millis_to_system_time},
 };
-use crate::protocol::{CONTENT_TYPE_MP4, RECORDER_CAPABILITIES, SIDE_CAR_NAME};
+use crate::protocol::{CONTENT_TYPE_MP4, SIDE_CAR_NAME};
 use crate::types::{
     ConfigureParams, RecordingActionResult, RecordingAudioApplicationSelection,
     RecordingAudioDevice, RecordingBackendState, RecordingBufferStorage, RecordingCapture,
     RecordingCaptureKind, RecordingCaptureMode, RecordingCaptureSource, RecordingCodec,
-    RecordingDisplay, RecordingEncoder, RecordingEvent, RecordingGame, RecordingMode,
-    RecordingRunState, RecordingSettings, RecordingStatus, RecordingTelemetry,
-    SaveReplayClipParams, VideoDimensions,
+    RecordingDisplay, RecordingEncoder, RecordingEvent, RecordingGame, RecordingSettings,
+    RecordingStatus, SaveReplayClipParams, VideoDimensions,
 };
 
 use self::{
-    cache::{
-        active_settings_require_restart, nonnegative_c_int, ns_to_ms, percent, plan_audio_sources,
-    },
+    cache::{active_settings_require_restart, plan_audio_sources},
     output::GameCaptureHookRefresh,
     replay::{
         create_session_scratch_folder, prune_disk_replay_segments, remove_session_scratch_folder,
-        replay_buffer_duration, saved_recording_path,
+        replay_buffer_duration,
     },
 };
 
@@ -98,10 +95,7 @@ pub(super) struct Recorder {
     replay_session: Option<ActiveSession>,
     active_display: Option<RecordingDisplay>,
     active_game: Option<DetectedGame>,
-    focused: bool,
     missing_game_ticks: u8,
-    last_telemetry_event_at: Option<Instant>,
-    last_capture: Option<RecordingCapture>,
     last_error: Option<String>,
     /// The last failed replay start. The tick waits it out instead of
     /// rebuilding capture, encoders and output twice a second.
@@ -132,18 +126,23 @@ struct ActiveSession {
     video_encoder: *mut ObsEncoder,
     /// Reads OBS mixer 0, which contains every audio source.
     audio_encoder: *mut ObsEncoder,
-    video_encoder_id: String,
-    audio_encoder_id: String,
-    video_codec: RecordingCodec,
     video_graph: VideoGraph,
     video_config: ObsVideoConfig,
     audio_graph: AudioGraph,
     source_kind: OutputSourceKind,
     output_config: ReplayBufferConfig,
-    capture: RecordingCapture,
+    /// The game detected when the buffer started. Game capture keeps it for
+    /// saves during the post-close grace period.
+    game: Option<RecordingGame>,
     target_game_key: Option<String>,
     game_content_expires_at: Option<Instant>,
     game_capture_hook_wait: Option<GameCaptureHookWait>,
+}
+
+impl ActiveSession {
+    fn source(&self) -> RecordingCaptureSource {
+        recording_source_from_kind(self.source_kind)
+    }
 }
 
 impl Drop for Recorder {
@@ -163,7 +162,6 @@ const CODEC_PROBE_RETRY_COOLDOWN: Duration = Duration::from_secs(30);
 /// also reloads libobs.
 const REPLAY_START_RETRY_MIN: Duration = Duration::from_secs(2);
 const REPLAY_START_RETRY_MAX: Duration = Duration::from_secs(60);
-const TELEMETRY_EVENT_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GameBoundaryReason {
@@ -245,10 +243,7 @@ impl Recorder {
             if let Err(error) = self.stop_all_outputs() {
                 self.last_error = Some(error.clone());
                 let status = self.status();
-                emit_event(RecordingEvent::Error {
-                    error: error.clone(),
-                    status,
-                });
+                emit_event(RecordingEvent::Status { status });
                 return Err(error);
             }
         }
@@ -267,10 +262,7 @@ impl Recorder {
             if let Err(error) = self.stop_all_outputs() {
                 self.last_error = Some(error.clone());
                 let status = self.status();
-                emit_event(RecordingEvent::Error {
-                    error: error.clone(),
-                    status,
-                });
+                emit_event(RecordingEvent::Status { status });
                 return Err(error);
             }
             self.shutdown_obs();
@@ -290,10 +282,7 @@ impl Recorder {
         if let Err(error) = self.ensure_obs() {
             self.last_error = Some(error.clone());
             let status = self.status();
-            emit_event(RecordingEvent::Error {
-                error: error.clone(),
-                status: status.clone(),
-            });
+            emit_event(RecordingEvent::Status { status });
             return Err(error);
         }
 
@@ -306,10 +295,6 @@ impl Recorder {
     }
 
     pub(super) fn status(&self) -> RecordingStatus {
-        self.status_with_telemetry(self.current_telemetry())
-    }
-
-    fn status_with_telemetry(&self, telemetry: Option<RecordingTelemetry>) -> RecordingStatus {
         let settings = self.settings.clone().unwrap_or_default();
         let backend = if self.obs.is_some() {
             RecordingBackendState::Ready
@@ -319,123 +304,18 @@ impl Recorder {
             RecordingBackendState::Missing
         };
 
-        let mode = self.current_mode();
-        let run_state = match (&backend, &mode) {
-            (RecordingBackendState::Error, _) => RecordingRunState::Error,
-            (_, RecordingMode::ReplayBuffer) => RecordingRunState::ReplayBuffer,
-            _ => RecordingRunState::Idle,
-        };
-
         RecordingStatus {
             backend,
-            mode,
-            capture_mode: settings.capture_mode.clone(),
-            run_state,
             replay_active: self.replay_buffer_available(),
             active_game: self.active_game.as_ref().map(|game| game.game.name.clone()),
             active_game_detail: self.active_game.as_ref().map(|game| game.game.clone()),
             active_display: self.active_display.clone(),
-            focused: self.focused,
-            current_source: self
-                .replay_session
-                .as_ref()
-                .map(|session| session.capture.source)
-                .or_else(|| self.last_capture.as_ref().map(|capture| capture.source)),
-            current_capture: self
-                .replay_session
-                .as_ref()
-                .map(|session| {
-                    let mut capture = session.capture.clone();
-                    capture.game = self.capture_context_game(&session.capture).cloned();
-                    capture
-                })
-                .or_else(|| self.last_capture.clone()),
-            replay_buffer_seconds: settings.replay_buffer_seconds,
             available_gpus: self.cached_gpus.clone(),
             available_codecs: self.available_codecs(&settings),
             available_audio_devices: self.cached_audio_devices.clone(),
             available_audio_applications: self.cached_audio_applications.clone(),
-            telemetry,
             message: self.last_error.clone(),
-            capabilities: RECORDER_CAPABILITIES
-                .iter()
-                .map(ToString::to_string)
-                .collect(),
         }
-    }
-
-    fn current_telemetry(&self) -> Option<RecordingTelemetry> {
-        let session = self.replay_session.as_ref()?;
-        let obs = self.obs.as_ref()?;
-        let settings = self.settings.clone().unwrap_or_default();
-        let quality = effective_quality_for_base(&settings, session.video_config.base);
-        let render_total_frames = unsafe { obs.obs_get_total_frames.map(|read| read()) };
-        let render_lagged_frames = unsafe { obs.obs_get_lagged_frames.map(|read| read()) };
-        let output_total_frames = unsafe {
-            obs.obs_output_get_total_frames
-                .and_then(|read| nonnegative_c_int(read(session.output)))
-        };
-        let output_dropped_frames = unsafe {
-            obs.obs_output_get_frames_dropped
-                .and_then(|read| nonnegative_c_int(read(session.output)))
-        };
-
-        Some(RecordingTelemetry {
-            sampled_at: now_iso(),
-            capture_mode: settings.capture_mode.clone(),
-            capture_source: Some(recording_source_from_kind(session.source_kind)),
-            buffer_storage: session.output_config.storage.clone(),
-            encoder: settings.encoder.clone(),
-            codec: session.video_codec.clone(),
-            video_encoder: Some(session.video_encoder_id.clone()),
-            audio_encoder: Some(session.audio_encoder_id.clone()),
-            gpu: settings.gpu.clone(),
-            gpu_adapter: selected_gpu_adapter(&settings, &self.cached_gpus),
-            gpu_label: selected_gpu_label(&settings, &self.cached_gpus).map(str::to_string),
-            base_width: session.video_config.base.width,
-            base_height: session.video_config.base.height,
-            output_width: session.video_config.output.width,
-            output_height: session.video_config.output.height,
-            fps: session.video_config.fps,
-            bitrate_kbps: target_bitrate_kbps(&quality),
-            output_active: unsafe { (obs.obs_output_active)(session.output) },
-            paused: false,
-            active_fps: unsafe { obs.obs_get_active_fps.map(|read| read()) },
-            average_frame_time_ms: unsafe {
-                obs.obs_get_average_frame_time_ns
-                    .map(|read| ns_to_ms(read()))
-            },
-            frame_interval_ms: unsafe {
-                obs.obs_get_frame_interval_ns.map(|read| ns_to_ms(read()))
-            },
-            render_total_frames,
-            render_lagged_frames,
-            render_lagged_percent: percent(render_lagged_frames, render_total_frames),
-            output_total_frames,
-            output_dropped_frames,
-            output_dropped_percent: percent(output_dropped_frames, output_total_frames),
-            output_total_bytes: unsafe {
-                obs.obs_output_get_total_bytes
-                    .map(|read| read(session.output))
-            },
-        })
-    }
-
-    fn emit_telemetry_if_due(&mut self) {
-        let Some(telemetry) = self.current_telemetry() else {
-            self.last_telemetry_event_at = None;
-            return;
-        };
-        if self
-            .last_telemetry_event_at
-            .is_some_and(|last| last.elapsed() < TELEMETRY_EVENT_INTERVAL)
-        {
-            return;
-        }
-
-        self.last_telemetry_event_at = Some(Instant::now());
-        let status = self.status_with_telemetry(Some(telemetry.clone()));
-        emit_event(RecordingEvent::Telemetry { telemetry, status });
     }
 
     fn can_reconfigure_active_output_paths(
@@ -467,7 +347,7 @@ impl Recorder {
             return;
         };
 
-        let configs = match audio_source_configs(obs, settings, self.active_game.as_ref()) {
+        let configs = match audio_source_configs(settings, self.active_game.as_ref()) {
             Ok(configs) => configs,
             Err(error) => {
                 eprintln!("[{SIDE_CAR_NAME}] keeping current audio graph: {error}");
@@ -563,16 +443,6 @@ impl Recorder {
         let output_folder = self.current_output_folder()?;
         let replay_scratch_folder =
             create_session_scratch_folder(&self.current_replay_scratch_folder()?)?;
-        let path = saved_recording_path(
-            &output_folder,
-            self.active_game.as_ref().map(|game| &game.game),
-        );
-        let capture = self.new_capture(
-            &settings,
-            target_game.as_ref(),
-            RecordingCaptureKind::Replay,
-            path.to_string_lossy().into_owned(),
-        );
 
         let output_config = ReplayBufferConfig {
             scratch_directory: replay_scratch_folder,
@@ -580,21 +450,16 @@ impl Recorder {
             storage: settings.buffer_storage.clone(),
             replay_seconds: settings.replay_buffer_seconds,
         };
-        let session = match self.start_output(
-            &settings,
-            target_game.as_ref(),
-            capture,
-            output_config.clone(),
-        ) {
-            Ok(session) => session,
-            Err(error) => {
-                remove_session_scratch_folder(&output_config);
-                return Err(error);
-            }
-        };
+        let session =
+            match self.start_output(&settings, target_game.as_ref(), output_config.clone()) {
+                Ok(session) => session,
+                Err(error) => {
+                    remove_session_scratch_folder(&output_config);
+                    return Err(error);
+                }
+            };
 
         self.replay_session = Some(session);
-        self.last_capture = None;
         self.last_error = None;
         let status = self.status();
         emit_event(RecordingEvent::ReplayBufferStarted { status });
@@ -625,8 +490,7 @@ impl Recorder {
         if let Err(error) = self.discard_unavailable_replay_buffer() {
             self.last_error = Some(error.clone());
             let result = self.action_error(&error);
-            emit_event(RecordingEvent::Error {
-                error,
+            emit_event(RecordingEvent::Status {
                 status: result.status.clone(),
             });
             return result;
@@ -651,8 +515,7 @@ impl Recorder {
             Err(error) => {
                 self.last_error = Some(error.clone());
                 let result = self.action_error(&error);
-                emit_event(RecordingEvent::Error {
-                    error,
+                emit_event(RecordingEvent::Status {
                     status: result.status.clone(),
                 });
                 return result;
@@ -669,17 +532,16 @@ impl Recorder {
             duration_ms: Some(u64::from(duration_seconds) * 1000),
             width: Some(output_dimensions.width),
             height: Some(output_dimensions.height),
-            game: self.capture_context_game(&session.capture).cloned(),
-            source: session.capture.source,
+            game: self.capture_context_game(session).cloned(),
+            source: session.source(),
             kind: RecordingCaptureKind::Replay,
             post_process: saved.post_process,
             created_at: system_time_iso(requested_at),
         };
-        self.last_capture = Some(capture.clone());
         self.last_error = None;
         let status = self.status();
         emit_event(RecordingEvent::CaptureReady {
-            capture: capture.clone(),
+            capture: Box::new(capture.clone()),
             status: status.clone(),
         });
         RecordingActionResult {
@@ -758,10 +620,8 @@ impl Recorder {
                 ..settings.clone()
             };
             self.available_codecs = available_video_codecs(
-                &obs,
                 &hardware_settings,
                 &self.available_encoders,
-                adapter,
                 selected_gpu_label(settings, &self.cached_gpus),
             );
         }
@@ -808,33 +668,7 @@ impl Recorder {
         Ok(scratch_folder)
     }
 
-    fn new_capture(
-        &self,
-        settings: &RecordingSettings,
-        target_game: Option<&DetectedGame>,
-        kind: RecordingCaptureKind,
-        filename: String,
-    ) -> RecordingCapture {
-        let source_kind = source_kind(settings);
-        let video_config = obs_video_config(settings, target_game, source_kind);
-        RecordingCapture {
-            id: format!("capture-{}", timestamp_millis()),
-            filename,
-            content_type: CONTENT_TYPE_MP4.to_string(),
-            size_bytes: None,
-            duration_ms: None,
-            width: Some(video_config.output.width),
-            height: Some(video_config.output.height),
-            game: self.active_game.as_ref().map(|game| game.game.clone()),
-            source: recording_source_from_kind(source_kind),
-            kind,
-            post_process: None,
-            created_at: now_iso(),
-        }
-    }
-
     fn observe_game(&mut self, detected: Option<GameDetection>) -> Option<RecordingGame> {
-        let was_focused = self.focused;
         let previous_key = self
             .active_game
             .as_ref()
@@ -842,7 +676,6 @@ impl Recorder {
 
         if let Some(detection) = detected {
             let mut detected = detection.game;
-            let focused = detection.focused;
             let is_new = previous_key.as_deref() != Some(detected.window_key.as_str());
             detected.capture_dimensions = preserve_capture_dimensions(
                 self.active_game
@@ -852,48 +685,16 @@ impl Recorder {
                 detected.capture_dimensions,
             );
             self.missing_game_ticks = 0;
-            self.focused = focused;
-            self.active_game = Some(detected.clone());
+            self.active_game = Some(detected);
 
             if is_new {
                 let status = self.status();
-                emit_event(RecordingEvent::GameStarted {
-                    game: detected.game,
-                    status,
-                });
-                if !focused {
-                    let status = self.status();
-                    emit_event(RecordingEvent::GameFocusChanged {
-                        game: self.active_game.as_ref().map(|game| game.game.clone()),
-                        focused: false,
-                        status,
-                    });
-                }
-            } else if was_focused != focused {
-                let status = self.status();
-                emit_event(RecordingEvent::GameFocusChanged {
-                    game: self.active_game.as_ref().map(|game| game.game.clone()),
-                    focused,
-                    status,
-                });
+                emit_event(RecordingEvent::Status { status });
             }
             return None;
         }
 
-        let Some(active_game) = self.active_game.clone() else {
-            self.focused = false;
-            return None;
-        };
-
-        self.focused = false;
-        if was_focused {
-            let status = self.status();
-            emit_event(RecordingEvent::GameFocusChanged {
-                game: Some(active_game.game.clone()),
-                focused: false,
-                status,
-            });
-        }
+        let active_game = self.active_game.clone()?;
 
         if is_detected_game_alive(&active_game) {
             self.missing_game_ticks = 0;
@@ -959,9 +760,9 @@ impl Recorder {
 
         if let Some(reason) = game_boundary {
             if let Err(error) = self.handle_game_boundary(&settings, reason) {
-                self.last_error = Some(error.clone());
+                self.last_error = Some(error);
                 let status = self.status();
-                emit_event(RecordingEvent::Error { error, status });
+                emit_event(RecordingEvent::Status { status });
                 return;
             }
         }
@@ -969,17 +770,17 @@ impl Recorder {
 
         if self.replay_session.is_some() && !settings.enabled {
             if let Err(error) = self.stop_active_replay_buffer() {
-                self.last_error = Some(error.clone());
+                self.last_error = Some(error);
                 let status = self.status();
-                emit_event(RecordingEvent::Error { error, status });
+                emit_event(RecordingEvent::Status { status });
                 return;
             }
         }
 
         if let Err(error) = self.discard_unavailable_replay_buffer() {
-            self.last_error = Some(error.clone());
+            self.last_error = Some(error);
             let status = self.status();
-            emit_event(RecordingEvent::Error { error, status });
+            emit_event(RecordingEvent::Status { status });
             return;
         }
 
@@ -994,10 +795,10 @@ impl Recorder {
                         return;
                     }
                     let report = self.remember_replay_start_failure(target, &error);
-                    self.last_error = Some(error.clone());
+                    self.last_error = Some(error);
                     if report {
                         let status = self.status();
-                        emit_event(RecordingEvent::Error { error, status });
+                        emit_event(RecordingEvent::Status { status });
                     }
                     return;
                 }
@@ -1007,17 +808,14 @@ impl Recorder {
 
         if self.replay_session.is_some() {
             if let Err(error) = self.refresh_active_output_for_focus() {
-                self.last_error = Some(error.clone());
+                self.last_error = Some(error);
                 let status = self.status();
-                emit_event(RecordingEvent::Error { error, status });
+                emit_event(RecordingEvent::Status { status });
                 return;
             }
             if let Some(session) = self.replay_session.as_ref() {
                 prune_disk_replay_segments(&session.output_config);
             }
-            self.emit_telemetry_if_due();
-        } else {
-            self.last_telemetry_event_at = None;
         }
     }
 
@@ -1036,14 +834,10 @@ impl Recorder {
             "[{SIDE_CAR_NAME}] game '{}' ended: {reason}",
             active_game.game.name
         );
-        self.focused = false;
         self.missing_game_ticks = 0;
         self.last_error = None;
         let status = self.status();
-        emit_event(RecordingEvent::GameEnded {
-            game: active_game.game.clone(),
-            status,
-        });
+        emit_event(RecordingEvent::Status { status });
         Some(active_game.game)
     }
 
@@ -1132,7 +926,7 @@ impl Recorder {
         let Some(session) = self.replay_session.as_mut() else {
             return;
         };
-        if session.capture.game.is_none() {
+        if session.game.is_none() {
             return;
         }
 
@@ -1228,17 +1022,15 @@ impl Recorder {
         self.refreshed_active_game(missing_message).map(Some)
     }
 
-    fn capture_context_game<'a>(
-        &'a self,
-        capture: &'a RecordingCapture,
-    ) -> Option<&'a RecordingGame> {
-        match capture.source {
+    /// The game a capture saved from `session` belongs to.
+    fn capture_context_game<'a>(&'a self, session: &'a ActiveSession) -> Option<&'a RecordingGame> {
+        match session.source() {
             // A display buffer can outlive several games. Use the current
             // detected game for both metadata and the destination folder.
             RecordingCaptureSource::Display => self.active_game.as_ref().map(|game| &game.game),
             // Keep the recorded game's identity during the post-close grace
             // period, even when detection has already cleared or changed.
-            RecordingCaptureSource::Game => capture.game.as_ref(),
+            RecordingCaptureSource::Game => session.game.as_ref(),
         }
     }
 

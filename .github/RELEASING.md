@@ -23,14 +23,16 @@ Dispatch the **publish** workflow from the Actions tab (it only runs on
 `version` override. The workflow then:
 
 1. Checks that the update signing key opens with its password and matches
-   one of the keys in `ALLOY_UPDATER_PUBLIC_KEY`, so a broken signing setup
-   stops the release before anything is tagged.
+   one of the keys in `ALLOY_UPDATER_PUBLIC_KEY`, so a broken or missing
+   signing setup stops the release before anything is tagged.
 2. Runs formatting, lint, and typecheck against the current `dev` head.
-3. Stamps the new version into all release version files.
+3. Stamps the new version into the [version files](#version-policy) with
+   `scripts/update-release-package-versions.mjs`.
 4. Commits `chore: release vX.Y.Z` to `dev` and tags that commit `vX.Y.Z`
    (pushed atomically).
-5. Builds the Windows desktop installer from the tagged commit, then signs
-   it in a separate job.
+5. Builds the Windows desktop installer from the tagged commit, with the
+   same workflow (`windows-installer.yml`) that builds the test installer on
+   pull requests, then signs it in a separate job.
 6. Builds and pushes the server container image tagged with the release
    version, then publishes the GitHub Release with categorized generated notes, the installer,
    update signatures, and checksums.
@@ -39,7 +41,8 @@ Dispatch the **publish** workflow from the Actions tab (it only runs on
 ## Container Images
 
 The server image is built from the flake's `dockerImage` output and pushed to
-`ghcr.io/zekurio/alloy` (the lowercased repository name). It exposes port 2552. Three kinds of tag exist:
+`ghcr.io/zekurio/alloy` (the lowercased repository name). It exposes port 2552
+and stores uploads in the `/data` volume. Three kinds of tag exist:
 
 | Tag        | Pushed by                | Meaning                                                                                |
 | ---------- | ------------------------ | -------------------------------------------------------------------------------------- |
@@ -58,31 +61,31 @@ as described under [Recovery](#recovery).
 
 ## Changelog Policy
 
-GitHub generates release notes from merged pull requests and the categories in
-`.github/release.yml`. The gardener labels each pull request with a
-`changelog:*` category from its conventional title and relabels it when the
-title changes. Once a maintainer picks a category by hand, the gardener leaves
-it alone; `changelog:skip` excludes a pull request from release notes.
-
-If a release interval has no pull requests (for example, because it contains
-direct commits), the publish workflow instead creates the same readable,
-conventional-commit categories from the commits between the release tags.
+The publish workflow asks GitHub for notes on the pull requests merged since
+the last release, sorted into the categories in `.github/release.yml`. Give
+each pull request one `changelog:*` label; `changelog:skip` excludes it from
+release notes, and a pull request without a label is listed under "Other
+changes". Commits pushed to `dev` without a pull request appear only in the
+notes' "Full Changelog" comparison.
 
 ## Version Policy
 
 The checked-in package version is the source of truth and always matches the
 newest release tag. The publish workflow is the only thing that bumps it.
 
-These release version files are stamped together and must always match:
+These files hold the version. The release stamps them together, and they
+must always match:
 
-- `package.json`
-- `Cargo.lock` (the `alloy-desktop`, `alloy-desktop-native`, and `alloy-agent`
-  entries)
+- `package.json`, which the server reports in `/api/server-info`, the web
+  app shows, and the Nix packages and container image tag use
 - `packages/desktop/package.json`, the app version electron-builder stamps
-  into the installer
-- `packages/desktop/host/Cargo.toml`
-- `packages/desktop/native/Cargo.toml`
-- `packages/desktop/recorder/Cargo.toml`
+  into the installer and `latest.yml`, and the updater compares against
+- `Cargo.toml`, whose `[workspace.package]` version the `alloy-desktop`,
+  `alloy-desktop-native`, and `alloy-agent` crates inherit
+- `Cargo.lock`, which records those three crates' versions
+
+The update signer is release tooling, never shipped, and keeps its own
+`0.0.0`.
 
 ## Desktop Auto-Update
 
@@ -106,9 +109,9 @@ hold a single private key, which must match one of the listed keys. Keep a
 copy of the private key and its password outside GitHub, which cannot show a
 secret again. The publish workflow:
 
-1. builds the installer in the `desktop` job with `ALLOY_UPDATER_PUBLIC_KEY`
-   in the environment, which compiles the keys into the app. This job runs
-   npm code, so it gets no secrets;
+1. builds the installer in the `desktop` job with `ALLOY_UPDATER_PUBLIC_KEY`,
+   which compiles the keys into the app. This job runs npm code, so it gets
+   no secrets;
 2. signs the installer in the `sign` job, which builds only
    `packages/desktop/update-signer` from `Cargo.lock` and runs no npm code.
    The signer writes `<installer>.sig`, binds the signature to the installer's

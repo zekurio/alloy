@@ -17,7 +17,7 @@ const loadImportClipDialog = async () => {
 
 const ImportClipDetailsDialog = lazy(loadImportClipDialog)
 
-type GlobalUploadControlVariant = "header" | "center" | "mobile"
+type GlobalUploadControlVariant = "center" | "mobile"
 
 /**
  * Global "Upload" entry point, mounted wherever the app exposes the upload
@@ -28,9 +28,9 @@ type GlobalUploadControlVariant = "header" | "center" | "mobile"
  * can unmount while the editor is open without discarding the selected file.
  */
 export function GlobalUploadControl({
-  variant = "header",
+  variant,
 }: {
-  variant?: GlobalUploadControlVariant
+  variant: GlobalUploadControlVariant
 }) {
   const desktop = alloyDesktop()
   const importAction = useImportClipAction(desktop)
@@ -41,11 +41,9 @@ export function GlobalUploadControl({
   const importDialogMounted = importAction.shown !== null
 
   const triggerClassName =
-    variant === "header"
-      ? "max-md:hidden"
-      : variant === "mobile"
-        ? "size-12 place-self-center rounded-full p-0 [&_svg]:!size-[22px]"
-        : "shrink-0"
+    variant === "mobile"
+      ? "size-12 place-self-center rounded-full p-0 [&_svg]:!size-[22px]"
+      : "shrink-0"
   const triggerLabel = t("Upload media")
   const compactErrorLabel =
     variant === "mobile" ? (
@@ -62,7 +60,7 @@ export function GlobalUploadControl({
           size="sm"
           disabled={pending}
           state={pending ? "pending" : importAction.error ? "error" : "idle"}
-          errorLabel={variant === "header" ? t("Try again") : compactErrorLabel}
+          errorLabel={compactErrorLabel}
           className={triggerClassName}
           title={importAction.error ?? triggerLabel}
           onClick={() => {
@@ -107,13 +105,8 @@ export function GlobalUploadControl({
           webUploadAction.selected !== null
         }
         state={pending ? "pending" : webUploadAction.error ? "error" : "idle"}
-        errorLabel={variant === "header" ? t("Try again") : compactErrorLabel}
-        title={
-          webUploadAction.error ??
-          (variant !== "header" || webUploadAction.available
-            ? triggerLabel
-            : t("Uploads are unavailable in this browser"))
-        }
+        errorLabel={compactErrorLabel}
+        title={webUploadAction.error ?? triggerLabel}
         onClick={() => {
           inputRef.current?.click()
         }}

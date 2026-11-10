@@ -1,9 +1,9 @@
 name: nix
 
 # Runs only when packaging-relevant inputs change. `nix/package.nix` builds the
-# server and web from `packages/**` and the root `public/` directory. The turbo
-# build in checks does not run the Nix derivations, so those inputs are listed
-# here. The desktop package builds in nix-desktop.yml.
+# server and web from `packages/**` and the root `public/` directory. The
+# build in the checks workflow does not run the Nix derivations, so those
+# inputs are listed here. The desktop package builds in nix-desktop.yml.
 on:
   pull_request:
     paths:
@@ -15,8 +15,9 @@ on:
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
-      - "turbo.json"
       - "scripts/**"
+      - ".envrc"
+      - ".env.example"
       - ".github/workflows/nix.yml"
       - "!**/*.md"
   workflow_dispatch:
@@ -55,3 +56,27 @@ jobs:
 
       - name: check nix flake
         run: nix flake check --print-build-logs
+
+      # Entering the shell runs its hook, which creates `.env` and starts the
+      # repo-local Postgres.
+      - name: check dev shell
+        run: nix develop --command bash -c 'test -s .env && pg_isready && alloy-postgres stop'
+
+      # Nothing else starts the image the release and dev workflows publish.
+      # The temporary server Postgres runs while it sets up has no TCP port,
+      # so one that answers on it is the real one.
+      - name: boot container image
+        run: |
+          nix build .#dockerImage --print-build-logs --out-link docker-image
+          docker load --input docker-image
+          docker network create alloy
+          docker run --detach --network alloy --name postgres \
+            --env POSTGRES_PASSWORD=postgres --env POSTGRES_DB=alloy postgres:17
+          timeout 60 bash -c 'until docker exec postgres pg_isready --quiet --host 127.0.0.1; do sleep 1; done'
+          docker run --detach --network alloy --name alloy --publish 127.0.0.1:2552:2552 \
+            --env DATABASE_URL=postgres://postgres:postgres@postgres/alloy \
+            --env PUBLIC_SERVER_URL=https://alloy.test \
+            --env ALLOY_STEAMGRIDDB_API_KEY=boot-check \
+            "alloy:$(nix eval --raw .#dockerImage.imageTag)"
+          curl --fail --silent --show-error --retry 30 --retry-delay 2 --retry-all-errors \
+            http://127.0.0.1:2552/api/server-info || { docker logs alloy; exit 1; }

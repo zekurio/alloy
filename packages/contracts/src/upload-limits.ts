@@ -9,7 +9,7 @@ export const UPLOAD_MAX_PIXELS = 256_000_000
  * A positive safe integer up to `max`. Checked before decoding because the
  * decoder converts numeric strings, which an untrusted boundary must reject.
  */
-export function positiveSafeIntegerSchema(max = Number.MAX_SAFE_INTEGER) {
+function positiveSafeIntegerSchema(max = Number.MAX_SAFE_INTEGER) {
   return t
     .unknown()
     .refine(

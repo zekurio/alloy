@@ -2,14 +2,12 @@ import { Buffer } from "node:buffer"
 
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { notFound } from "@alloy/server/runtime/http-response"
-import type {
-  ResolvedObject,
-  StorageDriver,
-} from "@alloy/server/storage/driver"
+import type { ResolvedObject } from "@alloy/server/storage/driver"
+import type { FsStorageDriver } from "@alloy/server/storage/fs-driver"
 import { Hono } from "hono"
 
 export function immutableImageAssetsRoute(
-  storage: Pick<StorageDriver, "resolve">,
+  storage: Pick<FsStorageDriver, "resolve">,
   keyPattern: RegExp,
 ) {
   return new Hono().get("/:key{.+}", async (c) => {

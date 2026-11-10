@@ -21,7 +21,7 @@ export interface FilmstripFrame {
   url: string
 }
 
-export type MediaFilmstripStatus = "idle" | "loading" | "ready" | "error"
+type MediaFilmstripStatus = "idle" | "loading" | "ready" | "error"
 
 export interface MediaFilmstripState {
   status: MediaFilmstripStatus

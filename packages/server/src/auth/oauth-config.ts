@@ -1,6 +1,5 @@
 import type { OidcConfig, PublicOidcConfig } from "@alloy/contracts"
-import { secretStore } from "@alloy/server/config/secret-store"
-import { configStore } from "@alloy/server/config/store"
+import { configStore, oidcClientSecret } from "@alloy/server/config/store"
 
 /**
  * The OIDC provider, when sign-in can use it: enabled and with a client
@@ -9,7 +8,7 @@ import { configStore } from "@alloy/server/config/store"
  */
 export function usableOidcProvider(): OidcConfig | null {
   const oidc = configStore.get("oidc")
-  if (!oidc.enabled || !secretStore.oidcClientSecret()) return null
+  if (!oidc.enabled || !oidcClientSecret()) return null
   return oidc
 }
 

@@ -8,6 +8,13 @@
       "when": 1793220059334,
       "tag": "0000_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794311261593,
+      "tag": "0001_upload_ticket_cleanup_and_timestamptz",
+      "breakpoints": true
     }
   ]
 }

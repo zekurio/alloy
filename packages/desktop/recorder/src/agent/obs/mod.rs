@@ -11,7 +11,6 @@ pub(in crate::agent) use bindings::LibObs;
 use std::{
     ffi::{c_void, CStr},
     ptr,
-    sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
 
@@ -190,9 +189,6 @@ pub(in crate::agent) unsafe fn release_video_graph(obs: &LibObs, graph: VideoGra
         (obs.obs_scene_release)(graph.scene);
     }
     if !graph.source.is_null() {
-        if graph.source_kind == OutputSourceKind::Game {
-            disconnect_game_capture_signals(obs, graph.source);
-        }
         (obs.obs_source_remove)(graph.source);
         (obs.obs_source_release)(graph.source);
     }
@@ -295,7 +291,6 @@ pub(in crate::agent) fn gpu_adapter(settings: &RecordingSettings) -> u32 {
     adapter.parse::<u32>().unwrap_or(0)
 }
 
-static GAME_CAPTURE_HOOKED: AtomicBool = AtomicBool::new(false);
 const GAME_CAPTURE_HOOK_RETRY_INTERVAL: Duration = Duration::from_secs(2);
 /// Windows detects a game by its window, so the hook follows within seconds.
 #[cfg(windows)]
@@ -328,7 +323,6 @@ unsafe fn create_video_source(
 
     let source = obs.with_data(|source_settings| {
         configure_game_capture_source(obs, source_settings, game)?;
-        GAME_CAPTURE_HOOKED.store(false, Ordering::SeqCst);
         create_source(
             obs,
             GAME_CAPTURE_SOURCE_ID,
@@ -336,9 +330,7 @@ unsafe fn create_video_source(
             Some(source_settings),
         )
     });
-    let source = source.map_err(|error| format!("{error} {GAME_CAPTURE_UNAVAILABLE}"))?;
-    connect_game_capture_signals(obs, source);
-    Ok(source)
+    source.map_err(|error| format!("{error} {GAME_CAPTURE_UNAVAILABLE}"))
 }
 
 #[cfg(windows)]
@@ -347,68 +339,6 @@ const GAME_CAPTURE_UNAVAILABLE: &str =
 #[cfg(target_os = "linux")]
 const GAME_CAPTURE_UNAVAILABLE: &str =
     "OBS game capture is unavailable; install the obs-vkcapture plugin.";
-
-/// win-capture signals hooks as they happen. obs-vkcapture has no signals
-/// and is polled instead, through `get_hooked` or its frame size.
-#[cfg(target_os = "linux")]
-unsafe fn connect_game_capture_signals(_obs: &LibObs, _source: *mut ObsSource) {}
-
-#[cfg(target_os = "linux")]
-unsafe fn disconnect_game_capture_signals(_obs: &LibObs, _source: *mut ObsSource) {}
-
-#[cfg(windows)]
-unsafe fn connect_game_capture_signals(obs: &LibObs, source: *mut ObsSource) {
-    let handler = (obs.obs_source_get_signal_handler)(source);
-    if handler.is_null() {
-        return;
-    }
-    let hooked = c"hooked";
-    let unhooked = c"unhooked";
-    (obs.signal_handler_connect)(
-        handler,
-        hooked.as_ptr(),
-        game_capture_hooked,
-        ptr::null_mut(),
-    );
-    (obs.signal_handler_connect)(
-        handler,
-        unhooked.as_ptr(),
-        game_capture_unhooked,
-        ptr::null_mut(),
-    );
-}
-
-#[cfg(windows)]
-unsafe fn disconnect_game_capture_signals(obs: &LibObs, source: *mut ObsSource) {
-    let handler = (obs.obs_source_get_signal_handler)(source);
-    if handler.is_null() {
-        return;
-    }
-    let hooked = c"hooked";
-    let unhooked = c"unhooked";
-    (obs.signal_handler_disconnect)(
-        handler,
-        hooked.as_ptr(),
-        game_capture_hooked,
-        ptr::null_mut(),
-    );
-    (obs.signal_handler_disconnect)(
-        handler,
-        unhooked.as_ptr(),
-        game_capture_unhooked,
-        ptr::null_mut(),
-    );
-}
-
-#[cfg(windows)]
-unsafe extern "C" fn game_capture_hooked(_data: *mut c_void, _cd: *mut CallData) {
-    GAME_CAPTURE_HOOKED.store(true, Ordering::SeqCst);
-}
-
-#[cfg(windows)]
-unsafe extern "C" fn game_capture_unhooked(_data: *mut c_void, _cd: *mut CallData) {
-    GAME_CAPTURE_HOOKED.store(false, Ordering::SeqCst);
-}
 
 pub(in crate::agent) fn start_game_capture_hook_wait(
     game: Option<&DetectedGame>,
@@ -481,14 +411,8 @@ pub(in crate::agent) unsafe fn game_capture_source_hooked(
     obs: &LibObs,
     source: *mut ObsSource,
 ) -> bool {
-    if GAME_CAPTURE_HOOKED.load(Ordering::SeqCst) {
-        return true;
-    }
-
     // obs-vkcapture only has `get_hooked` from 1.5.6. On any version, a
-    // source with a frame size has a game's texture. It has no hook signals
-    // either, so Linux answers from the live source each time rather than
-    // keeping the flag.
+    // source with a frame size has a game's texture.
     #[cfg(target_os = "linux")]
     {
         let (width, height) = obs.source_size(source);
@@ -518,10 +442,6 @@ pub(in crate::agent) unsafe fn game_capture_source_hooked(
         std::mem::size_of::<u8>(),
     );
     free_calldata(obs, &mut data);
-    #[cfg(windows)]
-    if ok && hooked != 0 {
-        GAME_CAPTURE_HOOKED.store(true, Ordering::SeqCst);
-    }
     ok && hooked != 0
 }
 
@@ -594,10 +514,7 @@ pub(in crate::agent) unsafe fn create_video_graph(
     base_dimensions: VideoDimensions,
 ) -> Result<VideoGraph, String> {
     let source = create_video_source(obs, settings, game, source_kind)?;
-    create_scaled_video_scene(obs, source, source_kind, base_dimensions).inspect_err(|_| {
-        if source_kind == OutputSourceKind::Game {
-            disconnect_game_capture_signals(obs, source);
-        }
+    create_scaled_video_scene(obs, source, base_dimensions).inspect_err(|_| {
         (obs.obs_source_remove)(source);
         (obs.obs_source_release)(source);
     })
@@ -606,7 +523,6 @@ pub(in crate::agent) unsafe fn create_video_graph(
 unsafe fn create_scaled_video_scene(
     obs: &LibObs,
     source: *mut ObsSource,
-    source_kind: OutputSourceKind,
     base_dimensions: VideoDimensions,
 ) -> Result<VideoGraph, String> {
     let name = c"alloy_video_scene";
@@ -647,7 +563,6 @@ unsafe fn create_scaled_video_scene(
         scene,
         source,
         output_source,
-        source_kind,
     })
 }
 
@@ -720,7 +635,7 @@ pub(in crate::agent) unsafe fn create_audio_graph(
     settings: &RecordingSettings,
     game: Option<&DetectedGame>,
 ) -> Result<AudioGraph, String> {
-    let configs = audio_source_configs(obs, settings, game)?;
+    let configs = audio_source_configs(settings, game)?;
     validate_audio_source_count(configs.len())?;
 
     let mut graph = AudioGraph {
@@ -754,12 +669,11 @@ pub(in crate::agent) unsafe fn create_audio_graph(
 }
 
 pub(in crate::agent) fn audio_source_configs(
-    obs: &LibObs,
     settings: &RecordingSettings,
     game: Option<&DetectedGame>,
 ) -> Result<Vec<AudioSourceConfig>, String> {
     match settings.audio_mode {
-        RecordingAudioMode::Devices => Ok(selected_audio_devices(obs, settings, None)?
+        RecordingAudioMode::Devices => Ok(selected_audio_devices(settings, None)?
             .into_iter()
             .map(audio_device_source_config)
             .collect()),
@@ -781,7 +695,7 @@ pub(in crate::agent) fn audio_source_configs(
             // Microphones aren't application playback streams, so input devices
             // stay capturable in applications mode for voice-over.
             configs.extend(
-                selected_audio_devices(obs, settings, Some(&RecordingAudioDeviceKind::Input))?
+                selected_audio_devices(settings, Some(&RecordingAudioDeviceKind::Input))?
                     .into_iter()
                     .map(audio_device_source_config),
             );
@@ -792,7 +706,6 @@ pub(in crate::agent) fn audio_source_configs(
 }
 
 fn selected_audio_devices(
-    obs: &LibObs,
     settings: &RecordingSettings,
     selected_kind: Option<&RecordingAudioDeviceKind>,
 ) -> Result<Vec<RecordingAudioDeviceSelection>, String> {
@@ -803,7 +716,7 @@ fn selected_audio_devices(
         .cloned()
         .collect();
     if !selected.is_empty() {
-        let available = platform_audio_devices(Some(obs))?;
+        let available = platform_audio_devices()?;
         let resolved = selected
             .into_iter()
             .map(|device| resolve_audio_device_selection(device, &available))

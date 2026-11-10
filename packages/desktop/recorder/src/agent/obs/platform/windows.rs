@@ -3,7 +3,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use serde_json::Value;
+use windows::Win32::Graphics::Dxgi::{
+    CreateDXGIFactory1, IDXGIFactory1, DXGI_ADAPTER_FLAG_SOFTWARE,
+};
 use windows_sys::Win32::Media::Audio::{eCapture, eRender};
 
 use crate::{
@@ -13,7 +15,7 @@ use crate::{
             active_audio_endpoint_devices, create_mm_device_enumerator, default_endpoint_id,
             endpoint_friendly_name, endpoint_id, ComApartment, ComPtr,
         },
-        command_output, DetectedGame,
+        DetectedGame,
     },
     types::{RecordingAudioApplicationSelection, RecordingAudioDevice, RecordingAudioDeviceKind},
 };
@@ -29,21 +31,21 @@ pub(in crate::agent) const APPLICATION_AUDIO_TARGET_KEY: &CStr = c"window";
 /// Match application windows by executable first.
 pub(in crate::agent) const APPLICATION_AUDIO_PRIORITY: Option<i64> = Some(2);
 
-pub(in crate::agent) fn platform_audio_devices(
-    obs: Option<&LibObs>,
-) -> Result<Vec<RecordingAudioDevice>, String> {
-    if let Some(obs) = obs {
-        // SAFETY: The caller only supplies a started libobs instance. Property
-        // handles are owned and destroyed inside `audio_devices`.
-        return unsafe { obs.audio_devices() };
-    }
-    windows_audio_devices()
+/// The active WASAPI endpoints, which are the devices OBS's own sources
+/// offer. Listing them needs no running OBS, so the settings can show them
+/// while recording is off.
+pub(in crate::agent) fn platform_audio_devices() -> Result<Vec<RecordingAudioDevice>, String> {
+    let _com = ComApartment::initialize()
+        .ok_or_else(|| "Could not initialize COM for audio-device discovery.".to_string())?;
+    // SAFETY: COM is initialized on this thread until `_com` drops, after
+    // every interface the enumeration creates.
+    unsafe { enumerate_active_audio_devices() }
 }
 
-/// GPU choices as `adapter:{index}:{name}`, or `None` when Windows reported
-/// no video controller.
+/// GPU choices as `adapter:{index}:{name}`, or `None` when DXGI listed no
+/// hardware adapter.
 pub(in crate::agent) fn platform_gpus() -> Option<Vec<String>> {
-    let gpus: Vec<_> = platform_gpu_labels()
+    let gpus: Vec<_> = dxgi_adapter_names()
         .into_iter()
         .enumerate()
         .map(|(index, label)| format!("adapter:{index}:{label}"))
@@ -51,45 +53,34 @@ pub(in crate::agent) fn platform_gpus() -> Option<Vec<String>> {
     (!gpus.is_empty()).then_some(gpus)
 }
 
-fn platform_gpu_labels() -> Vec<String> {
-    let script =
-        "Get-CimInstance Win32_VideoController | Select-Object Name | ConvertTo-Json -Compress";
-    let Some(output) = command_output(
-        "powershell.exe",
-        &[
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            script,
-        ],
-    ) else {
+/// Adapter names in DXGI's order, so that a name's position is the index
+/// libobs-d3d11 opens that adapter by. The software adapters Windows lists
+/// last are left off. One listed before a real adapter stays, since dropping
+/// it would shift every position after it.
+fn dxgi_adapter_names() -> Vec<String> {
+    // SAFETY: DXGI needs no COM apartment, and the factory and each adapter
+    // are released when their wrappers drop.
+    let Ok(factory) = (unsafe { CreateDXGIFactory1::<IDXGIFactory1>() }) else {
         return Vec::new();
     };
-
-    let Ok(value) = serde_json::from_str::<Value>(&output) else {
-        return Vec::new();
-    };
-    match value {
-        Value::Array(items) => items
-            .into_iter()
-            .filter_map(|entry| entry.get("Name")?.as_str().map(str::to_string))
-            .collect(),
-        Value::Object(object) => object
-            .get("Name")
-            .and_then(Value::as_str)
-            .map(|name| vec![name.to_string()])
-            .unwrap_or_default(),
-        _ => Vec::new(),
+    let mut adapters = Vec::new();
+    // Enumeration ends with DXGI_ERROR_NOT_FOUND.
+    while let Ok(adapter) = unsafe { factory.EnumAdapters1(adapters.len() as u32) } {
+        let Ok(description) = (unsafe { adapter.GetDesc1() }) else {
+            break;
+        };
+        let name = &description.Description;
+        let length = name
+            .iter()
+            .position(|&unit| unit == 0)
+            .unwrap_or(name.len());
+        let software = description.Flags & DXGI_ADAPTER_FLAG_SOFTWARE.0 as u32 != 0;
+        adapters.push((String::from_utf16_lossy(&name[..length]), software));
     }
-}
-
-fn windows_audio_devices() -> Result<Vec<RecordingAudioDevice>, String> {
-    let _com = ComApartment::initialize()
-        .ok_or_else(|| "Could not initialize COM for audio-device discovery.".to_string())?;
-    // SAFETY: COM is initialized on this thread until `_com` drops, after
-    // every interface the enumeration creates.
-    unsafe { enumerate_active_audio_devices() }
+    while adapters.last().is_some_and(|(_, software)| *software) {
+        adapters.pop();
+    }
+    adapters.into_iter().map(|(name, _)| name).collect()
 }
 
 unsafe fn enumerate_active_audio_devices() -> Result<Vec<RecordingAudioDevice>, String> {
@@ -185,12 +176,6 @@ pub(in crate::agent) unsafe fn set_audio_device(
     device_id: &str,
 ) -> Result<(), String> {
     obs.set_string(settings, c"device_id", device_id)
-}
-
-/// WASAPI endpoint ids are case-insensitive GUID paths; the settings store
-/// them in lowercase.
-pub(in crate::agent) fn normalized_device_id(id: &str) -> String {
-    id.to_ascii_lowercase()
 }
 
 pub(in crate::agent) fn libobs_candidates(runtime_dir: Option<&Path>) -> Vec<PathBuf> {

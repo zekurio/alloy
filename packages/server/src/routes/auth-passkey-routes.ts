@@ -7,7 +7,6 @@ import {
 import {
   deleteUserPasskeyPreservingSignIn,
   setupRequired,
-  validateUsername,
 } from "@alloy/server/auth/identity"
 import {
   createPasskeyAccount,
@@ -26,6 +25,7 @@ import {
   hasSetupAccess,
   SETUP_ACCESS_REQUIRED,
 } from "@alloy/server/auth/setup-token"
+import { normalizeUsername } from "@alloy/server/auth/username"
 import {
   AUTHENTICATOR_TRANSPORTS,
   beginPasskeyAuthentication,
@@ -132,7 +132,7 @@ export const authPasskeyRoutes = new Hono()
           return badRequest(c, "Passkey sign-up is currently disabled.")
         }
 
-        const username = validateUsername(body.username)
+        const username = normalizeUsername(body.username)
         const registration = await beginPasskeyRegistration({
           identifier: username,
           origin: c.req.header("origin"),

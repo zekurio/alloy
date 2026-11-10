@@ -23,10 +23,7 @@ import { useShallow } from "zustand/react/shallow"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { useDesktopQuery } from "@/lib/use-desktop-query"
 
-import {
-  EMPTY_SOUND_LIBRARY,
-  useDesktopRecordingPanel,
-} from "./desktop-recording-context"
+import { useDesktopRecordingPanel } from "./desktop-recording-context"
 import { useSliderDraft } from "./use-slider-draft"
 
 const SOUND_ROWS: Array<{
@@ -73,7 +70,7 @@ export function NotificationSoundsSection({
     ["recording", "notification-sounds"],
     listNotificationSounds,
   )
-  const library = data ?? EMPTY_SOUND_LIBRARY
+  const options = data ?? []
 
   return (
     <SettingsSubsection id="sounds" title={t("Sounds")}>
@@ -86,7 +83,7 @@ export function NotificationSoundsSection({
             description={row.description}
             defaultFile={row.defaultFile}
             sound={settings.notificationSounds[row.id]}
-            options={library[row.id]}
+            options={options}
             busy={busy}
             onEnabledChange={(enabled) =>
               void saveSound(settings, save, row.id, { enabled })
@@ -97,7 +94,7 @@ export function NotificationSoundsSection({
             onVolumeChange={(volume) =>
               void saveSound(settings, save, row.id, { volume })
             }
-            onOpenFolder={() => void openNotificationSoundsFolder(row.id)}
+            onOpenFolder={() => void openNotificationSoundsFolder()}
             onPreview={() => void previewNotificationSound(row.id)}
             onRefresh={refetch}
           />

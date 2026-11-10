@@ -24,7 +24,7 @@ export function normalizeDeviceName(value: string | undefined): string | null {
  * GET /authorize redirects here instead of serving its own HTML, so the
  * page shares the web app's auth frame and styles.
  */
-export const DESKTOP_AUTHORIZE_WEB_PATH = "/desktop/authorize"
+const DESKTOP_AUTHORIZE_WEB_PATH = "/desktop/authorize"
 
 /**
  * Same-origin URL for the desktop-link confirmation page. The authorize

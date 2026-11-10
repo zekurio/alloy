@@ -1,7 +1,7 @@
 pub mod download;
 mod error;
 pub mod media;
-mod paths;
+pub(crate) mod paths;
 pub mod poster;
 pub mod protocol;
 pub mod store;

@@ -8,7 +8,7 @@ import { OAuthSignIn } from "@/components/routes/login/oauth-sign-in"
 import { canOidcSignUp } from "@/lib/auth-access"
 import { authClient } from "@/lib/auth-client"
 import { useSignedOut } from "@/lib/auth-hooks"
-import { usePasskeySupport } from "@/lib/passkey-support"
+import { passkeysSupported } from "@/lib/passkey-support"
 
 import { PasskeySignUpForm } from "./passkey-sign-up-form"
 
@@ -23,15 +23,13 @@ type SignUpPageInnerProps = {
  */
 export function SignUpForm({
   config,
-  passkeyReady = true,
   passkeySupported,
 }: {
   config: PublicAuthConfig
-  passkeyReady?: boolean
   passkeySupported: boolean
 }) {
   const canPasskeySignUp = config.openRegistrations && config.passkeyEnabled
-  const showPasskeySignUp = passkeyReady && canPasskeySignUp && passkeySupported
+  const showPasskeySignUp = canPasskeySignUp && passkeySupported
   const oidcSignUp = canOidcSignUp(config) ? config.oidc : null
   const showSeparator = showPasskeySignUp && oidcSignUp !== null
 
@@ -50,7 +48,7 @@ export function SignUpForm({
           </div>
         ) : null}
 
-        {passkeyReady && canPasskeySignUp && !passkeySupported ? (
+        {canPasskeySignUp && !passkeySupported ? (
           <p className="text-foreground-muted text-sm">
             {t(
               "Passkey sign-up is enabled, but this browser does not support passkeys.",
@@ -90,22 +88,15 @@ export function SignUpForm({
 
 export function SignUpPageInner({ config }: SignUpPageInnerProps) {
   const canRender = useSignedOut()
-  const { supported: passkeySupported, ready: passkeyReady } =
-    usePasskeySupport()
+  const passkeySupported = passkeysSupported()
 
   useEffect(() => {
-    if (config.passkeyEnabled && passkeyReady && passkeySupported) {
+    if (config.passkeyEnabled && passkeySupported) {
       authClient.passkey.preload()
     }
-  }, [config.passkeyEnabled, passkeyReady, passkeySupported])
+  }, [config.passkeyEnabled, passkeySupported])
 
   if (!canRender) return null
 
-  return (
-    <SignUpForm
-      config={config}
-      passkeyReady={passkeyReady}
-      passkeySupported={passkeySupported}
-    />
-  )
+  return <SignUpForm config={config} passkeySupported={passkeySupported} />
 }

@@ -23,7 +23,6 @@ export function ToolbarChipTrigger({
 }) {
   return (
     <Chip
-      size="xl"
       className={cn(
         "h-9 w-auto max-w-[10rem] min-w-0 justify-start gap-2 rounded-lg border-transparent bg-transparent px-3 text-sm leading-4 font-medium text-foreground-muted hover:border-border hover:bg-surface-raised/60 hover:text-foreground",
         "max-md:gap-1 max-md:px-2.5",

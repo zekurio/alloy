@@ -1,6 +1,6 @@
 [package]
 name = "alloy-agent"
-version = "0.1.2"
+version.workspace = true
 edition = "2021"
 publish = false
 
@@ -34,6 +34,12 @@ libc = "0.2"
 png = "0.18"
 
 [target.'cfg(windows)'.dependencies]
+# For DXGI, a COM API that windows-sys leaves out. rodio's audio backend
+# already builds this crate.
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Dxgi",
+] }
 windows-sys = { version = "0.61", features = [
   "Win32_Devices_Display",
   "Win32_Foundation",

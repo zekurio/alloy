@@ -33,7 +33,13 @@ import {
   uploadGameAsset,
 } from "./admin-games-store"
 import { steamgriddbErrorResponse } from "./games-helpers"
-import { IdParam, requiredTrimmedString, tbValidator } from "./validation"
+import {
+  IdParam,
+  requiredTrimmedString,
+  tbValidator,
+  lowercaseUuid,
+} from "./validation"
+import type { IdParamInput } from "./validation"
 
 export { gameAssetsRoute } from "./admin-game-assets"
 
@@ -75,7 +81,7 @@ const UpdateGameBody = t
   })
 
 const GameAssetParam = t.object({
-  id: t.uuid(),
+  id: lowercaseUuid(),
   role: t.enum(GAME_ASSET_ROLES),
 })
 const GameArtworkQuery = t.object({ role: t.enum(GAME_ASSET_ROLES) })
@@ -86,13 +92,15 @@ const GameAssetUploadForm = t.object({
 // Lets routes that process images fail before that work. The store checks
 // again under its row lock, so routes without that work can skip this.
 /** Loads the game named by the `:id` param, or 404s. */
-const loadGame = createMiddleware<{
-  Variables: { game: { id: string; steamgriddbId: number | null } }
-}>(async (c, next) => {
+const loadGame = createMiddleware<
+  { Variables: { game: { id: string; steamgriddbId: number | null } } },
+  string,
+  IdParamInput
+>(async (c, next) => {
   const [row] = await db
     .select({ id: game.id, steamgriddbId: game.steamgriddb_id })
     .from(game)
-    .where(eq(game.id, c.req.param("id") ?? ""))
+    .where(eq(game.id, c.req.valid("param").id))
     .limit(1)
   if (!row) return notFound(c, "Unknown game")
   c.set("game", row)

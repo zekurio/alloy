@@ -14,21 +14,14 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 pub use alloy_recorder::protocol::{
-    RECORDER_CAPABILITIES, RECORDER_PROTOCOL_VERSION as AGENT_PROTOCOL_VERSION,
-    SIDE_CAR_NAME as AGENT_NAME,
+    RECORDER_PROTOCOL_VERSION as AGENT_PROTOCOL_VERSION, SIDE_CAR_NAME as AGENT_NAME,
 };
 pub use alloy_recorder::types::{
     EventEnvelope, PlayNotificationSoundParams as PlayNotificationSoundRequest,
-    RecordingActionResult, RecordingAllowedGame, RecordingAudioApplicationSelection,
-    RecordingAudioDevice, RecordingAudioDeviceKind, RecordingAudioDeviceSelection,
-    RecordingAudioLevel, RecordingAudioLevelTarget, RecordingAudioMode, RecordingBackendState,
-    RecordingBitrate, RecordingBufferStorage, RecordingCapture, RecordingCaptureKind,
-    RecordingCaptureMode, RecordingCapturePostProcess, RecordingCaptureSource, RecordingCodec,
-    RecordingDisplay, RecordingEncoder, RecordingEvent, RecordingGame, RecordingGameGuess,
-    RecordingGameGuessMatchKind, RecordingGameGuessSource, RecordingGameProcess, RecordingHotkeys,
-    RecordingMode, RecordingQualityProfile, RecordingQualitySettings, RecordingResolution,
-    RecordingRunState, RecordingStatus, RecordingTelemetry, Request as WireRequest,
-    Response as WireResponse, SaveReplayClipParams as SaveReplayClipRequest,
+    RecordingActionResult, RecordingBackendState, RecordingCapture, RecordingCaptureKind,
+    RecordingCodec, RecordingDisplay, RecordingEvent, RecordingGameProcess, RecordingStatus,
+    Request as WireRequest, Response as WireResponse,
+    SaveReplayClipParams as SaveReplayClipRequest,
 };
 
 pub use alloy_recorder::types::RecordingSettings as RecorderSettings;
@@ -108,29 +101,15 @@ pub fn unavailable_status(
 ) -> RecordingStatus {
     RecordingStatus {
         backend: RecordingBackendState::Missing,
-        mode: RecordingMode::Idle,
-        capture_mode: settings.capture_mode.clone(),
-        run_state: RecordingRunState::Idle,
         replay_active: false,
         active_game: None,
         active_game_detail: None,
         active_display: None,
-        focused: false,
-        current_source: None,
-        current_capture: None,
-        replay_buffer_seconds: settings.replay_buffer_seconds,
         available_gpus: Vec::new(),
         available_codecs: vec![RecordingCodec::H264],
         available_audio_devices: Vec::new(),
         available_audio_applications: settings.audio_applications.clone(),
-        telemetry: None,
         message,
-        // The recorder this host would start, so the settings don't show
-        // controls it leaves out while it is down.
-        capabilities: RECORDER_CAPABILITIES
-            .iter()
-            .map(ToString::to_string)
-            .collect(),
     }
 }
 
@@ -139,12 +118,7 @@ pub fn event_status(event: &RecordingEvent) -> Option<&RecordingStatus> {
     match event {
         RecordingEvent::Status { status }
         | RecordingEvent::ReplayBufferStarted { status }
-        | RecordingEvent::GameStarted { status, .. }
-        | RecordingEvent::GameFocusChanged { status, .. }
-        | RecordingEvent::GameEnded { status, .. }
-        | RecordingEvent::CaptureReady { status, .. }
-        | RecordingEvent::Telemetry { status, .. }
-        | RecordingEvent::Error { status, .. } => Some(status),
+        | RecordingEvent::CaptureReady { status, .. } => Some(status),
         RecordingEvent::ClipHotkey
         | RecordingEvent::ScreenshotHotkey
         | RecordingEvent::AudioLevels { .. } => None,
@@ -154,7 +128,7 @@ pub fn event_status(event: &RecordingEvent) -> Option<&RecordingStatus> {
 /// The capture announced by a `capture-ready` event.
 pub fn event_capture(event: &RecordingEvent) -> Option<&RecordingCapture> {
     match event {
-        RecordingEvent::CaptureReady { capture, .. } => Some(capture),
+        RecordingEvent::CaptureReady { capture, .. } => Some(capture.as_ref()),
         _ => None,
     }
 }
@@ -189,83 +163,22 @@ impl Default for CaptureManifest {
     }
 }
 
+/// Where the recorder host and its agent keep their files.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecorderHostOptions {
     pub executable: PathBuf,
+    /// Settings and the capture recovery queue.
     pub state_dir: PathBuf,
-    pub agent_state_folder: PathBuf,
+    /// Regenerable host data: the agent's scratch state in `agent/` and the
+    /// Discord detection cache.
+    pub cache_dir: PathBuf,
     pub output_folder: PathBuf,
     pub replay_scratch_folder: PathBuf,
-    pub obs_runtime_dir: Option<PathBuf>,
-    /// Regenerable host data: the recorder scratch state and the Discord
-    /// detection cache. Defaults to the state folder.
-    pub cache_dir: PathBuf,
-    pub request_timeout: std::time::Duration,
-    pub configure_timeout: std::time::Duration,
-    pub shutdown_request_timeout: std::time::Duration,
-    pub graceful_exit_timeout: std::time::Duration,
-    pub forced_exit_timeout: std::time::Duration,
-    /// Wait after the first failed start; each failure in a row doubles it.
-    pub respawn_delay: std::time::Duration,
-    pub respawn_streak_reset: std::time::Duration,
-    pub max_consecutive_respawns: u32,
-    /// Longest wait between starts while the agent keeps failing.
-    pub max_respawn_backoff: std::time::Duration,
-    pub heartbeat_interval: std::time::Duration,
-    pub max_line_bytes: usize,
+    pub obs_runtime_dir: PathBuf,
 }
 
 impl RecorderHostOptions {
-    pub fn new(executable: impl Into<PathBuf>, state_dir: impl Into<PathBuf>) -> Self {
-        let state_dir = state_dir.into();
-        Self {
-            executable: executable.into(),
-            agent_state_folder: state_dir.join("agent"),
-            output_folder: state_dir.join("captures"),
-            replay_scratch_folder: state_dir.join("replay-buffer"),
-            cache_dir: state_dir.clone(),
-            state_dir,
-            obs_runtime_dir: None,
-            request_timeout: std::time::Duration::from_secs(20),
-            configure_timeout: std::time::Duration::from_secs(45),
-            // OBS may take up to eight seconds to flush and stop an output.
-            // Keep the force windows below bounded after this request grace.
-            shutdown_request_timeout: std::time::Duration::from_secs(10),
-            graceful_exit_timeout: std::time::Duration::from_millis(1_500),
-            forced_exit_timeout: std::time::Duration::from_millis(1_500),
-            respawn_delay: std::time::Duration::from_secs(3),
-            respawn_streak_reset: std::time::Duration::from_secs(60),
-            max_consecutive_respawns: 5,
-            max_respawn_backoff: std::time::Duration::from_secs(5 * 60),
-            heartbeat_interval: std::time::Duration::from_secs(30),
-            max_line_bytes: 4 * 1024 * 1024,
-        }
-    }
-
-    pub fn cache_dir(mut self, path: impl Into<PathBuf>) -> Self {
-        let path = path.into();
-        self.agent_state_folder = path.join("agent");
-        self.cache_dir = path;
-        self
-    }
-
-    pub fn output_folder(mut self, path: impl Into<PathBuf>) -> Self {
-        self.output_folder = path.into();
-        self
-    }
-
-    pub fn replay_scratch_folder(mut self, path: impl Into<PathBuf>) -> Self {
-        self.replay_scratch_folder = path.into();
-        self
-    }
-
-    pub fn obs_runtime_dir(mut self, path: Option<PathBuf>) -> Self {
-        self.obs_runtime_dir = path;
-        self
-    }
-
-    pub fn heartbeat_interval(mut self, interval: std::time::Duration) -> Self {
-        self.heartbeat_interval = interval;
-        self
+    pub(super) fn agent_state_folder(&self) -> PathBuf {
+        self.cache_dir.join("agent")
     }
 }

@@ -16,7 +16,6 @@ pub(in crate::agent) struct VideoGraph {
     pub(in crate::agent) scene: *mut ObsScene,
     pub(in crate::agent) source: *mut ObsSource,
     pub(in crate::agent) output_source: *mut ObsSource,
-    pub(in crate::agent) source_kind: OutputSourceKind,
 }
 
 pub(in crate::agent) struct AudioGraph {

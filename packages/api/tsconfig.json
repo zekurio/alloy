@@ -3,12 +3,7 @@
   "compilerOptions": {
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "types": ["node"],
-    "paths": {
-      "@/*": ["./src/*"],
-      "@alloy/contracts": ["../contracts/src/index.ts"],
-      "@alloy/contracts/*": ["../contracts/src/*"]
-    }
+    "types": ["node"]
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

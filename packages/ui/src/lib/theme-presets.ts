@@ -26,7 +26,7 @@ export interface ThemeFamily {
   custom: boolean
 }
 
-export const ALLOY_THEME_ID = "alloy"
+const ALLOY_THEME_ID = "alloy"
 
 export const DEFAULT_THEME_VARIANT_IDS = {
   light: "alloy-light",

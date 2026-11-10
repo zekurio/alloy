@@ -38,10 +38,12 @@ import {
   uploadQuotaResult,
 } from "./clips-upload-helpers"
 import { clipsUploadInitiateRoutes } from "./clips-upload-initiate"
+import { clipsUploadTransferRoutes } from "./clips-upload-transfer"
 import { IdParam, tbValidator } from "./validation"
 
 export const clipsUploadLifecycleRoutes = new Hono()
   .route("/", clipsUploadInitiateRoutes)
+  .route("/", clipsUploadTransferRoutes)
   .post(
     "/:id/finalize",
     requireSession,
@@ -52,7 +54,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
       const row = c.var.clip
-      const videoTicket = await selectVideoTicket({ type: "clip", id })
+      const videoTicket = await selectVideoTicket(id)
       const sourceContentType = row.source_content_type
       const sourceSizeBytes = row.source_size_bytes
       if (!videoTicket || !sourceContentType || sourceSizeBytes == null) {
@@ -89,7 +91,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
         recovered ||
         (finalizationAction === "usable" &&
           (await assertUsableVideoTicket({
-            target: { type: "clip", id },
+            clipId: id,
             storageKey: videoTicketKey,
             contentType: sourceContentType,
             expectedBytes: sourceSizeBytes,
@@ -164,8 +166,6 @@ export const clipsUploadLifecycleRoutes = new Hono()
         await markUploadTicketUsed(videoTicket.id, finalizedAt, tx)
         await requestClipMedia(id, {
           force: false,
-          priority: 10,
-          clearFailure: true,
           tx,
         })
         return row

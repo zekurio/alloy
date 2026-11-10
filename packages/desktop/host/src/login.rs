@@ -16,13 +16,11 @@ use crate::server::{Server, read_body};
 
 const MAX_TOKEN_BODY: usize = 64 * 1024;
 
-/// The cookie that carries an Alloy session. Sessions do not rotate, so a copy
-/// stays valid until the session is signed out or expires.
-pub const SESSION_COOKIE: &str = "alloy_session";
-
 /// The token from a desktop sign-in. The shell writes it into the selected
-/// server window's cookie store as a host-only `SESSION_COOKIE`, the same
-/// cookie the server sets itself, and never hands it to a renderer.
+/// server window's cookie store as a host-only `alloy_session` cookie, the
+/// same cookie the server sets itself, and never hands it to a renderer.
+/// Sessions do not rotate, so a copy stays valid until the session is signed
+/// out or expires.
 pub struct SessionToken {
     token: String,
     cookie_expires_at: OffsetDateTime,

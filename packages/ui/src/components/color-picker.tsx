@@ -23,9 +23,9 @@ const HEX_COLOR_RE = /^#?([0-9a-f]{6})$/i
 
 /**
  * Colour picker owned end to end: a saturation/value field, a hue rail, and a
- * swatch trigger. Replaces `<input type="color">`, which can't represent the
- * `oklch()` values the theme tokens actually use and renders differently in
- * every browser. It always emits an opaque `#rrggbb`.
+ * swatch trigger. Used instead of `<input type="color">`, whose native dialog
+ * looks different in every browser and in Electron and can't match the app's
+ * styling. It reads any CSS colour and always emits an opaque `#rrggbb`.
  */
 export function ColorPicker({
   value,

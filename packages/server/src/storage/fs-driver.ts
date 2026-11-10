@@ -16,9 +16,7 @@ import { pipeline } from "node:stream/promises"
 import type {
   AbortUploadInput,
   CompleteUploadInput,
-  MintUploadUrlInput,
   ResolvedObject,
-  StorageDriver,
   WriteUploadPartInput,
 } from "./driver"
 import {
@@ -34,15 +32,14 @@ import {
   UploadPartTooLargeError,
   walkFsFiles,
 } from "./fs-driver-helpers"
-import { mintFsUploadTicket, type UploadTokenPayload } from "./fs-upload-token"
 
-export { decodeUploadToken } from "./fs-upload-token"
 export {
   UploadPartSizeMismatchError,
   UploadPartTooLargeError,
 } from "./fs-driver-helpers"
 
-const FS_UPLOAD_CHUNK_SIZE_BYTES = 32 * 1024 * 1024
+/** Size of every upload part but the last. */
+export const UPLOAD_PART_SIZE_BYTES = 32 * 1024 * 1024
 
 // Storage paths use "/" on every platform: keys are "/"-separated, and the
 // driver and its helpers build paths by joining strings with "/".
@@ -52,11 +49,10 @@ function slashPath(path: string): string {
 
 interface FsDriverOptions {
   root: string
-  publicBaseUrl: string
-  hmacSecret: string
 }
 
-export class FsStorageDriver implements StorageDriver {
+/** Object storage on the local filesystem, one instance per storage root. */
+export class FsStorageDriver {
   constructor(private readonly opts: FsDriverOptions) {}
 
   /** Resolve a storageKey against the configured root. */
@@ -76,10 +72,13 @@ export class FsStorageDriver implements StorageDriver {
     return resolved
   }
 
+  /**
+   * Server-side write. Returns the byte length actually written so the
+   * caller can echo it back into Content-Length / clip asset metadata.
+   */
   async put(
     key: string,
     body: Uint8Array | ReadableStream<Uint8Array>,
-    _contentType: string,
   ): Promise<{ size: number }> {
     // Staged and renamed into place, so a reader or a process that dies
     // mid-write never leaves a partial object under the key.
@@ -98,6 +97,10 @@ export class FsStorageDriver implements StorageDriver {
     }
   }
 
+  /**
+   * Stat + open. Returns `null` when the key doesn't exist — callers map
+   * that to a 404 instead of treating it as a 500.
+   */
   async resolve(key: string): Promise<ResolvedObject | null> {
     const full = this.fullPath(key)
     let stats: Awaited<ReturnType<typeof stat>>
@@ -121,26 +124,6 @@ export class FsStorageDriver implements StorageDriver {
       contentType: contentTypeForExt(extname(full)),
       lastModified: stats.mtime ?? null,
     }
-  }
-
-  async mintUploadUrl(input: MintUploadUrlInput) {
-    const expiresAt = Math.floor(Date.now() / 1000) + input.expiresInSec
-    const payload: UploadTokenPayload = {
-      k: input.key,
-      ct: input.contentType,
-      mb: input.maxBytes,
-      exp: expiresAt,
-      uid: input.userId,
-      cid: input.clipId,
-      cs: FS_UPLOAD_CHUNK_SIZE_BYTES,
-    }
-    return mintFsUploadTicket({
-      payload,
-      publicBaseUrl: this.opts.publicBaseUrl,
-      secret: this.opts.hmacSecret,
-      headers: {},
-      strategy: { type: "chunked", chunkSizeBytes: FS_UPLOAD_CHUNK_SIZE_BYTES },
-    })
   }
 
   async writeUploadPart(
@@ -180,11 +163,9 @@ export class FsStorageDriver implements StorageDriver {
     }
   }
 
+  /** Publish a resumable upload into its final staged object. */
   async completeUpload(input: CompleteUploadInput): Promise<void> {
-    const partSizeBytes = input.partSizeBytes
-    if (!partSizeBytes) {
-      throw new Error("Filesystem chunk completion requires partSizeBytes")
-    }
+    const { partSizeBytes } = input
     const dst = this.fullPath(input.key)
     if (await fileExists(dst)) {
       throw new Error("Upload ticket has already been used")
@@ -224,10 +205,16 @@ export class FsStorageDriver implements StorageDriver {
     }
   }
 
+  /** Best-effort cleanup for resumable upload state. */
   async abortUpload(input: AbortUploadInput): Promise<void> {
     await rm(this.partDir(input.key), { recursive: true, force: true })
   }
 
+  /**
+   * Materialize a stored object as a local file — media processing needs a
+   * filesystem path it can read directly. Hardlinks where possible. The
+   * destination's parent dir must exist.
+   */
   async downloadToFile(key: string, destPath: string): Promise<void> {
     const src = this.fullPath(key)
     await mkdir(dirname(destPath), { recursive: true })
@@ -243,6 +230,12 @@ export class FsStorageDriver implements StorageDriver {
     await copyFile(src, destPath)
   }
 
+  /**
+   * Run `fn` with a path media tools can read a stored object from, for work
+   * that only reads it, such as a poster grab. Hands over the stored file
+   * itself rather than a copy. The path is only valid inside `fn` and must
+   * not be written to.
+   */
   async withLocalFile<T>(
     key: string,
     fn: (path: string) => Promise<T>,
@@ -254,10 +247,13 @@ export class FsStorageDriver implements StorageDriver {
     return fn(path)
   }
 
+  /**
+   * Publish a local file under a storage key. Hardlinks where possible.
+   * Returns the size committed.
+   */
   async uploadFromFile(
     localPath: string,
     key: string,
-    _contentType: string,
   ): Promise<{ size: number }> {
     const dst = this.fullPath(key)
     await mkdir(dirname(dst), { recursive: true })
@@ -277,30 +273,7 @@ export class FsStorageDriver implements StorageDriver {
     return { size: stats.size }
   }
 
-  async copy(input: {
-    fromKey: string
-    toKey: string
-    contentType: string
-  }): Promise<{ size: number }> {
-    const src = this.fullPath(input.fromKey)
-    const dst = this.fullPath(input.toKey)
-    await mkdir(dirname(dst), { recursive: true })
-    await rm(dst).catch((err) => {
-      if (!isOsErrorCode(err, "ENOENT")) throw err
-    })
-    try {
-      await link(src, dst)
-    } catch (err) {
-      if (!isCopyFallbackError(err)) throw err
-      await this.copyIntoPlace(src, input.toKey)
-      const stats = await stat(dst)
-      return { size: stats.size }
-    }
-    await markLinkedPublishTime(dst)
-    const stats = await stat(dst)
-    return { size: stats.size }
-  }
-
+  /** Best-effort delete; missing keys must not throw. */
   async delete(key: string): Promise<void> {
     const full = this.fullPath(key)
     try {
@@ -312,6 +285,7 @@ export class FsStorageDriver implements StorageDriver {
     await this.pruneEmptyAncestors(dirname(full))
   }
 
+  /** Recursively list objects under a storage prefix. */
   async *list(
     prefix: string,
   ): AsyncIterable<{ key: string; lastModified: Date | null }> {

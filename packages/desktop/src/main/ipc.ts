@@ -9,7 +9,6 @@ import {
   type IpcMainInvokeEvent,
   type OpenDialogOptions,
 } from "electron"
-import { z } from "zod"
 
 import {
   API_CHANNEL,
@@ -33,19 +32,9 @@ import {
 import { asError, log } from "./log"
 import { urlPath } from "./policy"
 import { RestartError, type Updates } from "./updater"
-import {
-  destroyConnect,
-  openSettings,
-  showConnect,
-  showPendingConnect,
-} from "./windows"
+import { destroyConnect, showConnect, showPendingConnect } from "./windows"
 
 const INVALID_ARGUMENT = "Invalid native argument."
-
-const ArgsSchema = z.array(z.json())
-const UrlArgumentSchema = z.string()
-const ConnectCommandSchema = z.enum(CONNECT_COMMANDS)
-const ShellOperationSchema = z.enum(SHELL_OPERATIONS)
 
 /** Files the import picker offers. */
 const IMPORT_EXTENSIONS = [
@@ -60,9 +49,9 @@ const IMPORT_EXTENSIONS = [
 ]
 
 function stringArgument(args: readonly NativeJson[], index: number): string {
-  const parsed = z.string().safeParse(args[index])
-  if (!parsed.success) throw new Error(INVALID_ARGUMENT)
-  return parsed.data
+  const value = args[index]
+  if (typeof value !== "string") throw new Error(INVALID_ARGUMENT)
+  return value
 }
 
 /**
@@ -80,9 +69,8 @@ function handle(
 ): void {
   ipcMain.handle(channel, async (event, ...args): Promise<IpcResult> => {
     try {
-      const parsed = ArgsSchema.safeParse(JSON.parse(JSON.stringify(args)))
-      if (!parsed.success) throw new Error(INVALID_ARGUMENT)
-      return { ok: true, value: await run(event, ...parsed.data) }
+      const jsonArgs: NativeJson[] = JSON.parse(JSON.stringify(args))
+      return { ok: true, value: await run(event, ...jsonArgs) }
     } catch (cause) {
       return { ok: false, error: asError(cause).message }
     }
@@ -92,15 +80,15 @@ function handle(
 export function registerIpc(host: Host, updates: Updates): void {
   handle(CONNECT_CHANNEL, async (event, name, url) => {
     requireConnectSender(host, event)
-    const command = ConnectCommandSchema.safeParse(name)
-    if (!command.success) throw new Error("Unknown native desktop operation.")
-    switch (command.data) {
+    const command = CONNECT_COMMANDS.find((known) => known === name)
+    if (!command) throw new Error("Unknown native desktop operation.")
+    switch (command) {
       case "connectServer": {
-        const result = await connectToServer(host, parseUrl(url))
+        await connectToServer(host, parseUrl(url))
         // The connect screen is destroyed rather than hidden: it is cheap to
         // recreate, and it would otherwise keep a renderer process alive.
         destroyConnect(host)
-        return result
+        return undefined
       }
       case "connectReady":
         // The screen calls this once it has painted, so the window is only
@@ -123,29 +111,31 @@ export function registerIpc(host: Host, updates: Updates): void {
 
   handle(SHELL_CHANNEL, async (event, name) => {
     const remote = requireRemoteSender(host, event)
-    const operation = ShellOperationSchema.safeParse(name)
-    if (!operation.success) throw new Error("Unknown native desktop operation.")
-    await runShellOperation(host, remote, operation.data)
+    const operation = SHELL_OPERATIONS.find((known) => known === name)
+    if (!operation) throw new Error("Unknown native desktop operation.")
+    await runShellOperation(host, remote, operation)
     return undefined
   })
 
   handle(API_CHANNEL, async (event, name, rawArgs) => {
     const remote = requireRemoteSender(host, event)
-    const operation = z.string().safeParse(name)
-    const args = ArgsSchema.safeParse(rawArgs ?? [])
-    if (!operation.success || !args.success) throw new Error(INVALID_ARGUMENT)
-    if (operation.data === "servers.switchTo") {
+    const args = rawArgs ?? []
+    if (typeof name !== "string" || !Array.isArray(args)) {
+      throw new Error(INVALID_ARGUMENT)
+    }
+    if (name === "servers.switchTo") {
       // A successful switch replaces the calling window, so return without
       // checking it again.
-      return connectToServer(host, stringArgument(args.data, 0))
+      await connectToServer(host, stringArgument(args, 0))
+      return undefined
     }
     const result = await runApiOperation(
       host,
       updates,
       event,
       remote,
-      operation.data,
-      args.data,
+      name,
+      args,
     )
     // The answer only goes to a window that still shows the selected server.
     requireRemoteSender(host, event)
@@ -154,9 +144,8 @@ export function registerIpc(host: Host, updates: Updates): void {
 }
 
 function parseUrl(url: NativeJson | undefined): string {
-  const parsed = UrlArgumentSchema.safeParse(url)
-  if (!parsed.success) throw new Error(INVALID_ARGUMENT)
-  return parsed.data
+  if (typeof url !== "string") throw new Error(INVALID_ARGUMENT)
+  return url
 }
 
 async function runShellOperation(
@@ -189,9 +178,6 @@ async function runShellOperation(
       window.hide()
       showConnect(host)
       return
-    case "openSettings":
-      await openSettings(window)
-      return
     case "openLogsFolder": {
       host.native.flushLog()
       const error = await shell.openPath(host.folders.logs)
@@ -201,9 +187,6 @@ async function runShellOperation(
       }
       return
     }
-    case "reloadApp":
-      window.webContents.reload()
-      return
   }
 }
 
@@ -221,8 +204,6 @@ async function runApiOperation(
   switch (operation) {
     case "servers.list":
       return host.preferences.servers()
-    case "servers.current":
-      return remote.origin
     case "servers.forget": {
       const origin = host.native.normalizeServerOrigin(stringArgument(args, 0))
       // Checked again once the forget holds the connection lock: a switch
@@ -249,10 +230,10 @@ async function runApiOperation(
     case "autostart.getState":
       return autostartJson(getAutostartState())
     case "autostart.setEnabled": {
-      const enabled = z.boolean().safeParse(args[0])
-      if (!enabled.success) throw new Error(INVALID_ARGUMENT)
+      const enabled = args[0]
+      if (typeof enabled !== "boolean") throw new Error(INVALID_ARGUMENT)
       try {
-        return autostartJson(setAutostartEnabled(enabled.data))
+        return autostartJson(setAutostartEnabled(enabled))
       } catch (cause) {
         log.warn("Couldn't update the startup setting. %s", asError(cause))
         throw new Error("Couldn't update the startup setting.")
@@ -359,7 +340,7 @@ async function runRecordingOperation(
       )
     }
     case "recording.openNotificationSoundsFolder": {
-      const folder = runtime.notificationSoundsFolder(stringArgument(args, 0))
+      const folder = runtime.notificationSoundsFolder()
       const error = await shell.openPath(folder)
       if (error) throw new Error(error)
       return null

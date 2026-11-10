@@ -16,7 +16,6 @@ import {
   passkeysQueryOptions,
 } from "@/lib/auth-query-keys"
 import { alloyDesktop } from "@/lib/desktop"
-import { publicOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
 import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
@@ -111,7 +110,10 @@ export function SecuritySettings() {
 }
 
 function DesktopSecuritySettings() {
-  const securityUrl = new URL("/?settings=profile", publicOrigin()).toString()
+  const securityUrl = new URL(
+    "/?settings=profile",
+    window.location.origin,
+  ).toString()
 
   return (
     <Callout>

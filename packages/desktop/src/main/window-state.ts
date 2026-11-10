@@ -1,7 +1,11 @@
 import { screen, type BrowserWindow } from "electron"
 
 import { asError, log } from "./log"
-import type { NativePreferences, WindowState } from "./native"
+import {
+  clampWindowState,
+  type Preferences,
+  type WindowState,
+} from "./preferences"
 
 // Remembered window geometry: restored when a window opens, saved shortly
 // after it is resized and once more before the app quits.
@@ -17,20 +21,15 @@ const DEFAULT_WINDOW_STATE: WindowState = {
  * edge does not rewrite the preferences file every frame.
  */
 const WINDOW_STATE_SAVE_DELAY_MS = 400
-/** The smallest window the web app can lay out in. */
-export const MIN_WINDOW_WIDTH = 800
-export const MIN_WINDOW_HEIGHT = 600
 
 /**
  * The size a new window opens with: the last saved size, clamped to the
  * primary display so a size saved on a larger display still fits.
  */
-export function restoredWindowState(
-  preferences: NativePreferences,
-): WindowState {
+export function restoredWindowState(preferences: Preferences): WindowState {
   const saved = preferences.windowState() ?? DEFAULT_WINDOW_STATE
   const available = screen.getPrimaryDisplay().workAreaSize
-  return preferences.clampWindowState({
+  return clampWindowState({
     width: Math.min(saved.width, available.width),
     height: Math.min(saved.height, available.height),
     maximized: saved.maximized,
@@ -44,7 +43,7 @@ export function restoredWindowState(
  */
 function saveWindowState(
   window: BrowserWindow,
-  preferences: NativePreferences,
+  preferences: Preferences,
 ): void {
   if (window.isDestroyed() || window.isMinimized()) return
   const previous = preferences.windowState() ?? DEFAULT_WINDOW_STATE
@@ -53,7 +52,7 @@ function saveWindowState(
     ? [previous.width, previous.height]
     : window.getContentSize()
   if (width === 0 || height === 0) return
-  const state = preferences.clampWindowState({ width, height, maximized })
+  const state = clampWindowState({ width, height, maximized })
   if (
     state.width === previous.width &&
     state.height === previous.height &&
@@ -73,7 +72,7 @@ const pendingSaves = new WeakMap<BrowserWindow, ReturnType<typeof setTimeout>>()
 /** Saves the window's geometry after each burst of resizes. */
 export function trackWindowState(
   window: BrowserWindow,
-  preferences: NativePreferences,
+  preferences: Preferences,
 ): void {
   const queueSave = () => {
     const pending = pendingSaves.get(window)
@@ -94,7 +93,7 @@ export function trackWindowState(
 /** Saves every live window's geometry now, so quitting loses no resize. */
 export function flushWindowState(
   windows: readonly (BrowserWindow | null | undefined)[],
-  preferences: NativePreferences,
+  preferences: Preferences,
 ): void {
   for (const window of windows) {
     if (!window || window.isDestroyed()) continue

@@ -1,6 +1,4 @@
-import { DESKTOP_HTTP_CONTRACT_1 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { DESKTOP_BRIDGE_CONTRACT_1 } from "@alloy/primitives"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
 import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
@@ -13,9 +11,7 @@ import { cn } from "@alloy/ui/lib/utils"
 import { useForm } from "@tanstack/react-form"
 import { useMutation } from "@tanstack/react-query"
 import {
-  CheckCircle2Icon,
   CircleAlertIcon,
-  CircleXIcon,
   LinkIcon,
   LogInIcon,
   PlusIcon,
@@ -111,11 +107,9 @@ async function loadSavedServers(api: ServerApi): Promise<{
   servers: DesktopSavedServer[]
   currentServerUrl: string | null
 }> {
-  const [servers, currentServerUrl] = await Promise.all([
-    api.list(),
-    api.current(),
-  ])
-  return { servers, currentServerUrl }
+  // The bridge exists only on the selected server, so this page's origin is
+  // the current server.
+  return { servers: await api.list(), currentServerUrl: window.location.origin }
 }
 
 /**
@@ -410,11 +404,6 @@ function SavedServerRow({
   connectTo: (serverUrl: string) => Promise<void>
   forgetServer: (serverUrl: string) => void
 }) {
-  const compatible = savedCompatibility(server)
-  const compatibilityLabel = compatible
-    ? t("Compatible when last checked")
-    : t("Incompatible when last checked")
-
   return (
     <div className="not-last:border-border flex items-center gap-2 py-3 not-last:border-b first:pt-0 last:pb-0">
       <div className="min-w-0 flex-1">
@@ -433,27 +422,10 @@ function SavedServerRow({
             </span>
           ) : null}
         </div>
-        <div className="mt-1 flex items-center gap-1.5 text-xs">
-          <span className="text-foreground-dim min-w-0 break-words">
-            {t("Server version {version}", {
-              version: server.serverVersion,
-            })}
-          </span>
-          <span
-            role="img"
-            aria-label={compatibilityLabel}
-            title={compatibilityLabel}
-            className={cn(
-              "inline-flex shrink-0",
-              compatible ? "text-success" : "text-destructive",
-            )}
-          >
-            {compatible ? (
-              <CheckCircle2Icon aria-hidden="true" className="size-3.5" />
-            ) : (
-              <CircleXIcon aria-hidden="true" className="size-3.5" />
-            )}
-          </span>
+        <div className="text-foreground-dim mt-1 text-xs break-words">
+          {t("Server version {version}", {
+            version: server.serverVersion,
+          })}
         </div>
       </div>
 
@@ -504,11 +476,4 @@ function sameOrigin(serverUrl: string, origin: string): boolean {
 
 function sameServerTarget(left: string | null, right: string): boolean {
   return left !== null && left.trim() === right.trim()
-}
-
-function savedCompatibility(server: DesktopSavedServer): boolean {
-  return (
-    server.httpContract === DESKTOP_HTTP_CONTRACT_1 &&
-    server.bridgeContract === DESKTOP_BRIDGE_CONTRACT_1
-  )
 }

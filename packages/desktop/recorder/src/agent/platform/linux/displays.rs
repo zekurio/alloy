@@ -3,10 +3,9 @@
 //! connected monitor. On X11 the RandR monitors are listed in the order
 //! OBS's screen capture numbers them.
 
-use std::fs;
+use std::{fs, process::Command};
 
 use super::session::{display_session, DisplaySession};
-use crate::agent::platform::command_output;
 use crate::types::{RecordingDisplay, VideoDimensions};
 
 /// The display that stands for the screen-sharing dialog's choice.
@@ -27,7 +26,6 @@ pub(in crate::agent) fn list_displays() -> Vec<RecordingDisplay> {
                 width: dimensions.width,
                 height: dimensions.height,
                 primary: true,
-                thumbnail_data_url: None,
             }]
         }
         Some(DisplaySession::X11) => x11_monitors()
@@ -38,7 +36,6 @@ pub(in crate::agent) fn list_displays() -> Vec<RecordingDisplay> {
                 width: monitor.width,
                 height: monitor.height,
                 primary: monitor.primary,
-                thumbnail_data_url: None,
             })
             .collect(),
         None => Vec::new(),
@@ -72,10 +69,16 @@ struct X11Monitor {
 /// ` 0: +*DP-1 2560/597x1440/336+0+0  DP-1`. OBS's X11 screen capture
 /// numbers its screens in the same order on RandR 1.5 servers.
 fn x11_monitors() -> Vec<X11Monitor> {
-    let Some(output) = command_output("xrandr", &["--listactivemonitors"]) else {
+    let Some(output) = Command::new("xrandr")
+        .arg("--listactivemonitors")
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+    else {
         return Vec::new();
     };
-    output
+    let listing = String::from_utf8_lossy(&output.stdout);
+    listing
         .lines()
         .skip(1)
         .filter_map(|line| {

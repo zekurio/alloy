@@ -78,13 +78,13 @@ jobs:
         run: corepack pnpm fmt:check
 
       - name: run lint
-        run: corepack pnpm lint:github
+        run: corepack pnpm lint
 
       - name: run typecheck
         run: corepack pnpm typecheck
 
       - name: build server and web
-        run: corepack pnpm turbo run build --filter=@alloy/server --filter=@alloy/web
+        run: corepack pnpm build
 
       - name: check browser artifact
         run: |

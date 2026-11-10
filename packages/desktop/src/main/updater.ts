@@ -11,7 +11,6 @@ import electronUpdater, {
   type UpdateDownloadedEvent,
   type UpdateInfo,
 } from "electron-updater"
-import { z } from "zod"
 
 import { asError, log } from "./log"
 import type { NativeAddon } from "./native"
@@ -48,16 +47,14 @@ const INSTALL_START_TIMEOUT_MS = 10_000
  */
 const UPDATE_PUBLIC_KEYS = __ALLOY_UPDATER_PUBLIC_KEY__
 
-const SignatureSchema = z.string().trim().min(1)
-
 /** The installer's minisign signature, which the release adds to `latest.yml`. */
 function releaseSignature(info: UpdateInfo): string | null {
   // SAFETY: `latest.yml` is parsed as is, so fields the release adds stay on
-  // the update info; the schema rejects a missing or non-string field.
+  // the update info; a missing or non-string field is rejected below.
   const signature = (info as UpdateInfo & { alloySignature?: unknown })
     .alloySignature
-  const parsed = SignatureSchema.safeParse(signature)
-  return parsed.success ? parsed.data : null
+  const trimmed = typeof signature === "string" ? signature.trim() : ""
+  return trimmed || null
 }
 
 /** What electron-updater reported downloading, once it has. */

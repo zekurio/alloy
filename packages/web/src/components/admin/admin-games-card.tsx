@@ -4,6 +4,7 @@ import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
 import { Card } from "@alloy/ui/components/card"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
+import { GameIcon } from "@alloy/ui/components/game-icon"
 import {
   InputGroup,
   InputGroupAddon,
@@ -15,7 +16,6 @@ import { SearchIcon, Trash2Icon } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { ListEmpty } from "@/components/feedback/empty-state"
-import { GameIcon } from "@/components/game/game-icon"
 import { adminGamesQueryOptions } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"

@@ -2,7 +2,7 @@
 # through the `alloy-desktop-native` addon.
 [package]
 name = "alloy-desktop"
-version = "0.1.2"
+version.workspace = true
 edition = "2024"
 publish = false
 

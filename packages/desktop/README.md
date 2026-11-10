@@ -6,12 +6,14 @@ native work is in Rust:
 - `src/main/`: the Electron main process. It owns the windows, the tray,
   single instance, autostart, updates, cookies, and the IPC bridge, and checks
   every call against the calling window and its selected server.
+  `preferences.ts` keeps the saved servers and window sizes in
+  `preferences.json`.
 - `src/preload/`: `connect.ts` gives the bundled connect screen
   (`src/connect/`) its commands; `server.ts` installs the native bridge for
-  the selected server's web app as `window.alloyDesktop`, bridge contract 1.
+  the selected server's web app as `window.alloyDesktop`, bridge contract 2.
 - `host/` (`alloy-desktop`): the recorder client, the capture library and its
   loopback media server, downloads, server checks, browser sign-in,
-  preferences, update signature checks, and the host log. It knows nothing
+  update signature checks, and the host log. It knows nothing
   about windows; the shell passes it folders, dialog results, and cookies.
 - `native/` (`alloy-desktop-native`): the napi-rs addon that loads `host`
   into the main process. `src/main/native.ts` declares its exports.
@@ -28,7 +30,7 @@ its game identity for replays saved during the post-close grace period.
 
 ## Recorder code
 
-The host imports `recorder/src/{types,protocol,settings,names}.rs`. Keep these
+The host imports `recorder/src/{types,protocol,names}.rs`. Keep these
 platform-neutral and keep the JSON wire types in `types.rs`.
 
 The agent process lives under `recorder/src/agent/`:
@@ -101,8 +103,8 @@ libpipewire.
   `build-agent.mjs` links it. Protocol output goes to a private copy of
   stdout, since the helper prints to the stdout it inherits.
 - The agent registers no hotkeys, since Wayland gives applications no global
-  key hook. It leaves `hotkeys` out of `capabilities`, and the host binds the
-  shortcuts instead; see [Global shortcuts on Linux](#global-shortcuts-on-linux).
+  key hook. The host binds the shortcuts instead; see
+  [Global shortcuts on Linux](#global-shortcuts-on-linux).
 
 The agent, libobs, and the graphics drivers must share one glibc. On NixOS,
 build them from the same nixpkgs as the system. Games need obs-vkcapture's
@@ -185,12 +187,12 @@ The shell runs and records on Linux. The flake packages it as
 [Linux recorder](#linux-recorder) for the OBS runtime and the plugins games
 need. The host hands the agent `resources/obs-runtime`, or
 `ALLOY_OBS_RUNTIME_DIR` when set; without libobs there, the agent uses the
-system's OBS. devenv provides Rust, `pkg-config`, and ALSA for the addon. The
-Electron binary npm downloads does not run on NixOS, so devenv sets
+system's OBS. The dev shell provides Rust, `pkg-config`, and ALSA for the addon. The
+Electron binary npm downloads does not run on NixOS, so the shell sets
 `ELECTRON_EXEC_PATH` to the pinned release built by
 [`nix/electron.nix`](../../nix/electron.nix). On NixOS, Electron and the
 recorder load the system's graphics drivers, so both need a glibc at least as
-new as the system's. When devenv's nixpkgs is older, Electron logs
+new as the system's. When the flake's nixpkgs is older, Electron logs
 `MESA-LOADER ... GLIBC_2.xx not found` and renders in software, so point
 `ELECTRON_EXEC_PATH` at `nix/electron.nix` built with your system's nixpkgs
 (`nix build --impure --expr '(import <nixpkgs> { }).callPackage ./nix/electron.nix { }'`)
@@ -239,15 +241,15 @@ pnpm desktop:build              # stage natives and bundle into out/
 pnpm desktop:dist:win:installer # Windows: NSIS installer in release/
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
-pnpm --filter @alloy/desktop test:native
+cargo test --workspace --all-targets --locked
 ```
 
 Builds bundle the recorder, OBS, FFmpeg, and the addon as extra resources;
 `electron-builder.yml` lists them, and `nsis/installer.nsh` removes the login
 item, the updater cache, temporary files, and `%LOCALAPPDATA%\dev.zekurio.alloy`
 on uninstall, but not on an update.
-`test:native` runs the host's integration tests. Unit tests have been removed;
-E2E testing is not configured yet. A successful build does not validate
+`cargo test` runs the host's integration tests. The TypeScript unit tests have
+been removed; E2E testing is not configured yet. A successful build does not validate
 recording or playback. For affected flows, check on Windows:
 
 - Login, cancellation, session refresh after restart, server switching, and

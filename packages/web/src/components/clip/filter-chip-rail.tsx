@@ -60,7 +60,6 @@ export function FilterChipRail<K extends string>({
           return (
             <Chip
               key={option.key}
-              size="xl"
               className={responsiveChipClass}
               data-active={active ? "true" : undefined}
               render={renderOptionLink(option, active)}
@@ -74,7 +73,6 @@ export function FilterChipRail<K extends string>({
         return (
           <Chip
             key={option.key}
-            size="xl"
             className={responsiveChipClass}
             data-active={active ? "true" : undefined}
             onClick={() => onSelect?.(option.key)}

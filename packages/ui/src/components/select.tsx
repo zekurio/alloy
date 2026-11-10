@@ -1,5 +1,3 @@
-"use client"
-
 import { fieldControlClassName } from "@alloy/ui/lib/field-control"
 import { POPUP_MOTION_CLASS_NAME } from "@alloy/ui/lib/motion"
 import { cn } from "@alloy/ui/lib/utils"

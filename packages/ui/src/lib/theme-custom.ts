@@ -7,7 +7,6 @@ import {
   THEME_VARIANT_NAME_MAX_LENGTH,
   UserThemeIdSchema,
   UserThemeVariantIdSchema,
-  type ContractJsonInput,
   type ContractJsonValue,
   type UserTheme,
   type UserThemeInput,
@@ -28,7 +27,6 @@ import {
   type ThemeColors,
 } from "@alloy/ui/lib/theme-colors"
 import type { ThemeFamily, ThemeVariant } from "@alloy/ui/lib/theme-presets"
-import { readVsCodeTheme } from "@alloy/ui/lib/theme-vscode"
 
 /**
  * User-made themes: saved to the account, and exported and imported as small
@@ -205,10 +203,7 @@ function themeFileVariant(variant: CustomThemeVariant): ThemeFileVariant {
     : { appearance, colors }
 }
 
-/**
- * Reads Alloy theme files and VS Code color themes. Light and dark files of
- * the same VS Code theme ("Foo Light", "Foo Dark") merge into one theme.
- */
+/** Reads Alloy theme files, as `serializeThemeFile` writes them. */
 export function importThemeSources(
   sources: readonly ThemeSource[],
 ): ThemeImport {
@@ -226,7 +221,7 @@ export function importThemeSources(
       themes.push(result)
     }
   }
-  return { themes: pairThemeDrafts(themes), errors }
+  return { themes, errors }
 }
 
 /** Gives a theme name that doesn't collide with `taken`, adding " 2", " 3", … */
@@ -248,34 +243,15 @@ function parseThemeSource(source: ThemeSource): ThemeDraft | string {
     return t("Theme files can be at most 256 KB.")
   }
 
-  let json: ContractJsonInput
+  let json: unknown
   try {
-    json = JSON.parse(stripJsonComments(source.text))
+    json = JSON.parse(source.text)
   } catch {
     return t("This isn't valid JSON.")
   }
   if (!isObjectRecord(json)) return t("Expected a theme object.")
-
-  const fallbackName = source.name
-    ? source.name.replace(/\.jsonc?$/i, "").replace(/[-_.]+/g, " ")
-    : t("Imported theme")
-  if (json.version !== undefined) return parseAlloyThemeFile(json)
-  if (isObjectRecord(json.colors) || Array.isArray(json.tokenColors)) {
-    const theme = readVsCodeTheme(json)
-    if (isStringValue(theme)) return theme
-    return {
-      name: (theme.name ?? fallbackName).slice(0, THEME_NAME_MAX_LENGTH),
-      variants: [
-        {
-          id: newThemeVariantId(),
-          name: null,
-          appearance: theme.appearance,
-          colors: theme.colors,
-        },
-      ],
-    }
-  }
-  return t("Expected an Alloy or VS Code theme.")
+  if (json.version === undefined) return t("Expected an Alloy theme.")
+  return parseAlloyThemeFile(json)
 }
 
 function parseAlloyThemeFile(
@@ -363,114 +339,7 @@ function parseThemeColors(
   return completeThemeColors(appearance, overrides)
 }
 
-function pairThemeDrafts(drafts: readonly ThemeDraft[]): ThemeDraft[] {
-  const paired: ThemeDraft[] = []
-  for (const draft of drafts) {
-    const variant = singleVariant(draft)
-    const baseName = variant ? stripAppearanceSuffix(draft.name) : null
-    const partner =
-      variant && baseName
-        ? paired.find((candidate) => {
-            const candidateVariant = singleVariant(candidate)
-            return (
-              candidateVariant !== null &&
-              candidateVariant.appearance !== variant.appearance &&
-              stripAppearanceSuffix(candidate.name)?.toLowerCase() ===
-                baseName.toLowerCase()
-            )
-          })
-        : undefined
-    if (variant && baseName && partner) {
-      const added = partner.variants.some(
-        (candidate) => candidate.id === variant.id,
-      )
-        ? { ...variant, id: newThemeVariantId(partner.variants) }
-        : variant
-      // Light first, as the bundled themes list theirs.
-      const variants = [...partner.variants, added]
-      partner.name = baseName
-      partner.variants = THEME_APPEARANCES.flatMap((appearance) =>
-        variants.filter((candidate) => candidate.appearance === appearance),
-      )
-    } else {
-      paired.push({ ...draft })
-    }
-  }
-  return paired
-}
-
-function singleVariant(draft: ThemeDraft): CustomThemeVariant | null {
-  const [variant, ...rest] = draft.variants
-  return variant && rest.length === 0 ? variant : null
-}
-
-function stripAppearanceSuffix(name: string): string | null {
-  const stripped = name.replace(/[\s\-_(]*(light|dark)\)?$/i, "").trim()
-  return stripped && stripped !== name ? stripped : null
-}
-
-/**
- * VS Code themes are JSONC: comments and trailing commas are allowed. Strings
- * are copied verbatim, so `//` or `,]` inside a value survives.
- */
-function stripJsonComments(text: string): string {
-  let output = ""
-  let index = 0
-  while (index < text.length) {
-    const char = text[index]
-    if (char === '"') {
-      let end = index + 1
-      while (end < text.length && text[end] !== '"') {
-        end += text[end] === "\\" ? 2 : 1
-      }
-      output += text.slice(index, end + 1)
-      index = end + 1
-      continue
-    }
-    const afterComment = skipJsonComment(text, index)
-    if (afterComment !== index) {
-      index = afterComment
-      continue
-    }
-    if (char === ",") {
-      // A trailing comma: the next token closes the object or array.
-      const closer = text[skipJsonSpace(text, index + 1)]
-      if (closer !== "}" && closer !== "]") output += char
-    } else {
-      output += char
-    }
-    index += 1
-  }
-  return output
-}
-
-/** Where the text continues after whitespace and comments from `index`. */
-function skipJsonSpace(text: string, index: number): number {
-  let next = index
-  while (next < text.length) {
-    const afterComment = skipJsonComment(text, next)
-    if (afterComment !== next) next = afterComment
-    else if (/\s/.test(text[next] ?? "")) next += 1
-    else break
-  }
-  return next
-}
-
-/** Where the text continues after a comment at `index`, or `index` itself. */
-function skipJsonComment(text: string, index: number): number {
-  if (text[index] !== "/") return index
-  if (text[index + 1] === "/") {
-    const end = text.indexOf("\n", index)
-    return end === -1 ? text.length : end
-  }
-  if (text[index + 1] === "*") {
-    const end = text.indexOf("*/", index + 2)
-    return end === -1 ? text.length : end + 2
-  }
-  return index
-}
-
-function normalizeCustomThemes(value: ContractJsonInput): CustomTheme[] {
+function normalizeCustomThemes(value: unknown): CustomTheme[] {
   if (!Array.isArray(value)) return []
   const themes: CustomTheme[] = []
   for (const entry of value.slice(0, MAX_USER_THEMES)) {
@@ -482,7 +351,7 @@ function normalizeCustomThemes(value: ContractJsonInput): CustomTheme[] {
   return themes
 }
 
-function normalizeCustomTheme(value: ContractJsonInput): CustomTheme | null {
+function normalizeCustomTheme(value: unknown): CustomTheme | null {
   if (!isObjectRecord(value)) return null
   const { id, name } = value
   if (!isStringValue(id) || !UserThemeIdSchema.safeParse(id).success) {
