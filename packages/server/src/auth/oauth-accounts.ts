@@ -60,8 +60,8 @@ export async function resolveSignInUser(
     // Linking on the claim alone would hand the local account to whoever
     // controls that claim at the provider, so the user proves they own it by
     // signing in first. A user with no sign-in method has nothing to prove
-    // it with: an admin created it for the person the provider gives that
-    // username to.
+    // it with: an admin created it for the person who has that exact
+    // username at the provider.
     const claimed = await claimUserWithoutSignInMethod(match, input.profile)
     return { kind: claimed ? "claimed" : "link-required", userId: match }
   }
@@ -138,22 +138,30 @@ export async function createFirstAdminForOAuthAccount(
 }
 
 /**
- * Link the identity to a user who has no passkey and no linked account.
- * False when the user has a sign-in method, or got one in the meantime.
+ * Link the identity to a user who has no passkey and no linked account, and
+ * whose username is the identity's username claim. False when the user has a
+ * sign-in method, or got one in the meantime.
+ *
+ * The claim has to be the username itself, ignoring case. The slug that
+ * {@link findUserIdByUsernameHint} also matches on drops the domain of an
+ * email-shaped claim, so `alice@other.example` finds `alice`. That is close
+ * enough to ask someone to sign in and link, but not to hand them the
+ * account.
  */
 async function claimUserWithoutSignInMethod(
   userId: string,
   profile: OAuthProfile,
 ): Promise<boolean> {
+  const claim = profile.usernameHint?.trim().toLowerCase()
   const claimed = await db.transaction(async (tx) => {
     // Locks out a second identity claiming the same user.
     const [row] = await tx
-      .select({ id: user.id })
+      .select({ username: user.username })
       .from(user)
       .where(eq(user.id, userId))
       .limit(1)
       .for("update")
-    if (!row) return false
+    if (!row || row.username.toLowerCase() !== claim) return false
     const [passkey] = await tx
       .select({ id: userPasskey.id })
       .from(userPasskey)
