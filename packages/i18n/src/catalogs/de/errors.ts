@@ -3,6 +3,7 @@ import type { TranslationCatalog } from "../catalog"
 export const ERRORS_MESSAGES = {
   "API server unavailable": "Der Server ist derzeit nicht erreichbar",
   "Account not found.": "Konto nicht gefunden.",
+  "Account recovery failed": "Kontowiederherstellung fehlgeschlagen",
   "Account state changed during sign-in. Try again.":
     "Der Kontostatus hat sich während der Anmeldung geändert. Versuche es erneut.",
   "Copy error": "Fehler kopieren",
@@ -10,10 +11,14 @@ export const ERRORS_MESSAGES = {
     "Ein eindeutiger Nutzername konnte nicht vergeben werden",
   "Could not clear staged import.":
     "Der vorbereitete Import konnte nicht aufgeräumt werden.",
+  "Could not create a recovery key":
+    "Wiederherstellungsschlüssel konnte nicht erstellt werden",
   "Could not create session.": "Sitzung konnte nicht erstellt werden.",
   "Could not create user.": "Nutzer konnte nicht erstellt werden.",
   "Could not import clip.": "Clip konnte nicht importiert werden.",
   "Could not link OAuth account.": "OAuth-Konto konnte nicht verknüpft werden.",
+  "Could not load the recovery key":
+    "Wiederherstellungsschlüssel konnte nicht geladen werden",
   "Could not open the passkey link":
     "Passkey-Link konnte nicht geöffnet werden",
   "Could not prepare clip.": "Clip konnte nicht vorbereitet werden.",
@@ -79,6 +84,8 @@ export const ERRORS_MESSAGES = {
     "Melde dich ab, um die aktuelle Sitzung zu beenden.",
   "Something went wrong": "Etwas ist schiefgelaufen",
   "That setup token is not valid.": "Dieser Setup-Token ist nicht gültig.",
+  "That username and recovery key do not match.":
+    "Nutzername und Wiederherstellungsschlüssel passen nicht zusammen.",
   "The page may have moved, been deleted, or never existed.":
     "Die Seite wurde vielleicht verschoben, gelöscht oder hat nie existiert.",
   "This link has expired or was already used.":

@@ -13,10 +13,7 @@ import { useCallback } from "react"
 
 import { fieldErrorState } from "@/components/routes/field-error-state"
 import { authClient } from "@/lib/auth-client"
-import {
-  completeAuthSessionFlow,
-  toastAuthAttemptFailure,
-} from "@/lib/auth-flow"
+import { toastAuthAttemptFailure } from "@/lib/auth-flow"
 import { validateUsername } from "@/lib/form-validators"
 import { invalidateAuthConfig } from "@/lib/session-suspense"
 
@@ -25,13 +22,17 @@ type PasskeySignUpFormState = {
 }
 
 type PasskeySignUpFormProps = {
-  redirectTo?: "/" | "/setup"
+  /**
+   * Whether the new account goes on to the welcome dialog. The first admin,
+   * made during setup, does not.
+   */
+  welcome?: boolean
   /** The token of the invite this sign-up goes through. */
   invite?: string
 }
 
 function usePasskeySignUpSubmit({
-  redirectTo = "/",
+  welcome = true,
   invite,
 }: PasskeySignUpFormProps) {
   const router = useRouter()
@@ -53,13 +54,17 @@ function usePasskeySignUpSubmit({
           return
         }
         invalidateAuthConfig()
-        await completeAuthSessionFlow({
-          invalidateRouter: () => router.invalidate(),
-          navigate: () =>
-            redirectTo === "/"
-              ? navigate({ to: "/", search: { welcome: true } })
-              : navigate({ to: redirectTo }),
+        await authClient.getSession()
+        // Leave before reloading: the sign-up page sends a signed-in visitor
+        // home, the setup page does once setup is done, and the invite page
+        // would find its link used up. The next step shows the account's
+        // recovery key, then goes on from there.
+        await navigate({
+          to: "/recovery-key",
+          search: welcome ? { welcome: true } : {},
+          replace: true,
         })
+        await router.invalidate()
       } catch (cause) {
         toastAuthAttemptFailure(
           "passkey sign-up",
@@ -68,7 +73,7 @@ function usePasskeySignUpSubmit({
         )
       }
     },
-    [invite, navigate, redirectTo, router],
+    [invite, navigate, router, welcome],
   )
 }
 

@@ -35,10 +35,11 @@ const WebAuthnContextPayloadSchema = t.object({
 })
 // Sign-up carries `username`, with `firstAdmin` during setup or the `linkId`
 // of an invite. Adding a passkey to an account carries `userId`, with the
-// `linkId` of the account's passkey link when that stands in for the session.
+// `linkId` of the account's passkey link or `recoveryHash` of its recovery key.
 const RegistrationPayloadSchema = t.object({
   firstAdmin: t.boolean().optional(),
   linkId: t.string().optional(),
+  recoveryHash: t.string().optional(),
   userId: t.string().optional(),
   username: t.string().optional(),
 })

@@ -11,6 +11,7 @@ import {
   shouldShowLinkedAccountsCard,
 } from "@/components/routes/settings/linked-accounts-card"
 import { PasskeysCard } from "@/components/routes/settings/passkeys-card"
+import { RecoveryKeyCard } from "@/components/routes/settings/recovery-key-card"
 import {
   linkedAccountsQueryOptions,
   passkeysQueryOptions,
@@ -105,6 +106,8 @@ export function SecuritySettings() {
           onRefresh={security.refreshPasskeys}
         />
       )}
+      {/* Loads on its own and shows its own load error. */}
+      {config.passkeyEnabled && <RecoveryKeyCard />}
     </>
   )
 }

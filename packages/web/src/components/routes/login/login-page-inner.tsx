@@ -72,6 +72,17 @@ export function LoginForm({
         {oidc ? <OAuthSignIn provider={oidc} redirectTo={redirectTo} /> : null}
       </div>
 
+      {showPasskeySignIn ? (
+        <p className="mt-3 text-center text-sm">
+          <Link
+            to="/recover"
+            className="text-foreground-muted hover:text-foreground underline-offset-4 hover:underline"
+          >
+            {t("Lost your passkey?")}
+          </Link>
+        </p>
+      ) : null}
+
       {passkeyEnabled && !passkeySupported ? (
         <p className="text-foreground-muted mt-4 text-sm">
           {t(

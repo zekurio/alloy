@@ -2,6 +2,8 @@ import type { TranslationCatalog } from "../catalog"
 
 export const ACCOUNT_MESSAGES = {
   " and {count} {label}": " und {count} {label}",
+  "A secret, shown once, that gets you back in if you lose every passkey.":
+    "Ein Geheimnis, das nur einmal angezeigt wird und dich wieder in dein Konto lässt, wenn du alle Passkeys verlierst.",
   "Account & data": "Konto & Daten",
   "Actions here affect your whole account.":
     "Aktionen hier betreffen dein gesamtes Konto.",
@@ -15,12 +17,14 @@ export const ACCOUNT_MESSAGES = {
   "Add or replace banner": "Banner hinzufügen oder ersetzen",
   "Add passkey": "Passkey hinzufügen",
   "Alloy Desktop": "Alloy Desktop",
+  "Alloy recovery key": "Alloy-Wiederherstellungsschlüssel",
   "Already have an account?": "Hast du schon ein Konto?",
   "Auth attempt cancelled.": "Authentifizierungsversuch abgebrochen.",
   Avatar: "Profilbild",
   "Avatar imported from your sign-in provider":
     "Avatar von deinem Anmeldeanbieter importiert",
   "Avatar imported from {provider}": "Avatar von {provider} importiert",
+  "Back to sign in": "Zurück zur Anmeldung",
   Banner: "Banner",
   Block: "Blockieren",
   "Browsers and desktop apps signed in to your account.":
@@ -30,6 +34,10 @@ export const ACCOUNT_MESSAGES = {
     "Verbinde weitere Anmeldemethoden mit deinem Konto.",
   "Continue with a passkey": "Mit Passkey fortfahren",
   "Continue with {displayName}": "Mit {displayName} fortfahren",
+  "Continue without a recovery key":
+    "Ohne Wiederherstellungsschlüssel fortfahren",
+  "Couldn't copy the recovery key":
+    "Wiederherstellungsschlüssel konnte nicht kopiert werden",
   "Couldn't create your passkey account":
     "Dein Passkey-Konto konnte nicht erstellt werden",
   "Couldn't delete account": "Konto konnte nicht gelöscht werden",
@@ -38,6 +46,8 @@ export const ACCOUNT_MESSAGES = {
   "Couldn't load passkeys": "Passkeys konnten nicht geladen werden",
   "Couldn't load profile": "Profil konnte nicht geladen werden",
   "Couldn't load sessions": "Sitzungen konnten nicht geladen werden",
+  "Couldn't make your recovery key":
+    "Dein Wiederherstellungsschlüssel konnte nicht erstellt werden",
   "Couldn't reactivate account": "Konto konnte nicht reaktiviert werden",
   "Couldn't refresh linked accounts":
     "Verknüpfte Konten konnten nicht aktualisiert werden",
@@ -46,6 +56,8 @@ export const ACCOUNT_MESSAGES = {
   "Couldn't remove banner": "Banner konnte nicht entfernt werden",
   "Couldn't remove passkey": "Passkey konnte nicht entfernt werden",
   "Couldn't rename passkey": "Passkey konnte nicht umbenannt werden",
+  "Couldn't save the recovery key":
+    "Wiederherstellungsschlüssel konnte nicht gespeichert werden",
   "Couldn't sign out": "Abmeldung fehlgeschlagen",
   "Couldn't sign out other sessions":
     "Andere Sitzungen konnten nicht abgemeldet werden",
@@ -56,7 +68,10 @@ export const ACCOUNT_MESSAGES = {
   "Create account with passkey": "Konto mit Passkey erstellen",
   "Create one": "Konto erstellen",
   "Create passkey": "Passkey erstellen",
+  "Create passkey and sign in": "Passkey erstellen und anmelden",
+  "Create recovery key": "Wiederherstellungsschlüssel erstellen",
   "Create your account": "Konto erstellen",
+  "Created {date}": "Erstellt am {date}",
   "Danger zone": "Gefahrenzone",
   "Delete account": "Konto löschen",
   "Delete your account?": "Konto löschen?",
@@ -77,30 +92,46 @@ export const ACCOUNT_MESSAGES = {
   "Edit profile": "Profil bearbeiten",
   "Edit your username, avatar, sign-in methods, and sessions.":
     "Bearbeite deinen Benutzernamen, Avatar, Anmeldemethoden und Sitzungen.",
+  "Enter your recovery key": "Gib deinen Wiederherstellungsschlüssel ein",
+  "Enter your username and recovery key. You'll create a new passkey and be signed in.":
+    "Gib deinen Nutzernamen und deinen Wiederherstellungsschlüssel ein. Du erstellst einen neuen Passkey und wirst angemeldet.",
   "Every other browser and desktop app will need to sign in again.":
     "Alle anderen Browser und Desktop-Apps müssen sich erneut anmelden.",
+  "Get back into your account": "Zugang zu deinem Konto wiederherstellen",
+  "Getting back in creates a new passkey. Open this page in a browser that supports them.":
+    "Um wieder in dein Konto zu kommen, erstellst du einen neuen Passkey. Öffne diese Seite in einem Browser, der Passkeys unterstützt.",
   "Give this passkey a name so you can recognise it later.":
     "Gib diesem Passkey einen Namen, damit du ihn später wiedererkennst.",
   "Hide your profile and clips until you reactivate your account.":
     "Blende dein Profil und deine Clips aus, bis du dein Konto reaktivierst.",
   "How you appear to everyone else on this server.":
     "Wie du für alle anderen auf diesem Server erscheinst.",
+  "I've saved it": "Ich habe ihn gespeichert",
   Identity: "Identität",
+  "If you lose every passkey, open {url} and enter your username and this key.":
+    "Wenn du alle Passkeys verlierst, öffne {url} und gib deinen Nutzernamen und diesen Schlüssel ein.",
   "It has expired or was already used. Ask an admin for a new one.":
     "Er ist abgelaufen oder wurde schon benutzt. Bitte einen Admin um einen neuen.",
+  "Keep it somewhere safe, like a password manager or a printout.":
+    "Bewahre ihn sicher auf, etwa in einem Passwortmanager oder ausgedruckt.",
   "Last active {time}": "Zuletzt aktiv {time}",
   "Link another enabled sign-in method before removing this one":
     "Verknüpfe eine andere aktive Anmeldemethode, bevor du diese entfernst",
   "Link {provider}": "{provider} verknüpfen",
   "Linked accounts": "Verknüpfte Konten",
   "Linking…": "Wird verknüpft…",
+  "Lost your passkey?": "Passkey verloren?",
   "Make your profile and clips visible again.":
     "Mach dein Profil und deine Clips wieder sichtbar.",
+  "Making your recovery key…":
+    "Dein Wiederherstellungsschlüssel wird erstellt…",
   "Manage sign-in methods in a browser": "Anmeldemethoden im Browser verwalten",
   "Most viewed": "Meiste Aufrufe",
   "Name (optional)": "Name (optional)",
   "No passkeys yet. Add one for faster, password-free sign-in.":
     "Noch keine Passkeys. Füge einen hinzu, um dich schneller und ohne Passwort anzumelden.",
+  "No recovery key yet. Make one so you can get back in if you lose every passkey.":
+    "Noch kein Wiederherstellungsschlüssel. Erstelle einen, damit du wieder in dein Konto kommst, wenn du alle Passkeys verlierst.",
   "No users found": "Keine Nutzer gefunden",
   "Not linked": "Nicht verknüpft",
   "Not now": "Nicht jetzt",
@@ -130,6 +161,7 @@ export const ACCOUNT_MESSAGES = {
   "Reactivate your account?": "Konto reaktivieren?",
   "Reactivating...": "Wird reaktiviert...",
   "Reactivating…": "Wird reaktiviert…",
+  "Recovery key": "Wiederherstellungsschlüssel",
   Register: "Registrieren",
   "Remove avatar": "Avatar entfernen",
   "Remove banner": "Banner entfernen",
@@ -137,8 +169,13 @@ export const ACCOUNT_MESSAGES = {
   "Remove this passkey?": "Diesen Passkey entfernen?",
   "Remove unavailable device": "Nicht verfügbares Gerät entfernen",
   "Rename passkey": "Passkey umbenennen",
+  "Replace recovery key": "Wiederherstellungsschlüssel ersetzen",
+  "Replace your recovery key?": "Wiederherstellungsschlüssel ersetzen?",
   "Review storage, manage your clips, or disable and delete your account.":
     "Prüfe deinen Speicher, verwalte deine Clips oder deaktiviere und lösche dein Konto.",
+  "Save your new recovery key":
+    "Speichere deinen neuen Wiederherstellungsschlüssel",
+  "Save your recovery key": "Speichere deinen Wiederherstellungsschlüssel",
   "Search game...": "Spiel suchen...",
   "Search people": "Nutzer suchen",
   "Search people...": "Nutzer suchen...",
@@ -194,6 +231,8 @@ export const ACCOUNT_MESSAGES = {
   "This device": "Dieses Gerät",
   "This is your last enabled sign-in method. Link another before removing it.":
     "Das ist deine letzte aktive Anmeldemethode. Verknüpfe eine andere, bevor du sie entfernst.",
+  "This key gets you back in if you lose every passkey, and it won't be shown again.":
+    "Mit diesem Schlüssel kommst du wieder in dein Konto, wenn du alle Passkeys verlierst. Er wird nicht noch einmal angezeigt.",
   "This link doesn't work anymore": "Dieser Link funktioniert nicht mehr",
   "This link signs you in as {username}. Create a passkey now, and sign in with it from then on.":
     "Dieser Link meldet dich als {username} an. Erstelle jetzt einen Passkey und melde dich künftig damit an.",
@@ -202,6 +241,10 @@ export const ACCOUNT_MESSAGES = {
   "This removes their sessions and clips. It can't be undone.":
     "Das entfernt ihre Sitzungen und Clips. Es kann nicht rückgängig gemacht werden.",
   "This user doesn't exist.": "Diesen Nutzer gibt es nicht.",
+  "To make a new one, go to Settings → Profile → Recovery key.":
+    "Einen neuen erstellst du unter Einstellungen → Profil → Wiederherstellungsschlüssel.",
+  "Try again, or continue without one. You can make one later under Settings → Profile → Recovery key.":
+    "Versuche es erneut oder fahre ohne fort. Du kannst später unter Einstellungen → Profil → Wiederherstellungsschlüssel einen erstellen.",
   Unblock: "Entsperren",
   "Unblocking…": "Wird entsperrt…",
   "Unknown browser": "Unbekannter Browser",
@@ -225,19 +268,27 @@ export const ACCOUNT_MESSAGES = {
   "Username is already taken.": "Der Nutzername ist bereits vergeben.",
   Users: "Nutzer",
   "View tagged users": "Markierte Nutzer anzeigen",
+  "You already have a recovery key":
+    "Du hast schon einen Wiederherstellungsschlüssel",
   "You may need another sign-in method to access your account.":
     "Vielleicht brauchst du eine andere Anmeldemethode, um auf dein Konto zuzugreifen.",
   "You're not signed in anywhere else.": "Du bist nirgendwo sonst angemeldet.",
+  "You're signed in with a new passkey. Your old recovery key no longer works.":
+    "Du bist mit einem neuen Passkey angemeldet. Dein alter Wiederherstellungsschlüssel funktioniert nicht mehr.",
   "You've been invited. Pick a username and create a passkey to sign in with.":
     "Du wurdest eingeladen. Wähle einen Nutzernamen und erstelle einen Passkey, mit dem du dich anmeldest.",
   "You've blocked @{handle}. Do you want to show their profile anyway?":
     "Du hast @{handle} blockiert. Möchtest du das Profil trotzdem anzeigen?",
   "Your browser will prompt you to use Touch ID, Face ID, Windows Hello, or a security key.":
     "Dein Browser fordert dich auf, Touch ID, Face ID, Windows Hello oder einen Sicherheitsschlüssel zu verwenden.",
+  "Your current recovery key stops working as soon as the new one is made.":
+    "Dein aktueller Wiederherstellungsschlüssel funktioniert nicht mehr, sobald der neue erstellt ist.",
+  "Your new recovery key": "Dein neuer Wiederherstellungsschlüssel",
   "Your profile and clips are hidden while your account is disabled.":
     "Dein Profil und deine Clips sind ausgeblendet, solange dein Konto deaktiviert ist.",
   "Your profile and clips will be hidden until you sign back in and reactivate.":
     "Dein Profil und deine Clips werden ausgeblendet, bis du dich wieder anmeldest und reaktivierst.",
+  "Your recovery key": "Dein Wiederherstellungsschlüssel",
   "Your username is managed by your sign-in provider.":
     "Dein Nutzername wird von deinem Anmeldeanbieter verwaltet.",
   "Your {provider} username matches an existing account. Sign in to that account to link {provider}.":
