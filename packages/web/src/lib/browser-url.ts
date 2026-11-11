@@ -4,8 +4,10 @@ export function consumeCurrentQueryParam(key: string): string | null {
   if (value === null) return null
 
   url.searchParams.delete(key)
+  // Keep the router's entry state, which holds the real location behind a
+  // masked address such as an open settings page.
   window.history.replaceState(
-    null,
+    window.history.state,
     "",
     `${url.pathname}${url.search}${url.hash}`,
   )

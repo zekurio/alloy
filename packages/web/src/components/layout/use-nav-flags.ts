@@ -15,7 +15,11 @@ export function useNavFlags(): NavFlags {
   return useRouterState({
     select: (s) => ({
       isScreenshots: s.location.pathname === "/screenshots",
-      isHome: s.location.pathname === "/",
+      // A settings address shows the home feed under the dialog.
+      isHome:
+        s.location.pathname === "/" ||
+        s.location.pathname === "/settings" ||
+        s.location.pathname.startsWith("/settings/"),
       isGames:
         s.location.pathname === "/games" ||
         s.location.pathname.startsWith("/games/"),

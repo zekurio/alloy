@@ -90,6 +90,14 @@ export function SecuritySettings() {
           onRetry={() => void security.retry()}
         />
       ) : null}
+      {showPasskeys && (
+        <PasskeysCard
+          passkeys={security.passkeys ?? []}
+          onRefresh={security.refreshPasskeys}
+        />
+      )}
+      {/* Loads on its own and shows its own load error. */}
+      {config.passkeyEnabled && <RecoveryKeyCard />}
       {showLinkedAccounts && (
         <LinkedAccountsCard
           accounts={security.accounts}
@@ -100,21 +108,13 @@ export function SecuritySettings() {
           onRefresh={security.refreshAccounts}
         />
       )}
-      {showPasskeys && (
-        <PasskeysCard
-          passkeys={security.passkeys ?? []}
-          onRefresh={security.refreshPasskeys}
-        />
-      )}
-      {/* Loads on its own and shows its own load error. */}
-      {config.passkeyEnabled && <RecoveryKeyCard />}
     </>
   )
 }
 
 function DesktopSecuritySettings() {
   const securityUrl = new URL(
-    "/?settings=profile",
+    "/settings/account",
     window.location.origin,
   ).toString()
 

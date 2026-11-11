@@ -1,12 +1,12 @@
 import type { ClipFeedSort } from "@alloy/api"
 import { AppMainColumn, AppMainScroll } from "@alloy/ui/components/app-shell"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
-import { Link, useSearch } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import { useMemo } from "react"
 
 import { SortDropdown } from "@/components/clip/sort-dropdown"
 import { CLIP_SORT_OPTIONS, DEFAULT_CLIP_SORT } from "@/lib/clip-sort"
-import { homeFeedFilter } from "@/lib/home-search"
+import { homeFeedFilter, type HomeSearch } from "@/lib/home-search"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 import { FeedChipBar } from "./feed-chip-bar"
@@ -14,15 +14,14 @@ import { FeedSection, useIsFeedEmpty } from "./feed-section"
 
 export function HomePageInner({
   screenshots = false,
+  search,
 }: {
   screenshots?: boolean
+  /** Keep its identity while its contents match, as the router's does. */
+  search: HomeSearch
 }) {
   const to = screenshots ? "/screenshots" : "/"
   const session = useSuspenseSession()
-  // The router keeps the search object's identity while its contents match.
-  const search = useSearch({
-    from: screenshots ? "/(app)/_app/screenshots" : "/(app)/_app/",
-  })
 
   const filter = useMemo(
     () => ({

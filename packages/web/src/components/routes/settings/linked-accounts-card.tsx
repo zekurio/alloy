@@ -135,7 +135,7 @@ function useLinkedAccountActions({
         const { error } = await authClient.oauth2.link({
           callbackURL:
             currentUrlWithQueryParam(OAUTH_LINKED_QUERY_KEY, "1") ??
-            authCallbackUrl(`/?settings=profile&${OAUTH_LINKED_QUERY_KEY}=1`),
+            authCallbackUrl(`/settings/account?${OAUTH_LINKED_QUERY_KEY}=1`),
         })
         if (error) throw error
       } catch (cause) {

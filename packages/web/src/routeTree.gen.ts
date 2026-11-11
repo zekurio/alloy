@@ -15,7 +15,6 @@ import { Route as authSetupRouteImport } from './routes/(auth)/setup'
 import { Route as appAppIndexRouteImport } from './routes/(app)/_app.index'
 import { Route as appAppGamesRouteImport } from './routes/(app)/_app.games'
 import { Route as appAppScreenshotsRouteImport } from './routes/(app)/_app.screenshots'
-import { Route as appAppSettingsRouteImport } from './routes/(app)/_app.settings'
 import { Route as authAuthEnrollRouteImport } from './routes/(auth)/_auth.enroll'
 import { Route as authAuthLoginRouteImport } from './routes/(auth)/_auth.login'
 import { Route as authAuthRecoverRouteImport } from './routes/(auth)/_auth.recover'
@@ -25,6 +24,7 @@ import { Route as appAppGamesIndexRouteImport } from './routes/(app)/_app.games.
 import { Route as appAppGamesGameIdRouteImport } from './routes/(app)/_app.games.$gameId'
 import { Route as appAppLibraryIndexRouteImport } from './routes/(app)/_app.library.index'
 import { Route as appAppLibraryCaptureIdRouteImport } from './routes/(app)/_app.library.$captureId'
+import { Route as appAppSettingsSplatRouteImport } from './routes/(app)/_app.settings.$'
 import { Route as appAppTagsTagRouteImport } from './routes/(app)/_app.tags.$tag'
 import { Route as appAppUUsernameRouteImport } from './routes/(app)/_app.u.$username'
 import { Route as authAuthDesktopAuthorizeRouteImport } from './routes/(auth)/_auth.desktop.authorize'
@@ -61,11 +61,6 @@ const appAppGamesRoute = appAppGamesRouteImport.update({
 const appAppScreenshotsRoute = appAppScreenshotsRouteImport.update({
   id: '/screenshots',
   path: '/screenshots',
-  getParentRoute: () => appAppRoute,
-} as any)
-const appAppSettingsRoute = appAppSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
   getParentRoute: () => appAppRoute,
 } as any)
 const authAuthEnrollRoute = authAuthEnrollRouteImport.update({
@@ -111,6 +106,11 @@ const appAppLibraryIndexRoute = appAppLibraryIndexRouteImport.update({
 const appAppLibraryCaptureIdRoute = appAppLibraryCaptureIdRouteImport.update({
   id: '/library/$captureId',
   path: '/library/$captureId',
+  getParentRoute: () => appAppRoute,
+} as any)
+const appAppSettingsSplatRoute = appAppSettingsSplatRouteImport.update({
+  id: '/settings/$',
+  path: '/settings/$',
   getParentRoute: () => appAppRoute,
 } as any)
 const appAppTagsTagRoute = appAppTagsTagRouteImport.update({
@@ -167,7 +167,6 @@ export interface FileRoutesByFullPath {
   '/setup': typeof authSetupRoute
   '/games': typeof appAppGamesRouteWithChildren
   '/screenshots': typeof appAppScreenshotsRoute
-  '/settings': typeof appAppSettingsRoute
   '/enroll': typeof authAuthEnrollRoute
   '/login': typeof authAuthLoginRoute
   '/recover': typeof authAuthRecoverRoute
@@ -176,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/': typeof appAppIndexRoute
   '/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
   '/library/$captureId': typeof appAppLibraryCaptureIdRoute
+  '/settings/$': typeof appAppSettingsSplatRoute
   '/tags/$tag': typeof appAppTagsTagRoute
   '/u/$username': typeof appAppUUsernameRouteWithChildren
   '/desktop/authorize': typeof authAuthDesktopAuthorizeRoute
@@ -191,7 +191,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/setup': typeof authSetupRoute
   '/screenshots': typeof appAppScreenshotsRoute
-  '/settings': typeof appAppSettingsRoute
   '/enroll': typeof authAuthEnrollRoute
   '/login': typeof authAuthLoginRoute
   '/recover': typeof authAuthRecoverRoute
@@ -200,6 +199,7 @@ export interface FileRoutesByTo {
   '/': typeof appAppIndexRoute
   '/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
   '/library/$captureId': typeof appAppLibraryCaptureIdRoute
+  '/settings/$': typeof appAppSettingsSplatRoute
   '/tags/$tag': typeof appAppTagsTagRoute
   '/desktop/authorize': typeof authAuthDesktopAuthorizeRoute
   '/games': typeof appAppGamesIndexRoute
@@ -218,7 +218,6 @@ export interface FileRoutesById {
   '/(auth)/setup': typeof authSetupRoute
   '/(app)/_app/games': typeof appAppGamesRouteWithChildren
   '/(app)/_app/screenshots': typeof appAppScreenshotsRoute
-  '/(app)/_app/settings': typeof appAppSettingsRoute
   '/(auth)/_auth/enroll': typeof authAuthEnrollRoute
   '/(auth)/_auth/login': typeof authAuthLoginRoute
   '/(auth)/_auth/recover': typeof authAuthRecoverRoute
@@ -227,6 +226,7 @@ export interface FileRoutesById {
   '/(app)/_app/': typeof appAppIndexRoute
   '/(app)/_app/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
   '/(app)/_app/library/$captureId': typeof appAppLibraryCaptureIdRoute
+  '/(app)/_app/settings/$': typeof appAppSettingsSplatRoute
   '/(app)/_app/tags/$tag': typeof appAppTagsTagRoute
   '/(app)/_app/u/$username': typeof appAppUUsernameRouteWithChildren
   '/(auth)/_auth/desktop/authorize': typeof authAuthDesktopAuthorizeRoute
@@ -245,7 +245,6 @@ export interface FileRouteTypes {
     | '/setup'
     | '/games'
     | '/screenshots'
-    | '/settings'
     | '/enroll'
     | '/login'
     | '/recover'
@@ -254,6 +253,7 @@ export interface FileRouteTypes {
     | '/'
     | '/games/$gameId'
     | '/library/$captureId'
+    | '/settings/$'
     | '/tags/$tag'
     | '/u/$username'
     | '/desktop/authorize'
@@ -269,7 +269,6 @@ export interface FileRouteTypes {
   to:
     | '/setup'
     | '/screenshots'
-    | '/settings'
     | '/enroll'
     | '/login'
     | '/recover'
@@ -278,6 +277,7 @@ export interface FileRouteTypes {
     | '/'
     | '/games/$gameId'
     | '/library/$captureId'
+    | '/settings/$'
     | '/tags/$tag'
     | '/desktop/authorize'
     | '/games'
@@ -295,7 +295,6 @@ export interface FileRouteTypes {
     | '/(auth)/setup'
     | '/(app)/_app/games'
     | '/(app)/_app/screenshots'
-    | '/(app)/_app/settings'
     | '/(auth)/_auth/enroll'
     | '/(auth)/_auth/login'
     | '/(auth)/_auth/recover'
@@ -304,6 +303,7 @@ export interface FileRouteTypes {
     | '/(app)/_app/'
     | '/(app)/_app/games/$gameId'
     | '/(app)/_app/library/$captureId'
+    | '/(app)/_app/settings/$'
     | '/(app)/_app/tags/$tag'
     | '/(app)/_app/u/$username'
     | '/(auth)/_auth/desktop/authorize'
@@ -367,13 +367,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppScreenshotsRouteImport
       parentRoute: typeof appAppRoute
     }
-    '/(app)/_app/settings': {
-      id: '/(app)/_app/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof appAppSettingsRouteImport
-      parentRoute: typeof appAppRoute
-    }
     '/(auth)/_auth/enroll': {
       id: '/(auth)/_auth/enroll'
       path: '/enroll'
@@ -435,6 +428,13 @@ declare module '@tanstack/react-router' {
       path: '/library/$captureId'
       fullPath: '/library/$captureId'
       preLoaderRoute: typeof appAppLibraryCaptureIdRouteImport
+      parentRoute: typeof appAppRoute
+    }
+    '/(app)/_app/settings/$': {
+      id: '/(app)/_app/settings/$'
+      path: '/settings/$'
+      fullPath: '/settings/$'
+      preLoaderRoute: typeof appAppSettingsSplatRouteImport
       parentRoute: typeof appAppRoute
     }
     '/(app)/_app/tags/$tag': {
@@ -549,9 +549,9 @@ const appAppUUsernameRouteWithChildren = appAppUUsernameRoute._addFileChildren(
 interface appAppRouteChildren {
   appAppGamesRoute: typeof appAppGamesRouteWithChildren
   appAppScreenshotsRoute: typeof appAppScreenshotsRoute
-  appAppSettingsRoute: typeof appAppSettingsRoute
   appAppIndexRoute: typeof appAppIndexRoute
   appAppLibraryCaptureIdRoute: typeof appAppLibraryCaptureIdRoute
+  appAppSettingsSplatRoute: typeof appAppSettingsSplatRoute
   appAppTagsTagRoute: typeof appAppTagsTagRoute
   appAppUUsernameRoute: typeof appAppUUsernameRouteWithChildren
   appAppLibraryIndexRoute: typeof appAppLibraryIndexRoute
@@ -561,9 +561,9 @@ interface appAppRouteChildren {
 const appAppRouteChildren: appAppRouteChildren = {
   appAppGamesRoute: appAppGamesRouteWithChildren,
   appAppScreenshotsRoute: appAppScreenshotsRoute,
-  appAppSettingsRoute: appAppSettingsRoute,
   appAppIndexRoute: appAppIndexRoute,
   appAppLibraryCaptureIdRoute: appAppLibraryCaptureIdRoute,
+  appAppSettingsSplatRoute: appAppSettingsSplatRoute,
   appAppTagsTagRoute: appAppTagsTagRoute,
   appAppUUsernameRoute: appAppUUsernameRouteWithChildren,
   appAppLibraryIndexRoute: appAppLibraryIndexRoute,

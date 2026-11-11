@@ -5,5 +5,9 @@ import { parseHomeSearch } from "@/lib/home-search"
 
 export const Route = createFileRoute("/(app)/_app/screenshots")({
   validateSearch: parseHomeSearch,
-  component: () => <HomePageInner screenshots />,
+  component: ScreenshotsPage,
 })
+
+function ScreenshotsPage() {
+  return <HomePageInner screenshots search={Route.useSearch()} />
+}

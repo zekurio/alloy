@@ -127,7 +127,7 @@ function RecoveryKeyPage() {
       <RecoveryKeyFrame
         title={t("Couldn't make your recovery key")}
         description={t(
-          "Try again, or continue without one. You can make one later under Settings → Profile → Recovery key.",
+          "Try again, or continue without one. You can make one later under Settings → Account → Recovery key.",
         )}
       >
         <div className="flex flex-col gap-3">
@@ -167,7 +167,7 @@ function RecoveryKeyPage() {
       <RecoveryKeyFrame
         title={t("You already have a recovery key")}
         description={t(
-          "To make a new one, go to Settings → Profile → Recovery key.",
+          "To make a new one, go to Settings → Account → Recovery key.",
         )}
       >
         <ContinueButton onClick={proceed} label={t("Continue")} />

@@ -3,6 +3,7 @@ import { animateWithMotionTokens } from "@alloy/ui/lib/motion"
 import {
   createFileRoute,
   Outlet,
+  useMatch,
   useNavigate,
   useRouterState,
 } from "@tanstack/react-router"
@@ -28,7 +29,6 @@ import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav"
 import { loadLibraryEditorPage } from "@/components/routes/library/load-library-editor-page"
-import { SETTINGS_OVERVIEW_SECTION } from "@/components/routes/settings/settings-categories"
 import { SettingsDialog } from "@/components/routes/settings/settings-dialog"
 import { AppSearchProvider } from "@/components/search/app-search"
 import { UploadCenter } from "@/components/upload/upload-center"
@@ -39,6 +39,12 @@ import { type AppSearch, parseAppSearch } from "@/lib/app-search"
 import { useOpenClipDialog } from "@/lib/clip-navigation"
 import { alloyDesktop } from "@/lib/desktop"
 import { useSuspenseSession } from "@/lib/session-suspense"
+import {
+  SETTINGS_OVERVIEW,
+  settingsAddress,
+  settingsOverPage,
+  settingsPageFromSplat,
+} from "@/lib/settings-location"
 import { useOpenSettings } from "@/lib/use-open-settings"
 
 const LibraryEditorPage = lazy(loadLibraryEditorPage)
@@ -51,11 +57,24 @@ export const Route = createFileRoute("/(app)/_app")({
 })
 
 function AppLayout() {
-  const { clip, settings, welcome } = Route.useSearch()
+  const { clip, welcome } = Route.useSearch()
   const session = useSuspenseSession()
   const navigate = useNavigate()
   const openClipDialog = useOpenClipDialog()
   const openDesktopSettings = useOpenSettings("desktop")
+  // Settings opened over a page keeps its page in the history state; a
+  // settings address visited as such names it in the path.
+  const settingsOverPageId = useRouterState({
+    select: (state) => state.location.state.settingsPage ?? null,
+  })
+  const settingsAtAddress = useMatch({
+    from: "/(app)/_app/settings/$",
+    shouldThrow: false,
+    select: (match) => settingsPageFromSplat(match.params._splat),
+  })
+  const onSettingsAddress =
+    settingsOverPageId === null && settingsAtAddress !== undefined
+  const settings = settingsOverPageId ?? settingsAtAddress ?? null
   const settingsFromOverview = useRouterState({
     select: (state) => state.location.state.settingsFromOverview === true,
   })
@@ -85,13 +104,22 @@ function AppLayout() {
     [openClipDialog],
   )
 
+  // Over a page, dropping the settings state and the mask leaves that page at
+  // the address it had before settings opened. A settings address has no
+  // earlier page, so it closes onto the home feed it shows.
   const handleCloseSettings = useCallback(() => {
+    if (onSettingsAddress) {
+      void navigate({ to: "/", replace: true, resetScroll: false })
+      return
+    }
     void navigate({
       to: ".",
-      search: (prev: AppSearch) => ({ ...prev, settings: undefined }),
+      search: true,
+      hash: true,
       replace: true,
+      resetScroll: false,
     })
-  }, [navigate])
+  }, [navigate, onSettingsAddress])
 
   const handleCloseWelcome = useCallback(() => {
     void navigate({
@@ -101,30 +129,34 @@ function AppLayout() {
     })
   }, [navigate])
 
-  const handleNavigateSettings = useCallback(
-    (section: string) => {
-      void navigate({
-        to: ".",
-        search: (prev: AppSearch) => ({ ...prev, settings: section }),
-        replace: true,
-      })
+  const showSettingsPage = useCallback(
+    (page: string, { replace = false, fromOverview = false } = {}) => {
+      // On a settings address the address is what names the page.
+      if (onSettingsAddress) {
+        void navigate({
+          ...settingsAddress(page),
+          state: fromOverview ? { settingsFromOverview: true } : undefined,
+          replace,
+          resetScroll: false,
+        })
+        return
+      }
+      void navigate({ ...settingsOverPage(page, fromOverview), replace })
     },
-    [navigate],
+    [navigate, onSettingsAddress],
+  )
+
+  const handleNavigateSettings = useCallback(
+    (page: string) => showSettingsPage(page, { replace: true }),
+    [showSettingsPage],
   )
 
   // The phone overview opens a section as its own history entry, marked so
   // the way back can pop it. The same entry is what lets the browser's back
   // gesture return to the overview.
   const handleOpenSettingsSection = useCallback(
-    (section: string) => {
-      void navigate({
-        to: ".",
-        search: (prev: AppSearch) => ({ ...prev, settings: section }),
-        state: { settingsFromOverview: true },
-        resetScroll: false,
-      })
-    },
-    [navigate],
+    (page: string) => showSettingsPage(page, { fromOverview: true }),
+    [showSettingsPage],
   )
 
   const handleSettingsBack = useCallback(() => {
@@ -134,15 +166,8 @@ function AppLayout() {
     }
     // Opened straight on a section (a link, a reload from elsewhere): there
     // is no overview entry to pop, so this entry becomes the overview.
-    void navigate({
-      to: ".",
-      search: (prev: AppSearch) => ({
-        ...prev,
-        settings: SETTINGS_OVERVIEW_SECTION,
-      }),
-      replace: true,
-    })
-  }, [navigate, settingsFromOverview])
+    handleNavigateSettings(SETTINGS_OVERVIEW)
+  }, [handleNavigateSettings, settingsFromOverview])
 
   return (
     <AppSearchProvider>
@@ -155,7 +180,7 @@ function AppLayout() {
         onNavigate={handleNavigateClip}
       />
       <SettingsDialog
-        section={session ? (settings ?? null) : null}
+        section={session ? settings : null}
         onNavigate={handleNavigateSettings}
         onOpenSection={handleOpenSettingsSection}
         onBack={handleSettingsBack}
