@@ -5,9 +5,7 @@ import { Hono } from "hono"
 import { getLoginBackdropClips } from "./login-backdrops"
 
 export const authConfigRoute = new Hono()
-  .get("/", async (c) => {
-    return c.json(await buildPublicAuthConfig())
-  })
+  .get("/", (c) => c.json(buildPublicAuthConfig()))
   .get("/backdrops", async (c) => {
     // Random per request — never cache. Empty when the backdrop is disabled so
     // the login page simply shows the plain background.

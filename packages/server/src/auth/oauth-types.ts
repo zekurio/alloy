@@ -7,8 +7,6 @@ export type OAuthChallengePayload = {
   callbackURL: string
   codeVerifier?: string
   mode: OAuthMode
-  /** Sign-in only: create the first admin from this identity. */
-  setupFirstAdmin?: boolean
   userId?: string
 }
 

@@ -1,5 +1,4 @@
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
 import { Field, FieldError, FieldLabel } from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
 import {
@@ -9,7 +8,6 @@ import {
   ResponsiveDialogDescription,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
-  ResponsiveDialogTrigger,
 } from "@alloy/ui/components/responsive-dialog"
 import {
   Select,
@@ -19,12 +17,9 @@ import {
   SelectValue,
 } from "@alloy/ui/components/select"
 import { useForm, useStore } from "@tanstack/react-form"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { SaveIcon, UserPlusIcon } from "lucide-react"
-import { useState } from "react"
+import { useMutation } from "@tanstack/react-query"
+import { SaveIcon } from "lucide-react"
 
-import { adminKeys } from "@/lib/admin-query-keys"
-import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { formatQuotaGiB, parseQuotaGiB } from "@/lib/storage-format"
 
@@ -42,13 +37,6 @@ type EditUserValues = {
   quotaGiB: string
   role: UserRole
 }
-
-type CreateUserValues = {
-  username: string
-  role: UserRole
-}
-
-const NEW_USER: CreateUserValues = { username: "", role: "user" }
 
 function quotaError(quotaGiB: string): string | undefined {
   try {
@@ -200,100 +188,6 @@ function EditUserForm({
       >
         <SaveIcon />
         {t("Save")}
-      </AdminDialogFooter>
-    </form>
-  )
-}
-
-export function CreateUserDialog() {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <ResponsiveDialog open={open} onOpenChange={setOpen}>
-      <ResponsiveDialogTrigger
-        render={
-          <Button variant="secondary" size="icon" aria-label={t("Add user")}>
-            <UserPlusIcon />
-          </Button>
-        }
-      />
-      <ResponsiveDialogContent variant="secondary">
-        <CreateUserForm onCreated={() => setOpen(false)} />
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
-  )
-}
-
-/** Lives inside the dialog content, so each open starts blank. */
-function CreateUserForm({ onCreated }: { onCreated: () => void }) {
-  const queryClient = useQueryClient()
-  const { error, isPending, mutate } = useMutation({
-    mutationFn: (input: CreateUserValues) => api.admin.createUser(input),
-    onSuccess: () => {
-      onCreated()
-      return queryClient.invalidateQueries({ queryKey: adminKeys.users() })
-    },
-  })
-  const form = useForm({
-    defaultValues: NEW_USER,
-    onSubmit: ({ value }) => {
-      if (isPending) return
-      const username = value.username.trim()
-      if (!username) return
-      mutate({ username, role: value.role })
-    },
-  })
-
-  const submitError = error
-    ? errorMessage(error, t("Couldn't create user"))
-    : null
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
-      }}
-    >
-      <ResponsiveDialogHeader>
-        <ResponsiveDialogTitle>{t("Create user")}</ResponsiveDialogTitle>
-      </ResponsiveDialogHeader>
-      <ResponsiveDialogBody className="flex flex-col gap-4">
-        <form.Field name="username">
-          {(field) => (
-            <Field>
-              <FieldLabel htmlFor="create-user-username">
-                {t("Username")}
-              </FieldLabel>
-              <Input
-                id="create-user-username"
-                required
-                value={field.state.value}
-                disabled={isPending}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            </Field>
-          )}
-        </form.Field>
-        <FieldError>{submitError}</FieldError>
-        <form.Field name="role">
-          {(field) => (
-            <RoleField
-              id="create-user-role"
-              value={field.state.value}
-              disabled={isPending}
-              onValueChange={field.handleChange}
-            />
-          )}
-        </form.Field>
-      </ResponsiveDialogBody>
-      <AdminDialogFooter
-        pending={isPending}
-        failed={Boolean(submitError)}
-        pendingLabel={t("Creating…")}
-      >
-        <UserPlusIcon />
-        {t("Create")}
       </AdminDialogFooter>
     </form>
   )

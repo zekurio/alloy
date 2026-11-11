@@ -10,13 +10,13 @@ import { and, eq, ne, sql } from "drizzle-orm"
 
 import {
   assertCanRemoveAdminInTransaction,
-  assertFirstAdminSetupOpen,
   withAdminAccessInvariant,
 } from "./identity"
 import { syncOAuthAvatar } from "./oauth-avatar"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
 import type { OAuthProfile } from "./oauth-types"
 import { oidcManagesUsernames } from "./oidc-managed-profile"
+import { createFirstAdmin } from "./setup"
 import {
   findUserIdByUsernameHint,
   generateUniqueUsername,
@@ -97,17 +97,16 @@ export async function createUserForOAuthAccount(
 }
 
 /**
- * Create the first admin for an OIDC identity during setup. Sign-up and role
- * claims do not apply: setup access already proved the person runs the
- * server.
+ * Create the first admin for an OIDC identity and finish setup. The caller
+ * checked that the provider's role claim marks it as an admin. Sign-up being
+ * off does not apply.
  */
-export async function createFirstAdminForOAuthAccount(input: {
-  profile: OAuthProfile
-}): Promise<string> {
-  const userId = await withAdminAccessInvariant(async (tx) => {
-    await assertFirstAdminSetupOpen(tx)
+export async function createFirstAdminForOAuthAccount(
+  profile: OAuthProfile,
+): Promise<string> {
+  const userId = await createFirstAdmin(async (tx) => {
     const row = await createOAuthUser(
-      input.profile,
+      profile,
       async (values) => {
         const [inserted] = await tx.insert(user).values(values).returning()
         if (!inserted) throw new Error("Could not create user.")
@@ -117,7 +116,7 @@ export async function createFirstAdminForOAuthAccount(input: {
     )
     const [linked] = await tx
       .insert(authAccount)
-      .values(accountValues(row.id, input.profile))
+      .values(accountValues(row.id, profile))
       .onConflictDoNothing()
       .returning({ id: authAccount.id })
     if (!linked) {
@@ -125,7 +124,7 @@ export async function createFirstAdminForOAuthAccount(input: {
     }
     return row.id
   })
-  await syncOAuthAvatar(userId, input.profile)
+  await syncOAuthAvatar(userId, profile)
   return userId
 }
 

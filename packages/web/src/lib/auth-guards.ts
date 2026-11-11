@@ -1,7 +1,6 @@
 import type { PublicAuthConfig } from "@alloy/api"
 import { redirect } from "@tanstack/react-router"
 
-import { shouldForceOnboarding } from "./auth-access"
 import { sanitizeLoginRedirect } from "./login-redirect"
 import { loadAuthConfig, loadSession, type Session } from "./session-suspense"
 
@@ -12,7 +11,7 @@ type AuthRouteContext = {
 
 /**
  * Root guard. Runs before every child route's guard, so those only need the
- * session it puts on the context: setup and onboarding have already been
+ * session it puts on the context: a server without an admin has already been
  * redirected to `/setup` here.
  */
 export async function redirectToSetupBeforeLoad({
@@ -27,14 +26,10 @@ export async function redirectToSetupBeforeLoad({
   const configPromise = loadAuthConfig()
   const sessionPromise = loadSession()
   const config = await configPromise
-  if (config.adminAccountRequired) {
+  if (config.setupRequired) {
     throw redirect({ to: "/setup" })
   }
-  const session = await sessionPromise
-  if (shouldForceOnboarding(config, session)) {
-    throw redirect({ to: "/setup" })
-  }
-  return { authConfig: config, session }
+  return { authConfig: config, session: await sessionPromise }
 }
 
 export function requireStrictAuthBeforeLoad({

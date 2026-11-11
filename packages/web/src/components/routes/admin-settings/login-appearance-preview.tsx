@@ -30,7 +30,6 @@ function toPublicAuthConfig(
   loginSplash: PublicLoginSplashConfig,
 ): PublicAuthConfig {
   return {
-    adminAccountRequired: false,
     setupRequired: false,
     openRegistrations: config.openRegistrations,
     passkeyEnabled: config.passkeyEnabled,

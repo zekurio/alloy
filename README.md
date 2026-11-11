@@ -54,11 +54,27 @@ ALLOY_STEAMGRIDDB_API_KEY=replace-with-your-steamgriddb-api-key
 
 The module supplies PostgreSQL and filesystem storage defaults, and the server
 applies its database migrations on start. Open the server in a browser to
-create the admin account. Setup first asks for the setup token that the
-server prints to its log, or the value of `ALLOY_SETUP_TOKEN`. The admin can
-then sign in with single sign-on, if `ALLOY_OIDC_*` configures it, or with a
-username and passkey. See [`.env.example`](.env.example) for authentication,
-storage, and transcoding options.
+create the admin account:
+
+- With single sign-on configured through `ALLOY_OIDC_*`, setup offers only
+  the provider and asks for no token. The first sign-in whose `alloy_role`
+  claim is `admin` becomes the admin, and the server turns anyone else away.
+  `ALLOY_OIDC_ROLE_CLAIM` names another claim. In Pocket ID, give a group
+  such as `alloy-admins` the custom claim `alloy_role` with the value
+  `admin`.
+- Without it, setup asks for the setup token that the server prints to its
+  log, or the value of `ALLOY_SETUP_TOKEN`, and then creates the admin with a
+  username and a passkey.
+
+People get an account in one of three ways. With `ALLOY_OPEN_REGISTRATIONS`
+on, anyone can sign up with a username and a passkey. With it off, an admin
+makes a one-time invite link under **Settings → Administration → Users**,
+and its holder signs up the same way. With `ALLOY_OIDC_ALLOW_SIGN_UP` on,
+the first single sign-on of anyone the provider lets in creates their
+account. An admin can also make a passkey link from an account's menu, for
+someone who lost their passkeys. See
+[`.env.example`](.env.example) for authentication, storage, and transcoding
+options.
 
 Sign-in, single sign-on, appearance, upload limits, and transcoding can be
 set with `ALLOY_*` environment variables, through

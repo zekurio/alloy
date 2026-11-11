@@ -113,7 +113,7 @@ function useLinkedAccountActions({
     void (async () => {
       try {
         await refresh()
-        await refetchSession({ query: { disableCookieCache: true } })
+        await refetchSession()
         await router.invalidate()
       } catch (cause) {
         if (active) {

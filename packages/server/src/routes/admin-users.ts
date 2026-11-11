@@ -1,13 +1,12 @@
 import { USER_ROLES, USER_STATUSES } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
-import {
-  createUserIdentity,
-  updateUserIdentityAsAdmin,
-} from "@alloy/server/auth/identity"
+import { updateUserIdentityAsAdmin } from "@alloy/server/auth/identity"
+import { createPasskeyLink } from "@alloy/server/auth/passkey-link"
 import { deleteAllSessionsForUser } from "@alloy/server/auth/session"
+import { configStore } from "@alloy/server/config/store"
 import {
+  badRequest,
   badRequestFromCause,
-  internalServerError,
   notFound,
   success,
 } from "@alloy/server/runtime/http-response"
@@ -24,7 +23,7 @@ import {
   decodeCursorPayload,
   encodeCursorPayload,
 } from "./cursor-codec"
-import { IdParam, requiredTrimmedString, tbValidator } from "./validation"
+import { IdParam, tbValidator } from "./validation"
 
 const UsersQuery = t.object({
   cursor: t.string().optional(),
@@ -38,11 +37,6 @@ const StorageQuotaValue = t
   .positive()
   .max(Number.MAX_SAFE_INTEGER)
   .nullable()
-
-const CreateUserBody = t.object({
-  username: requiredTrimmedString(),
-  role: t.enum(USER_ROLES).$default("user"),
-})
 
 const UserPatch = t
   .object({
@@ -101,21 +95,20 @@ export const adminUsersRoute = new Hono()
       total: page.total,
     })
   })
-  .post("/users", tbValidator("json", CreateUserBody), async (c) => {
-    try {
-      const body = c.req.valid("json")
-      const created = await createUserIdentity({
-        username: body.username,
-        role: body.role,
-      })
-      const [row] = await selectAdminUserStorageRows([created.id])
-      if (!row) {
-        return internalServerError(c, "Created user could not be loaded")
-      }
-      return c.json(row)
-    } catch (cause) {
-      return badRequestFromCause(c, cause, "Couldn't create user.")
+  .post("/invites", async (c) => {
+    if (!configStore.get("passkeyEnabled")) {
+      return badRequest(c, "Passkey sign-up is currently disabled.")
     }
+    return c.json(await createPasskeyLink(null))
+  })
+  .post("/users/:id/passkey-link", tbValidator("param", IdParam), async (c) => {
+    if (!configStore.get("passkeyEnabled")) {
+      return badRequest(c, "Passkey sign-in is currently disabled.")
+    }
+    const { id } = c.req.valid("param")
+    const [row] = await selectAdminUserStorageRows([id])
+    if (!row) return notFound(c, "User not found")
+    return c.json(await createPasskeyLink(id))
   })
   .delete("/users/:id", tbValidator("param", IdParam), async (c) => {
     try {

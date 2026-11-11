@@ -26,9 +26,14 @@ type PasskeySignUpFormState = {
 
 type PasskeySignUpFormProps = {
   redirectTo?: "/" | "/setup"
+  /** The token of the invite this sign-up goes through. */
+  invite?: string
 }
 
-function usePasskeySignUpSubmit({ redirectTo = "/" }: PasskeySignUpFormProps) {
+function usePasskeySignUpSubmit({
+  redirectTo = "/",
+  invite,
+}: PasskeySignUpFormProps) {
   const router = useRouter()
   const navigate = useNavigate()
 
@@ -37,6 +42,7 @@ function usePasskeySignUpSubmit({ redirectTo = "/" }: PasskeySignUpFormProps) {
       try {
         const { error } = await authClient.passkey.signUp({
           username: form.username.trim(),
+          invite,
         })
         if (error) {
           toastAuthAttemptFailure(
@@ -62,7 +68,7 @@ function usePasskeySignUpSubmit({ redirectTo = "/" }: PasskeySignUpFormProps) {
         )
       }
     },
-    [navigate, redirectTo, router],
+    [invite, navigate, redirectTo, router],
   )
 }
 

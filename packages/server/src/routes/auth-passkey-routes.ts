@@ -1,17 +1,21 @@
+import type { PasskeyLinkTarget } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { completeAuthenticatedSignIn } from "@alloy/server/auth/account-sign-in"
 import {
   clearAccountReactivationCookie,
   setSessionCookie,
 } from "@alloy/server/auth/cookies"
+import { deleteUserPasskeyPreservingSignIn } from "@alloy/server/auth/identity"
 import {
-  deleteUserPasskeyPreservingSignIn,
-  setupRequired,
-} from "@alloy/server/auth/identity"
+  findPasskeyLink,
+  PASSKEY_LINK_INVALID,
+} from "@alloy/server/auth/passkey-link"
 import {
   createPasskeyAccount,
+  enrollPasskey,
   insertUserPasskey,
   listUserPasskeys,
+  passkeySignUpOpen,
   renameUserPasskey,
   selectUserPasskeys,
 } from "@alloy/server/auth/passkeys"
@@ -24,7 +28,9 @@ import {
   endSetupAccess,
   hasSetupAccess,
   SETUP_ACCESS_REQUIRED,
-} from "@alloy/server/auth/setup-token"
+  setupMode,
+  setupRequired,
+} from "@alloy/server/auth/setup"
 import { normalizeUsername } from "@alloy/server/auth/username"
 import {
   AUTHENTICATOR_TRANSPORTS,
@@ -33,6 +39,7 @@ import {
   verifyPasskeyAuthentication,
   verifyPasskeyRegistration,
 } from "@alloy/server/auth/webauthn"
+import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import {
   badRequest,
@@ -48,10 +55,7 @@ import type {
 import { Hono } from "hono"
 import type { StaticDecode } from "typebox"
 
-import {
-  authenticatedSignInResponse,
-  canOpenPasskeyRegistration,
-} from "./auth-route-helpers"
+import { authenticatedSignInResponse } from "./auth-route-helpers"
 import {
   IdParam,
   optionalNullableBlankToNullTrimmedString,
@@ -61,6 +65,12 @@ import {
 
 const SignUpOptionsBody = t.object({
   username: requiredTrimmedString(),
+  /** The token of an invite, which lets a sign-up in while they are closed. */
+  invite: t.string().trim().min(1).optional(),
+})
+
+const PasskeyLinkBody = t.object({
+  token: requiredTrimmedString(),
 })
 
 const PublicKeyCredentialFields = {
@@ -124,11 +134,23 @@ export const authPasskeyRoutes = new Hono()
     async (c) => {
       try {
         const body = c.req.valid("json")
-        const setupFirstAdmin = await setupRequired()
-        if (setupFirstAdmin && !hasSetupAccess(c)) {
-          return forbidden(c, SETUP_ACCESS_REQUIRED)
-        }
-        if (!setupFirstAdmin && !(await canOpenPasskeyRegistration())) {
+        const firstAdmin = setupRequired()
+        let linkId: string | undefined
+        if (firstAdmin) {
+          // With single sign-on configured, the provider names the admin.
+          if (setupMode() !== "passkey") {
+            return badRequest(c, "Passkey sign-up is currently disabled.")
+          }
+          if (!hasSetupAccess(c)) return forbidden(c, SETUP_ACCESS_REQUIRED)
+        } else if (body.invite) {
+          if (!configStore.get("passkeyEnabled")) {
+            return badRequest(c, "Passkey sign-up is currently disabled.")
+          }
+          const link = await findPasskeyLink(body.invite)
+          // A link for an account adds a passkey to it and creates nothing.
+          if (!link || link.user) return notFound(c, PASSKEY_LINK_INVALID)
+          linkId = link.id
+        } else if (!passkeySignUpOpen()) {
           return badRequest(c, "Passkey sign-up is currently disabled.")
         }
 
@@ -136,7 +158,7 @@ export const authPasskeyRoutes = new Hono()
         const registration = await beginPasskeyRegistration({
           identifier: username,
           origin: c.req.header("origin"),
-          payload: { username, setupFirstAdmin },
+          payload: { username, firstAdmin, linkId },
           user: { id: crypto.randomUUID(), username },
         })
         return c.json(registration)
@@ -151,26 +173,85 @@ export const authPasskeyRoutes = new Hono()
     async (c) => {
       try {
         const registration = await verifyRegistrationBody(c.req.valid("json"))
-        const { username, setupFirstAdmin } = registration.payload
+        const { username, linkId } = registration.payload
+        const firstAdmin = registration.payload.firstAdmin === true
         if (!username) {
           return badRequest(c, "Invalid registration request.")
         }
-        if (setupFirstAdmin === true && !hasSetupAccess(c)) {
+        if (firstAdmin && !hasSetupAccess(c)) {
           return forbidden(c, SETUP_ACCESS_REQUIRED)
         }
         const userRow = await createPasskeyAccount({
           username,
-          setupFirstAdmin: setupFirstAdmin === true,
+          firstAdmin,
+          inviteId: linkId ?? null,
           registration,
         })
 
-        if (setupFirstAdmin === true) endSetupAccess(c)
+        if (firstAdmin) endSetupAccess(c)
         const { token, data } = await createSession(c, userRow.id)
         clearAccountReactivationCookie(c)
         setSessionCookie(c, token)
         return c.json(await publicSessionData(data))
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not verify passkey.")
+      }
+    },
+  )
+  .post("/passkey/link", tbValidator("json", PasskeyLinkBody), async (c) => {
+    const link = await findPasskeyLink(c.req.valid("json").token)
+    if (!link) return notFound(c, PASSKEY_LINK_INVALID)
+    const body: PasskeyLinkTarget = { username: link.user?.username ?? null }
+    return c.json(body)
+  })
+  .post(
+    "/passkey/enroll/options",
+    tbValidator("json", PasskeyLinkBody),
+    async (c) => {
+      try {
+        if (!configStore.get("passkeyEnabled")) {
+          return badRequest(c, "Passkey sign-in is currently disabled.")
+        }
+        const link = await findPasskeyLink(c.req.valid("json").token)
+        // An invite goes through sign-up, where it creates the account.
+        if (!link?.user) return notFound(c, PASSKEY_LINK_INVALID)
+        const { user } = link
+        return c.json(
+          await beginPasskeyRegistration({
+            identifier: user.id,
+            origin: c.req.header("origin"),
+            payload: { userId: user.id, linkId: link.id },
+            user: { ...user, passkeys: await selectUserPasskeys(user.id) },
+          }),
+        )
+      } catch (cause) {
+        return badRequestFromCause(
+          c,
+          cause,
+          "Could not start passkey registration.",
+        )
+      }
+    },
+  )
+  .post(
+    "/passkey/enroll/verify",
+    tbValidator("json", PasskeyRegistrationVerifyBody),
+    async (c) => {
+      try {
+        const registration = await verifyRegistrationBody(c.req.valid("json"))
+        const { userId, linkId } = registration.payload
+        if (!userId || !linkId) {
+          return badRequest(c, "Invalid passkey registration request.")
+        }
+        if (!(await enrollPasskey({ userId, linkId, registration }))) {
+          return badRequest(c, PASSKEY_LINK_INVALID)
+        }
+        return authenticatedSignInResponse(
+          c,
+          await completeAuthenticatedSignIn(c, userId),
+        )
+      } catch (cause) {
+        return badRequestFromCause(c, cause, "Could not add passkey.")
       }
     },
   )
@@ -237,7 +318,10 @@ export const authPasskeyRoutes = new Hono()
       try {
         const body = c.req.valid("json")
         const registration = await verifyRegistrationBody(body)
-        if (registration.payload.userId !== c.var.viewerId) {
+        const { userId, linkId } = registration.payload
+        // A passkey link's registration finishes at its own route, where
+        // the link gets used up.
+        if (userId !== c.var.viewerId || linkId) {
           return badRequest(c, "Invalid passkey registration request.")
         }
         const created = await insertUserPasskey(db, {

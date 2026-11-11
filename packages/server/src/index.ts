@@ -6,14 +6,13 @@ import {
   startAuthChallengeExpiryWorker,
   stopAuthChallengeExpiryWorker,
 } from "./auth/challenge-expiry"
-import { setupRequired } from "./auth/identity"
 import {
   startAuthSessionExpiryWorker,
   stopAuthSessionExpiryWorker,
 } from "./auth/session-expiry"
-import { announceSetupToken } from "./auth/setup-token"
+import { announceSetup, setupRequired } from "./auth/setup"
 import { currentSignInConfig, signInConfigError } from "./auth/sign-in-config"
-import { configStore, initializeConfigStore } from "./config/store"
+import { initializeConfigStore } from "./config/store"
 import { warmDatabase } from "./db"
 import { env } from "./env"
 import { KILL_GRACE_MS } from "./media/run-process"
@@ -56,14 +55,14 @@ try {
   process.exit(1)
 }
 
-if (configStore.get("setupComplete")) {
+if (!setupRequired()) {
   const authError = await signInConfigError(currentSignInConfig())
   if (authError) {
     logger.error(`unsafe sign-in configuration: ${authError}`)
     process.exit(1)
   }
 }
-if (await setupRequired()) announceSetupToken()
+announceSetup()
 
 const { app } = await import("./app")
 

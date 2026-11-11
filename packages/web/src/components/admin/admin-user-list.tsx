@@ -14,6 +14,7 @@ import { Progress } from "@alloy/ui/components/progress"
 import { cn } from "@alloy/ui/lib/utils"
 import { useMutation } from "@tanstack/react-query"
 import {
+  KeyRoundIcon,
   MoreVerticalIcon,
   PencilIcon,
   Trash2Icon,
@@ -25,9 +26,11 @@ import { memo, useState } from "react"
 
 import { formatUsage, quotaToneClasses } from "@/components/storage-quota"
 import { errorMessage } from "@/lib/error-message"
+import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 import { storageUsagePercent, storageUsageTone } from "@/lib/storage-format"
 import { displayName, userAvatar } from "@/lib/user-display"
 
+import { PasskeyLinkDialog } from "./admin-passkey-link"
 import {
   adminUserIsBanned,
   type AdminUserEditableFields,
@@ -85,8 +88,9 @@ const UserCard = memo(function UserCard({
   onDelete: (user: AdminUserRow) => Promise<void>
 }) {
   const [openDialog, setOpenDialog] = useState<
-    "edit" | "status" | "delete" | null
+    "edit" | "passkey-link" | "status" | "delete" | null
   >(null)
+  const { passkeyEnabled } = useSuspenseAuthConfig()
   const isSelf = user.id === currentUserId
   const isDisabled = user.status === "disabled"
   const isBanned = adminUserIsBanned(user)
@@ -172,6 +176,11 @@ const UserCard = memo(function UserCard({
             <DropdownMenuItem onClick={() => setOpenDialog("edit")}>
               <PencilIcon /> {t("Edit user")}
             </DropdownMenuItem>
+            {passkeyEnabled ? (
+              <DropdownMenuItem onClick={() => setOpenDialog("passkey-link")}>
+                <KeyRoundIcon /> {t("Create passkey link")}
+              </DropdownMenuItem>
+            ) : null}
             {/* Locking yourself out of the instance is never the intent. */}
             <DropdownMenuItem
               disabled={isSelf}
@@ -196,6 +205,11 @@ const UserCard = memo(function UserCard({
           open={openDialog === "edit"}
           onOpenChange={(next) => setOpenDialog(next ? "edit" : null)}
           onUpdate={onUpdate}
+        />
+        <PasskeyLinkDialog
+          user={user}
+          open={openDialog === "passkey-link"}
+          onOpenChange={(next) => setOpenDialog(next ? "passkey-link" : null)}
         />
         <ToggleUserStatusDialog
           user={user}

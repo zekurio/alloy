@@ -22,12 +22,6 @@ export function currentSignInConfig(): SignInMethodConfig {
   }
 }
 
-export async function hasAdminSignInMethodForConfig(
-  config: SignInMethodConfig,
-): Promise<boolean> {
-  return hasAdminSignInMethodWith(db, config)
-}
-
 export async function hasAdminSignInMethodWith(
   executor: AuthDbExecutor,
   config: SignInMethodConfig,
@@ -65,7 +59,7 @@ export async function signInConfigError(
   if (!config.passkeyEnabled && !config.oidcUsable) {
     return "Keep at least one sign-in method enabled."
   }
-  if (!(await hasAdminSignInMethodForConfig(config))) {
+  if (!(await hasAdminSignInMethodWith(db, config))) {
     return "Keep at least one active admin sign-in method before disabling passkeys or single sign-on."
   }
   return null

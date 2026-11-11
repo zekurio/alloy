@@ -13,9 +13,6 @@ import type {
 
 import type { ApiContext } from "./client"
 import { readJsonOrThrow } from "./http"
-export type RuntimeConfigPatch = {
-  setupComplete?: boolean
-}
 
 export type AppearanceConfigPatch = {
   loginSplash?: {
@@ -54,12 +51,6 @@ export function createAdminConfigApi(context: ApiContext) {
     },
     async fetchRuntimeConfig(): Promise<AdminRuntimeConfig> {
       const res = await admin["runtime-config"].$get()
-      return readJsonOrThrow(res)
-    },
-    async updateRuntimeConfig(
-      input: RuntimeConfigPatch,
-    ): Promise<AdminRuntimeConfig> {
-      const res = await admin["runtime-config"].$patch({ json: input })
       return readJsonOrThrow(res)
     },
     async updateAppearanceConfig(

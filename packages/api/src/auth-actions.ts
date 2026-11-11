@@ -4,6 +4,7 @@ import type {
   ContractJsonValue,
   LinkedAccount,
   Passkey,
+  PasskeyLinkTarget,
   PendingOAuthLink,
   SessionData,
   SyncedThemePreferences,
@@ -22,6 +23,12 @@ import { errorFrom } from "./error"
 
 type Success = { success: true }
 type UserUpdate = { user: AuthUser }
+
+type PasskeySignUpInput = {
+  username: string
+  /** The token of an invite, when signing up through one. */
+  invite?: string
+}
 
 type WebAuthnBrowser = typeof import("@simplewebauthn/browser")
 
@@ -93,7 +100,7 @@ async function completeAccountReactivation(
 async function passkeySignUp(
   request: RequestFn,
   store: SessionStore,
-  input: { username: string },
+  input: PasskeySignUpInput,
 ): AuthResult<SessionData> {
   try {
     const data = await completeRegistrationChallenge<SessionData>(request, {
@@ -106,6 +113,26 @@ async function passkeySignUp(
     return { data, error: null }
   } catch (cause) {
     return { data: null, error: errorFrom(cause, "Passkey sign-up failed") }
+  }
+}
+
+/** Add a passkey to the account a passkey link is for, and sign in to it. */
+async function passkeyEnroll(
+  request: RequestFn,
+  store: SessionStore,
+  token: string,
+): AuthResult<SessionData> {
+  try {
+    const data = await completeRegistrationChallenge<SessionData>(request, {
+      optionsPath: AUTH_PATHS.passkeyEnrollOptions,
+      verifyPath: AUTH_PATHS.passkeyEnrollVerify,
+      method: "POST",
+      body: { token },
+    })
+    store.set(data)
+    return { data, error: null }
+  } catch (cause) {
+    return { data: null, error: errorFrom(cause, "Could not add passkey") }
   }
 }
 
@@ -165,7 +192,7 @@ function createPasskeyActions(
 ) {
   const result = <Body>(path: string, init: RequestInit, fallback: string) =>
     jsonResult<Body>(request, path, init, fallback)
-  const signUpWithPasskey = (input: { username: string }) =>
+  const signUpWithPasskey = (input: PasskeySignUpInput) =>
     passkeySignUp(request, store, input)
 
   return {
@@ -173,11 +200,7 @@ function createPasskeyActions(
       passkey: () => passkeySignIn(request, store),
       reactivate: () => completeAccountReactivation(request, store),
       preloadPasskey: preloadWebAuthnBrowser,
-      oauth2: (input: {
-        callbackURL?: string
-        /** Create the first admin; the browser needs setup access. */
-        setup?: boolean
-      }) =>
+      oauth2: (input: { callbackURL?: string }) =>
         redirectResult(
           request,
           redirect,
@@ -192,6 +215,14 @@ function createPasskeyActions(
     passkey: {
       preload: preloadWebAuthnBrowser,
       signUp: signUpWithPasskey,
+      /** What a passkey link is for: an account, or an invite. */
+      link: (token: string) =>
+        result<PasskeyLinkTarget>(
+          AUTH_PATHS.passkeyLink,
+          { method: "POST", body: JSON.stringify({ token }) },
+          "Could not open the passkey link",
+        ),
+      enroll: (token: string) => passkeyEnroll(request, store, token),
       addPasskey: (input: { name?: string | null }) =>
         addPasskey(request, input),
       listUserPasskeys: () =>

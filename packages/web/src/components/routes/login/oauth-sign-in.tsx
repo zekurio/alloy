@@ -10,17 +10,14 @@ type OAuthSignInProps = {
   provider: PublicOidcConfig
   /** Same-origin return target (desktop browser-login handshake). */
   redirectTo?: string
-  /** Create the first admin during setup. */
-  setup?: boolean
 }
 
-export function OAuthSignIn({ provider, redirectTo, setup }: OAuthSignInProps) {
+export function OAuthSignIn({ provider, redirectTo }: OAuthSignInProps) {
   const signIn = useMutation({
     // Resolves true once the browser is on its way to the provider.
     mutationFn: async () => {
       const { error } = await authClient.signIn.oauth2({
         callbackURL: authCallbackUrl(redirectTo ?? "/"),
-        setup,
       })
       if (error) {
         toastAuthAttemptFailure(

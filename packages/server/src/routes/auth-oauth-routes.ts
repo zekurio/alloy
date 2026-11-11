@@ -6,10 +6,7 @@ import {
   readOAuthPendingLinkCookie,
   setOAuthStateCookie,
 } from "@alloy/server/auth/cookies"
-import {
-  setupRequired,
-  unlinkOAuthAccountPreservingSignIn,
-} from "@alloy/server/auth/identity"
+import { unlinkOAuthAccountPreservingSignIn } from "@alloy/server/auth/identity"
 import {
   fallbackOAuthErrorRedirect,
   finishOAuthCallback,
@@ -30,13 +27,8 @@ import {
 import { publicLinkedAccountRow } from "@alloy/server/auth/security-responses"
 import { getSession, requireSession } from "@alloy/server/auth/session"
 import {
-  hasSetupAccess,
-  SETUP_ACCESS_REQUIRED,
-} from "@alloy/server/auth/setup-token"
-import {
   badRequest,
   badRequestFromCause,
-  forbidden,
   notFound,
   success,
   urlResponse,
@@ -60,26 +52,15 @@ const OAuthStartBody = t.object({
   callbackURL: optionalNullableTrimmedString(),
 })
 
-const OAuthSignInBody = OAuthStartBody.extend({
-  /** Create the first admin; needs setup access. */
-  setup: t.boolean().optional(),
-})
-
 async function startOAuthResponse(
   c: Context,
-  input: t.infer<typeof OAuthSignInBody> & { userId?: string },
+  input: t.infer<typeof OAuthStartBody> & { userId?: string },
   fallback: string,
 ) {
   try {
-    if (input.setup) {
-      if (!(await setupRequired())) {
-        return badRequest(c, "Setup is already complete.")
-      }
-      if (!hasSetupAccess(c)) return forbidden(c, SETUP_ACCESS_REQUIRED)
-    }
     const result = input.userId
       ? await startOAuthLink({ ...input, userId: input.userId })
-      : await startOAuthSignIn({ ...input, setupFirstAdmin: input.setup })
+      : await startOAuthSignIn(input)
     setOAuthStateCookie(c, result.browserNonce)
     return urlResponse(c, result.url)
   } catch (cause) {
@@ -101,7 +82,7 @@ export const authOAuthRoute = new Hono()
     const rows = await listLinkedAccounts(c.var.viewerId)
     return c.json(rows.map(publicLinkedAccountRow))
   })
-  .post("/oauth/sign-in", tbValidator("json", OAuthSignInBody), async (c) => {
+  .post("/oauth/sign-in", tbValidator("json", OAuthStartBody), async (c) => {
     return startOAuthResponse(
       c,
       c.req.valid("json"),

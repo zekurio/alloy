@@ -25,8 +25,7 @@ export interface ResolvedViewer {
  *
  * The anonymous id is a bare random uuid, not signed: a client that drops
  * the cookie gets a fresh id anyway, so one that writes its own gains
- * nothing. Anything that isn't a lowercase uuid, such as the signed cookies
- * of earlier servers, gets a fresh id.
+ * nothing. Anything that isn't a lowercase uuid gets a fresh id.
  */
 export async function resolveViewer(c: Context): Promise<ResolvedViewer> {
   const session = await getSession(c)

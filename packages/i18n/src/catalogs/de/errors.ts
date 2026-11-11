@@ -14,6 +14,8 @@ export const ERRORS_MESSAGES = {
   "Could not create user.": "Nutzer konnte nicht erstellt werden.",
   "Could not import clip.": "Clip konnte nicht importiert werden.",
   "Could not link OAuth account.": "OAuth-Konto konnte nicht verknüpft werden.",
+  "Could not open the passkey link":
+    "Passkey-Link konnte nicht geöffnet werden",
   "Could not prepare clip.": "Clip konnte nicht vorbereitet werden.",
   "Could not read video metadata":
     "Videometadaten konnten nicht gelesen werden",
@@ -47,6 +49,8 @@ export const ERRORS_MESSAGES = {
   "OAuth sign-in failed": "OAuth-Anmeldung fehlgeschlagen",
   "OAuth sign-in failed.": "OAuth-Anmeldung fehlgeschlagen.",
   "OAuth state payload is invalid.": "Die OAuth-Statusdaten sind ungültig.",
+  "Only an account your sign-in provider marks as an admin can finish setup.":
+    "Nur ein Konto, das dein Anmeldeanbieter als Admin kennzeichnet, kann die Einrichtung abschließen.",
   "Page not found": "Seite nicht gefunden",
   "Passkey challenge payload is invalid.":
     "Die Daten der Passkey-Anfrage sind ungültig.",
@@ -77,6 +81,8 @@ export const ERRORS_MESSAGES = {
   "That setup token is not valid.": "Dieser Setup-Token ist nicht gültig.",
   "The page may have moved, been deleted, or never existed.":
     "Die Seite wurde vielleicht verschoben, gelöscht oder hat nie existiert.",
+  "This link has expired or was already used.":
+    "Dieser Link ist abgelaufen oder wurde schon benutzt.",
   "This view failed to load.": "Diese Ansicht konnte nicht geladen werden.",
   "Timed out while reading video metadata":
     "Zeitüberschreitung beim Lesen der Videometadaten",

@@ -21,16 +21,8 @@ import {
   OIDC_MANAGED_USERNAME_ERROR,
   oidcManagedProfile,
 } from "./oidc-managed-profile"
-import {
-  currentSignInConfig,
-  hasAdminSignInMethodForConfig,
-  hasAdminSignInMethodWith,
-} from "./sign-in-config"
-import {
-  generateUniqueUsername,
-  normalizeDisplayName,
-  normalizeUsername,
-} from "./username"
+import { currentSignInConfig, hasAdminSignInMethodWith } from "./sign-in-config"
+import { normalizeDisplayName, normalizeUsername } from "./username"
 export {
   deleteUserPasskeyPreservingSignIn,
   unlinkOAuthAccountPreservingSignIn,
@@ -68,14 +60,6 @@ async function assertUsernameEditable(
   // every field keeps working.
   if (current?.username === username) return
   throw new Error(OIDC_MANAGED_USERNAME_ERROR)
-}
-
-async function hasAdminSignInMethod(): Promise<boolean> {
-  return hasAdminSignInMethodForConfig(currentSignInConfig())
-}
-
-export async function setupRequired(): Promise<boolean> {
-  return !(await hasAdminSignInMethod())
 }
 
 async function hasOtherAdminSignInMethod(
@@ -220,70 +204,21 @@ export function reactivateSelfDisabledIdentity(
   })
 }
 
-export async function createUserIdentity(input: {
-  username?: string
-  role?: "user" | "admin"
-}): Promise<User> {
-  return createUserIdentityWith(db, input)
-}
-
-async function createUserIdentityWith(
-  executor: AuthDbExecutor,
-  input: {
-    username?: string
-    role?: "user" | "admin"
-  },
-): Promise<User> {
-  const username = input.username
-    ? normalizeUsername(input.username)
-    : await generateUniqueUsername({})
-  await assertUsernameAvailable(executor, username)
-  const values: NewUser = {
-    username,
-    role: input.role ?? "user",
-    storage_quota_bytes: configStore.get("limits").defaultStorageQuotaBytes,
-  }
-  const [created] = await executor.insert(user).values(values).returning()
-  if (!created) throw new Error("Could not create user.")
-  return created
-}
-
-/**
- * Confirm no admin can sign in yet. Callers hold withAdminAccessChange and
- * create the first admin in the same transaction.
- */
-export async function assertFirstAdminSetupOpen(
+/** Insert a user. The caller adds its sign-in method in the same transaction. */
+export async function createUserIdentity(
   tx: DbTransaction,
-): Promise<void> {
-  // Same config as setupRequired(), so the setup page and this check agree.
-  if (await hasAdminSignInMethodWith(tx, currentSignInConfig())) {
-    throw new Error("Initial setup is already complete.")
-  }
-}
-
-/** With `setupFirstAdmin`, the caller holds withAdminAccessChange. */
-export async function createRegistrationUserInTransaction(
-  tx: DbTransaction,
-  input: {
-    username: string
-    setupFirstAdmin: boolean
-  },
+  input: { username: string; role: UserRole },
 ): Promise<User> {
   const username = normalizeUsername(input.username)
-
-  if (input.setupFirstAdmin) {
-    await assertFirstAdminSetupOpen(tx)
-    // Setup creates a fresh admin because no verified attribute remains to claim.
-    return createUserIdentityWith(tx, { username, role: "admin" })
+  await assertUsernameAvailable(tx, username)
+  const values: NewUser = {
+    username,
+    role: input.role,
+    storage_quota_bytes: configStore.get("limits").defaultStorageQuotaBytes,
   }
-
-  if (!configStore.get("passkeyEnabled")) {
-    throw new Error("Passkey sign-up is currently disabled.")
-  }
-  if (!configStore.get("openRegistrations")) {
-    throw new Error("Sign-up is currently closed.")
-  }
-  return createUserIdentityWith(tx, { username, role: "user" })
+  const [created] = await tx.insert(user).values(values).returning()
+  if (!created) throw new Error("Could not create user.")
+  return created
 }
 
 /**

@@ -55,6 +55,7 @@ export const ACCOUNT_MESSAGES = {
   "Create a new account": "Neues Konto erstellen",
   "Create account with passkey": "Konto mit Passkey erstellen",
   "Create one": "Konto erstellen",
+  "Create passkey": "Passkey erstellen",
   "Create your account": "Konto erstellen",
   "Danger zone": "Gefahrenzone",
   "Delete account": "Konto löschen",
@@ -85,6 +86,8 @@ export const ACCOUNT_MESSAGES = {
   "How you appear to everyone else on this server.":
     "Wie du für alle anderen auf diesem Server erscheinst.",
   Identity: "Identität",
+  "It has expired or was already used. Ask an admin for a new one.":
+    "Er ist abgelaufen oder wurde schon benutzt. Bitte einen Admin um einen neuen.",
   "Last active {time}": "Zuletzt aktiv {time}",
   "Link another enabled sign-in method before removing this one":
     "Verknüpfe eine andere aktive Anmeldemethode, bevor du diese entfernst",
@@ -105,6 +108,8 @@ export const ACCOUNT_MESSAGES = {
   "Open account menu for {name}": "Kontomenü für {name} öffnen",
   "Open library": "Bibliothek öffnen",
   "Open security settings": "Sicherheitseinstellungen öffnen",
+  "Open the link in a browser that does.":
+    "Öffne den Link in einem Browser, der sie unterstützt.",
   "Open {name}'s profile": "Profil von {name} öffnen",
   "Passkey registration failed": "Passkey-Registrierung fehlgeschlagen",
   Passkeys: "Passkeys",
@@ -160,7 +165,6 @@ export const ACCOUNT_MESSAGES = {
   "Sign up": "Registrieren",
   "Sign-in": "Anmeldung",
   "Sign-in methods": "Anmeldemethoden",
-  "Sign-up is currently closed.": "Die Registrierung ist derzeit geschlossen.",
   "Sign-up page preview": "Vorschau der Registrierungsseite",
   "Sign-ups are disabled": "Registrierungen sind deaktiviert",
   "Signed in as {username}. Continue only if you opened the Alloy desktop app.":
@@ -185,9 +189,14 @@ export const ACCOUNT_MESSAGES = {
     "Der Nutzer kann sich wieder anmelden und seine Clips sind wieder sichtbar.",
   "This account has been banned by an administrator.":
     "Dieses Konto wurde von einem Administrator gesperrt.",
+  "This browser does not support passkeys.":
+    "Dieser Browser unterstützt keine Passkeys.",
   "This device": "Dieses Gerät",
   "This is your last enabled sign-in method. Link another before removing it.":
     "Das ist deine letzte aktive Anmeldemethode. Verknüpfe eine andere, bevor du sie entfernst.",
+  "This link doesn't work anymore": "Dieser Link funktioniert nicht mehr",
+  "This link signs you in as {username}. Create a passkey now, and sign in with it from then on.":
+    "Dieser Link meldet dich als {username} an. Erstelle jetzt einen Passkey und melde dich künftig damit an.",
   "This permanently removes every clip you uploaded.":
     "Das entfernt dauerhaft jeden Clip, den du hochgeladen hast.",
   "This removes their sessions and clips. It can't be undone.":
@@ -219,6 +228,8 @@ export const ACCOUNT_MESSAGES = {
   "You may need another sign-in method to access your account.":
     "Vielleicht brauchst du eine andere Anmeldemethode, um auf dein Konto zuzugreifen.",
   "You're not signed in anywhere else.": "Du bist nirgendwo sonst angemeldet.",
+  "You've been invited. Pick a username and create a passkey to sign in with.":
+    "Du wurdest eingeladen. Wähle einen Nutzernamen und erstelle einen Passkey, mit dem du dich anmeldest.",
   "You've blocked @{handle}. Do you want to show their profile anyway?":
     "Du hast @{handle} blockiert. Möchtest du das Profil trotzdem anzeigen?",
   "Your browser will prompt you to use Touch ID, Face ID, Windows Hello, or a security key.":

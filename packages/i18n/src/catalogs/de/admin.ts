@@ -5,7 +5,6 @@ export const ADMIN_MESSAGES = {
     "ALLOY_*-Umgebungsvariablen überschreiben Alloys Standardwerte, hier gespeicherte Werte überschreiben beide. Setze ein Feld zurück, um wieder seinen Standard zu nutzen.",
   "Add hashtag": "Hashtag hinzufügen",
   "Add tier": "Stufe hinzufügen",
-  "Add user": "Nutzer hinzufügen",
   "Add webhook": "Webhook hinzufügen",
   Admin: "Admin",
   Administration: "Administration",
@@ -42,9 +41,8 @@ export const ADMIN_MESSAGES = {
   "Colors buttons, links, and highlights in the Alloy theme for everyone on this server.":
     "Färbt Schaltflächen, Links und Hervorhebungen im Alloy-Theme für alle auf diesem Server.",
   "Copy callback URL": "Callback-URL kopieren",
-  "Couldn't complete setup": "Einrichtung konnte nicht abgeschlossen werden",
   "Couldn't copy callback URL": "Callback-URL konnte nicht kopiert werden",
-  "Couldn't create user": "Nutzer konnte nicht erstellt werden",
+  "Couldn't create the link": "Link konnte nicht erstellt werden",
   "Couldn't create webhook": "Webhook konnte nicht erstellt werden",
   "Couldn't delete webhook": "Webhook konnte nicht gelöscht werden",
   "Couldn't load SteamGridDB artwork":
@@ -63,9 +61,14 @@ export const ADMIN_MESSAGES = {
   "Couldn't update user": "Nutzer konnte nicht aktualisiert werden",
   "Couldn't update webhook": "Webhook konnte nicht aktualisiert werden",
   "Couldn't verify the setup token": "Setup-Token konnte nicht geprüft werden",
+  "Create a link that lets one person make an account here with a username and a passkey.":
+    "Erstelle einen Link, mit dem eine Person hier ein Konto mit Nutzername und Passkey anlegen kann.",
+  "Create a passkey link for {username}?":
+    "Passkey-Link für {username} erstellen?",
   "Create accounts": "Konten erstellen",
+  "Create link": "Link erstellen",
+  "Create passkey link": "Passkey-Link erstellen",
   "Create the admin account": "Admin-Konto erstellen",
-  "Create user": "Nutzer erstellen",
   "Customizations stop automatic SteamGridDB updates for this game.":
     "Anpassungen stoppen automatische SteamGridDB-Aktualisierungen für dieses Spiel.",
   "Default ({codec})": "Standard ({codec})",
@@ -115,8 +118,6 @@ export const ADMIN_MESSAGES = {
   "Fetch user info": "Nutzerinfos abrufen",
   "File size limits before resizing. These images also have a 24-megapixel decoding limit.":
     "Dateigrößenlimits vor der Größenanpassung. Für diese Bilder gilt außerdem ein Dekodierungslimit von 24 Megapixeln.",
-  "Finalizing the instance state.": "Instanzstatus wird abgeschlossen.",
-  "Finishing setup": "Einrichtung wird abgeschlossen",
   Fluxer: "Fluxer",
   "Game artwork size (MiB)": "Spielgrafik-Größe (MiB)",
   Generic: "Generisch",
@@ -137,10 +138,10 @@ export const ADMIN_MESSAGES = {
     "Wie viel deines Kontingents deine Clips belegen.",
   "Identifies the account at the provider. Changing it breaks existing links.":
     "Identifiziert das Konto beim Anbieter. Eine Änderung trennt bestehende Verknüpfungen.",
-  "Initial setup is already complete.":
-    "Die Ersteinrichtung ist bereits abgeschlossen.",
   "Invalid quota": "Ungültiges Kontingent",
   "Invalid registration request.": "Ungültige Registrierungsanfrage.",
+  "Invite link": "Einladungslink",
+  "Invite someone": "Jemanden einladen",
   "Issuer URL": "Aussteller-URL",
   "It stops receiving announcements. Clips it already received are not re-sent if you add it back.":
     "Er erhält keine Ankündigungen mehr. Bereits zugestellte Clips werden nicht erneut gesendet, wenn du ihn wieder hinzufügst.",
@@ -188,6 +189,7 @@ export const ADMIN_MESSAGES = {
   "Open registrations": "Offene Registrierungen",
   "Open registrations is off, but {provider} still creates accounts on first sign-in. Turn off Create accounts under Single sign-on to stop it.":
     "Offene Registrierungen sind aus, aber {provider} erstellt bei der ersten Anmeldung weiterhin Konten. Schalte „Konten erstellen“ unter Single Sign-on aus, um das zu beenden.",
+  "Passkey link for {username}": "Passkey-Link für {username}",
   PKCE: "PKCE",
   "Profile banner size (MiB)": "Profilbanner-Größe (MiB)",
   "Profile images & artwork": "Profilbilder & Grafiken",
@@ -235,6 +237,10 @@ export const ADMIN_MESSAGES = {
   "Secure the authorization flow with Proof Key for Code Exchange.":
     "Sichere den Autorisierungsablauf mit Proof Key for Code Exchange ab.",
   "Send test": "Test senden",
+  "Send them this link. It lets them add a passkey and sign in. It works once, for an hour, and you can't see it again after closing this.":
+    "Schick der Person diesen Link. Damit kann sie einen Passkey hinzufügen und sich anmelden. Er funktioniert einmal, eine Stunde lang, und wird nach dem Schließen nicht noch einmal angezeigt.",
+  "Send this link to the person you're inviting. It works once, for 7 days, and you can't see it again after closing this.":
+    "Schick diesen Link der Person, die du einlädst. Er funktioniert einmal, 7 Tage lang, und wird nach dem Schließen nicht noch einmal angezeigt.",
   "Separate scopes with spaces.": "Trenne Scopes mit Leerzeichen.",
   "Set by ALLOY_OIDC_CLIENT_SECRET": "Durch ALLOY_OIDC_CLIENT_SECRET gesetzt",
   "Set by ALLOY_OIDC_ISSUER_URL. You can replace it here; to use the endpoints under Advanced instead, unset the variable.":
@@ -253,6 +259,8 @@ export const ADMIN_MESSAGES = {
     "Steht auf der Schaltfläche als „Weiter mit {name}“.",
   "Sign in through an OpenID Connect provider. Empty fields use their default, shown as the placeholder.":
     "Anmeldung über einen OpenID-Connect-Anbieter. Leere Felder nutzen ihren Standard, der als Platzhalter angezeigt wird.",
+  "Sign in with {provider} as an account whose {claim} claim is admin. That account becomes the admin here.":
+    "Melde dich mit {provider} mit einem Konto an, dessen Claim {claim} den Wert admin hat. Dieses Konto wird hier Admin.",
   "Sign-in stays off until the provider has a client secret.":
     "Die Anmeldung bleibt aus, bis der Anbieter ein Client-Secret hat.",
   "Signing secret": "Signatur-Secret",
@@ -337,6 +345,8 @@ export const ADMIN_MESSAGES = {
   Webhooks: "Webhooks",
   "Who can create an account and how they authenticate.":
     "Wer ein Konto erstellen kann und wie die Anmeldung erfolgt.",
+  "Whoever opens the link can add a passkey to this account and sign in. It replaces any earlier link for this account.":
+    "Wer den Link öffnet, kann diesem Konto einen Passkey hinzufügen und sich anmelden. Er ersetzt jeden früheren Link für dieses Konto.",
   "Your endpoint receives a signed JSON payload.":
     "Dein Endpunkt erhält eine signierte JSON-Nutzlast.",
   "e.g. #clips": "z. B. #clips",

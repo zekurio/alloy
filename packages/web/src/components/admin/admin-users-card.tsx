@@ -13,12 +13,14 @@ import { SearchIcon, XIcon } from "lucide-react"
 import { useState } from "react"
 
 import { ListEmpty } from "@/components/feedback/empty-state"
+import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
-import { CreateUserDialog } from "./admin-user-dialogs"
+import { InviteDialog } from "./admin-passkey-link"
 import { useAdminUsers } from "./admin-user-hooks"
 import { UsersList } from "./admin-user-list"
 
 export function AdminUsersCard({ currentUserId }: { currentUserId: string }) {
+  const { passkeyEnabled } = useSuspenseAuthConfig()
   const [search, setSearch] = useState("")
   const normalizedSearch = search.trim()
   const adminUsers = useAdminUsers(currentUserId, normalizedSearch)
@@ -95,7 +97,9 @@ export function AdminUsersCard({ currentUserId }: { currentUserId: string }) {
               </InputGroupAddon>
             ) : null}
           </InputGroup>
-          <CreateUserDialog />
+          {/* An invite makes a passkey account. With passkeys off, people
+              join by signing in with the provider. */}
+          {passkeyEnabled ? <InviteDialog /> : null}
         </div>
       </div>
       {list}

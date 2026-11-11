@@ -2,7 +2,6 @@ import { isDeepStrictEqual } from "node:util"
 
 import {
   isObjectRecord,
-  RUNTIME_CONFIG_VERSION,
   type ContractJsonValue,
   type OidcClientSecretSource,
   type RuntimeConfig,
@@ -12,6 +11,7 @@ import type { SafeParseResult } from "@alloy/contracts/schema-validation"
 import { instanceSetting } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
+import type { DbTransaction } from "@alloy/server/db/transaction"
 import { env } from "@alloy/server/env"
 import { synchronizeMediaGeneration } from "@alloy/server/queue/media-generation"
 import { eq } from "drizzle-orm"
@@ -111,9 +111,7 @@ function resolveValues(): ConfigSectionValues {
 
 function buildRuntimeConfig(config: ConfigSectionValues): RuntimeConfig {
   return {
-    runtimeConfigVersion: RUNTIME_CONFIG_VERSION,
     openRegistrations: config.auth.openRegistrations,
-    setupComplete: setupSetting.setupComplete,
     passkeyEnabled: config.auth.passkeyEnabled,
     requireAuthToBrowse: config.auth.requireAuthToBrowse,
     oidc: config.oidc,
@@ -363,7 +361,13 @@ export async function initializeConfigStore(): Promise<void> {
 interface ConfigStore {
   get<K extends keyof RuntimeConfig>(key: K): RuntimeConfig[K]
   getAll(): Readonly<RuntimeConfig>
-  setSetupComplete(value: boolean): Promise<void>
+  /** Whether the first admin exists. Kept in Postgres with that admin. */
+  setupComplete(): boolean
+  /**
+   * Record setup as done in the same transaction as `create`, which makes
+   * the first admin.
+   */
+  completeSetup<T>(create: (tx: DbTransaction) => Promise<T>): Promise<T>
   subscribe(fn: Listener): () => void
 }
 
@@ -374,11 +378,18 @@ export const configStore: ConfigStore = {
   getAll() {
     return structuredClone(currentState())
   },
-  async setSetupComplete(value) {
-    const next = SetupSettingSchema.parse({ setupComplete: value })
-    await writeSetting("setup", next)
+  setupComplete() {
+    return setupSetting.setupComplete
+  },
+  async completeSetup(create) {
+    const next: SetupSetting = { setupComplete: true }
+    const created = await db.transaction(async (tx) => {
+      const result = await create(tx)
+      await writeSetting("setup", next, tx)
+      return result
+    })
     setupSetting = deepFreeze(next)
-    refreshState()
+    return created
   },
   subscribe(fn) {
     listeners.add(fn)
