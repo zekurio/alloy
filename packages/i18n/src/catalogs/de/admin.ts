@@ -237,8 +237,8 @@ export const ADMIN_MESSAGES = {
   "Secure the authorization flow with Proof Key for Code Exchange.":
     "Sichere den Autorisierungsablauf mit Proof Key for Code Exchange ab.",
   "Send test": "Test senden",
-  "Send them this link. It lets them add a passkey and sign in. It works once, for 7 days, and you can't see it again after closing this.":
-    "Schick der Person diesen Link. Damit kann sie einen Passkey hinzufügen und sich anmelden. Er funktioniert einmal, 7 Tage lang, und wird nach dem Schließen nicht noch einmal angezeigt.",
+  "Send them this link. It lets them add a passkey and sign in. It works once, for an hour, and you can't see it again after closing this.":
+    "Schick der Person diesen Link. Damit kann sie einen Passkey hinzufügen und sich anmelden. Er funktioniert einmal, eine Stunde lang, und wird nach dem Schließen nicht noch einmal angezeigt.",
   "Send this link to the person you're inviting. It works once, for 7 days, and you can't see it again after closing this.":
     "Schick diesen Link der Person, die du einlädst. Er funktioniert einmal, 7 Tage lang, und wird nach dem Schließen nicht noch einmal angezeigt.",
   "Separate scopes with spaces.": "Trenne Scopes mit Leerzeichen.",

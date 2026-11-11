@@ -227,7 +227,7 @@ export function PasskeyLinkDialog({
             ),
             resultTitle: t("Passkey link for {username}", { username }),
             resultDescription: t(
-              "Send them this link. It lets them add a passkey and sign in. It works once, for 7 days, and you can't see it again after closing this.",
+              "Send them this link. It lets them add a passkey and sign in. It works once, for an hour, and you can't see it again after closing this.",
             ),
           }}
         />

@@ -18,7 +18,10 @@ import {
 // account adds a passkey to it, for someone who lost theirs. An admin makes
 // both. The server stores only the token's hash, and using a link deletes it.
 const PURPOSE = "passkey-link"
-const TTL_MS = 7 * 24 * 60 * 60 * 1000
+// An invite waits for someone to get around to it. A link for an account
+// opens an account that already holds someone's clips, so it is short.
+const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000
+const ACCOUNT_LINK_TTL_MS = 60 * 60 * 1000
 
 export const PASSKEY_LINK_INVALID = "This link has expired or was already used."
 
@@ -31,6 +34,7 @@ export async function createPasskeyLink(
 ): Promise<PasskeyLink> {
   const token = randomBase64Url(32)
   const hash = await sha256Base64Url(token)
+  const ttlMs = userId ? ACCOUNT_LINK_TTL_MS : INVITE_TTL_MS
   if (userId) {
     await db
       .delete(authChallenge)
@@ -47,7 +51,7 @@ export async function createPasskeyLink(
     challenge: hash,
     payload: {},
     userId,
-    ttlMs: TTL_MS,
+    ttlMs,
   })
   // The token goes in the fragment, which browsers keep out of requests, so
   // no proxy or access log records it.
@@ -55,7 +59,7 @@ export async function createPasskeyLink(
   url.hash = token
   return {
     url: url.toString(),
-    expiresAt: new Date(Date.now() + TTL_MS).toISOString(),
+    expiresAt: new Date(Date.now() + ttlMs).toISOString(),
   }
 }
 
