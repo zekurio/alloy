@@ -33,8 +33,12 @@ const WebAuthnContextPayloadSchema = t.object({
   webAuthnOrigin: t.string(),
   webAuthnRpId: t.string(),
 })
+// Sign-up carries `username`, and `firstAdmin` during setup. Adding a passkey
+// to an account carries `userId`, and `enrollmentId` when a passkey link
+// stands in for the session.
 const RegistrationPayloadSchema = t.object({
-  setupFirstAdmin: t.boolean().optional(),
+  enrollmentId: t.string().optional(),
+  firstAdmin: t.boolean().optional(),
   userId: t.string().optional(),
   username: t.string().optional(),
 })

@@ -1,10 +1,12 @@
 import { type User, type UserPasskey, userPasskey } from "@alloy/db/auth-schema"
+import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { and, eq } from "drizzle-orm"
 
-import { withAdminAccessChange } from "./admin-access"
-import { createRegistrationUserInTransaction } from "./identity"
+import { createUserIdentity } from "./identity"
+import { consumePasskeyEnrollment } from "./passkey-enrollment"
+import { createFirstAdmin } from "./setup"
 import { bytesToBase64Url } from "./tokens"
 import type { VerifiedPasskeyRegistration } from "./webauthn"
 
@@ -54,26 +56,59 @@ export async function insertUserPasskey(
   return created
 }
 
-/** Create the account a passkey sign-up registered, together with its passkey. */
+/** Whether anyone may create an account with a username and a passkey. */
+export function passkeySignUpOpen(): boolean {
+  return (
+    configStore.get("openRegistrations") && configStore.get("passkeyEnabled")
+  )
+}
+
+/**
+ * Create the account a passkey sign-up registered, together with its
+ * passkey. `firstAdmin` makes it the admin that finishes setup.
+ */
 export async function createPasskeyAccount(input: {
   username: string
-  setupFirstAdmin: boolean
+  firstAdmin: boolean
   registration: VerifiedPasskeyRegistration
 }): Promise<User> {
-  const create = () =>
-    db.transaction(async (tx) => {
-      const row = await createRegistrationUserInTransaction(tx, {
-        username: input.username,
-        setupFirstAdmin: input.setupFirstAdmin,
-      })
-      await insertUserPasskey(tx, {
-        userId: row.id,
-        registration: input.registration,
-        name: `${row.username}'s passkey`,
-      })
-      return row
+  const create = async (tx: DbTransaction) => {
+    const row = await createUserIdentity(
+      { username: input.username, role: input.firstAdmin ? "admin" : "user" },
+      tx,
+    )
+    await insertUserPasskey(tx, {
+      userId: row.id,
+      registration: input.registration,
+      name: `${row.username}'s passkey`,
     })
-  return input.setupFirstAdmin ? withAdminAccessChange(create) : create()
+    return row
+  }
+  if (input.firstAdmin) return createFirstAdmin(create)
+  if (!passkeySignUpOpen()) {
+    throw new Error("Passkey sign-up is currently disabled.")
+  }
+  return db.transaction(create)
+}
+
+/**
+ * Add the passkey registered through a passkey link and use the link up.
+ * False when the link is gone or expired.
+ */
+export function enrollPasskey(input: {
+  userId: string
+  enrollmentId: string
+  registration: VerifiedPasskeyRegistration
+}): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    if (!(await consumePasskeyEnrollment(tx, input.enrollmentId))) return false
+    await insertUserPasskey(tx, {
+      userId: input.userId,
+      registration: input.registration,
+      name: null,
+    })
+    return true
+  })
 }
 
 export async function renameUserPasskey(input: {

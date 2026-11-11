@@ -80,8 +80,7 @@ function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
     return { data }
   }
 
-  // Callers may still pass better-auth's refetch options; they are ignored.
-  function refetch(_options?: unknown): Promise<SessionResult> {
+  function refetch(): Promise<SessionResult> {
     generation += 1
     const request = load(generation)
     latestRefetch = request

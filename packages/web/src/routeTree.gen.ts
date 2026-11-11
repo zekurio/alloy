@@ -16,6 +16,7 @@ import { Route as appAppIndexRouteImport } from './routes/(app)/_app.index'
 import { Route as appAppGamesRouteImport } from './routes/(app)/_app.games'
 import { Route as appAppScreenshotsRouteImport } from './routes/(app)/_app.screenshots'
 import { Route as appAppSettingsRouteImport } from './routes/(app)/_app.settings'
+import { Route as authAuthEnrollRouteImport } from './routes/(auth)/_auth.enroll'
 import { Route as authAuthLoginRouteImport } from './routes/(auth)/_auth.login'
 import { Route as authAuthSignUpRouteImport } from './routes/(auth)/_auth.sign-up'
 import { Route as appAppGamesIndexRouteImport } from './routes/(app)/_app.games.index'
@@ -64,6 +65,11 @@ const appAppSettingsRoute = appAppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => appAppRoute,
+} as any)
+const authAuthEnrollRoute = authAuthEnrollRouteImport.update({
+  id: '/enroll',
+  path: '/enroll',
+  getParentRoute: () => authAuthRoute,
 } as any)
 const authAuthLoginRoute = authAuthLoginRouteImport.update({
   id: '/login',
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/games': typeof appAppGamesRouteWithChildren
   '/screenshots': typeof appAppScreenshotsRoute
   '/settings': typeof appAppSettingsRoute
+  '/enroll': typeof authAuthEnrollRoute
   '/login': typeof authAuthLoginRoute
   '/sign-up': typeof authAuthSignUpRoute
   '/': typeof appAppIndexRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/setup': typeof authSetupRoute
   '/screenshots': typeof appAppScreenshotsRoute
   '/settings': typeof appAppSettingsRoute
+  '/enroll': typeof authAuthEnrollRoute
   '/login': typeof authAuthLoginRoute
   '/sign-up': typeof authAuthSignUpRoute
   '/': typeof appAppIndexRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/(app)/_app/games': typeof appAppGamesRouteWithChildren
   '/(app)/_app/screenshots': typeof appAppScreenshotsRoute
   '/(app)/_app/settings': typeof appAppSettingsRoute
+  '/(auth)/_auth/enroll': typeof authAuthEnrollRoute
   '/(auth)/_auth/login': typeof authAuthLoginRoute
   '/(auth)/_auth/sign-up': typeof authAuthSignUpRoute
   '/(app)/_app/': typeof appAppIndexRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/games'
     | '/screenshots'
     | '/settings'
+    | '/enroll'
     | '/login'
     | '/sign-up'
     | '/'
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/screenshots'
     | '/settings'
+    | '/enroll'
     | '/login'
     | '/sign-up'
     | '/'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/(app)/_app/games'
     | '/(app)/_app/screenshots'
     | '/(app)/_app/settings'
+    | '/(auth)/_auth/enroll'
     | '/(auth)/_auth/login'
     | '/(auth)/_auth/sign-up'
     | '/(app)/_app/'
@@ -337,6 +349,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings'
       preLoaderRoute: typeof appAppSettingsRouteImport
       parentRoute: typeof appAppRoute
+    }
+    '/(auth)/_auth/enroll': {
+      id: '/(auth)/_auth/enroll'
+      path: '/enroll'
+      fullPath: '/enroll'
+      preLoaderRoute: typeof authAuthEnrollRouteImport
+      parentRoute: typeof authAuthRoute
     }
     '/(auth)/_auth/login': {
       id: '/(auth)/_auth/login'
@@ -517,12 +536,14 @@ const appAppRouteWithChildren =
   appAppRoute._addFileChildren(appAppRouteChildren)
 
 interface authAuthRouteChildren {
+  authAuthEnrollRoute: typeof authAuthEnrollRoute
   authAuthLoginRoute: typeof authAuthLoginRoute
   authAuthSignUpRoute: typeof authAuthSignUpRoute
   authAuthDesktopAuthorizeRoute: typeof authAuthDesktopAuthorizeRoute
 }
 
 const authAuthRouteChildren: authAuthRouteChildren = {
+  authAuthEnrollRoute: authAuthEnrollRoute,
   authAuthLoginRoute: authAuthLoginRoute,
   authAuthSignUpRoute: authAuthSignUpRoute,
   authAuthDesktopAuthorizeRoute: authAuthDesktopAuthorizeRoute,

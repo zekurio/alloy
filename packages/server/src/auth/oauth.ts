@@ -45,11 +45,7 @@ import { savePendingOAuthLink } from "./oauth-pending-link"
 import { profileFromTokens } from "./oauth-profile"
 import type { OAuthChallengePayload, OAuthMode } from "./oauth-types"
 import { getSession } from "./session"
-import {
-  endSetupAccess,
-  hasSetupAccess,
-  SETUP_ACCESS_REQUIRED,
-} from "./setup-token"
+import { SETUP_ADMIN_CLAIM_REQUIRED, setupRequired } from "./setup"
 
 const logger = createLogger("oauth")
 const OAuthChallengePayloadSchema = t.object({
@@ -57,7 +53,6 @@ const OAuthChallengePayloadSchema = t.object({
   callbackURL: t.string(),
   codeVerifier: t.string().optional(),
   mode: t.enum(["sign-in", "link"]),
-  setupFirstAdmin: t.boolean().optional(),
   userId: t.string().optional(),
 })
 
@@ -65,7 +60,6 @@ export { fallbackOAuthErrorRedirect } from "./oauth-client"
 
 export async function startOAuthSignIn(input: {
   callbackURL?: string | null
-  setupFirstAdmin?: boolean
 }): Promise<{ browserNonce: string; url: string }> {
   return startOAuthFlow({ ...input, mode: "sign-in" })
 }
@@ -80,7 +74,6 @@ export async function startOAuthLink(input: {
 async function startOAuthFlow(input: {
   callbackURL?: string | null
   mode: OAuthMode
-  setupFirstAdmin?: boolean
   userId?: string
 }): Promise<{ browserNonce: string; url: string }> {
   const provider = requireUsableOidcProvider()
@@ -109,7 +102,6 @@ async function startOAuthFlow(input: {
     callbackURL,
     codeVerifier,
     mode: input.mode,
-    setupFirstAdmin: input.setupFirstAdmin,
     userId: input.userId,
   }
 
@@ -168,10 +160,17 @@ export async function finishOAuthCallback(
       return { redirectTo: payload.callbackURL }
     }
 
-    if (payload.setupFirstAdmin) {
-      if (!hasSetupAccess(c)) throw new Error(SETUP_ACCESS_REQUIRED)
-      const userId = await createFirstAdminForOAuthAccount({ profile })
-      endSetupAccess(c)
+    // Until an admin exists, the provider decides who becomes one: only an
+    // identity its role claim marks as admin gets in, and no setup token is
+    // asked for.
+    if (setupRequired()) {
+      if (profile.role !== "admin") {
+        logger.warn(
+          `refused an OIDC sign-in during setup: its ${provider.roleClaim} claim does not say admin`,
+        )
+        throw new Error(SETUP_ADMIN_CLAIM_REQUIRED)
+      }
+      const userId = await createFirstAdminForOAuthAccount(profile)
       logger.info(`OIDC sign-in created admin ${userId}`)
       await completeAuthenticatedSignIn(c, userId)
       return { redirectTo: payload.callbackURL }
@@ -206,10 +205,11 @@ export async function finishOAuthCallback(
       }
     }
     return {
+      // A new or claimed account is this person's first time in.
       redirectTo:
-        kind === "created"
-          ? callbackURLWithWelcome(payload.callbackURL)
-          : payload.callbackURL,
+        kind === "matched"
+          ? payload.callbackURL
+          : callbackURLWithWelcome(payload.callbackURL),
     }
   } catch (cause) {
     logger.warn(
@@ -218,11 +218,12 @@ export async function finishOAuthCallback(
     )
     // A failed link keeps the user signed in, so send them back to where they
     // started (settings). Other failed sign-ins leave them logged out, so
-    // route to /login where the error toast can actually surface.
-    // Setup keeps redirecting /login to /setup, so its errors go back there.
+    // route to /login where the error toast can actually surface. During
+    // setup /login redirects to /setup, so those errors go back to where the
+    // sign-in started.
     return {
       redirectTo:
-        payload.mode === "link" || payload.setupFirstAdmin
+        payload.mode === "link" || setupRequired()
           ? callbackURLWithOAuthError(payload.callbackURL, cause)
           : loginURLWithOAuthError(payload.callbackURL, cause),
     }

@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
 
-import { isAdmin, shouldForceOnboarding } from "./auth-access"
+import { isAdmin } from "./auth-access"
 import {
   type Session,
   useSuspenseAuthConfig,
@@ -18,12 +18,7 @@ export function useRequireAuthStrict(): Session | null {
   const config = useSuspenseAuthConfig()
   const navigate = useNavigate()
 
-  const target =
-    config.adminAccountRequired || shouldForceOnboarding(config, session)
-      ? "/setup"
-      : session
-        ? null
-        : "/login"
+  const target = config.setupRequired ? "/setup" : session ? null : "/login"
 
   // The settings dialog opens over unguarded routes too, so a session that
   // ends while it is open has no route guard to move it on.

@@ -1,44 +1,29 @@
-import type { PublicAuthConfig } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
 import { Button } from "@alloy/ui/components/button"
 import { Field, FieldLabel } from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
-import { Separator } from "@alloy/ui/components/separator"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { useMutation } from "@tanstack/react-query"
 import {
   createFileRoute,
   Link,
   redirect,
-  useNavigate,
   useRouter,
 } from "@tanstack/react-router"
-import { Suspense, lazy, useEffect, useRef, useState } from "react"
+import { Suspense, lazy, type ReactNode, useState } from "react"
 
 import { OAuthSignIn } from "@/components/routes/login/oauth-sign-in"
 import { api } from "@/lib/api"
-import { isAdmin } from "@/lib/auth-access"
 import { errorMessage } from "@/lib/error-message"
-import { invalidateAuthConfig, loadSession } from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(auth)/setup")({
   loader: async ({ context }) => {
     const config = context.authConfig
-    if (config.adminAccountRequired) {
-      // Whether this browser still has to present the setup token depends
-      // on where it connects from, so it comes from its own request.
-      return { config, status: await api.setup.fetchStatus() }
-    }
-    // The root guard skips the session on /setup, so load it here.
-    const session = await loadSession()
-    if (!session) {
-      throw redirect({ to: "/login" })
-    }
-    if (!config.setupRequired || !isAdmin(session)) {
-      throw redirect({ to: "/" })
-    }
-    return { config, status: null }
+    if (!config.setupRequired) throw redirect({ to: "/" })
+    // Whether this browser still has to present the setup token is its own
+    // answer, so it comes from its own request.
+    return { oidc: config.oidc, status: await api.setup.fetchStatus() }
   },
   component: SetupPage,
 })
@@ -50,7 +35,7 @@ const PasskeySignUpForm = lazy(() =>
 )
 
 function SetupPage() {
-  const { config, status } = Route.useLoaderData()
+  const { oidc, status } = Route.useLoaderData()
 
   return (
     <div className="bg-background text-foreground relative min-h-screen w-full">
@@ -61,12 +46,35 @@ function SetupPage() {
       </header>
 
       <main className="relative flex min-h-screen items-center justify-center px-6 py-24 sm:px-10">
-        {!status ? (
-          <CompleteSetupStep />
-        ) : status.tokenRequired ? (
+        {status.tokenRequired ? (
           <VerifyTokenStep />
+        ) : status.mode === "oidc" && oidc ? (
+          // The provider names the admin, so this step asks for no setup
+          // token: only an identity whose role claim says admin gets in.
+          <AdminAccountStep
+            description={t(
+              "Sign in with {provider} as an account whose {claim} claim is admin. That account becomes the admin here.",
+              { provider: oidc.displayName, claim: status.roleClaim ?? "" },
+            )}
+          >
+            <OAuthSignIn provider={oidc} redirectTo="/setup" />
+          </AdminAccountStep>
+        ) : status.mode === "passkey" ? (
+          <AdminAccountStep
+            description={t(
+              "This first account will be assigned the admin role.",
+            )}
+          >
+            <Suspense fallback={null}>
+              <PasskeySignUpForm redirectTo="/setup" />
+            </Suspense>
+          </AdminAccountStep>
         ) : (
-          <AdminAccountStep config={config} />
+          <AdminAccountStep
+            description={t(
+              "No sign-in method is available. Turn on passkeys, or configure single sign-on with the ALLOY_OIDC_* variables, then reload this page.",
+            )}
+          />
         )}
       </main>
     </div>
@@ -149,87 +157,22 @@ function VerifyTokenStep() {
   )
 }
 
-function AdminAccountStep({ config }: { config: PublicAuthConfig }) {
-  const { oidc, passkeyEnabled } = config
-
+function AdminAccountStep({
+  description,
+  children,
+}: {
+  description: string
+  children?: ReactNode
+}) {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 space-y-1.5">
         <h2 className="text-foreground text-2xl font-semibold">
           {t("Create the admin account")}
         </h2>
-        <p className="text-foreground-muted text-sm">
-          {t("This first account will be assigned the admin role.")}
-        </p>
+        <p className="text-foreground-muted text-sm">{description}</p>
       </div>
-
-      <div className="flex flex-col gap-5">
-        {oidc ? (
-          <div className="flex flex-col gap-3">
-            <OAuthSignIn provider={oidc} redirectTo="/setup" setup />
-          </div>
-        ) : null}
-        {oidc && passkeyEnabled ? (
-          <div className="flex items-center gap-3">
-            <Separator className="flex-1" />
-            <span className="text-foreground-muted text-xs font-medium tracking-wider uppercase">
-              {t("or")}
-            </span>
-            <Separator className="flex-1" />
-          </div>
-        ) : null}
-        {passkeyEnabled ? (
-          <Suspense fallback={null}>
-            <PasskeySignUpForm redirectTo="/setup" />
-          </Suspense>
-        ) : null}
-        {!oidc && !passkeyEnabled ? (
-          <p className="text-destructive text-sm" role="alert">
-            {t(
-              "No sign-in method is available. Turn on passkeys, or configure single sign-on with the ALLOY_OIDC_* variables, then reload this page.",
-            )}
-          </p>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
-function CompleteSetupStep() {
-  const navigate = useNavigate()
-  const hasSubmitted = useRef(false)
-  const { error, mutate } = useMutation({
-    mutationFn: () => api.admin.updateRuntimeConfig({ setupComplete: true }),
-    onSuccess: () => {
-      invalidateAuthConfig()
-      void navigate({ to: "/" })
-    },
-  })
-
-  useEffect(() => {
-    if (hasSubmitted.current) return
-    hasSubmitted.current = true
-    mutate()
-  }, [mutate])
-
-  const message = error
-    ? errorMessage(error, t("Couldn't complete setup"))
-    : null
-
-  return (
-    <div className="w-full max-w-sm">
-      <div className="mb-8 space-y-1.5">
-        <h2 className="text-foreground text-2xl font-semibold">
-          {t("Finishing setup")}
-        </h2>
-        {message ? (
-          <p className="text-destructive text-sm">{message}</p>
-        ) : (
-          <p className="text-foreground-muted text-sm">
-            {t("Finalizing the instance state.")}
-          </p>
-        )}
-      </div>
+      {children}
     </div>
   )
 }

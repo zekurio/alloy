@@ -1,7 +1,6 @@
 import { AUTH_ERROR_CODES, type AuthErrorCode } from "@alloy/contracts"
 import type { AuthenticatedSignInResult } from "@alloy/server/auth/account-sign-in"
 import { publicSessionData } from "@alloy/server/auth/security-responses"
-import { configStore } from "@alloy/server/config/store"
 import { env } from "@alloy/server/env"
 import { forbidden } from "@alloy/server/runtime/http-response"
 import type { Context } from "hono"
@@ -41,12 +40,6 @@ export const csrf = createMiddleware(async (c, next) => {
 
   await next()
 })
-
-export async function canOpenPasskeyRegistration(): Promise<boolean> {
-  return (
-    configStore.get("openRegistrations") && configStore.get("passkeyEnabled")
-  )
-}
 
 export function authError(
   c: Context,

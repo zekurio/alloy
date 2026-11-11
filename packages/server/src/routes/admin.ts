@@ -31,10 +31,6 @@ import { tbValidator, validationErrorBody } from "./validation"
 // Bodies here only shape the request. Each section's own schema validates
 // the merged result, so a body field may be loose.
 
-const RuntimeConfigPatch = t.object({
-  setupComplete: t.boolean().optional(),
-})
-
 const AuthConfigPatch = t
   .object({
     openRegistrations: t.boolean().optional(),
@@ -125,17 +121,6 @@ export const adminRoute = new Hono()
   .get("/runtime-config", (c) => {
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
-  .patch(
-    "/runtime-config",
-    tbValidator("json", RuntimeConfigPatch),
-    async (c) => {
-      const body = c.req.valid("json")
-      if (body.setupComplete !== undefined) {
-        await configStore.setSetupComplete(body.setupComplete)
-      }
-      return c.json(adminRuntimeConfigResponse(configStore.getAll()))
-    },
-  )
   .put("/upload-limits", tbValidator("json", UploadLimitsBody), async (c) => {
     const next = prepareConfigSection(
       "uploadLimits",

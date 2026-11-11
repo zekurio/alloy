@@ -7,15 +7,6 @@ export function isAdmin(session: Session | null): boolean {
   return (session?.user as { role?: string } | undefined)?.role === "admin"
 }
 
-export function shouldForceOnboarding(
-  config: PublicAuthConfig,
-  session: Session | null,
-): boolean {
-  return (
-    config.setupRequired && !config.adminAccountRequired && isAdmin(session)
-  )
-}
-
 /** Whether the first SSO sign-in of an unlinked identity creates an account. */
 export function canOidcSignUp(config: PublicAuthConfig): boolean {
   return config.oidc?.allowSignUp === true

@@ -29,6 +29,10 @@ const KNOWN_OAUTH_ERRORS: ReadonlySet<string> = new Set([
   message("OAuth sign-in did not start in this browser."),
   message("OAuth sign-in expired. Try again."),
   message("OAuth state payload is invalid."),
+  message(
+    "Only an account your sign-in provider marks as an admin can finish setup.",
+  ),
+  message("Setup is already complete."),
   message("Sign in again before linking this account."),
   message("This account has been banned by an administrator."),
   OAUTH_ERROR_FALLBACK,

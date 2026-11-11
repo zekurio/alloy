@@ -1,11 +1,12 @@
 import type { SetupStatus } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
+import { usableOidcProvider } from "@alloy/server/auth/oauth-config"
 import {
-  announceSetupToken,
   hasSetupAccess,
+  setupMode,
+  setupRequired,
   verifySetupToken,
-} from "@alloy/server/auth/setup-token"
-import { getSetupStatus } from "@alloy/server/auth/user-bootstrap"
+} from "@alloy/server/auth/setup"
 import { badRequest, conflict } from "@alloy/server/runtime/http-response"
 import { rateLimiter } from "@alloy/server/runtime/rate-limit"
 import { requestIp } from "@alloy/server/runtime/request-ip"
@@ -22,35 +23,23 @@ const verifyRateLimit = rateLimiter({
   key: requestIp,
 })
 
-async function setupStatus(c: Context): Promise<SetupStatus> {
-  const status = await getSetupStatus()
-  // Setup can reopen while the server runs, after startup announced nothing.
-  if (status.adminAccountRequired) announceSetupToken()
+function setupStatus(c: Context, access = hasSetupAccess(c)): SetupStatus {
+  const mode = setupRequired() ? setupMode() : null
   return {
-    ...status,
-    tokenRequired: status.adminAccountRequired && !hasSetupAccess(c),
+    mode,
+    roleClaim:
+      mode === "oidc" ? (usableOidcProvider()?.roleClaim ?? null) : null,
+    tokenRequired: mode === "passkey" && !access,
   }
 }
 
 export const setupRoute = new Hono()
-  .get("/status", async (c) => c.json(await setupStatus(c)))
-  .post(
-    "/verify",
-    verifyRateLimit,
-    tbValidator("json", VerifyBody),
-    async (c) => {
-      const { adminAccountRequired } = await getSetupStatus()
-      if (!adminAccountRequired) {
-        return conflict(c, "Setup is already complete.")
-      }
-      if (!verifySetupToken(c, c.req.valid("json").token)) {
-        return badRequest(c, "That setup token is not valid.")
-      }
-      // The access cookie rides on this response, not on the request.
-      const status: SetupStatus = {
-        ...(await getSetupStatus()),
-        tokenRequired: false,
-      }
-      return c.json(status)
-    },
-  )
+  .get("/status", (c) => c.json(setupStatus(c)))
+  .post("/verify", verifyRateLimit, tbValidator("json", VerifyBody), (c) => {
+    if (!setupRequired()) return conflict(c, "Setup is already complete.")
+    if (!verifySetupToken(c, c.req.valid("json").token)) {
+      return badRequest(c, "That setup token is not valid.")
+    }
+    // The access cookie rides on this response, not on the request.
+    return c.json(setupStatus(c, true))
+  })

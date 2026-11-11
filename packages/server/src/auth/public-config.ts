@@ -2,26 +2,19 @@ import type { PublicAuthConfig } from "@alloy/contracts"
 import { configStore } from "@alloy/server/config/store"
 
 import { publicOidcConfig } from "./oauth-config"
-import { getSetupStatus } from "./user-bootstrap"
+import { setupRequired } from "./setup"
 
 /**
  * The single source of truth for the public (unauthenticated) auth config.
  * Served both as the `/api/auth-config` JSON and inlined into the app shell, so
  * the two delivery channels can never drift.
  */
-export async function buildPublicAuthConfig(): Promise<PublicAuthConfig> {
-  // Once setup is complete an admin sign-in method provably exists (the admin
-  // routes refuse to remove the last one), so we can skip the DB lookup that
-  // getSetupStatus runs — this is on the HTML hot path (every page load). Only
-  // during the brief pre-setup window do we hit the database.
-  const setupStatus = configStore.get("setupComplete")
-    ? { adminAccountRequired: false, setupRequired: false }
-    : await getSetupStatus()
+export function buildPublicAuthConfig(): PublicAuthConfig {
   const appearance = configStore.get("appearance")
   const loginSplash = appearance.loginSplash
 
   return {
-    ...setupStatus,
+    setupRequired: setupRequired(),
     openRegistrations: configStore.get("openRegistrations"),
     passkeyEnabled: configStore.get("passkeyEnabled"),
     requireAuthToBrowse: configStore.get("requireAuthToBrowse"),

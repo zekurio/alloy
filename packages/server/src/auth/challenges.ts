@@ -2,13 +2,14 @@ import { randomUUID } from "node:crypto"
 
 import { authChallenge, type AuthChallengePayload } from "@alloy/db/auth-schema"
 import { db } from "@alloy/server/db/index"
+import type { DbTransaction } from "@alloy/server/db/transaction"
 import { and, eq, gt } from "drizzle-orm"
 
 import { wakeAuthChallengeExpiryWorker } from "./challenge-expiry"
 
-// Short-lived, single-use rows: OAuth state and pending links, WebAuthn
-// challenges, desktop link codes, and account reactivation tokens. The expiry
-// worker sweeps them.
+// Single-use rows with a deadline: OAuth state and pending links, WebAuthn
+// challenges, desktop link codes, account reactivation tokens, and passkey
+// links. The expiry worker sweeps them.
 
 type ChallengeMatch =
   | { purpose: string; id: string }
@@ -50,8 +51,11 @@ export async function findAuthChallenge(match: ChallengeMatch) {
 }
 
 /** Delete and return the matching unexpired challenge, if there is one. */
-export async function consumeAuthChallenge(match: ChallengeMatch) {
-  const [row] = await db
+export async function consumeAuthChallenge(
+  match: ChallengeMatch,
+  executor: typeof db | DbTransaction = db,
+) {
+  const [row] = await executor
     .delete(authChallenge)
     .where(unexpiredMatch(match))
     .returning()

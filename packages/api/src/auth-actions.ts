@@ -4,6 +4,7 @@ import type {
   ContractJsonValue,
   LinkedAccount,
   Passkey,
+  PasskeyEnrollment,
   PendingOAuthLink,
   SessionData,
   SyncedThemePreferences,
@@ -109,6 +110,26 @@ async function passkeySignUp(
   }
 }
 
+/** Add a passkey to the account a passkey link names, and sign in to it. */
+async function passkeyEnroll(
+  request: RequestFn,
+  store: SessionStore,
+  token: string,
+): AuthResult<SessionData> {
+  try {
+    const data = await completeRegistrationChallenge<SessionData>(request, {
+      optionsPath: AUTH_PATHS.passkeyEnrollOptions,
+      verifyPath: AUTH_PATHS.passkeyEnrollVerify,
+      method: "POST",
+      body: { token },
+    })
+    store.set(data)
+    return { data, error: null }
+  } catch (cause) {
+    return { data: null, error: errorFrom(cause, "Could not add passkey") }
+  }
+}
+
 async function addPasskey(
   request: RequestFn,
   input: { name?: string | null },
@@ -173,11 +194,7 @@ function createPasskeyActions(
       passkey: () => passkeySignIn(request, store),
       reactivate: () => completeAccountReactivation(request, store),
       preloadPasskey: preloadWebAuthnBrowser,
-      oauth2: (input: {
-        callbackURL?: string
-        /** Create the first admin; the browser needs setup access. */
-        setup?: boolean
-      }) =>
+      oauth2: (input: { callbackURL?: string }) =>
         redirectResult(
           request,
           redirect,
@@ -192,6 +209,14 @@ function createPasskeyActions(
     passkey: {
       preload: preloadWebAuthnBrowser,
       signUp: signUpWithPasskey,
+      /** The account a passkey link adds a passkey to. */
+      enrollment: (token: string) =>
+        result<PasskeyEnrollment>(
+          AUTH_PATHS.passkeyEnroll,
+          { method: "POST", body: JSON.stringify({ token }) },
+          "Could not open the passkey link",
+        ),
+      enroll: (token: string) => passkeyEnroll(request, store, token),
       addPasskey: (input: { name?: string | null }) =>
         addPasskey(request, input),
       listUserPasskeys: () =>

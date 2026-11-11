@@ -29,8 +29,6 @@ export type {
   OidcConfig,
 } from "./admin-auth"
 
-const PositiveIntegerSchema = t.number().int().positive()
-
 export const UPLOAD_TTL_MIN_SEC = 60
 export const UPLOAD_TTL_MAX_SEC = 24 * 60 * 60
 
@@ -294,21 +292,14 @@ export interface AdminUpdateUserInput {
   storageQuotaBytes?: number | null
 }
 
-export const RUNTIME_CONFIG_VERSION = 1
-
 /**
  * Secret-free server configuration as exposed through admin responses.
- * Storage is deploy-time env; setup state lives in Postgres. Every other
- * section starts from built-in defaults, takes ALLOY_* environment variables
- * on top, and then any value an admin saved in the settings UI.
+ * Storage is deploy-time env. Every other section starts from built-in
+ * defaults, takes ALLOY_* environment variables on top, and then any value
+ * an admin saved in the settings UI.
  */
 const RuntimeConfigSchema = t.looseObject({
-  runtimeConfigVersion: PositiveIntegerSchema.refine(
-    (value) => value === RUNTIME_CONFIG_VERSION,
-    `runtimeConfigVersion must be ${RUNTIME_CONFIG_VERSION}`,
-  ),
   openRegistrations: t.boolean(),
-  setupComplete: t.boolean(),
   passkeyEnabled: t.boolean(),
   requireAuthToBrowse: t.boolean(),
   oidc: OidcConfigSchema,
@@ -357,20 +348,29 @@ export interface PublicOidcConfig {
   allowSignUp: boolean
 }
 
+/**
+ * How the first admin gets created. `oidc`: by signing in as an identity the
+ * provider's role claim marks as an admin. `passkey`: with a username and a
+ * passkey, after presenting the setup token.
+ */
+export type SetupMode = "oidc" | "passkey"
+
 /** Response of `GET /api/setup/status`, for the browser that asks. */
 export interface SetupStatus {
-  adminAccountRequired: boolean
-  setupRequired: boolean
+  /** Null once setup is done, and while no sign-in method is on. */
+  mode: SetupMode | null
+  /** The claim that has to say `admin`. Set in `oidc` mode. */
+  roleClaim: string | null
   /**
    * This browser must present the setup token before it can create the
-   * admin. False once it has, and on a loopback development server without
-   * ALLOY_SETUP_TOKEN.
+   * admin. False once it has, in `oidc` mode, and on a loopback development
+   * server without ALLOY_SETUP_TOKEN.
    */
   tokenRequired: boolean
 }
 
 export interface PublicAuthConfig {
-  adminAccountRequired: boolean
+  /** True until the first admin exists. */
   setupRequired: boolean
   openRegistrations: boolean
   passkeyEnabled: boolean

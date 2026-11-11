@@ -4,8 +4,11 @@ import {
   createUserIdentity,
   updateUserIdentityAsAdmin,
 } from "@alloy/server/auth/identity"
+import { createPasskeyEnrollment } from "@alloy/server/auth/passkey-enrollment"
 import { deleteAllSessionsForUser } from "@alloy/server/auth/session"
+import { configStore } from "@alloy/server/config/store"
 import {
+  badRequest,
   badRequestFromCause,
   internalServerError,
   notFound,
@@ -116,6 +119,15 @@ export const adminUsersRoute = new Hono()
     } catch (cause) {
       return badRequestFromCause(c, cause, "Couldn't create user.")
     }
+  })
+  .post("/users/:id/passkey-link", tbValidator("param", IdParam), async (c) => {
+    if (!configStore.get("passkeyEnabled")) {
+      return badRequest(c, "Passkey sign-in is currently disabled.")
+    }
+    const { id } = c.req.valid("param")
+    const [row] = await selectAdminUserStorageRows([id])
+    if (!row) return notFound(c, "User not found")
+    return c.json(await createPasskeyEnrollment(id))
   })
   .delete("/users/:id", tbValidator("param", IdParam), async (c) => {
     try {

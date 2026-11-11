@@ -1,6 +1,13 @@
+import type { PublicAuthConfig } from "@alloy/api"
+import type { PasskeyEnrollmentLink } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import { Field, FieldError, FieldLabel } from "@alloy/ui/components/field"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
 import {
   ResponsiveDialog,
@@ -26,9 +33,11 @@ import { useState } from "react"
 import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
+import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 import { formatQuotaGiB, parseQuotaGiB } from "@/lib/storage-format"
 
 import { AdminDialogFooter } from "./admin-dialog-footer"
+import { PasskeyLinkResult } from "./admin-passkey-link"
 import {
   adminUserFieldChanges,
   type AdminUserEditableFields,
@@ -218,19 +227,72 @@ export function CreateUserDialog() {
         }
       />
       <ResponsiveDialogContent variant="secondary">
-        <CreateUserForm onCreated={() => setOpen(false)} />
+        <CreateUserFlow onDone={() => setOpen(false)} />
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   )
 }
 
+type CreatedUser = { username: string; link: PasskeyEnrollmentLink | null }
+
 /** Lives inside the dialog content, so each open starts blank. */
-function CreateUserForm({ onCreated }: { onCreated: () => void }) {
+function CreateUserFlow({ onDone }: { onDone: () => void }) {
+  const [passkeyLink, setPasskeyLink] = useState<{
+    username: string
+    link: PasskeyEnrollmentLink
+  } | null>(null)
+
+  if (passkeyLink) return <PasskeyLinkResult {...passkeyLink} />
+  return (
+    <CreateUserForm
+      onCreated={({ username, link }) => {
+        if (link) setPasskeyLink({ username, link })
+        else onDone()
+      }}
+    />
+  )
+}
+
+/**
+ * How the new user gets into an account that starts with no sign-in method:
+ * through the passkey link this dialog shows next, or by signing in with the
+ * provider under the same username.
+ */
+function firstSignInHint(config: PublicAuthConfig): string {
+  const provider = config.oidc?.displayName
+  if (config.passkeyEnabled && provider) {
+    return t(
+      "You get a link that lets them add a passkey. Signing in with {provider} under this username works too.",
+      { provider },
+    )
+  }
+  if (provider) {
+    return t(
+      "They get this account by signing in with {provider} under this username.",
+      { provider },
+    )
+  }
+  return t("You get a link that lets them add a passkey.")
+}
+
+function CreateUserForm({
+  onCreated,
+}: {
+  onCreated: (created: CreatedUser) => void
+}) {
   const queryClient = useQueryClient()
+  const config = useSuspenseAuthConfig()
   const { error, isPending, mutate } = useMutation({
-    mutationFn: (input: CreateUserValues) => api.admin.createUser(input),
-    onSuccess: () => {
-      onCreated()
+    mutationFn: async (input: CreateUserValues): Promise<CreatedUser> => {
+      const { id, username } = await api.admin.createUser(input)
+      // The account exists either way, and its menu can make the link again.
+      const link = config.passkeyEnabled
+        ? await api.admin.createPasskeyLink(id).catch(() => null)
+        : null
+      return { username, link }
+    },
+    onSuccess: (created) => {
+      onCreated(created)
       return queryClient.invalidateQueries({ queryKey: adminKeys.users() })
     },
   })
@@ -272,6 +334,7 @@ function CreateUserForm({ onCreated }: { onCreated: () => void }) {
                 disabled={isPending}
                 onChange={(event) => field.handleChange(event.target.value)}
               />
+              <FieldDescription>{firstSignInHint(config)}</FieldDescription>
             </Field>
           )}
         </form.Field>

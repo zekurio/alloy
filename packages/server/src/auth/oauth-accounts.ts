@@ -3,20 +3,20 @@ import {
   type OidcConfig,
   type UserRole,
 } from "@alloy/contracts"
-import { authAccount, user } from "@alloy/db/auth-schema"
+import { authAccount, user, userPasskey } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { and, eq, ne, sql } from "drizzle-orm"
 
 import {
   assertCanRemoveAdminInTransaction,
-  assertFirstAdminSetupOpen,
   withAdminAccessInvariant,
 } from "./identity"
 import { syncOAuthAvatar } from "./oauth-avatar"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
 import type { OAuthProfile } from "./oauth-types"
 import { oidcManagesUsernames } from "./oidc-managed-profile"
+import { createFirstAdmin } from "./setup"
 import {
   findUserIdByUsernameHint,
   generateUniqueUsername,
@@ -28,8 +28,12 @@ const NO_LINKED_ACCOUNT =
   "No Alloy account is linked to this OAuth account. Sign in with another method and link it from settings."
 
 export type SignInResolution = {
-  /** `link-required`: the username claim names a user, who has to sign in and link. */
-  kind: "matched" | "created" | "link-required"
+  /**
+   * `claimed`: the username claim named a user with no sign-in method, who is
+   * now linked. `link-required`: it named a user who can sign in, and has to
+   * before linking.
+   */
+  kind: "matched" | "created" | "claimed" | "link-required"
   userId: string
 }
 
@@ -51,11 +55,16 @@ export async function resolveSignInUser(
     return { kind: "matched", userId: existingAccount.user_id }
   }
 
-  // Linking on the claim alone would hand the local account to whoever
-  // controls that claim at the provider, so the user proves they own it by
-  // signing in first.
   const match = await findUserIdByUsernameHint(input.profile.usernameHint)
-  if (match) return { kind: "link-required", userId: match }
+  if (match) {
+    // Linking on the claim alone would hand the local account to whoever
+    // controls that claim at the provider, so the user proves they own it by
+    // signing in first. A user with no sign-in method has nothing to prove
+    // it with: an admin created it for the person the provider gives that
+    // username to.
+    const claimed = await claimUserWithoutSignInMethod(match, input.profile)
+    return { kind: claimed ? "claimed" : "link-required", userId: match }
+  }
 
   return { kind: "created", userId: await createUserForOAuthAccount(input) }
 }
@@ -97,17 +106,16 @@ export async function createUserForOAuthAccount(
 }
 
 /**
- * Create the first admin for an OIDC identity during setup. Sign-up and role
- * claims do not apply: setup access already proved the person runs the
- * server.
+ * Create the first admin for an OIDC identity and finish setup. The caller
+ * checked that the provider's role claim marks it as an admin. Sign-up being
+ * off does not apply.
  */
-export async function createFirstAdminForOAuthAccount(input: {
-  profile: OAuthProfile
-}): Promise<string> {
-  const userId = await withAdminAccessInvariant(async (tx) => {
-    await assertFirstAdminSetupOpen(tx)
+export async function createFirstAdminForOAuthAccount(
+  profile: OAuthProfile,
+): Promise<string> {
+  const userId = await createFirstAdmin(async (tx) => {
     const row = await createOAuthUser(
-      input.profile,
+      profile,
       async (values) => {
         const [inserted] = await tx.insert(user).values(values).returning()
         if (!inserted) throw new Error("Could not create user.")
@@ -117,7 +125,7 @@ export async function createFirstAdminForOAuthAccount(input: {
     )
     const [linked] = await tx
       .insert(authAccount)
-      .values(accountValues(row.id, input.profile))
+      .values(accountValues(row.id, profile))
       .onConflictDoNothing()
       .returning({ id: authAccount.id })
     if (!linked) {
@@ -125,8 +133,45 @@ export async function createFirstAdminForOAuthAccount(input: {
     }
     return row.id
   })
-  await syncOAuthAvatar(userId, input.profile)
+  await syncOAuthAvatar(userId, profile)
   return userId
+}
+
+/**
+ * Link the identity to a user who has no passkey and no linked account.
+ * False when the user has a sign-in method, or got one in the meantime.
+ */
+async function claimUserWithoutSignInMethod(
+  userId: string,
+  profile: OAuthProfile,
+): Promise<boolean> {
+  const claimed = await db.transaction(async (tx) => {
+    // Locks out a second identity claiming the same user.
+    const [row] = await tx
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1)
+      .for("update")
+    if (!row) return false
+    const [passkey] = await tx
+      .select({ id: userPasskey.id })
+      .from(userPasskey)
+      .where(eq(userPasskey.user_id, userId))
+      .limit(1)
+    const [account] = await tx
+      .select({ id: authAccount.id })
+      .from(authAccount)
+      .where(eq(authAccount.user_id, userId))
+      .limit(1)
+    if (passkey || account) return false
+    await tx.insert(authAccount).values(accountValues(userId, profile))
+    return true
+  })
+  if (!claimed) return false
+  await syncOAuthUserRole(userId, profile)
+  await syncOAuthProfile(userId, profile)
+  return true
 }
 
 export async function linkAccountToUser(input: {

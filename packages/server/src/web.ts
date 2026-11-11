@@ -19,6 +19,7 @@ const PUBLIC_WEB_PATHS = new Set([
   "/login",
   "/setup",
   "/sign-up",
+  "/enroll",
   "/desktop/authorize",
 ])
 
@@ -215,7 +216,7 @@ async function serveAppShell(c: Context, mount: WebMount) {
   }
   const html = withInjectedBootstrap(
     withInjectedHead(withInjectedNonce(mount.indexHtml, nonce), head),
-    bootstrapScript(await buildPublicAuthConfig(), nonce),
+    bootstrapScript(buildPublicAuthConfig(), nonce),
   )
   return c.html(html)
 }

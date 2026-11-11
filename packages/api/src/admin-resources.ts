@@ -10,6 +10,7 @@ import type {
   AdminWebhookRow,
   AdminWebhookTestResult,
   GameAssetRole,
+  PasskeyEnrollmentLink,
   SteamGridDBArtworkResponse,
 } from "@alloy/contracts"
 
@@ -64,6 +65,13 @@ export function createAdminResourcesApi(context: ApiContext) {
       const res = await admin.users[":id"].$patch({
         param: { id: userId },
         json: input,
+      })
+      return readJsonOrThrow(res)
+    },
+    /** Replace the user's passkey link with a new one. */
+    async createPasskeyLink(userId: string): Promise<PasskeyEnrollmentLink> {
+      const res = await admin.users[":id"]["passkey-link"].$post({
+        param: { id: userId },
       })
       return readJsonOrThrow(res)
     },

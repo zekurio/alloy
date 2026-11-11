@@ -128,6 +128,20 @@ export interface Passkey {
   deviceType: string
 }
 
+/**
+ * A link an admin hands to one user. Its holder adds a passkey to that
+ * account and is signed in. It works once.
+ */
+export interface PasskeyEnrollmentLink {
+  url: string
+  expiresAt: IsoDateString
+}
+
+/** What the page behind a passkey link shows before the passkey is made. */
+export interface PasskeyEnrollment {
+  username: string
+}
+
 /** An OIDC account linked to the signed-in user. */
 export interface LinkedAccount {
   id: string

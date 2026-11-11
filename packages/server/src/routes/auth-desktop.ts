@@ -10,7 +10,7 @@ import {
   getSession,
   InactiveAccountError,
 } from "@alloy/server/auth/session"
-import { getSetupStatus } from "@alloy/server/auth/user-bootstrap"
+import { setupRequired } from "@alloy/server/auth/setup"
 import { badRequest, forbidden } from "@alloy/server/runtime/http-response"
 import { requestLocale } from "@alloy/server/runtime/request-locale"
 import { type Context, Hono } from "hono"
@@ -32,9 +32,8 @@ function requiredFormString(
   return value && !(value instanceof File) ? value : null
 }
 
-async function redirectToSetupIfRequired(c: Context): Promise<Response | null> {
-  const setup = await getSetupStatus()
-  return setup.setupRequired ? c.redirect("/setup", 302) : null
+function redirectToSetupIfRequired(c: Context): Response | null {
+  return setupRequired() ? c.redirect("/setup", 302) : null
 }
 
 const CodeChallenge = t.string().min(32).max(128).regex(BASE64URL_RE)
@@ -59,7 +58,7 @@ export const authDesktopRoute = new Hono()
       return c.text(translate(locale, "Invalid desktop login request."), 400)
     }
 
-    const setupRedirect = await redirectToSetupIfRequired(c)
+    const setupRedirect = redirectToSetupIfRequired(c)
     if (setupRedirect) return setupRedirect
 
     return c.redirect(
@@ -82,7 +81,7 @@ export const authDesktopRoute = new Hono()
       return c.text(translate(locale, "Invalid desktop login request."), 400)
     }
 
-    const setupRedirect = await redirectToSetupIfRequired(c)
+    const setupRedirect = redirectToSetupIfRequired(c)
     if (setupRedirect) return setupRedirect
 
     const session = await getSession(c)
