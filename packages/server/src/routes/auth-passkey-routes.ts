@@ -80,7 +80,7 @@ const PublicKeyCredentialFields = {
   clientExtensionResults: t.record(t.string(), t.unknown()),
   type: t.enum(["public-key"]),
 }
-const PasskeyRegistrationVerifyBody = t.object({
+export const PasskeyRegistrationVerifyBody = t.object({
   challengeId: t.string().uuid(),
   response: t.object({
     ...PublicKeyCredentialFields,
@@ -117,7 +117,7 @@ const PasskeyNamedRegistrationVerifyBody = PasskeyRegistrationVerifyBody.extend(
   },
 )
 
-function verifyRegistrationBody(
+export function verifyRegistrationBody(
   body: StaticDecode<typeof PasskeyRegistrationVerifyBody>,
 ) {
   return verifyPasskeyRegistration({
@@ -175,7 +175,7 @@ export const authPasskeyRoutes = new Hono()
         const registration = await verifyRegistrationBody(c.req.valid("json"))
         const { username, linkId } = registration.payload
         const firstAdmin = registration.payload.firstAdmin === true
-        if (!username) {
+        if (!username || registration.payload.recoveryHash) {
           return badRequest(c, "Invalid registration request.")
         }
         if (firstAdmin && !hasSetupAccess(c)) {
@@ -240,7 +240,7 @@ export const authPasskeyRoutes = new Hono()
       try {
         const registration = await verifyRegistrationBody(c.req.valid("json"))
         const { userId, linkId } = registration.payload
-        if (!userId || !linkId) {
+        if (!userId || !linkId || registration.payload.recoveryHash) {
           return badRequest(c, "Invalid passkey registration request.")
         }
         if (!(await enrollPasskey({ userId, linkId, registration }))) {
@@ -319,9 +319,12 @@ export const authPasskeyRoutes = new Hono()
         const body = c.req.valid("json")
         const registration = await verifyRegistrationBody(body)
         const { userId, linkId } = registration.payload
-        // A passkey link's registration finishes at its own route, where
-        // the link gets used up.
-        if (userId !== c.var.viewerId || linkId) {
+        // Link and recovery registrations finish where their secrets are used up.
+        if (
+          userId !== c.var.viewerId ||
+          linkId ||
+          registration.payload.recoveryHash
+        ) {
           return badRequest(c, "Invalid passkey registration request.")
         }
         const created = await insertUserPasskey(db, {

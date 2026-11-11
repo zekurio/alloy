@@ -71,8 +71,13 @@ on, anyone can sign up with a username and a passkey. With it off, an admin
 makes a one-time invite link under **Settings → Administration → Users**,
 and its holder signs up the same way. With `ALLOY_OIDC_ALLOW_SIGN_UP` on,
 the first single sign-on of anyone the provider lets in creates their
-account. An admin can also make a passkey link from an account's menu, for
-someone who lost their passkeys. See
+account.
+
+A passkey account gets a recovery key when it is made, shown once. Someone
+who loses every passkey enters their username and that key under "Lost your
+passkey?" on the sign-in page, creates a new passkey, and gets a new key.
+Without the key, an admin can make them a passkey link from the account's
+menu. See
 [`.env.example`](.env.example) for authentication, storage, and transcoding
 options.
 

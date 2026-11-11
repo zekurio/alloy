@@ -43,6 +43,7 @@ import { Hono, type Context } from "hono"
 import { authDesktopRoute } from "./auth-desktop"
 import { authOAuthRoute } from "./auth-oauth-routes"
 import { authPasskeyRoutes } from "./auth-passkey-routes"
+import { authRecoveryRoutes } from "./auth-recovery-routes"
 import {
   authenticatedSignInResponse,
   authError,
@@ -156,6 +157,7 @@ export const authRoute = new Hono()
     )
   })
   .route("/", authPasskeyRoutes)
+  .route("/", authRecoveryRoutes)
   .route("/", authSessionRoutes)
   .route("/", authThemeRoutes)
   .patch(

@@ -122,6 +122,14 @@ export const authSession = pgTable(
   ],
 )
 
+export const userRecoveryKey = pgTable("user_recovery_key", {
+  user_id: uuid()
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  secret_hash: text().notNull(),
+  created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+})
+
 export const userPasskey = pgTable(
   "user_passkey",
   {
@@ -198,6 +206,7 @@ export const authSchema = {
   user,
   authSession,
   userPasskey,
+  userRecoveryKey,
   authAccount,
   authChallenge,
 } as const

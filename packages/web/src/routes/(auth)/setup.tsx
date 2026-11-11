@@ -66,7 +66,7 @@ function SetupPage() {
             )}
           >
             <Suspense fallback={null}>
-              <PasskeySignUpForm redirectTo="/setup" />
+              <PasskeySignUpForm welcome={false} />
             </Suspense>
           </AdminAccountStep>
         ) : (

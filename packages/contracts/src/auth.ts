@@ -144,6 +144,31 @@ export interface PasskeyLinkTarget {
   username: string | null
 }
 
+/**
+ * Whether the signed-in user has a recovery key: a secret, shown once, that
+ * gets them back in after they lose every passkey. The server keeps its hash.
+ */
+export interface RecoveryKeyStatus {
+  /** When the current key was made. Null without one. */
+  createdAt: IsoDateString | null
+}
+
+/** A recovery key right after it is made, the one time it can be read. */
+export interface NewRecoveryKey {
+  /** Groups of characters joined by hyphens, as the user writes it down. */
+  recoveryKey: string
+  createdAt: IsoDateString
+}
+
+/**
+ * A finished recovery. The key that was used is gone, so the response
+ * carries the one that replaces it.
+ */
+export interface AccountRecovery {
+  session: SessionData
+  recoveryKey: NewRecoveryKey
+}
+
 /** An OIDC account linked to the signed-in user. */
 export interface LinkedAccount {
   id: string

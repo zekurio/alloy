@@ -18,6 +18,8 @@ import { Route as appAppScreenshotsRouteImport } from './routes/(app)/_app.scree
 import { Route as appAppSettingsRouteImport } from './routes/(app)/_app.settings'
 import { Route as authAuthEnrollRouteImport } from './routes/(auth)/_auth.enroll'
 import { Route as authAuthLoginRouteImport } from './routes/(auth)/_auth.login'
+import { Route as authAuthRecoverRouteImport } from './routes/(auth)/_auth.recover'
+import { Route as authAuthRecoveryKeyRouteImport } from './routes/(auth)/_auth.recovery-key'
 import { Route as authAuthSignUpRouteImport } from './routes/(auth)/_auth.sign-up'
 import { Route as appAppGamesIndexRouteImport } from './routes/(app)/_app.games.index'
 import { Route as appAppGamesGameIdRouteImport } from './routes/(app)/_app.games.$gameId'
@@ -74,6 +76,16 @@ const authAuthEnrollRoute = authAuthEnrollRouteImport.update({
 const authAuthLoginRoute = authAuthLoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => authAuthRoute,
+} as any)
+const authAuthRecoverRoute = authAuthRecoverRouteImport.update({
+  id: '/recover',
+  path: '/recover',
+  getParentRoute: () => authAuthRoute,
+} as any)
+const authAuthRecoveryKeyRoute = authAuthRecoveryKeyRouteImport.update({
+  id: '/recovery-key',
+  path: '/recovery-key',
   getParentRoute: () => authAuthRoute,
 } as any)
 const authAuthSignUpRoute = authAuthSignUpRouteImport.update({
@@ -158,6 +170,8 @@ export interface FileRoutesByFullPath {
   '/settings': typeof appAppSettingsRoute
   '/enroll': typeof authAuthEnrollRoute
   '/login': typeof authAuthLoginRoute
+  '/recover': typeof authAuthRecoverRoute
+  '/recovery-key': typeof authAuthRecoveryKeyRoute
   '/sign-up': typeof authAuthSignUpRoute
   '/': typeof appAppIndexRoute
   '/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
@@ -180,6 +194,8 @@ export interface FileRoutesByTo {
   '/settings': typeof appAppSettingsRoute
   '/enroll': typeof authAuthEnrollRoute
   '/login': typeof authAuthLoginRoute
+  '/recover': typeof authAuthRecoverRoute
+  '/recovery-key': typeof authAuthRecoveryKeyRoute
   '/sign-up': typeof authAuthSignUpRoute
   '/': typeof appAppIndexRoute
   '/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
@@ -205,6 +221,8 @@ export interface FileRoutesById {
   '/(app)/_app/settings': typeof appAppSettingsRoute
   '/(auth)/_auth/enroll': typeof authAuthEnrollRoute
   '/(auth)/_auth/login': typeof authAuthLoginRoute
+  '/(auth)/_auth/recover': typeof authAuthRecoverRoute
+  '/(auth)/_auth/recovery-key': typeof authAuthRecoveryKeyRoute
   '/(auth)/_auth/sign-up': typeof authAuthSignUpRoute
   '/(app)/_app/': typeof appAppIndexRoute
   '/(app)/_app/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
@@ -230,6 +248,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/enroll'
     | '/login'
+    | '/recover'
+    | '/recovery-key'
     | '/sign-up'
     | '/'
     | '/games/$gameId'
@@ -252,6 +272,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/enroll'
     | '/login'
+    | '/recover'
+    | '/recovery-key'
     | '/sign-up'
     | '/'
     | '/games/$gameId'
@@ -276,6 +298,8 @@ export interface FileRouteTypes {
     | '/(app)/_app/settings'
     | '/(auth)/_auth/enroll'
     | '/(auth)/_auth/login'
+    | '/(auth)/_auth/recover'
+    | '/(auth)/_auth/recovery-key'
     | '/(auth)/_auth/sign-up'
     | '/(app)/_app/'
     | '/(app)/_app/games/$gameId'
@@ -362,6 +386,20 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof authAuthLoginRouteImport
+      parentRoute: typeof authAuthRoute
+    }
+    '/(auth)/_auth/recover': {
+      id: '/(auth)/_auth/recover'
+      path: '/recover'
+      fullPath: '/recover'
+      preLoaderRoute: typeof authAuthRecoverRouteImport
+      parentRoute: typeof authAuthRoute
+    }
+    '/(auth)/_auth/recovery-key': {
+      id: '/(auth)/_auth/recovery-key'
+      path: '/recovery-key'
+      fullPath: '/recovery-key'
+      preLoaderRoute: typeof authAuthRecoveryKeyRouteImport
       parentRoute: typeof authAuthRoute
     }
     '/(auth)/_auth/sign-up': {
@@ -538,6 +576,8 @@ const appAppRouteWithChildren =
 interface authAuthRouteChildren {
   authAuthEnrollRoute: typeof authAuthEnrollRoute
   authAuthLoginRoute: typeof authAuthLoginRoute
+  authAuthRecoverRoute: typeof authAuthRecoverRoute
+  authAuthRecoveryKeyRoute: typeof authAuthRecoveryKeyRoute
   authAuthSignUpRoute: typeof authAuthSignUpRoute
   authAuthDesktopAuthorizeRoute: typeof authAuthDesktopAuthorizeRoute
 }
@@ -545,6 +585,8 @@ interface authAuthRouteChildren {
 const authAuthRouteChildren: authAuthRouteChildren = {
   authAuthEnrollRoute: authAuthEnrollRoute,
   authAuthLoginRoute: authAuthLoginRoute,
+  authAuthRecoverRoute: authAuthRecoverRoute,
+  authAuthRecoveryKeyRoute: authAuthRecoveryKeyRoute,
   authAuthSignUpRoute: authAuthSignUpRoute,
   authAuthDesktopAuthorizeRoute: authAuthDesktopAuthorizeRoute,
 }

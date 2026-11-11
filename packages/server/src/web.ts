@@ -20,6 +20,7 @@ const PUBLIC_WEB_PATHS = new Set([
   "/setup",
   "/sign-up",
   "/enroll",
+  "/recover",
   "/desktop/authorize",
 ])
 
