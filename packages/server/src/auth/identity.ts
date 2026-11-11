@@ -204,19 +204,19 @@ export function reactivateSelfDisabledIdentity(
   })
 }
 
-/** Create a user that has no sign-in method yet. */
+/** Insert a user. The caller adds its sign-in method in the same transaction. */
 export async function createUserIdentity(
+  tx: DbTransaction,
   input: { username: string; role: UserRole },
-  executor: AuthDbExecutor = db,
 ): Promise<User> {
   const username = normalizeUsername(input.username)
-  await assertUsernameAvailable(executor, username)
+  await assertUsernameAvailable(tx, username)
   const values: NewUser = {
     username,
     role: input.role,
     storage_quota_bytes: configStore.get("limits").defaultStorageQuotaBytes,
   }
-  const [created] = await executor.insert(user).values(values).returning()
+  const [created] = await tx.insert(user).values(values).returning()
   if (!created) throw new Error("Could not create user.")
   return created
 }

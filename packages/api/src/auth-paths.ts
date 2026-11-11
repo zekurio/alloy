@@ -20,7 +20,7 @@ export const AUTH_PATHS = {
   passkeys: "/api/auth/passkeys",
   passkeyOptions: "/api/auth/passkeys/options",
   passkeyVerify: "/api/auth/passkeys/verify",
-  passkeyEnroll: "/api/auth/passkey/enroll",
+  passkeyLink: "/api/auth/passkey/link",
   passkeyEnrollOptions: "/api/auth/passkey/enroll/options",
   passkeyEnrollVerify: "/api/auth/passkey/enroll/verify",
   passkeySignInOptions: "/api/auth/passkey/sign-in/options",

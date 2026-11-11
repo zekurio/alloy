@@ -170,7 +170,7 @@ export function OidcSettings({ config }: { config: AdminRuntimeConfig }) {
           <ToggleRow
             title={t("Create accounts")}
             description={t(
-              "Give people an account on their first sign-in. When off, only people who already have one get in: a linked account, or one an admin created under their username.",
+              "Give people an account on their first sign-in. When off, only accounts that are already linked can sign in.",
             )}
             checked={draft.allowSignUp}
             onCheckedChange={(allowSignUp) =>

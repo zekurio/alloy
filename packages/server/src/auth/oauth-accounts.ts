@@ -3,7 +3,7 @@ import {
   type OidcConfig,
   type UserRole,
 } from "@alloy/contracts"
-import { authAccount, user, userPasskey } from "@alloy/db/auth-schema"
+import { authAccount, user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { and, eq, ne, sql } from "drizzle-orm"
@@ -28,12 +28,8 @@ const NO_LINKED_ACCOUNT =
   "No Alloy account is linked to this OAuth account. Sign in with another method and link it from settings."
 
 export type SignInResolution = {
-  /**
-   * `claimed`: the username claim named a user with no sign-in method, who is
-   * now linked. `link-required`: it named a user who can sign in, and has to
-   * before linking.
-   */
-  kind: "matched" | "created" | "claimed" | "link-required"
+  /** `link-required`: the username claim names a user, who has to sign in and link. */
+  kind: "matched" | "created" | "link-required"
   userId: string
 }
 
@@ -55,16 +51,11 @@ export async function resolveSignInUser(
     return { kind: "matched", userId: existingAccount.user_id }
   }
 
+  // Linking on the claim alone would hand the local account to whoever
+  // controls that claim at the provider, so the user proves they own it by
+  // signing in first.
   const match = await findUserIdByUsernameHint(input.profile.usernameHint)
-  if (match) {
-    // Linking on the claim alone would hand the local account to whoever
-    // controls that claim at the provider, so the user proves they own it by
-    // signing in first. A user with no sign-in method has nothing to prove
-    // it with: an admin created it for the person who has that exact
-    // username at the provider.
-    const claimed = await claimUserWithoutSignInMethod(match, input.profile)
-    return { kind: claimed ? "claimed" : "link-required", userId: match }
-  }
+  if (match) return { kind: "link-required", userId: match }
 
   return { kind: "created", userId: await createUserForOAuthAccount(input) }
 }
@@ -135,51 +126,6 @@ export async function createFirstAdminForOAuthAccount(
   })
   await syncOAuthAvatar(userId, profile)
   return userId
-}
-
-/**
- * Link the identity to a user who has no passkey and no linked account, and
- * whose username is the identity's username claim. False when the user has a
- * sign-in method, or got one in the meantime.
- *
- * The claim has to be the username itself, ignoring case. The slug that
- * {@link findUserIdByUsernameHint} also matches on drops the domain of an
- * email-shaped claim, so `alice@other.example` finds `alice`. That is close
- * enough to ask someone to sign in and link, but not to hand them the
- * account.
- */
-async function claimUserWithoutSignInMethod(
-  userId: string,
-  profile: OAuthProfile,
-): Promise<boolean> {
-  const claim = profile.usernameHint?.trim().toLowerCase()
-  const claimed = await db.transaction(async (tx) => {
-    // Locks out a second identity claiming the same user.
-    const [row] = await tx
-      .select({ username: user.username })
-      .from(user)
-      .where(eq(user.id, userId))
-      .limit(1)
-      .for("update")
-    if (!row || row.username.toLowerCase() !== claim) return false
-    const [passkey] = await tx
-      .select({ id: userPasskey.id })
-      .from(userPasskey)
-      .where(eq(userPasskey.user_id, userId))
-      .limit(1)
-    const [account] = await tx
-      .select({ id: authAccount.id })
-      .from(authAccount)
-      .where(eq(authAccount.user_id, userId))
-      .limit(1)
-    if (passkey || account) return false
-    await tx.insert(authAccount).values(accountValues(userId, profile))
-    return true
-  })
-  if (!claimed) return false
-  await syncOAuthUserRole(userId, profile)
-  await syncOAuthProfile(userId, profile)
-  return true
 }
 
 export async function linkAccountToUser(input: {

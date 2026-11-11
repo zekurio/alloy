@@ -5,7 +5,7 @@ import type { DbTransaction } from "@alloy/server/db/transaction"
 import { and, eq } from "drizzle-orm"
 
 import { createUserIdentity } from "./identity"
-import { consumePasskeyEnrollment } from "./passkey-enrollment"
+import { consumePasskeyLink, PASSKEY_LINK_INVALID } from "./passkey-link"
 import { createFirstAdmin } from "./setup"
 import { bytesToBase64Url } from "./tokens"
 import type { VerifiedPasskeyRegistration } from "./webauthn"
@@ -65,18 +65,21 @@ export function passkeySignUpOpen(): boolean {
 
 /**
  * Create the account a passkey sign-up registered, together with its
- * passkey. `firstAdmin` makes it the admin that finishes setup.
+ * passkey. `firstAdmin` makes it the admin that finishes setup. `inviteId`
+ * is the invite that lets it in while registrations are closed, and is used
+ * up with it.
  */
 export async function createPasskeyAccount(input: {
   username: string
   firstAdmin: boolean
+  inviteId: string | null
   registration: VerifiedPasskeyRegistration
 }): Promise<User> {
   const create = async (tx: DbTransaction) => {
-    const row = await createUserIdentity(
-      { username: input.username, role: input.firstAdmin ? "admin" : "user" },
-      tx,
-    )
+    const row = await createUserIdentity(tx, {
+      username: input.username,
+      role: input.firstAdmin ? "admin" : "user",
+    })
     await insertUserPasskey(tx, {
       userId: row.id,
       registration: input.registration,
@@ -85,23 +88,35 @@ export async function createPasskeyAccount(input: {
     return row
   }
   if (input.firstAdmin) return createFirstAdmin(create)
-  if (!passkeySignUpOpen()) {
+  const { inviteId } = input
+  if (inviteId === null) {
+    if (!passkeySignUpOpen()) {
+      throw new Error("Passkey sign-up is currently disabled.")
+    }
+    return db.transaction(create)
+  }
+  if (!configStore.get("passkeyEnabled")) {
     throw new Error("Passkey sign-up is currently disabled.")
   }
-  return db.transaction(create)
+  return db.transaction(async (tx) => {
+    if (!(await consumePasskeyLink(tx, inviteId))) {
+      throw new Error(PASSKEY_LINK_INVALID)
+    }
+    return create(tx)
+  })
 }
 
 /**
- * Add the passkey registered through a passkey link and use the link up.
- * False when the link is gone or expired.
+ * Add the passkey registered through an account's passkey link and use the
+ * link up. False when the link is gone or expired.
  */
 export function enrollPasskey(input: {
   userId: string
-  enrollmentId: string
+  linkId: string
   registration: VerifiedPasskeyRegistration
 }): Promise<boolean> {
   return db.transaction(async (tx) => {
-    if (!(await consumePasskeyEnrollment(tx, input.enrollmentId))) return false
+    if (!(await consumePasskeyLink(tx, input.linkId))) return false
     await insertUserPasskey(tx, {
       userId: input.userId,
       registration: input.registration,

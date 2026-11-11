@@ -81,8 +81,8 @@ export const ERRORS_MESSAGES = {
   "That setup token is not valid.": "Dieser Setup-Token ist nicht gültig.",
   "The page may have moved, been deleted, or never existed.":
     "Die Seite wurde vielleicht verschoben, gelöscht oder hat nie existiert.",
-  "This passkey link has expired or was already used.":
-    "Dieser Passkey-Link ist abgelaufen oder wurde schon benutzt.",
+  "This link has expired or was already used.":
+    "Dieser Link ist abgelaufen oder wurde schon benutzt.",
   "This view failed to load.": "Diese Ansicht konnte nicht geladen werden.",
   "Timed out while reading video metadata":
     "Zeitüberschreitung beim Lesen der Videometadaten",

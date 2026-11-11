@@ -1,13 +1,5 @@
-import type { PublicAuthConfig } from "@alloy/api"
-import type { PasskeyEnrollmentLink } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "@alloy/ui/components/field"
+import { Field, FieldError, FieldLabel } from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
 import {
   ResponsiveDialog,
@@ -16,7 +8,6 @@ import {
   ResponsiveDialogDescription,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
-  ResponsiveDialogTrigger,
 } from "@alloy/ui/components/responsive-dialog"
 import {
   Select,
@@ -26,18 +17,13 @@ import {
   SelectValue,
 } from "@alloy/ui/components/select"
 import { useForm, useStore } from "@tanstack/react-form"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { SaveIcon, UserPlusIcon } from "lucide-react"
-import { useState } from "react"
+import { useMutation } from "@tanstack/react-query"
+import { SaveIcon } from "lucide-react"
 
-import { adminKeys } from "@/lib/admin-query-keys"
-import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
-import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 import { formatQuotaGiB, parseQuotaGiB } from "@/lib/storage-format"
 
 import { AdminDialogFooter } from "./admin-dialog-footer"
-import { PasskeyLinkResult } from "./admin-passkey-link"
 import {
   adminUserFieldChanges,
   type AdminUserEditableFields,
@@ -51,13 +37,6 @@ type EditUserValues = {
   quotaGiB: string
   role: UserRole
 }
-
-type CreateUserValues = {
-  username: string
-  role: UserRole
-}
-
-const NEW_USER: CreateUserValues = { username: "", role: "user" }
 
 function quotaError(quotaGiB: string): string | undefined {
   try {
@@ -209,154 +188,6 @@ function EditUserForm({
       >
         <SaveIcon />
         {t("Save")}
-      </AdminDialogFooter>
-    </form>
-  )
-}
-
-export function CreateUserDialog() {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <ResponsiveDialog open={open} onOpenChange={setOpen}>
-      <ResponsiveDialogTrigger
-        render={
-          <Button variant="secondary" size="icon" aria-label={t("Add user")}>
-            <UserPlusIcon />
-          </Button>
-        }
-      />
-      <ResponsiveDialogContent variant="secondary">
-        <CreateUserFlow onDone={() => setOpen(false)} />
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
-  )
-}
-
-type CreatedUser = { username: string; link: PasskeyEnrollmentLink | null }
-
-/** Lives inside the dialog content, so each open starts blank. */
-function CreateUserFlow({ onDone }: { onDone: () => void }) {
-  const [passkeyLink, setPasskeyLink] = useState<{
-    username: string
-    link: PasskeyEnrollmentLink
-  } | null>(null)
-
-  if (passkeyLink) return <PasskeyLinkResult {...passkeyLink} />
-  return (
-    <CreateUserForm
-      onCreated={({ username, link }) => {
-        if (link) setPasskeyLink({ username, link })
-        else onDone()
-      }}
-    />
-  )
-}
-
-/**
- * How the new user gets into an account that starts with no sign-in method:
- * through the passkey link this dialog shows next, or by signing in with the
- * provider under the same username.
- */
-function firstSignInHint(config: PublicAuthConfig): string {
-  const provider = config.oidc?.displayName
-  if (config.passkeyEnabled && provider) {
-    return t(
-      "You get a link that lets them add a passkey. Signing in with {provider} under this username works too.",
-      { provider },
-    )
-  }
-  if (provider) {
-    return t(
-      "They get this account by signing in with {provider} under this username.",
-      { provider },
-    )
-  }
-  return t("You get a link that lets them add a passkey.")
-}
-
-function CreateUserForm({
-  onCreated,
-}: {
-  onCreated: (created: CreatedUser) => void
-}) {
-  const queryClient = useQueryClient()
-  const config = useSuspenseAuthConfig()
-  const { error, isPending, mutate } = useMutation({
-    mutationFn: async (input: CreateUserValues): Promise<CreatedUser> => {
-      const { id, username } = await api.admin.createUser(input)
-      // The account exists either way, and its menu can make the link again.
-      const link = config.passkeyEnabled
-        ? await api.admin.createPasskeyLink(id).catch(() => null)
-        : null
-      return { username, link }
-    },
-    onSuccess: (created) => {
-      onCreated(created)
-      return queryClient.invalidateQueries({ queryKey: adminKeys.users() })
-    },
-  })
-  const form = useForm({
-    defaultValues: NEW_USER,
-    onSubmit: ({ value }) => {
-      if (isPending) return
-      const username = value.username.trim()
-      if (!username) return
-      mutate({ username, role: value.role })
-    },
-  })
-
-  const submitError = error
-    ? errorMessage(error, t("Couldn't create user"))
-    : null
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
-      }}
-    >
-      <ResponsiveDialogHeader>
-        <ResponsiveDialogTitle>{t("Create user")}</ResponsiveDialogTitle>
-      </ResponsiveDialogHeader>
-      <ResponsiveDialogBody className="flex flex-col gap-4">
-        <form.Field name="username">
-          {(field) => (
-            <Field>
-              <FieldLabel htmlFor="create-user-username">
-                {t("Username")}
-              </FieldLabel>
-              <Input
-                id="create-user-username"
-                required
-                value={field.state.value}
-                disabled={isPending}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-              <FieldDescription>{firstSignInHint(config)}</FieldDescription>
-            </Field>
-          )}
-        </form.Field>
-        <FieldError>{submitError}</FieldError>
-        <form.Field name="role">
-          {(field) => (
-            <RoleField
-              id="create-user-role"
-              value={field.state.value}
-              disabled={isPending}
-              onValueChange={field.handleChange}
-            />
-          )}
-        </form.Field>
-      </ResponsiveDialogBody>
-      <AdminDialogFooter
-        pending={isPending}
-        failed={Boolean(submitError)}
-        pendingLabel={t("Creating…")}
-      >
-        <UserPlusIcon />
-        {t("Create")}
       </AdminDialogFooter>
     </form>
   )

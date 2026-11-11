@@ -205,11 +205,10 @@ export async function finishOAuthCallback(
       }
     }
     return {
-      // A new or claimed account is this person's first time in.
       redirectTo:
-        kind === "matched"
-          ? payload.callbackURL
-          : callbackURLWithWelcome(payload.callbackURL),
+        kind === "created"
+          ? callbackURLWithWelcome(payload.callbackURL)
+          : payload.callbackURL,
     }
   } catch (cause) {
     logger.warn(

@@ -9,31 +9,37 @@ import {
   useRouter,
 } from "@tanstack/react-router"
 import { KeyRoundIcon } from "lucide-react"
-import type { ReactNode } from "react"
+import { type ReactNode, useState } from "react"
 
+import { PasskeySignUpForm } from "@/components/routes/sign-up/passkey-sign-up-form"
 import { authClient } from "@/lib/auth-client"
 import { toastAuthAttemptFailure } from "@/lib/auth-flow"
 import { passkeysSupported } from "@/lib/passkey-support"
 
 /**
- * The page behind a passkey link. An admin hands the link to one user, who
- * adds a passkey to their account here and is signed in. The token is the
- * URL fragment, so it never reaches a proxy or access log.
+ * The page behind a passkey link from an admin. An invite makes a new
+ * account: the holder picks a username and creates its passkey. A link for
+ * an account adds a passkey to it. Either way the holder ends up signed in.
+ * The token is the URL fragment, so it never reaches a proxy or access log.
  */
 export const Route = createFileRoute("/(auth)/_auth/enroll")({
   loader: async ({ location }) => {
     const token = location.hash
-    if (!token) return { token, username: null }
-    const { data } = await authClient.passkey.enrollment(token)
-    return { token, username: data?.username ?? null }
+    if (!token) return { token, target: null }
+    const { data } = await authClient.passkey.link(token)
+    return { token, target: data }
   },
   component: EnrollPage,
 })
 
 function EnrollPage() {
-  const { token, username } = Route.useLoaderData()
+  // Using the link up reloads this route, which then finds no link. Keep
+  // what the page opened with, so it doesn't turn into "expired" on the way
+  // out.
+  const loaded = Route.useLoaderData()
+  const [{ token, target }] = useState(loaded)
 
-  if (username === null) {
+  if (target === null) {
     return (
       <EnrollFrame
         title={t("This link doesn't work anymore")}
@@ -54,21 +60,35 @@ function EnrollPage() {
       </EnrollFrame>
     )
   }
+  if (!passkeysSupported()) {
+    return (
+      <EnrollFrame
+        title={t("This browser does not support passkeys.")}
+        description={t("Open the link in a browser that does.")}
+      />
+    )
+  }
+  if (target.username === null) {
+    return (
+      <EnrollFrame
+        title={t("Create your account")}
+        description={t(
+          "You've been invited. Pick a username and create a passkey to sign in with.",
+        )}
+      >
+        <PasskeySignUpForm invite={token} />
+      </EnrollFrame>
+    )
+  }
   return (
     <EnrollFrame
       title={t("Add a passkey")}
       description={t(
         "This link signs you in as {username}. Create a passkey now, and sign in with it from then on.",
-        { username },
+        { username: target.username },
       )}
     >
-      {passkeysSupported() ? (
-        <EnrollButton token={token} />
-      ) : (
-        <p className="text-destructive text-sm" role="alert">
-          {t("This browser does not support passkeys.")}
-        </p>
-      )}
+      <EnrollButton token={token} />
     </EnrollFrame>
   )
 }
@@ -80,7 +100,7 @@ function EnrollFrame({
 }: {
   title: string
   description: string
-  children: ReactNode
+  children?: ReactNode
 }) {
   return (
     <>
@@ -108,8 +128,6 @@ function EnrollButton({ token }: { token: string }) {
           message("Couldn't register passkey"),
           error,
         )
-        // A used-up or expired link shows as such.
-        await router.invalidate()
         return false
       }
       // Leave before reloading: this page's loader would find the link used

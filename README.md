@@ -66,11 +66,13 @@ create the admin account:
   log, or the value of `ALLOY_SETUP_TOKEN`, and then creates the admin with a
   username and a passkey.
 
-An admin adds people under **Settings → Administration → Users**. A new
-account has no sign-in method. Its owner gets in by signing in at the
-provider under the same username, or through the one-time passkey link the
-admin gets when creating the account. The same link, from the account's
-menu, lets someone who lost their passkeys add a new one. See
+People get an account in one of three ways. With `ALLOY_OPEN_REGISTRATIONS`
+on, anyone can sign up with a username and a passkey. With it off, an admin
+makes a one-time invite link under **Settings → Administration → Users**,
+and its holder signs up the same way. With `ALLOY_OIDC_ALLOW_SIGN_UP` on,
+the first single sign-on of anyone the provider lets in creates their
+account. An admin can also make a passkey link from an account's menu, for
+someone who lost their passkeys. See
 [`.env.example`](.env.example) for authentication, storage, and transcoding
 options.
 

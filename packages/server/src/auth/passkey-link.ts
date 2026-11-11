@@ -1,4 +1,4 @@
-import type { PasskeyEnrollmentLink } from "@alloy/contracts"
+import type { PasskeyLink } from "@alloy/contracts"
 import { authChallenge, user } from "@alloy/db/auth-schema"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
@@ -12,30 +12,35 @@ import {
   insertAuthChallenge,
 } from "./challenges"
 
-// A passkey link lets its holder add a passkey to one account without
-// signing in first. An admin makes one for an account that has no sign-in
-// method yet, or whose owner lost their passkeys. The server stores only the
-// token's hash. An account has one link at a time, and using it deletes it.
-const PURPOSE = "passkey-enrollment"
+// A passkey link lets its holder create a passkey without signing in first.
+// An invite has no account: the holder picks a username and the passkey
+// creates the account, also while registrations are closed. A link for an
+// account adds a passkey to it, for someone who lost theirs. An admin makes
+// both. The server stores only the token's hash, and using a link deletes it.
+const PURPOSE = "passkey-link"
 const TTL_MS = 7 * 24 * 60 * 60 * 1000
 
-export const PASSKEY_LINK_INVALID =
-  "This passkey link has expired or was already used."
+export const PASSKEY_LINK_INVALID = "This link has expired or was already used."
 
-/** Replace the user's passkey link with a new one. */
-export async function createPasskeyEnrollment(
-  userId: string,
-): Promise<PasskeyEnrollmentLink> {
+/**
+ * Make an invite, or with `userId` a link for that account, which replaces
+ * the one the account had.
+ */
+export async function createPasskeyLink(
+  userId: string | null,
+): Promise<PasskeyLink> {
   const token = randomBase64Url(32)
   const hash = await sha256Base64Url(token)
-  await db
-    .delete(authChallenge)
-    .where(
-      and(
-        eq(authChallenge.purpose, PURPOSE),
-        eq(authChallenge.user_id, userId),
-      ),
-    )
+  if (userId) {
+    await db
+      .delete(authChallenge)
+      .where(
+        and(
+          eq(authChallenge.purpose, PURPOSE),
+          eq(authChallenge.user_id, userId),
+        ),
+      )
+  }
   await insertAuthChallenge({
     purpose: PURPOSE,
     identifier: hash,
@@ -54,17 +59,19 @@ export async function createPasskeyEnrollment(
   }
 }
 
-/** The link a token belongs to and the account it adds a passkey to. */
-export async function findPasskeyEnrollment(
-  token: string,
-): Promise<{ id: string; user: { id: string; username: string } } | null> {
+/** The link a token belongs to. `user` is null for an invite. */
+export async function findPasskeyLink(token: string): Promise<{
+  id: string
+  user: { id: string; username: string } | null
+} | null> {
   const hash = await sha256Base64Url(token)
   const link = await findAuthChallenge({
     purpose: PURPOSE,
     identifier: hash,
     challenge: hash,
   })
-  if (!link?.user_id) return null
+  if (!link) return null
+  if (!link.user_id) return { id: link.id, user: null }
   const [account] = await db
     .select({ id: user.id, username: user.username })
     .from(user)
@@ -74,7 +81,7 @@ export async function findPasskeyEnrollment(
 }
 
 /** Use the link up inside `tx`. False when it is gone or expired. */
-export async function consumePasskeyEnrollment(
+export async function consumePasskeyLink(
   tx: DbTransaction,
   id: string,
 ): Promise<boolean> {

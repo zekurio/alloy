@@ -4,7 +4,7 @@ import type {
   ContractJsonValue,
   LinkedAccount,
   Passkey,
-  PasskeyEnrollment,
+  PasskeyLinkTarget,
   PendingOAuthLink,
   SessionData,
   SyncedThemePreferences,
@@ -23,6 +23,12 @@ import { errorFrom } from "./error"
 
 type Success = { success: true }
 type UserUpdate = { user: AuthUser }
+
+type PasskeySignUpInput = {
+  username: string
+  /** The token of an invite, when signing up through one. */
+  invite?: string
+}
 
 type WebAuthnBrowser = typeof import("@simplewebauthn/browser")
 
@@ -94,7 +100,7 @@ async function completeAccountReactivation(
 async function passkeySignUp(
   request: RequestFn,
   store: SessionStore,
-  input: { username: string },
+  input: PasskeySignUpInput,
 ): AuthResult<SessionData> {
   try {
     const data = await completeRegistrationChallenge<SessionData>(request, {
@@ -110,7 +116,7 @@ async function passkeySignUp(
   }
 }
 
-/** Add a passkey to the account a passkey link names, and sign in to it. */
+/** Add a passkey to the account a passkey link is for, and sign in to it. */
 async function passkeyEnroll(
   request: RequestFn,
   store: SessionStore,
@@ -186,7 +192,7 @@ function createPasskeyActions(
 ) {
   const result = <Body>(path: string, init: RequestInit, fallback: string) =>
     jsonResult<Body>(request, path, init, fallback)
-  const signUpWithPasskey = (input: { username: string }) =>
+  const signUpWithPasskey = (input: PasskeySignUpInput) =>
     passkeySignUp(request, store, input)
 
   return {
@@ -209,10 +215,10 @@ function createPasskeyActions(
     passkey: {
       preload: preloadWebAuthnBrowser,
       signUp: signUpWithPasskey,
-      /** The account a passkey link adds a passkey to. */
-      enrollment: (token: string) =>
-        result<PasskeyEnrollment>(
-          AUTH_PATHS.passkeyEnroll,
+      /** What a passkey link is for: an account, or an invite. */
+      link: (token: string) =>
+        result<PasskeyLinkTarget>(
+          AUTH_PATHS.passkeyLink,
           { method: "POST", body: JSON.stringify({ token }) },
           "Could not open the passkey link",
         ),

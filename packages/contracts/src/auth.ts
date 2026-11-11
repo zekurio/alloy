@@ -129,17 +129,19 @@ export interface Passkey {
 }
 
 /**
- * A link an admin hands to one user. Its holder adds a passkey to that
- * account and is signed in. It works once.
+ * A link an admin hands to one person, who creates a passkey behind it and
+ * is signed in. An invite makes a new account. A link for an account adds
+ * the passkey to it. It works once.
  */
-export interface PasskeyEnrollmentLink {
+export interface PasskeyLink {
   url: string
   expiresAt: IsoDateString
 }
 
 /** What the page behind a passkey link shows before the passkey is made. */
-export interface PasskeyEnrollment {
-  username: string
+export interface PasskeyLinkTarget {
+  /** The account the passkey is added to. Null for an invite. */
+  username: string | null
 }
 
 /** An OIDC account linked to the signed-in user. */

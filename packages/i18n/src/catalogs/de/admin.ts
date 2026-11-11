@@ -5,7 +5,6 @@ export const ADMIN_MESSAGES = {
     "ALLOY_*-Umgebungsvariablen überschreiben Alloys Standardwerte, hier gespeicherte Werte überschreiben beide. Setze ein Feld zurück, um wieder seinen Standard zu nutzen.",
   "Add hashtag": "Hashtag hinzufügen",
   "Add tier": "Stufe hinzufügen",
-  "Add user": "Nutzer hinzufügen",
   "Add webhook": "Webhook hinzufügen",
   Admin: "Admin",
   Administration: "Administration",
@@ -43,9 +42,7 @@ export const ADMIN_MESSAGES = {
     "Färbt Schaltflächen, Links und Hervorhebungen im Alloy-Theme für alle auf diesem Server.",
   "Copy callback URL": "Callback-URL kopieren",
   "Couldn't copy callback URL": "Callback-URL konnte nicht kopiert werden",
-  "Couldn't create the passkey link":
-    "Passkey-Link konnte nicht erstellt werden",
-  "Couldn't create user": "Nutzer konnte nicht erstellt werden",
+  "Couldn't create the link": "Link konnte nicht erstellt werden",
   "Couldn't create webhook": "Webhook konnte nicht erstellt werden",
   "Couldn't delete webhook": "Webhook konnte nicht gelöscht werden",
   "Couldn't load SteamGridDB artwork":
@@ -64,13 +61,14 @@ export const ADMIN_MESSAGES = {
   "Couldn't update user": "Nutzer konnte nicht aktualisiert werden",
   "Couldn't update webhook": "Webhook konnte nicht aktualisiert werden",
   "Couldn't verify the setup token": "Setup-Token konnte nicht geprüft werden",
+  "Create a link that lets one person make an account here with a username and a passkey.":
+    "Erstelle einen Link, mit dem eine Person hier ein Konto mit Nutzername und Passkey anlegen kann.",
   "Create a passkey link for {username}?":
     "Passkey-Link für {username} erstellen?",
   "Create accounts": "Konten erstellen",
   "Create link": "Link erstellen",
   "Create passkey link": "Passkey-Link erstellen",
   "Create the admin account": "Admin-Konto erstellen",
-  "Create user": "Nutzer erstellen",
   "Customizations stop automatic SteamGridDB updates for this game.":
     "Anpassungen stoppen automatische SteamGridDB-Aktualisierungen für dieses Spiel.",
   "Default ({codec})": "Standard ({codec})",
@@ -123,8 +121,8 @@ export const ADMIN_MESSAGES = {
   Fluxer: "Fluxer",
   "Game artwork size (MiB)": "Spielgrafik-Größe (MiB)",
   Generic: "Generisch",
-  "Give people an account on their first sign-in. When off, only people who already have one get in: a linked account, or one an admin created under their username.":
-    "Gib Personen bei ihrer ersten Anmeldung ein Konto. Ist das aus, kommt nur rein, wer schon eines hat: ein verknüpftes Konto oder eines, das ein Admin unter ihrem Nutzernamen erstellt hat.",
+  "Give people an account on their first sign-in. When off, only accounts that are already linked can sign in.":
+    "Legt beim ersten Anmelden ein Konto an. Wenn aus, können sich nur bereits verknüpfte Konten anmelden.",
   "H.264 (AVC)": "H.264 (AVC)",
   "HEVC (H.265)": "HEVC (H.265)",
   "Hardware acceleration": "Hardware-Beschleunigung",
@@ -142,6 +140,8 @@ export const ADMIN_MESSAGES = {
     "Identifiziert das Konto beim Anbieter. Eine Änderung trennt bestehende Verknüpfungen.",
   "Invalid quota": "Ungültiges Kontingent",
   "Invalid registration request.": "Ungültige Registrierungsanfrage.",
+  "Invite link": "Einladungslink",
+  "Invite someone": "Jemanden einladen",
   "Issuer URL": "Aussteller-URL",
   "It stops receiving announcements. Clips it already received are not re-sent if you add it back.":
     "Er erhält keine Ankündigungen mehr. Bereits zugestellte Clips werden nicht erneut gesendet, wenn du ihn wieder hinzufügst.",
@@ -239,6 +239,8 @@ export const ADMIN_MESSAGES = {
   "Send test": "Test senden",
   "Send them this link. It lets them add a passkey and sign in. It works once, for 7 days, and you can't see it again after closing this.":
     "Schick der Person diesen Link. Damit kann sie einen Passkey hinzufügen und sich anmelden. Er funktioniert einmal, 7 Tage lang, und wird nach dem Schließen nicht noch einmal angezeigt.",
+  "Send this link to the person you're inviting. It works once, for 7 days, and you can't see it again after closing this.":
+    "Schick diesen Link der Person, die du einlädst. Er funktioniert einmal, 7 Tage lang, und wird nach dem Schließen nicht noch einmal angezeigt.",
   "Separate scopes with spaces.": "Trenne Scopes mit Leerzeichen.",
   "Set by ALLOY_OIDC_CLIENT_SECRET": "Durch ALLOY_OIDC_CLIENT_SECRET gesetzt",
   "Set by ALLOY_OIDC_ISSUER_URL. You can replace it here; to use the endpoints under Advanced instead, unset the variable.":
@@ -301,8 +303,6 @@ export const ADMIN_MESSAGES = {
     "Akzentfarbe und Login-Hintergrund des Servers.",
   "The {backend} encoder for {codec} failed its test on this server. Pick another backend or check the GPU drivers.":
     "Der {backend}-Encoder für {codec} hat seinen Test auf diesem Server nicht bestanden. Wähle ein anderes Backend oder prüfe die GPU-Treiber.",
-  "They get this account by signing in with {provider} under this username.":
-    "Die Person bekommt dieses Konto, wenn sie sich mit {provider} unter diesem Nutzernamen anmeldet.",
   "This ffmpeg build has no {backend} encoder for {codec}. Pick another backend or install jellyfin-ffmpeg.":
     "Dieser ffmpeg-Build hat keinen {backend}-Encoder für {codec}. Wähle ein anderes Backend oder installiere jellyfin-ffmpeg.",
   "This first account will be assigned the admin role.":
@@ -347,10 +347,6 @@ export const ADMIN_MESSAGES = {
     "Wer ein Konto erstellen kann und wie die Anmeldung erfolgt.",
   "Whoever opens the link can add a passkey to this account and sign in. It replaces any earlier link for this account.":
     "Wer den Link öffnet, kann diesem Konto einen Passkey hinzufügen und sich anmelden. Er ersetzt jeden früheren Link für dieses Konto.",
-  "You get a link that lets them add a passkey.":
-    "Du bekommst einen Link, mit dem die Person einen Passkey hinzufügen kann.",
-  "You get a link that lets them add a passkey. Signing in with {provider} under this username works too.":
-    "Du bekommst einen Link, mit dem die Person einen Passkey hinzufügen kann. Eine Anmeldung mit {provider} unter diesem Nutzernamen funktioniert auch.",
   "Your endpoint receives a signed JSON payload.":
     "Dein Endpunkt erhält eine signierte JSON-Nutzlast.",
   "e.g. #clips": "z. B. #clips",

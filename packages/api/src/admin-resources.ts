@@ -10,18 +10,13 @@ import type {
   AdminWebhookRow,
   AdminWebhookTestResult,
   GameAssetRole,
-  PasskeyEnrollmentLink,
+  PasskeyLink,
   SteamGridDBArtworkResponse,
 } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
 import { blobAsFile } from "./form-file"
 import { expectOk, readJsonOrThrow } from "./http"
-
-export type AdminCreateUserInput = {
-  username: string
-  role?: "user" | "admin"
-}
 
 type AdminGameCreateForm = {
   name: string
@@ -52,10 +47,9 @@ export function createAdminResourcesApi(context: ApiContext) {
       const res = await admin.users.$get({ query })
       return readJsonOrThrow(res)
     },
-    async createUser(
-      input: AdminCreateUserInput,
-    ): Promise<AdminUserStorageRow> {
-      const res = await admin.users.$post({ json: input })
+    /** Make a link that lets one person create an account with a passkey. */
+    async createInvite(): Promise<PasskeyLink> {
+      const res = await admin.invites.$post()
       return readJsonOrThrow(res)
     },
     async updateUser(
@@ -69,7 +63,7 @@ export function createAdminResourcesApi(context: ApiContext) {
       return readJsonOrThrow(res)
     },
     /** Replace the user's passkey link with a new one. */
-    async createPasskeyLink(userId: string): Promise<PasskeyEnrollmentLink> {
+    async createPasskeyLink(userId: string): Promise<PasskeyLink> {
       const res = await admin.users[":id"]["passkey-link"].$post({
         param: { id: userId },
       })

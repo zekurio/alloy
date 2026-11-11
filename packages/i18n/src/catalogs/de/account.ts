@@ -108,6 +108,8 @@ export const ACCOUNT_MESSAGES = {
   "Open account menu for {name}": "Kontomenü für {name} öffnen",
   "Open library": "Bibliothek öffnen",
   "Open security settings": "Sicherheitseinstellungen öffnen",
+  "Open the link in a browser that does.":
+    "Öffne den Link in einem Browser, der sie unterstützt.",
   "Open {name}'s profile": "Profil von {name} öffnen",
   "Passkey registration failed": "Passkey-Registrierung fehlgeschlagen",
   Passkeys: "Passkeys",
@@ -226,6 +228,8 @@ export const ACCOUNT_MESSAGES = {
   "You may need another sign-in method to access your account.":
     "Vielleicht brauchst du eine andere Anmeldemethode, um auf dein Konto zuzugreifen.",
   "You're not signed in anywhere else.": "Du bist nirgendwo sonst angemeldet.",
+  "You've been invited. Pick a username and create a passkey to sign in with.":
+    "Du wurdest eingeladen. Wähle einen Nutzernamen und erstelle einen Passkey, mit dem du dich anmeldest.",
   "You've blocked @{handle}. Do you want to show their profile anyway?":
     "Du hast @{handle} blockiert. Möchtest du das Profil trotzdem anzeigen?",
   "Your browser will prompt you to use Touch ID, Face ID, Windows Hello, or a security key.":
