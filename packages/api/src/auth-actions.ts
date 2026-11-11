@@ -1,11 +1,14 @@
 import type {
+  AccountRecovery,
   AuthSessionSummary,
   AuthUser,
   ContractJsonValue,
   LinkedAccount,
+  NewRecoveryKey,
   Passkey,
   PasskeyLinkTarget,
   PendingOAuthLink,
+  RecoveryKeyStatus,
   SessionData,
   SyncedThemePreferences,
   UserTheme,
@@ -136,6 +139,29 @@ async function passkeyEnroll(
   }
 }
 
+/**
+ * Get back into an account with its recovery key: create a new passkey for
+ * it and sign in. The key is used up, and the result carries its replacement.
+ */
+async function recoverAccount(
+  request: RequestFn,
+  store: SessionStore,
+  input: { username: string; recoveryKey: string },
+): AuthResult<AccountRecovery> {
+  try {
+    const data = await completeRegistrationChallenge<AccountRecovery>(request, {
+      optionsPath: AUTH_PATHS.recoveryOptions,
+      verifyPath: AUTH_PATHS.recoveryVerify,
+      method: "POST",
+      body: input,
+    })
+    store.set(data.session)
+    return { data, error: null }
+  } catch (cause) {
+    return { data: null, error: errorFrom(cause, "Account recovery failed") }
+  }
+}
+
 async function addPasskey(
   request: RequestFn,
   input: { name?: string | null },
@@ -223,6 +249,8 @@ function createPasskeyActions(
           "Could not open the passkey link",
         ),
       enroll: (token: string) => passkeyEnroll(request, store, token),
+      recover: (input: { username: string; recoveryKey: string }) =>
+        recoverAccount(request, store, input),
       addPasskey: (input: { name?: string | null }) =>
         addPasskey(request, input),
       listUserPasskeys: () =>
@@ -307,6 +335,21 @@ function createUserActions(request: RequestFn, store: SessionStore) {
         if (!deleteResult.error) store.set(null)
         return deleteResult
       }),
+    recoveryKey: {
+      status: () =>
+        result<RecoveryKeyStatus>(
+          AUTH_PATHS.recoveryKey,
+          {},
+          "Could not load the recovery key",
+        ),
+      /** Make a recovery key, replacing the one the user had. */
+      create: () =>
+        result<NewRecoveryKey>(
+          AUTH_PATHS.recoveryKey,
+          { method: "POST" },
+          "Could not create a recovery key",
+        ),
+    },
     listAccounts: () =>
       result<LinkedAccount[]>(
         AUTH_PATHS.accounts,
