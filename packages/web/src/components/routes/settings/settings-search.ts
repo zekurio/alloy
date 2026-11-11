@@ -37,28 +37,42 @@ function alias(english: string, label = english): SettingsKeyword {
 
 // The same category metadata feeds the sidebar and search. Keep options as
 // existing UI phrases so the displayed match hint uses the selected language.
+// An id is also the page's address under /settings/.
 const CATEGORIES = [
   {
     id: "profile",
     group: "account",
     label: message("Profile"),
-    description: message(
-      "Edit your username, avatar, sign-in methods, and sessions.",
-    ),
+    description: message("Your avatar, banner, display name, and username."),
     options: [
+      message("Identity"),
       message("Username"),
       message("Display name"),
       message("Avatar"),
       message("Banner"),
+    ],
+    aliases: [alias("profile picture", message("Avatar"))],
+  },
+  {
+    id: "account",
+    group: "account",
+    label: message("Account"),
+    description: message(
+      "Sign-in methods, sessions, and disabling or deleting your account.",
+    ),
+    options: [
       message("Passkeys"),
       message("Recovery key"),
       message("Linked accounts"),
       message("Sign-in methods"),
       message("Sessions"),
       message("Sign out other sessions"),
+      message("Danger zone"),
+      message("Disable account"),
+      message("Delete account"),
     ],
     aliases: [
-      alias("profile picture", message("Avatar")),
+      alias("security", message("Sign-in methods")),
       alias("connected accounts", message("Linked accounts")),
       alias("oauth", message("Linked accounts")),
       alias("lost passkey", message("Recovery key")),
@@ -67,10 +81,11 @@ const CATEGORIES = [
       alias("devices", message("Sessions")),
       alias("logged in", message("Sessions")),
       alias("sign out everywhere", message("Sign out other sessions")),
+      alias("deactivate", message("Disable account")),
     ],
   },
   {
-    id: "personal-appearance",
+    id: "appearance",
     group: "account",
     label: message("Appearance"),
     title: message("Appearance"),
@@ -108,7 +123,7 @@ const CATEGORIES = [
     ],
   },
   {
-    id: "preferences",
+    id: "general",
     group: "account",
     label: message("General"),
     title: message("General"),
@@ -128,27 +143,22 @@ const CATEGORIES = [
     ],
   },
   {
-    id: "account",
+    id: "storage",
     group: "account",
-    label: message("Account & data"),
-    description: message(
-      "Review storage, manage your clips, or disable and delete your account.",
-    ),
+    label: message("Storage"),
+    description: message("Review your storage and manage your clips."),
     options: [
       message("Storage"),
       message("Storage quota (GiB)"),
       message("Clips"),
       message("Download clips"),
       message("Delete clips"),
-      message("Disable account"),
-      message("Delete account"),
-      message("Danger zone"),
     ],
     aliases: [
       alias("storage usage", message("Storage")),
       alias("quota", message("Storage quota (GiB)")),
       alias("export data", message("Download clips")),
-      alias("deactivate", message("Disable account")),
+      alias("data", message("Clips")),
     ],
   },
   {
@@ -185,7 +195,7 @@ const CATEGORIES = [
     ],
   },
   {
-    id: "desktop-quality",
+    id: "desktop/quality",
     group: "desktop",
     label: message("Quality"),
     title: message("Quality"),
@@ -204,7 +214,7 @@ const CATEGORIES = [
     aliases: [alias("fps", message("Frame rate"))],
   },
   {
-    id: "desktop-audio",
+    id: "desktop/audio",
     group: "desktop",
     label: message("Audio"),
     title: message("Audio"),
@@ -223,7 +233,7 @@ const CATEGORIES = [
     aliases: [],
   },
   {
-    id: "desktop-app",
+    id: "desktop/app",
     group: "desktop",
     label: message("App"),
     title: message("App"),
@@ -248,7 +258,7 @@ const CATEGORIES = [
     ],
   },
   {
-    id: "appearance",
+    id: "admin/branding",
     group: "admin",
     label: message("Branding"),
     title: message("Branding"),
@@ -275,7 +285,7 @@ const CATEGORIES = [
     ],
   },
   {
-    id: "authentication",
+    id: "admin/authentication",
     group: "admin",
     label: message("Authentication"),
     title: message("Authentication"),
@@ -300,7 +310,7 @@ const CATEGORIES = [
     ],
   },
   {
-    id: "upload-limits",
+    id: "admin/upload-limits",
     group: "admin",
     label: message("Upload limits"),
     description: message(
@@ -324,7 +334,7 @@ const CATEGORIES = [
     ],
   },
   {
-    id: "transcoding",
+    id: "admin/transcoding",
     group: "admin",
     label: message("Transcoding"),
     title: message("Transcoding"),
@@ -358,7 +368,7 @@ const CATEGORIES = [
     ],
   },
   {
-    id: "users",
+    id: "admin/users",
     group: "admin",
     label: message("Users"),
     description: message("Edit user accounts, roles, and moderation state."),
@@ -375,7 +385,7 @@ const CATEGORIES = [
     ],
   },
   {
-    id: "games",
+    id: "admin/games",
     group: "admin",
     label: message("Games"),
     description: message("Create custom games and manage their artwork."),
@@ -392,7 +402,7 @@ const CATEGORIES = [
     ],
   },
   {
-    id: "webhooks",
+    id: "admin/webhooks",
     group: "admin",
     label: message("Webhooks"),
     description: message(

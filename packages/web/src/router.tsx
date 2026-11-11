@@ -49,6 +49,8 @@ declare module "@tanstack/react-router" {
     router: ReturnType<typeof getRouter>
   }
   interface HistoryState {
+    /** The settings page open over this entry's page (see `_app.tsx`). */
+    settingsPage?: string
     /** The entry below this one is the settings overview that opened it. */
     settingsFromOverview?: boolean
   }

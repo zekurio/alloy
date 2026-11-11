@@ -1,6 +1,8 @@
 import type { ClipFeedSort, FeedFilter } from "@alloy/api"
+import type { QueryClient } from "@tanstack/react-query"
 
-import { parseClipSort } from "./clip-sort"
+import { DEFAULT_CLIP_SORT, parseClipSort } from "./clip-sort"
+import { feedChipsQueryOptions, feedInfiniteQueryOptions } from "./feed-queries"
 import { searchString } from "./route-search"
 
 export type HomeSearch = {
@@ -25,4 +27,15 @@ export function parseHomeSearch(search: HomeSearchInput): HomeSearch {
 export function homeFeedFilter(search: HomeSearch): FeedFilter {
   if (search.game) return { kind: "game", gameId: search.game }
   return { kind: "all" }
+}
+
+/** Starts loading the home feed for a route that shows it. */
+export function prefetchHomeFeed(queryClient: QueryClient, search: HomeSearch) {
+  void queryClient.prefetchQuery(feedChipsQueryOptions())
+  void queryClient.prefetchInfiniteQuery(
+    feedInfiniteQueryOptions(
+      homeFeedFilter(search),
+      search.sort ?? DEFAULT_CLIP_SORT,
+    ),
+  )
 }

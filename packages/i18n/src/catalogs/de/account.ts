@@ -4,7 +4,7 @@ export const ACCOUNT_MESSAGES = {
   " and {count} {label}": " und {count} {label}",
   "A secret, shown once, that gets you back in if you lose every passkey.":
     "Ein Geheimnis, das nur einmal angezeigt wird und dich wieder in dein Konto lässt, wenn du alle Passkeys verlierst.",
-  "Account & data": "Konto & Daten",
+  Account: "Konto",
   "Actions here affect your whole account.":
     "Aktionen hier betreffen dein gesamtes Konto.",
   "Active now": "Gerade aktiv",
@@ -90,8 +90,6 @@ export const ACCOUNT_MESSAGES = {
   "Edit avatar": "Avatar bearbeiten",
   "Edit banner": "Banner bearbeiten",
   "Edit profile": "Profil bearbeiten",
-  "Edit your username, avatar, sign-in methods, and sessions.":
-    "Bearbeite deinen Benutzernamen, Avatar, Anmeldemethoden und Sitzungen.",
   "Enter your recovery key": "Gib deinen Wiederherstellungsschlüssel ein",
   "Enter your username and recovery key. You'll create a new passkey and be signed in.":
     "Gib deinen Nutzernamen und deinen Wiederherstellungsschlüssel ein. Du erstellst einen neuen Passkey und wirst angemeldet.",
@@ -171,8 +169,8 @@ export const ACCOUNT_MESSAGES = {
   "Rename passkey": "Passkey umbenennen",
   "Replace recovery key": "Wiederherstellungsschlüssel ersetzen",
   "Replace your recovery key?": "Wiederherstellungsschlüssel ersetzen?",
-  "Review storage, manage your clips, or disable and delete your account.":
-    "Prüfe deinen Speicher, verwalte deine Clips oder deaktiviere und lösche dein Konto.",
+  "Review your storage and manage your clips.":
+    "Prüfe deinen Speicher und verwalte deine Clips.",
   "Save your new recovery key":
     "Speichere deinen neuen Wiederherstellungsschlüssel",
   "Save your recovery key": "Speichere deinen Wiederherstellungsschlüssel",
@@ -202,6 +200,8 @@ export const ACCOUNT_MESSAGES = {
   "Sign up": "Registrieren",
   "Sign-in": "Anmeldung",
   "Sign-in methods": "Anmeldemethoden",
+  "Sign-in methods, sessions, and disabling or deleting your account.":
+    "Anmeldemethoden, Sitzungen und das Deaktivieren oder Löschen deines Kontos.",
   "Sign-up page preview": "Vorschau der Registrierungsseite",
   "Sign-ups are disabled": "Registrierungen sind deaktiviert",
   "Signed in as {username}. Continue only if you opened the Alloy desktop app.":
@@ -241,10 +241,10 @@ export const ACCOUNT_MESSAGES = {
   "This removes their sessions and clips. It can't be undone.":
     "Das entfernt ihre Sitzungen und Clips. Es kann nicht rückgängig gemacht werden.",
   "This user doesn't exist.": "Diesen Nutzer gibt es nicht.",
-  "To make a new one, go to Settings → Profile → Recovery key.":
-    "Einen neuen erstellst du unter Einstellungen → Profil → Wiederherstellungsschlüssel.",
-  "Try again, or continue without one. You can make one later under Settings → Profile → Recovery key.":
-    "Versuche es erneut oder fahre ohne fort. Du kannst später unter Einstellungen → Profil → Wiederherstellungsschlüssel einen erstellen.",
+  "To make a new one, go to Settings → Account → Recovery key.":
+    "Einen neuen erstellst du unter Einstellungen → Konto → Wiederherstellungsschlüssel.",
+  "Try again, or continue without one. You can make one later under Settings → Account → Recovery key.":
+    "Versuche es erneut oder fahre ohne fort. Du kannst später unter Einstellungen → Konto → Wiederherstellungsschlüssel einen erstellen.",
   Unblock: "Entsperren",
   "Unblocking…": "Wird entsperrt…",
   "Unknown browser": "Unbekannter Browser",
@@ -279,6 +279,8 @@ export const ACCOUNT_MESSAGES = {
     "Du wurdest eingeladen. Wähle einen Nutzernamen und erstelle einen Passkey, mit dem du dich anmeldest.",
   "You've blocked @{handle}. Do you want to show their profile anyway?":
     "Du hast @{handle} blockiert. Möchtest du das Profil trotzdem anzeigen?",
+  "Your avatar, banner, display name, and username.":
+    "Dein Profilbild, Banner, Anzeigename und Nutzername.",
   "Your browser will prompt you to use Touch ID, Face ID, Windows Hello, or a security key.":
     "Dein Browser fordert dich auf, Touch ID, Face ID, Windows Hello oder einen Sicherheitsschlüssel zu verwenden.",
   "Your current recovery key stops working as soon as the new one is made.":

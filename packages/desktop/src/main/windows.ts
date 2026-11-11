@@ -282,7 +282,7 @@ export function showSettings(host: Host): void {
 function openSettings(window: BrowserWindow): Promise<void> {
   return window.webContents
     .executeJavaScript(
-      "(() => { if (!window.dispatchEvent(new Event('alloy:open-settings', { cancelable: true }))) return; const url = new URL(window.location.href); url.pathname = '/'; url.search = '?settings=desktop'; window.location.assign(url.href); })()",
+      "(() => { if (!window.dispatchEvent(new Event('alloy:open-settings', { cancelable: true }))) return; const url = new URL(window.location.href); url.pathname = '/settings/desktop'; url.search = ''; window.location.assign(url.href); })()",
     )
     .then(
       () => undefined,

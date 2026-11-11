@@ -25,6 +25,7 @@ import {
   type LucideIcon,
   PaletteIcon,
   ServerIcon,
+  ShieldUserIcon,
   SlidersHorizontalIcon,
   UserIcon,
   UsersIcon,
@@ -186,13 +187,27 @@ function ProfilePanel() {
           providerName={config.oidc?.displayName ?? null}
         />
       </SettingsSubsection>
-      <SecuritySettings />
-      <SessionsCard />
     </SettingsSections>
   )
 }
 
-function AccountDataPanel() {
+function AccountPanel() {
+  return (
+    <SettingsSections>
+      <SecuritySettings />
+      <SessionsCard />
+      <SettingsSubsection
+        id="danger-zone"
+        title={t("Danger zone")}
+        description={t("Actions here affect your whole account.")}
+      >
+        <DangerZoneCard />
+      </SettingsSubsection>
+    </SettingsSections>
+  )
+}
+
+function StoragePanel() {
   return (
     <SettingsSections>
       <SettingsSubsection
@@ -204,13 +219,6 @@ function AccountDataPanel() {
       </SettingsSubsection>
       <SettingsSubsection id="clips" title={t("Clips")}>
         <ClipDataCard />
-      </SettingsSubsection>
-      <SettingsSubsection
-        id="danger-zone"
-        title={t("Danger zone")}
-        description={t("Actions here affect your whole account.")}
-      >
-        <DangerZoneCard />
       </SettingsSubsection>
     </SettingsSections>
   )
@@ -224,7 +232,7 @@ function AppearancePanel() {
   )
 }
 
-function PreferencesPanel() {
+function GeneralPanel() {
   const [locale, setLocale] = useState<Locale>(() => getClientLocale())
 
   function changeLocale(value: string | null) {
@@ -266,26 +274,27 @@ function PreferencesPanel() {
 
 const CATEGORY_PANELS = {
   profile: { icon: UserIcon, Panel: ProfilePanel },
-  "personal-appearance": { icon: PaletteIcon, Panel: AppearancePanel },
-  preferences: { icon: LanguagesIcon, Panel: PreferencesPanel },
-  account: { icon: DatabaseIcon, Panel: AccountDataPanel },
+  account: { icon: ShieldUserIcon, Panel: AccountPanel },
+  appearance: { icon: PaletteIcon, Panel: AppearancePanel },
+  general: { icon: LanguagesIcon, Panel: GeneralPanel },
+  storage: { icon: DatabaseIcon, Panel: StoragePanel },
   desktop: { icon: VideoIcon, Panel: DesktopCapturePanel },
-  "desktop-quality": {
+  "desktop/quality": {
     icon: SlidersHorizontalIcon,
     Panel: DesktopQualitySettings,
   },
-  "desktop-audio": { icon: Volume2Icon, Panel: DesktopAudioSettings },
-  "desktop-app": { icon: ServerIcon, Panel: DesktopAppPanel },
-  appearance: { icon: PaintbrushIcon, Panel: AdminAppearancePanel },
-  authentication: { icon: KeyRoundIcon, Panel: AdminAuthPanel },
-  "upload-limits": {
+  "desktop/audio": { icon: Volume2Icon, Panel: DesktopAudioSettings },
+  "desktop/app": { icon: ServerIcon, Panel: DesktopAppPanel },
+  "admin/branding": { icon: PaintbrushIcon, Panel: AdminAppearancePanel },
+  "admin/authentication": { icon: KeyRoundIcon, Panel: AdminAuthPanel },
+  "admin/upload-limits": {
     icon: SlidersHorizontalIcon,
     Panel: AdminUploadLimitsPanel,
   },
-  transcoding: { icon: FilmIcon, Panel: AdminTranscodingPanel },
-  users: { icon: UsersIcon, Panel: AdminUsersPanel },
-  games: { icon: Gamepad2Icon, Panel: AdminGamesPanel },
-  webhooks: { icon: WebhookIcon, Panel: AdminWebhooksPanel },
+  "admin/transcoding": { icon: FilmIcon, Panel: AdminTranscodingPanel },
+  "admin/users": { icon: UsersIcon, Panel: AdminUsersPanel },
+  "admin/games": { icon: Gamepad2Icon, Panel: AdminGamesPanel },
+  "admin/webhooks": { icon: WebhookIcon, Panel: AdminWebhooksPanel },
 } satisfies Record<
   SettingsCategoryId,
   { icon: LucideIcon; Panel: SettingsPanelComponent }
@@ -294,12 +303,6 @@ const CATEGORY_PANELS = {
 const ALL_CATEGORIES: SettingsCategory[] = settingsSearchCategories().map(
   (category) => ({ ...category, ...CATEGORY_PANELS[category.id] }),
 )
-
-/**
- * Section id for "settings, no page in particular". A phone shows the menu of
- * categories for it; wider layouts fall through to the first category.
- */
-export const SETTINGS_OVERVIEW_SECTION = "overview"
 
 /** Visible categories for the current user, in nav order. */
 export function useSettingsCategories(): SettingsCategory[] {
